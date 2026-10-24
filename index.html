@@ -2755,11 +2755,18 @@ function hydrateLocalFromCloud(data){
 }
 
 
+let CLOUD_DATA_READY = false;
+
   /* ===================== CLOUD PUSH (SYNC) ===================== */
 let cloudSyncTimer = null;
 
 function scheduleCloudSync(delay = 1500){
-  if (!SUPABASE_USER) return;
+  
+if (!SUPABASE_USER || !CLOUD_DATA_READY) {
+  console.warn("Synchronisation bloquée : données cloud non prêtes.");
+  return;
+}
+
 
   clearTimeout(cloudSyncTimer);
   cloudSyncTimer = setTimeout(() => {
