@@ -2681,16 +2681,21 @@ async function loadCloudData() {
   }
 
   try {
-    const { data, error } = await sb
-      .from("garage_data")
-      .select("data")
-      .eq("user_id", SUPABASE_USER.id)
-      .maybeSingle();
+    
+const { data, error } = await sb
+  .from("garage_data")
+  .select("data, version")
+  .eq("user_id", SUPABASE_USER.id)
+  .maybeSingle();
 
     if (error) {
       throw error;
     }
 
+    
+CLOUD_DATA_VERSION = null;
+
+    
     let cloudData;
 
     if (!data) {
@@ -2701,6 +2706,8 @@ async function loadCloudData() {
       if (!created) {
         return false;
       }
+
+CLOUD_DATA_VERSION = 0;
 
       cloudData = {
         clients: [],
@@ -2714,6 +2721,14 @@ async function loadCloudData() {
 
     } else {
       cloudData = data.data;
+
+      
+if (!Number.isSafeInteger(data.version) || data.version < 0) {
+  throw new Error("Version des données cloud invalide.");
+}
+
+CLOUD_DATA_VERSION = data.version;
+
 
       if (!cloudData || typeof cloudData !== "object" ||
           Array.isArray(cloudData)) {
@@ -2800,10 +2815,11 @@ function hydrateLocalFromCloud(data){
 
 let CLOUD_DATA_READY = false;
 
+let CLOUD_DATA_VERSION = null;
   
 let CLOUD_SYNC_IN_PROGRESS = false;
 
-  let CLOUD_SYNC_PENDING = false;
+let CLOUD_SYNC_PENDING = false;
 
 
   /* ===================== CLOUD PUSH (SYNC) ===================== */
