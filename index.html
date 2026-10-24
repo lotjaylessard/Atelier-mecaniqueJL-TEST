@@ -11270,7 +11270,10 @@ async function initApp() {
 
   if (!connected) return;
 
-  await loadCloudData();
+  const cloudLoaded = await loadCloudData();
+  if (!cloudLoaded) return;
+
+  initNotesModule();
 }
 
 if (window.garageSupabase) {
