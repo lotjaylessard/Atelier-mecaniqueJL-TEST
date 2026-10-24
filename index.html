@@ -2800,6 +2800,10 @@ function hydrateLocalFromCloud(data){
 
 let CLOUD_DATA_READY = false;
 
+  
+let CLOUD_SYNC_IN_PROGRESS = false;
+
+
   /* ===================== CLOUD PUSH (SYNC) ===================== */
 let cloudSyncTimer = null;
 
@@ -2818,11 +2822,22 @@ if (!SUPABASE_USER || !CLOUD_DATA_READY) {
 }
 
 
+
 async function pushLocalDataToCloud(){
   if (!SUPABASE_USER?.id || !CLOUD_DATA_READY) {
     console.warn("Sauvegarde cloud bloquée : session ou données non prêtes.");
     return;
   }
+
+  if (CLOUD_SYNC_IN_PROGRESS) {
+    console.warn("Une sauvegarde est déjà en cours.");
+    return;
+  }
+
+  CLOUD_SYNC_IN_PROGRESS = true;
+
+  try {
+
 
   const payload = {
 
@@ -2845,9 +2860,14 @@ async function pushLocalDataToCloud(){
 
   if (error){
     console.warn("⚠️ Cloud sync échouée (offline ?)", error.message);
+  
   } else {
-    console.log("☁️ Cloud synchronisé");
+    console.log("☁ Cloud synchronisé");
   }
+
+} finally {
+  CLOUD_SYNC_IN_PROGRESS = false;
+}
 }
 
   
