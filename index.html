@@ -1910,14 +1910,34 @@ function renderWorkOrderAttachments(wo){
 
     const isImage = att.type && att.type.startsWith("image");
 
-    if (isImage){
-      const img = document.createElement("img");
-      img.src = att.url;
-      img.style.width = "100%";
-      img.style.height = "100%";
-      img.style.objectFit = "cover";
-      card.appendChild(img);
-    } else {
+    
+if (isImage){
+  const img = document.createElement("img");
+  img.alt = att.name || "Pièce jointe";
+  img.style.width = "100%";
+  img.style.height = "100%";
+  img.style.objectFit = "cover";
+
+  if (att.path) {
+    sb.storage
+      .from("wo-files")
+      .createSignedUrl(att.path, 3600)
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("Erreur miniature:", error);
+          return;
+        }
+
+        if (data?.signedUrl && img.isConnected) {
+          img.src = data.signedUrl;
+        }
+      });
+  }
+
+  card.appendChild(img);
+}
+
+else {
       const icon = document.createElement("div");
       icon.innerHTML = "📄";
       icon.style.fontSize = "40px";
