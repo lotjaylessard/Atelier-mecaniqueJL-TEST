@@ -4825,34 +4825,61 @@ openInvoiceEditModal(invoice.number);
 }
 
   
-async function deleteWorkOrder(id){
 
-  const wo = WORKORDERS.find(w => String(w.id) === String(id));
-  if (!wo) return alert("Bon de travail introuvable.");
+async function deleteWorkOrder(id) {
+  const wo = WORKORDERS.find(
+    w => String(w.id) === String(id)
+  );
 
-  if (!confirm(`Supprimer le bon de travail #${wo.number} et tous ses fichiers ?`)) return;
+  if (!wo) {
+    alert("Bon de travail introuvable.");
+    return;
+  }
+
+  if (!SUPABASE_USER?.id) {
+    alert("Session du garage introuvable.");
+    return;
+  }
+
+  const paths = (wo.attachments || [])
+    .map(a => a.path)
+    .filter(Boolean);
+
+  if ((wo.attachments || []).some(a => !a.path)) {
+    alert("Une pièce jointe n'a pas de chemin valide. Suppression annulée.");
+    return;
+  }
+
+  if (paths.some(path =>
+    !path.startsWith(`${SUPABASE_USER.id}/`)
+  )) {
+    alert("Certains fichiers n'appartiennent pas au garage connecté.");
+    return;
+  }
+
+  if (!confirm(
+    `Supprimer le bon de travail #${wo.number} et tous ses fichiers ?`
+  )) return;
 
   try {
+    if (paths.length) {
+      const { data, error } = await sb.storage
+        .from("wo-files")
+        .remove(paths);
 
-    // 🔥 Supprimer les fichiers dans Supabase
-    if (wo.attachments && wo.attachments.length){
+      if (error) throw error;
 
-      const paths = wo.attachments
-        .filter(a => a.path)
-        .map(a => a.path);
+      const removed = new Set(
+        (data || []).map(item => item.name)
+      );
 
-      if (paths.length){
-        const { error } = await sb.storage
-          .from("wo-files")
-          .remove(paths);
-
-        if (error){
-          console.error("Erreur suppression fichiers:", error);
-        }
+      if (paths.some(path => !removed.has(path))) {
+        throw new Error(
+          "La suppression de certains fichiers n'a pas été confirmée."
+        );
       }
     }
 
-    // 🔥 Supprimer le WO localement
     WORKORDERS = WORKORDERS.filter(
       w => String(w.id) !== String(id)
     );
@@ -4860,14 +4887,17 @@ async function deleteWorkOrder(id){
     saveWorkOrders();
     renderWorkOrders();
 
-    // vider panneau
     const detail = $("woDetailContent");
-    if (detail){
-      detail.innerHTML = `<div class="muted">Bon de travail supprimé.</div>`;
+    if (detail) {
+      detail.innerHTML =
+        `<div class="muted">Bon de travail supprimé.</div>`;
     }
 
-  } catch (err){
+  } catch (err) {
     console.error("Erreur suppression WO:", err);
+    alert(
+      "Suppression incomplète ou non confirmée. Vérifie les fichiers avant de réessayer."
+    );
   }
 }
 
