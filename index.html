@@ -2672,38 +2672,78 @@ return true;
 
 
   /* ===================== CLOUD LOAD ===================== */
-async function loadCloudData(){
-  if (!SUPABASE_USER) return false;
+async function loadCloudData() {
+  CLOUD_DATA_READY = false;
 
-  const { data, error } = await sb
-    .from("garage_data")
-    .select("data")
-    .eq("user_id", SUPABASE_USER.id)
-    .maybeSingle();
-
-  if (error && error.code !== "PGRST116"){
-    console.error("Cloud load error:", error);
+  if (!SUPABASE_USER?.id) {
+    console.error("Chargement refusé : aucun garage connecté.");
     return false;
   }
 
-  // 🔰 Aucune donnée cloud → première utilisation
-  if (!data){
-    console.log("☁️ Aucun data cloud, création initiale...");
-    await createInitialCloudData();
+  try {
+    const { data, error } = await sb
+      .from("garage_data")
+      .select("data")
+      .eq("user_id", SUPABASE_USER.id)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    let cloudData;
+
+    if (!data) {
+      console.log("Nouveau garage : initialisation cloud.");
+
+      const created = await createInitialCloudData();
+
+      if (!created) {
+        return false;
+      }
+
+      cloudData = {
+        clients: [],
+        invoices: [],
+        workorders: [],
+        notes: [],
+        parts: [],
+        services: [],
+        settings: {}
+      };
+
+    } else {
+      cloudData = data.data;
+
+      if (!cloudData || typeof cloudData !== "object" ||
+          Array.isArray(cloudData)) {
+        throw new Error("Données cloud invalides.");
+      }
+    }
+
+    // Charger uniquement les données du garage connecté
+    hydrateLocalFromCloud(cloudData);
+
+    // Actualiser l'interface après le chargement
+    renderDashboard();
+
+    // Autoriser les sauvegardes seulement après réussite
+    CLOUD_DATA_READY = true;
+
+    console.log("Données du garage chargées et synchronisation autorisée.");
     return true;
+
+  } catch (err) {
+    CLOUD_DATA_READY = false;
+    console.error("Erreur de chargement cloud :", err);
+
+    alert(
+      "Impossible de charger les données du garage. " +
+      "Les sauvegardes cloud restent bloquées."
+    );
+
+    return false;
   }
-
-  // ✅ Charger le cloud dans le localStorage
-  hydrateLocalFromCloud(data.data);
-
-  // 🔁 Recharger les données en mémoire après hydratation cloud
-loadInvoices();
-
-// 🔄 Rafraîchir le dashboard avec les vraies données
-renderDashboard();
-
-  console.log("☁️ Données cloud chargées");
-  return true;
 }
 
 
