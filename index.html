@@ -2040,37 +2040,50 @@ card.appendChild(title);
 }
 
 
-function openWOAttachment(attId, woId){
 
+async function openWOAttachment(attId, woId) {
   const wo = WORKORDERS.find(w => String(w.id) === String(woId));
   if (!wo || !wo.attachments) return;
 
   const att = wo.attachments.find(a => String(a.id) === String(attId));
   if (!att) return;
 
+  if (!att.path) {
+    alert("Chemin du fichier introuvable.");
+    return;
+  }
+
+  const { data, error } = await sb.storage
+    .from("wo-files")
+    .createSignedUrl(att.path, 3600);
+
+  if (error || !data?.signedUrl) {
+    console.error("Erreur ouverture pièce jointe:", error);
+    alert("Impossible d'ouvrir cette pièce jointe.");
+    return;
+  }
+
   const overlay = document.createElement("div");
   overlay.style.position = "fixed";
-  overlay.style.top = 0;
-  overlay.style.left = 0;
-  overlay.style.width = "100%";
-  overlay.style.height = "100%";
+  overlay.style.inset = "0";
   overlay.style.background = "rgba(0,0,0,0.9)";
   overlay.style.display = "flex";
   overlay.style.alignItems = "center";
   overlay.style.justifyContent = "center";
-  overlay.style.zIndex = 9999;
+  overlay.style.zIndex = "9999";
 
-  overlay.onclick = () => document.body.removeChild(overlay);
+  overlay.onclick = () => overlay.remove();
 
-  if (att.type && att.type.startsWith("image")){
+  if (att.type && att.type.startsWith("image")) {
     const img = document.createElement("img");
-    img.src = att.url;
+    img.src = data.signedUrl;
+    img.alt = att.name || "Pièce jointe";
     img.style.maxWidth = "95%";
     img.style.maxHeight = "95%";
     overlay.appendChild(img);
   } else {
     const iframe = document.createElement("iframe");
-    iframe.src = att.url;
+    iframe.src = data.signedUrl;
     iframe.style.width = "90%";
     iframe.style.height = "90%";
     iframe.style.border = "none";
