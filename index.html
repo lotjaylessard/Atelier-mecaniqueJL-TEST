@@ -2002,31 +2002,48 @@ card.appendChild(title);
 }
 
 
-  async function deleteWOAttachment(woId, attId){
+  
+async function deleteWOAttachment(woId, attId) {
+  const wo = WORKORDERS.find(
+    w => String(w.id) === String(woId)
+  );
 
-  const wo = WORKORDERS.find(w => String(w.id) === String(woId));
   if (!wo || !wo.attachments) return;
 
-  const att = wo.attachments.find(a => String(a.id) === String(attId));
+  const att = wo.attachments.find(
+    a => String(a.id) === String(attId)
+  );
+
   if (!att) return;
 
-  const confirmDelete = confirm("Supprimer ce fichier définitivement ?");
-  if (!confirmDelete) return;
+  if (!att.path) {
+    alert("Chemin du fichier introuvable. Suppression annulée.");
+    return;
+  }
+
+  if (!SUPABASE_USER?.id ||
+      !att.path.startsWith(`${SUPABASE_USER.id}/`)) {
+    alert("Ce fichier n'appartient pas au garage connecté.");
+    return;
+  }
+
+  if (!confirm("Supprimer ce fichier définitivement ?")) return;
 
   try {
+    const { data, error } = await sb.storage
+      .from("wo-files")
+      .remove([att.path]);
 
-    // 🔥 Supprimer du storage si path présent
-    if (att.path){
-      const { error } = await sb.storage
-        .from("wo-files")
-        .remove([att.path]);
+    if (error) throw error;
 
-      if (error){
-        console.error("Erreur suppression storage:", error);
-      }
+    const removed = data?.some(
+      item => item.name === att.path
+    );
+
+    if (!removed) {
+      throw new Error("Suppression du fichier non confirmée.");
     }
 
-    // 🔥 Supprimer du tableau local
     wo.attachments = wo.attachments.filter(
       a => String(a.id) !== String(attId)
     );
@@ -2034,11 +2051,11 @@ card.appendChild(title);
     saveWorkOrders();
     renderWorkOrderAttachments(wo);
 
-  } catch (err){
-    console.error("Erreur suppression:", err);
+  } catch (err) {
+    console.error("Erreur suppression pièce jointe:", err);
+    alert("La suppression n'a pas été confirmée. Réessaie.");
   }
 }
-
 
 
 async function openWOAttachment(attId, woId) {
