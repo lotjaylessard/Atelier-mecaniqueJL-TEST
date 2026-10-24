@@ -2674,6 +2674,8 @@ return true;
   /* ===================== CLOUD LOAD ===================== */
 async function loadCloudData() {
   CLOUD_DATA_READY = false;
+  CLOUD_DATA_VERSION = null;
+
 
   if (!SUPABASE_USER?.id) {
     console.error("Chargement refusé : aucun garage connecté.");
@@ -2691,10 +2693,6 @@ const { data, error } = await sb
     if (error) {
       throw error;
     }
-
-    
-CLOUD_DATA_VERSION = null;
-
     
     let cloudData;
 
