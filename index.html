@@ -2612,9 +2612,13 @@ async function supabaseLogin() {
     return false;
   }
 
-  SUPABASE_USER = data.user;
-  console.log("Supabase connecté :", SUPABASE_USER.email);
-  return true;
+  
+SUPABASE_USER = data.user;
+
+configureGarageStorage(SUPABASE_USER.id);
+
+console.log("Supabase connecté :", SUPABASE_USER.email);
+return true;
 }
 
 
