@@ -1833,8 +1833,9 @@ function initWorkOrderAttachments(wo){
       const safeVehicle = sanitize(wo.vehicleLabel);
       const safeWO      = sanitize(wo.number);
 
-      const filePath =
-  `clients/${safeClient}/` +
+      
+const filePath =
+  `${SUPABASE_USER.id}/clients/${safeClient}/` +
   `${safeVehicle}/` +
   `${safeWO}/` +
   `${Date.now()}-${file.name}`;
