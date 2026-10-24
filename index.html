@@ -2774,10 +2774,15 @@ if (!SUPABASE_USER || !CLOUD_DATA_READY) {
   }, delay);
 }
 
+
 async function pushLocalDataToCloud(){
-  if (!SUPABASE_USER) return;
+  if (!SUPABASE_USER?.id || !CLOUD_DATA_READY) {
+    console.warn("Sauvegarde cloud bloquée : session ou données non prêtes.");
+    return;
+  }
 
   const payload = {
+
     clients: loadArrayFromStorage(STORAGE.clients),
     invoices: loadArrayFromStorage(STORAGE.invoices),
     workorders: loadArrayFromStorage(STORAGE.workorders),
