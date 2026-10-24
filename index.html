@@ -2855,13 +2855,26 @@ if (CLOUD_SYNC_IN_PROGRESS) {
     settings: JSON.parse(localStorage.getItem(STORAGE.settings) || "{}")
   };
 
-  const { error } = await sb
-    .from("garage_data")
-    .update({
-      data: payload,
-      updated_at: new Date().toISOString()
-    })
-    .eq("user_id", SUPABASE_USER.id);
+  
+const { data: savedRows, error } = await sb
+  .from("garage_data")
+  .update({
+    data: payload,
+    updated_at: new Date().toISOString()
+  })
+  .eq("user_id", SUPABASE_USER.id)
+  .select("user_id");
+
+if (!error && (
+  !Array.isArray(savedRows) ||
+  savedRows.length !== 1 ||
+  savedRows[0].user_id !== SUPABASE_USER.id
+)) {
+  throw new Error(
+    "Sauvegarde non confirmée : aucune ligne unique du garage mise à jour."
+  );
+}
+
 
   
 if (error) {
@@ -2881,8 +2894,21 @@ if (error) {
 
 
 
+
+} catch (err) {
+  console.error("Exception pendant la sauvegarde Supabase :", err);
+
+  CLOUD_DATA_READY = false;
+
+  alert(
+    "ATTENTION : la sauvegarde cloud n'a pas pu être confirmée.\n\n" +
+    "Tes modifications locales peuvent ne pas être sauvegardées dans Supabase.\n" +
+    "Ne ferme pas cette page et ne change pas de compte."
+  );
+
 } finally {
   CLOUD_SYNC_IN_PROGRESS = false;
+
 
   if (CLOUD_SYNC_PENDING && CLOUD_DATA_READY) {
     CLOUD_SYNC_PENDING = false;
