@@ -10492,7 +10492,7 @@ let LINKS = [];
 /* Charger */
 function loadLinks() {
     try {
-        LINKS = JSON.parse(localStorage.getItem("ar_links_v1") || "[]");
+        LINKS = JSON.parse(localStorage.getItem(STORAGE.links) || "[]");
         if (!Array.isArray(LINKS)) LINKS = [];
     } catch (e) { LINKS = []; }
 }
