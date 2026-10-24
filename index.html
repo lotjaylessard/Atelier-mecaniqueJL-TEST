@@ -1703,6 +1703,24 @@ let STORAGE = {
   workorders:'ar_workorders_v1'
 };
 
+  
+function configureGarageStorage(userId) {
+  if (!userId) {
+    throw new Error("Identifiant du garage manquant");
+  }
+
+  STORAGE = {
+    invoices: `ar_${userId}_invoices_v2`,
+    settings: `ar_${userId}_settings_v1`,
+    invoiceCounter: `ar_${userId}_invoice_counter_v1`,
+    clients: `ar_${userId}_clients_v1`,
+    parts: `ar_${userId}_parts_inventory_v1`,
+    services: `ar_${userId}_services_v1`,
+    notes: `ar_${userId}_notes_v1`,
+    workorders: `ar_${userId}_workorders_v1`
+  };
+}
+
 
   function escapeHTML(str){
   return String(str || "")
