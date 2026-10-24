@@ -2863,12 +2863,22 @@ if (CLOUD_SYNC_IN_PROGRESS) {
     })
     .eq("user_id", SUPABASE_USER.id);
 
-  if (error){
-    console.warn("⚠️ Cloud sync échouée (offline ?)", error.message);
   
-  } else {
-    console.log("☁ Cloud synchronisé");
-  }
+if (error) {
+  console.error("Erreur de sauvegarde Supabase :", error);
+
+  CLOUD_DATA_READY = false;
+
+  alert(
+    "ATTENTION : la sauvegarde Supabase a échoué.\n\n" +
+    "Tes dernières modifications ne sont pas confirmées dans le cloud.\n" +
+    "Ne ferme pas cette page et ne change pas de compte."
+  );
+
+} else {
+  console.log("☁ Données sauvegardées dans Supabase");
+}
+
 
 
 } finally {
