@@ -2799,6 +2799,7 @@ function hydrateLocalFromCloud(data){
   localStorage.setItem(STORAGE.invoices, JSON.stringify(data.invoices || []));
   localStorage.setItem(STORAGE.workorders, JSON.stringify(data.workorders || []));
   localStorage.setItem(STORAGE.notes, JSON.stringify(data.notes || []));
+  localStorage.setItem(STORAGE.links, JSON.stringify(data.links || []));
   localStorage.setItem(STORAGE.parts, JSON.stringify(data.parts || []));
   localStorage.setItem(STORAGE.services, JSON.stringify(data.services || []));
   localStorage.setItem(STORAGE.settings, JSON.stringify(data.settings || {}));
