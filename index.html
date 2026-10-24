@@ -2872,25 +2872,40 @@ if (CLOUD_SYNC_IN_PROGRESS) {
   };
 
   
+
+const expectedVersion = CLOUD_DATA_VERSION;
+
+if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0) {
+  throw new Error("Version cloud manquante ou invalide.");
+}
+
 const { data: savedRows, error } = await sb
   .from("garage_data")
   .update({
     data: payload,
+    version: expectedVersion + 1,
     updated_at: new Date().toISOString()
   })
   .eq("user_id", SUPABASE_USER.id)
-  .select("user_id");
+  .eq("version", expectedVersion)
+  .select("user_id, version");
+
+
 
 if (!error && (
   !Array.isArray(savedRows) ||
   savedRows.length !== 1 ||
-  savedRows[0].user_id !== SUPABASE_USER.id
+  savedRows[0].user_id !== SUPABASE_USER.id ||
+  savedRows[0].version !== expectedVersion + 1
 )) {
   throw new Error(
-    "Sauvegarde non confirmée : aucune ligne unique du garage mise à jour."
+    "Sauvegarde refusée ou non confirmée : version du garage différente."
   );
 }
 
+if (!error) {
+  CLOUD_DATA_VERSION = savedRows[0].version;
+}
 
   
 if (error) {
