@@ -10499,7 +10499,7 @@ function loadLinks() {
 
 /* Sauver */
 function saveLinks() {
-    localStorage.setItem("ar_links_v1", JSON.stringify(LINKS));
+    localStorage.setItem(STORAGE.links, JSON.stringify(LINKS));
   scheduleCloudSync();
 }
 
