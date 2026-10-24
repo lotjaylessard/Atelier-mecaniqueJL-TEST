@@ -2638,15 +2638,16 @@ renderDashboard();
 
   /* ===================== CLOUD INIT ===================== */
 async function createInitialCloudData(){
-  const payload = {
-    clients: loadArrayFromStorage(STORAGE.clients),
-    invoices: loadArrayFromStorage(STORAGE.invoices),
-    workorders: loadArrayFromStorage(STORAGE.workorders),
-    notes: loadArrayFromStorage(STORAGE.notes),
-    parts: loadArrayFromStorage(STORAGE.parts),
-    services: loadArrayFromStorage(STORAGE.services),
-    settings: JSON.parse(localStorage.getItem(STORAGE.settings) || "{}")
-  };
+  
+const payload = {
+  clients: [],
+  invoices: [],
+  workorders: [],
+  notes: [],
+  parts: [],
+  services: [],
+  settings: {}
+};
 
   const { error } = await sb.from("garage_data").insert({
     user_id: SUPABASE_USER.id,
