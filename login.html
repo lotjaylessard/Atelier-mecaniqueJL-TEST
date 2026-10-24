@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Connexion — Garage-Mecanik</title>
+
+  <style>
+    body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Segoe UI', sans-serif;
+  overflow: hidden;
+
+  background:
+    linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.75)),
+    url('/Atelier-mecaniqueJL/img/login-bg.jpg');
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+    body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 75% 30%,
+    rgba(255,200,0,0.12),
+    transparent 60%);
+  pointer-events: none;
+  animation: lightBreath 6s ease-in-out infinite;
+}
+
+    .portal-wrapper {
+      position: relative;
+      width: 500px;
+      height: 500px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+
+    .login-core {
+      position: relative;
+      width: 260px;
+      background: rgba(15,15,15,0.95);
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 30px;
+      text-align: center;
+      z-index: 2;
+      box-shadow: 0 0 40px rgba(0,0,0,0.7);
+
+      backdrop-filter: blur(8px);
+      background: rgba(20,20,20,0.85);
+      border: 1px solid rgba(255,255,255,0.1);
+
+      box-shadow:
+      0 0 40px rgba(0,0,0,0.8),
+      0 0 120px rgba(255,200,0,0.08);
+    }
+
+    .login-core h2 {
+      color: #FFD400;
+      margin-bottom: 5px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #aaa;
+      margin-bottom: 20px;
+    }
+
+    .login-core input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 12px;
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 6px;
+      color: white;
+    }
+
+    .login-core button {
+      width: 100%;
+      padding: 10px;
+      background: #FFD400;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .login-core button:hover {
+      background: #ffea00;
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+    }
+
+    .error {
+      margin-top: 10px;
+      color: #ff4d4d;
+      font-size: 13px;
+      min-height: 16px;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; }
+      50% { opacity: 0.8; }
+      100% { opacity: 0.4; }
+    }
+
+    @keyframes slowRotate {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    .login-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+    @keyframes lightBreath {
+  0%   { opacity: 0.6; transform: scale(1); }
+  50%  { opacity: 0.8; transform: scale(1.03); }
+  100% { opacity: 0.6; transform: scale(1); }
+}
+
+  </style>
+</head>
+
+
+<body>
+
+<div class="login-wrapper">
+  <div class="login-core">
+    <h2>Atelier-mecaniqueJL</h2>
+    <p class="subtitle">Accès sécurisé à l'atelier</p>
+
+    <input id="loginEmail" type="email" placeholder="Email">
+    <input id="loginPassword" type="password" placeholder="Mot de passe">
+
+    <button id="btnLogin">Entrer dans l’atelier</button>
+
+    <div id="loginError" class="error"></div>
+  </div>
+</div>
+
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+    const supabase = createClient(
+      "https://nraijzsodgojkpyigefu.supabase.co/rest/v1/",
+      "sb_publishable_s0hqtqnGd4KgeyVr2Y4ltg_dI4qhjcA",
+        {
+    auth: {
+  persistSession: true
+}
+  }
+    );
+
+    // Si déjà connecté -> aller direct au site
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) window.location.href = "index.html";
+
+    const btn = document.getElementById("btnLogin");
+    const err = document.getElementById("loginError");
+
+    async function login(){
+      err.textContent = "";
+
+      const email = document.getElementById("loginEmail").value.trim();
+      const password = document.getElementById("loginPassword").value;
+
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error){
+        err.textContent = error.message;
+        return;
+      }
+
+      window.location.href = "index.html";
+    }
+
+    btn.onclick = login;
+
+    // Enter pour login
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") login();
+    });
+  </script>
+</body>
+</html>
