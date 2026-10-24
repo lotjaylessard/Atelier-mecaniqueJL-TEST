@@ -2803,6 +2803,8 @@ let CLOUD_DATA_READY = false;
   
 let CLOUD_SYNC_IN_PROGRESS = false;
 
+  let CLOUD_SYNC_PENDING = false;
+
 
   /* ===================== CLOUD PUSH (SYNC) ===================== */
 let cloudSyncTimer = null;
@@ -2829,10 +2831,13 @@ async function pushLocalDataToCloud(){
     return;
   }
 
-  if (CLOUD_SYNC_IN_PROGRESS) {
-    console.warn("Une sauvegarde est déjà en cours.");
-    return;
-  }
+  
+if (CLOUD_SYNC_IN_PROGRESS) {
+  CLOUD_SYNC_PENDING = true;
+  console.warn("Sauvegarde déjà en cours : nouvelle sauvegarde mise en attente.");
+  return;
+}
+
 
   CLOUD_SYNC_IN_PROGRESS = true;
 
@@ -2865,8 +2870,14 @@ async function pushLocalDataToCloud(){
     console.log("☁ Cloud synchronisé");
   }
 
+
 } finally {
   CLOUD_SYNC_IN_PROGRESS = false;
+
+  if (CLOUD_SYNC_PENDING && CLOUD_DATA_READY) {
+    CLOUD_SYNC_PENDING = false;
+    scheduleCloudSync(100);
+  }
 }
 }
 
