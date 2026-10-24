@@ -2725,12 +2725,15 @@ const payload = {
     data: payload
   });
 
-  if (error){
-    console.error("Cloud init error:", error);
-    alert("Erreur initialisation cloud");
-  } else {
-    console.log("☁️ Cloud initialisé");
-  }
+  
+if (error) {
+  console.error("Cloud init error:", error);
+  alert("Erreur d'initialisation cloud. Aucune sauvegarde autorisée.");
+  return false;
+}
+
+console.log("☁️ Cloud initialisé");
+return true;
 }
 
 
