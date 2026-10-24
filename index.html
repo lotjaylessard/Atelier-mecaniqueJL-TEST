@@ -2890,16 +2890,24 @@ const { data: savedRows, error } = await sb
 
 
 
+
+if (!error && (!Array.isArray(savedRows) || savedRows.length === 0)) {
+  throw new Error(
+    "CONFLIT_VERSION : aucune ligne mise à jour. " +
+    "Les données cloud ont peut-être été modifiées ailleurs."
+  );
+}
+
 if (!error && (
-  !Array.isArray(savedRows) ||
   savedRows.length !== 1 ||
   savedRows[0].user_id !== SUPABASE_USER.id ||
   savedRows[0].version !== expectedVersion + 1
 )) {
   throw new Error(
-    "Sauvegarde refusée ou non confirmée : version du garage différente."
+    "Sauvegarde non confirmée : réponse Supabase inattendue."
   );
 }
+
 
 if (!error) {
   CLOUD_DATA_VERSION = savedRows[0].version;
@@ -2926,6 +2934,21 @@ if (error) {
 
 } catch (err) {
   console.error("Exception pendant la sauvegarde Supabase :", err);
+
+    
+  if (err.message?.includes("CONFLIT_VERSION")) {
+    CLOUD_DATA_READY = false;
+
+    alert(
+      "CONFLIT DE SAUVEGARDE !\n\n" +
+      "Les données du garage ont peut-être été modifiées sur un autre appareil.\n" +
+      "Tes modifications locales n'ont pas été enregistrées dans Supabase.\n\n" +
+      "Ne recharge pas la page et ne change pas de compte."
+    );
+
+    return;
+  }
+
 
   CLOUD_DATA_READY = false;
 
