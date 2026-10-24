@@ -1851,20 +1851,18 @@ const filePath =
         continue;
       }
 
-      const { data } = sb.storage
-        .from("wo-files")
-        .getPublicUrl(filePath);
 
       wo.attachments = wo.attachments || [];
 
-      wo.attachments.push({
+
+wo.attachments.push({
   id: Date.now() + Math.random(),
   name: file.name,
   type: file.type,
-  url: data.publicUrl,
-  path: filePath, // 🔥 IMPORTANT
+  path: filePath,
   date: new Date().toISOString()
 });
+
 
       saveWorkOrders();
     }
