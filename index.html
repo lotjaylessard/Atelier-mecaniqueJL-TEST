@@ -2893,10 +2893,11 @@ function scheduleCloudSync(delay = 1500){
 
 
 async function pushLocalDataToCloud(){
-  if (!SUPABASE_USER?.id || !CLOUD_DATA_READY) {
-    console.warn("Sauvegarde cloud bloquée : session ou données non prêtes.");
-    return;
-  }
+
+  if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY) {
+  console.warn("Sauvegarde cloud bloquée : session, garage ou données non prêts.");
+  return;
+}
 
   
 if (CLOUD_SYNC_IN_PROGRESS) {
