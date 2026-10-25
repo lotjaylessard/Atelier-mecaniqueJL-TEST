@@ -2878,17 +2878,33 @@ let cloudSyncTimer = null;
   console.log("Synchronisation cloud bloquée pour déconnexion.");
 }
 
+  
   async function waitForCloudSyncBeforeLogout() {
 
   // Empêcher toute nouvelle sauvegarde
   blockCloudSyncForLogout();
 
+  const startTime = Date.now();
+  const maxWait = 10000; // 10 secondes
+
   // Attendre une sauvegarde déjà commencée
   while (CLOUD_SYNC_IN_PROGRESS) {
+
+    if (Date.now() - startTime >= maxWait) {
+      console.error("Déconnexion interrompue : sauvegarde toujours en cours.");
+      alert(
+        "Une sauvegarde est toujours en cours après 10 secondes.\n\n" +
+        "La déconnexion est interrompue pour éviter une perte de données.\n" +
+        "Veuillez réessayer."
+      );
+      return false;
+    }
+
     await new Promise(resolve => setTimeout(resolve, 100));
   }
 
-  console.log("Aucune sauvegarde cloud en cours. Déconnexion possible.");
+  console.log("Aucune sauvegarde cloud en cours.");
+  return true;
 }
 
   
