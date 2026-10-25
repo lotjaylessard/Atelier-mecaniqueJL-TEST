@@ -2903,8 +2903,12 @@ let cloudSyncTimer = null;
     await new Promise(resolve => setTimeout(resolve, 100));
   }
 
-  console.log("Aucune sauvegarde cloud en cours.");
-  return true;
+  if (!CLOUD_DATA_READY) {
+  console.warn("Déconnexion : synchronisation cloud désactivée.");
+}
+
+console.log("Aucune sauvegarde cloud en cours.");
+return true;
 }
 
   
