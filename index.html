@@ -3038,6 +3038,7 @@ if (error) {
 
 } catch (err) {
   console.error("Exception pendant la sauvegarde Supabase :", err);
+  CLOUD_SYNC_FAILED = true;
 
     
   if (err.message?.includes("CONFLIT_VERSION")) {
