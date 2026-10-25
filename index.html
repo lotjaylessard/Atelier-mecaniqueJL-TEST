@@ -2878,6 +2878,19 @@ let cloudSyncTimer = null;
   console.log("Synchronisation cloud bloquée pour déconnexion.");
 }
 
+  async function waitForCloudSyncBeforeLogout() {
+
+  // Empêcher toute nouvelle sauvegarde
+  blockCloudSyncForLogout();
+
+  // Attendre une sauvegarde déjà commencée
+  while (CLOUD_SYNC_IN_PROGRESS) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  console.log("Aucune sauvegarde cloud en cours. Déconnexion possible.");
+}
+
   
 function scheduleCloudSync(delay = 1500){
 
