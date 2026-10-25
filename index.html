@@ -2666,7 +2666,7 @@ async function supabaseLogin() {
   
 SUPABASE_USER = data.user;
 
-configureGarageStorage(SUPABASE_USER.id);
+// Le stockage sera configuré après identification du garage actif.
 
 console.log("Supabase connecté :", SUPABASE_USER.email);
 return true;
