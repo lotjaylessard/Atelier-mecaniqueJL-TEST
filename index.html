@@ -2719,7 +2719,7 @@ async function loadCloudData() {
 const { data, error } = await sb
   .from("garage_data")
   .select("data, version")
-  .eq("user_id", SUPABASE_USER.id)
+  .eq("garage_id", ACTIVE_GARAGE_ID)
   .maybeSingle();
 
     if (error) {
