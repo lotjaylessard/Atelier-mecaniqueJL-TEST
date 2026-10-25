@@ -108,9 +108,10 @@ function resetInactivityTimer() {
   remainingTime = INACTIVITY_LIMIT;
 
   inactivityTimer = setTimeout(async () => {
-    await supabase.auth.signOut();
-    window.location.replace("login.html");
-  }, INACTIVITY_LIMIT);
+  blockCloudSyncForLogout();
+  await supabase.auth.signOut();
+  window.location.replace("login.html");
+}, INACTIVITY_LIMIT);
 
   // ⏳ Console countdown
   countdownInterval = setInterval(() => {
