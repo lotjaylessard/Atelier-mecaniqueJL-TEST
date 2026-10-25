@@ -11310,6 +11310,9 @@ if (!garageLoaded) {
   return;
 }
 
+// Configurer le stockage selon le garage actif
+configureGarageStorage(ACTIVE_GARAGE_ID);
+
 const cloudLoaded = await loadCloudData();
   
   if (!cloudLoaded) return;
