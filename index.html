@@ -3020,7 +3020,7 @@ if (!error) {
   
 if (error) {
   console.error("Erreur de sauvegarde Supabase :", error);
-
+  CLOUD_SYNC_FAILED = true;
   CLOUD_DATA_READY = false;
 
   alert(
