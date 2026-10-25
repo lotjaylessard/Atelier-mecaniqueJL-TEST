@@ -2861,6 +2861,21 @@ let CLOUD_SYNC_PENDING = false;
   /* ===================== CLOUD PUSH (SYNC) ===================== */
 let cloudSyncTimer = null;
 
+
+  function blockCloudSyncForLogout() {
+  // Bloquer immédiatement toute nouvelle sauvegarde
+  CLOUD_DATA_READY = false;
+
+  // Annuler une sauvegarde programmée, mais non démarrée
+  clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = null;
+
+  // Annuler une demande de sauvegarde en attente
+  CLOUD_SYNC_PENDING = false;
+
+  console.log("Synchronisation cloud bloquée pour déconnexion.");
+}
+
   
 function scheduleCloudSync(delay = 1500){
 
