@@ -2936,12 +2936,9 @@ if (!error && (!Array.isArray(savedRows) || savedRows.length === 0)) {
 
 if (!error && (
   savedRows.length !== 1 ||
-  savedRows[0].user_id !== SUPABASE_USER.id ||
+  savedRows[0].garage_id !== ACTIVE_GARAGE_ID ||
   savedRows[0].version !== expectedVersion + 1
-)) {
-  throw new Error(
-    "Sauvegarde non confirmée : réponse Supabase inattendue."
-  );
+)) throw new Error("Sauvegarde non confirmée : réponse Supabase inattendue.");
 }
 
 
