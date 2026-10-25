@@ -2920,9 +2920,9 @@ const { data: savedRows, error } = await sb
     version: expectedVersion + 1,
     updated_at: new Date().toISOString()
   })
-  .eq("user_id", SUPABASE_USER.id)
+  .eq("garage_id", ACTIVE_GARAGE_ID)
   .eq("version", expectedVersion)
-  .select("user_id, version");
+  .select("garage_id, version");
 
 
 
