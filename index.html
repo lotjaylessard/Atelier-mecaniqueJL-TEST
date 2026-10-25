@@ -3015,8 +3015,9 @@ if (!error && (
 
 if (!error) {
   CLOUD_DATA_VERSION = savedRows[0].version;
+  CLOUD_SYNC_FAILED = false;
 }
-
+  
   
 if (error) {
   console.error("Erreur de sauvegarde Supabase :", error);
