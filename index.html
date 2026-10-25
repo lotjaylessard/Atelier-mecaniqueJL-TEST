@@ -2861,20 +2861,35 @@ let CLOUD_SYNC_PENDING = false;
   /* ===================== CLOUD PUSH (SYNC) ===================== */
 let cloudSyncTimer = null;
 
-function scheduleCloudSync(delay = 1500){
   
-if (!SUPABASE_USER || !CLOUD_DATA_READY) {
-  console.warn("Synchronisation bloquée : données cloud non prêtes.");
-  return;
-}
+function scheduleCloudSync(delay = 1500){
 
+  if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY) {
+    console.warn("Synchronisation bloquée : session, garage ou données cloud non prêts.");
+    return;
+  }
+
+  // Mémoriser le contexte au moment de programmer la sauvegarde
+  const scheduledUserId = SUPABASE_USER.id;
+  const scheduledGarageId = ACTIVE_GARAGE_ID;
 
   clearTimeout(cloudSyncTimer);
+
   cloudSyncTimer = setTimeout(() => {
+
+    if (
+      !CLOUD_DATA_READY ||
+      SUPABASE_USER?.id !== scheduledUserId ||
+      ACTIVE_GARAGE_ID !== scheduledGarageId
+    ) {
+      console.warn("Synchronisation annulée : contexte utilisateur ou garage modifié.");
+      return;
+    }
+
     pushLocalDataToCloud();
+
   }, delay);
 }
-
 
 
 async function pushLocalDataToCloud(){
