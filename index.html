@@ -11299,11 +11299,19 @@ function formatVehicleLabel(v){
   /* ===================== APP INIT (SUPABASE) ===================== */
 
 async function initApp() {
-  const connected = await supabaseLogin();
+const connected = await supabaseLogin();
 
-  if (!connected) return;
+if (!connected) return;
 
-  const cloudLoaded = await loadCloudData();
+const garageLoaded = await loadActiveGarage();
+
+if (!garageLoaded) {
+  alert("Impossible d'identifier votre garage. Chargement interrompu.");
+  return;
+}
+
+const cloudLoaded = await loadCloudData();
+  
   if (!cloudLoaded) return;
 
   initNotesModule();
