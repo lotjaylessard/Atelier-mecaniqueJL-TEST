@@ -2729,9 +2729,11 @@ const { data, error } = await sb
     let cloudData;
 
     if (!data) {
-      console.log("Nouveau garage : initialisation cloud.");
+  throw new Error(
+    "Aucune donnée trouvée pour le garage actif. Initialisation automatique bloquée."
+  );
 
-      const created = await createInitialCloudData();
+  const created = await createInitialCloudData();
 
       if (!created) {
         return false;
