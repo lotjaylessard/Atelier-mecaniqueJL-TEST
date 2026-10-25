@@ -40,7 +40,8 @@ supabase.auth.onAuthStateChange((event, session) => {
   const btnLogout = document.getElementById("btnLogout");
 
   if (btnLogout){
-    btnLogout.onclick = async () => {
+  btnLogout.onclick = async () => {
+  blockCloudSyncForLogout();
   await supabase.auth.signOut();
 };
   }
