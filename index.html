@@ -2797,6 +2797,9 @@ CLOUD_DATA_VERSION = data.version;
   /* ===================== CLOUD INIT ===================== */
 async function createInitialCloudData(){
   
+console.error("Initialisation cloud désactivée pendant la migration multigarage.");
+return false;
+  
 const payload = {
   clients: [],
   invoices: [],
