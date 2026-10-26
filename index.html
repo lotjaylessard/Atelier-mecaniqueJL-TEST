@@ -3341,34 +3341,39 @@ function chooseRecoveredNotesFile() {
    Refus si autre changement local, note editee/supprimee ou collision d'identifiant.
    Compare avec le dernier snapshot confirme, jamais avec le seul JSON de recuperation. */
 async function tryAutoMergeAddedNotes(localPayload, expectedVersion, savingRevision) {
+  const reject = (reason, details = {}) => {
+    console.warn('[TEST AUTO-FUSION] Refus : ' + reason, details);
+    return false;
+  };
+  console.info('[TEST AUTO-FUSION] Début de la vérification', {expectedVersion, savingRevision, currentRevision: CLOUD_CHANGE_REVISION});
   const base = CLOUD_LAST_CONFIRMED_SNAPSHOT;
   if (!base || CLOUD_CHANGE_REVISION !== savingRevision ||
-      !Array.isArray(base.notes) || !Array.isArray(localPayload.notes)) return false;
+      !Array.isArray(base.notes) || !Array.isArray(localPayload.notes)) return reject('Snapshot de base absent, notes invalides ou révision modifiée', {hasBase: !!base, revisionChanged: CLOUD_CHANGE_REVISION !== savingRevision});
   const nonNotes = obj => { const copy = {...obj}; delete copy.notes; return copy; };
-  if (JSON.stringify(nonNotes(localPayload)) !== JSON.stringify(nonNotes(base))) return false;
+  if (JSON.stringify(nonNotes(localPayload)) !== JSON.stringify(nonNotes(base))) return reject('Autres données différentes du snapshot confirmé', {localKeys: Object.keys(nonNotes(localPayload)), baseKeys: Object.keys(nonNotes(base))});
   const baseNotes = new Map(base.notes.map(n => [String(n.id), n]));
   const localNotes = new Map(localPayload.notes.map(n => [String(n.id), n]));
-  if (baseNotes.size !== base.notes.length || localNotes.size !== localPayload.notes.length) return false;
+  if (baseNotes.size !== base.notes.length || localNotes.size !== localPayload.notes.length) return reject('Identifiants de notes en double');
   for (const [id, oldNote] of baseNotes) {
-    if (!localNotes.has(id) || JSON.stringify(localNotes.get(id)) !== JSON.stringify(oldNote)) return false;
+    if (!localNotes.has(id) || JSON.stringify(localNotes.get(id)) !== JSON.stringify(oldNote)) return reject('Ancienne note supprimée ou modifiée localement', {id});
   }
   const additions = localPayload.notes.filter(n => !baseNotes.has(String(n.id)));
   if (!additions.length || additions.some(n => !Number.isSafeInteger(n.id) ||
-      typeof n.text !== 'string' || typeof n.date !== 'string' || typeof n.category !== 'string')) return false;
+      typeof n.text !== 'string' || typeof n.date !== 'string' || typeof n.category !== 'string')) return reject('Aucun ajout admissible ou format de note invalide', {additionsCount: additions.length});
   for (let attempt = 0; attempt < 3; attempt++) {
-    if (CLOUD_CHANGE_REVISION !== savingRevision) return false;
+    if (CLOUD_CHANGE_REVISION !== savingRevision) return reject('Nouvelle modification locale pendant la fusion');
     const {data: cloud, error: readError} = await sb.from('garage_data')
       .select('data, version').eq('garage_id', ACTIVE_GARAGE_ID).maybeSingle();
     if (readError || !cloud || !Number.isSafeInteger(cloud.version) ||
-        !cloud.data || !Array.isArray(cloud.data.notes)) return false;
-    if (cloud.version <= expectedVersion) return false;
+        !cloud.data || !Array.isArray(cloud.data.notes)) return reject('Lecture cloud invalide', {readError: readError?.message});
+    if (cloud.version <= expectedVersion) return reject('Version cloud non supérieure', {cloudVersion: cloud.version});
     const remote = new Map(cloud.data.notes.map(n => [String(n.id), n]));
-    if (remote.size !== cloud.data.notes.length) return false;
+    if (remote.size !== cloud.data.notes.length) return reject('Doublons de notes dans le cloud');
     for (const [id, oldNote] of baseNotes) {
-      if (!remote.has(id) || JSON.stringify(remote.get(id)) !== JSON.stringify(oldNote)) return false;
+      if (!remote.has(id) || JSON.stringify(remote.get(id)) !== JSON.stringify(oldNote)) return reject('Ancienne note absente ou modifiée dans le cloud', {id});
     }
     for (const note of additions) {
-      if (remote.has(String(note.id)) && JSON.stringify(remote.get(String(note.id))) !== JSON.stringify(note)) return false;
+      if (remote.has(String(note.id)) && JSON.stringify(remote.get(String(note.id))) !== JSON.stringify(note)) return reject('Collision identifiant de note', {id: note.id});
     }
     const toAdd = additions.filter(n => !remote.has(String(n.id)));
     const merged = {...cloud.data, notes: [...cloud.data.notes, ...toAdd].sort((a,b) => b.id-a.id)};
@@ -3383,9 +3388,9 @@ async function tryAutoMergeAddedNotes(localPayload, expectedVersion, savingRevis
       .update({data:merged, version:cloud.version+1, updated_at:new Date().toISOString()})
       .eq('garage_id', ACTIVE_GARAGE_ID).eq('version', cloud.version)
       .select('garage_id, version');
-    if (writeError) return false;
+    if (writeError) return reject('Écriture Supabase refusée', {message: writeError.message});
     if (!Array.isArray(rows) || rows.length !== 1) continue;
-    if (rows[0].garage_id !== ACTIVE_GARAGE_ID || rows[0].version !== cloud.version+1) return false;
+    if (rows[0].garage_id !== ACTIVE_GARAGE_ID || rows[0].version !== cloud.version+1) return reject('Confirmation de version inattendue');
     CLOUD_DATA_VERSION = rows[0].version;
     CLOUD_LAST_CONFIRMED_SNAPSHOT = JSON.parse(JSON.stringify(merged));
     hydrateLocalFromCloud(merged);
@@ -3393,7 +3398,7 @@ async function tryAutoMergeAddedNotes(localPayload, expectedVersion, savingRevis
     console.log('TEST : nouvelles notes fusionnees automatiquement :', toAdd.length);
     return true;
   }
-  return false;
+  return reject('Trois tentatives de version concurrente épuisées');
 }
 
 function scheduleCloudSync(delay = 1500){
