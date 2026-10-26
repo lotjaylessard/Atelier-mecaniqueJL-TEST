@@ -3732,6 +3732,92 @@ async function tryAutoMergeAddedWorkOrders(localPayload, expectedVersion, saving
   return reject('Trois tentatives de version concurrente epuisees');
 }
 
+/* TEST #17 : fusion prudente d'ajouts de lignes sur UN BT existant non facture.
+   Toute autre modification locale, suppression, edition, facture liee ou changement
+   du BT distant bloque la fusion et conserve la recuperation JSON existante. */
+async function tryAutoMergeAddedWOLines(localPayload, expectedVersion, savingRevision) {
+  const reject = (why) => { console.warn('[TEST FUSION LIGNES BT] Refus :', why); return false; };
+  const base = CLOUD_LAST_CONFIRMED_SNAPSHOT;
+  if (!base || CLOUD_CHANGE_REVISION !== savingRevision ||
+      !Array.isArray(base.workorders) || !Array.isArray(localPayload.workorders))
+    return reject('Base ou revision invalide');
+  const stable = x => Array.isArray(x) ? x.map(stable) :
+    x && typeof x === 'object' ? Object.fromEntries(Object.keys(x).sort().map(k=>[k,stable(x[k])])) : x;
+  const same = (a,b) => JSON.stringify(stable(a)) === JSON.stringify(stable(b));
+  const other = x => { const y={...x}; delete y.workorders; return y; };
+  const meta = w => { const x={...w}; delete x.parts; delete x.labor; delete x.estimateTotal; return x; };
+  const validLines = w => Array.isArray(w?.parts) && Array.isArray(w?.labor);
+  const prefix = (original, changed) => original.length <= changed.length &&
+    original.every((line,i)=>same(line,changed[i]));
+  const uniqueIds = arr => Array.isArray(arr) && arr.every(w=>w && w.id!=null) &&
+    new Set(arr.map(w=>String(w.id))).size === arr.length;
+  if (!same(other(localPayload),other(base))) return reject('Autres donnees locales modifiees');
+  if (!uniqueIds(base.workorders) || !uniqueIds(localPayload.workorders) ||
+      base.workorders.length !== localPayload.workorders.length) return reject('Liste BT modifiee');
+  const baseById=new Map(base.workorders.map(w=>[String(w.id),w]));
+  const localById=new Map(localPayload.workorders.map(w=>[String(w.id),w]));
+  let target=null, localAddedParts=[], localAddedLabor=[];
+  for (const [id,b] of baseById) {
+    const l=localById.get(id);
+    if (!l || !validLines(b) || !validLines(l)) return reject('BT absent ou lignes invalides');
+    if (same(b,l)) continue;
+    if (target || !same(meta(b),meta(l)) || !prefix(b.parts,l.parts) || !prefix(b.labor,l.labor))
+      return reject('Plusieurs BT ou modification hors ajout');
+    localAddedParts=l.parts.slice(b.parts.length);
+    localAddedLabor=l.labor.slice(b.labor.length);
+    if (!localAddedParts.length && !localAddedLabor.length) return reject('Aucun ajout');
+    const calc = w => [...w.parts,...w.labor].reduce((sum,line)=>
+      sum + Number(line.total || (line.qty * line.rate) || (line.hours * line.rate) || 0),0);
+    if (Number(l.estimateTotal) !== calc(l)) return reject('Total local non conforme');
+    target={id,b};
+  }
+  if (!target || localById.size !== baseById.size) return reject('BT ajoute ou supprime');
+  if (base.invoices?.some(i=>String(i.workOrderNumber)===String(target.b.number)))
+    return reject('BT deja associe a une facture');
+  for(let attempt=0;attempt<3;attempt++) {
+    if(CLOUD_CHANGE_REVISION!==savingRevision) return reject('Revision locale changee');
+    const {data:cloud,error:readError}=await sb.from('garage_data')
+      .select('data, version').eq('garage_id',ACTIVE_GARAGE_ID).maybeSingle();
+    if(readError || !cloud || !Number.isSafeInteger(cloud.version) ||
+       cloud.version<=expectedVersion || !cloud.data || !uniqueIds(cloud.data.workorders))
+      return reject('Cloud invalide');
+    const remote=cloud.data.workorders.find(w=>String(w.id)===target.id);
+    if(!validLines(remote) || !same(meta(remote),meta(target.b)) ||
+       !prefix(target.b.parts,remote.parts) || !prefix(target.b.labor,remote.labor))
+      return reject('BT distant modifie autrement que par ajout');
+    if(cloud.data.invoices?.some(i=>String(i.workOrderNumber)===String(target.b.number)))
+      return reject('BT facture dans le cloud');
+    // Les nouveaux ajouts distants sont conserves, les ajouts locaux suivent.
+    const updated={...remote,parts:[...remote.parts,...localAddedParts],
+      labor:[...remote.labor,...localAddedLabor]};
+    updated.estimateTotal=[...updated.parts,...updated.labor].reduce((sum,line)=>
+      sum+Number(line.total || (line.qty*line.rate) || (line.hours*line.rate) || 0),0);
+    const merged={...cloud.data,workorders:cloud.data.workorders.map(w=>
+      String(w.id)===target.id ? updated : w)};
+    if(CLOUD_CHANGE_REVISION!==savingRevision) return reject('Revision locale changee avant ecriture');
+    const {data:rows,error:writeError}=await sb.from('garage_data')
+      .update({data:merged,version:cloud.version+1,updated_at:new Date().toISOString()})
+      .eq('garage_id',ACTIVE_GARAGE_ID).eq('version',cloud.version)
+      .select('garage_id, version');
+    if(writeError) return reject('Ecriture cloud refusee : '+writeError.message);
+    if(!Array.isArray(rows) || rows.length!==1) continue;
+    if(rows[0].garage_id!==ACTIVE_GARAGE_ID || rows[0].version!==cloud.version+1)
+      return reject('Confirmation de version inattendue');
+    CLOUD_DATA_VERSION=rows[0].version;
+    if(CLOUD_CHANGE_REVISION!==savingRevision)
+      return reject('Fusion confirmee mais nouvelles modifications locales');
+    hydrateLocalFromCloud(merged);
+    renderWorkOrders(); renderDashboard();
+    // Ne pas conserver d'objet BT obsolete dans le detail ouvert.
+    if(document.getElementById('woDetailCard')?.style.display !== 'none' &&
+       String(document.getElementById('woEditId')?.value)===target.id)
+      openWorkOrderDetail(WORKORDERS.find(w=>String(w.id)===target.id));
+    console.log('TEST : lignes BT fusionnees automatiquement',target.id);
+    return true;
+  }
+  return reject('Trois collisions de version consecutives');
+}
+
 function scheduleCloudSync(delay = 1500){
 
   if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY) {
@@ -3841,6 +3927,13 @@ if (!error && (!Array.isArray(savedRows) || savedRows.length === 0)) {
     CLOUD_SYNC_DIRTY = false;
     CLOUD_SYNC_PENDING = false;
     console.log('TEST : conflit resolu automatiquement pour nouveaux BT.');
+    return;
+  }
+  if (await tryAutoMergeAddedWOLines(payload, expectedVersion, savingRevision)) {
+    CLOUD_SYNC_FAILED = false;
+    CLOUD_SYNC_DIRTY = false;
+    CLOUD_SYNC_PENDING = false;
+    console.log('TEST : conflit resolu automatiquement pour ajouts de lignes BT.');
     return;
   }
   throw new Error(
