@@ -123,95 +123,65 @@ function removeWarningBanner() {
   if (banner) banner.remove();
 }
 
-// 🔁 Reset timer
-function resetInactivityTimer() {
 
+function resetInactivityTimer() {
   clearTimeout(inactivityTimer);
   clearInterval(countdownInterval);
   removeWarningBanner();
 
   remainingTime = INACTIVITY_LIMIT;
 
-  inactivityTimer = setTimeout(async () => {
+  inactivityTimer = setTimeout(async function attemptAutomaticLogout() {
+    clearInterval(countdownInterval);
+    removeWarningBanner();
 
-  const canLogout = await waitForCloudSyncBeforeLogout();
+    if (typeof window.attemptSafeLogout !== "function") {
+      console.error("Déconnexion sécurisée indisponible.");
+      inactivityTimer = setTimeout(attemptAutomaticLogout, 60000);
+      return;
+    }
 
-  if (!canLogout) {
-  console.warn("Déconnexion automatique reportée : sauvegarde non confirmée.");
+    try {
+      const success = await window.attemptSafeLogout();
 
-  // Arrêter le compteur d'inactivité actuel
-  clearInterval(countdownInterval);
-  removeWarningBanner();
+      if (success) {
+        window.location.replace("login.html");
+        return;
+      }
 
-  // Réessayer dans 60 secondes sans recharger la page
-  const retryLogout = async () => {
+      console.warn(
+        "Déconnexion automatique reportée de 60 secondes."
+      );
+    } catch (err) {
+      console.error("Erreur de déconnexion automatique :", err);
+    }
 
-  const canLogout = await waitForCloudSyncBeforeLogout();
+    // Réessayer seulement si aucune activité n'a réinitialisé le minuteur.
+    if (inactivityTimer) {
+      inactivityTimer = setTimeout(attemptAutomaticLogout, 60000);
+    }
+  }, INACTIVITY_LIMIT);
 
-  if (!canLogout) {
-    console.warn("Déconnexion reportée : nouvelle tentative dans 60 secondes.");
-    inactivityTimer = setTimeout(retryLogout, 60000);
-    return;
-  }
-
-  const { error } = await supabase.auth.signOut();
-
-  if (error) {
-    console.error("Erreur de déconnexion Supabase :", error);
-    inactivityTimer = setTimeout(retryLogout, 60000);
-    return;
-  }
-
-  window.location.replace("login.html");
-};
-
-inactivityTimer = setTimeout(retryLogout, 60000);
-
-  return;
-}
-
-  const { error } = await supabase.auth.signOut();
-
-if (error) {
-  console.error("Erreur de déconnexion automatique Supabase :", error);
-
-  // Ne pas recharger la page ni effacer les données locales
-  clearInterval(countdownInterval);
-  removeWarningBanner();
-
-  // Réessayer la déconnexion après 60 secondes
-  inactivityTimer = setTimeout(async () => {
-    resetInactivityTimer();
-  }, 60000);
-
-  return;
-}
-
-window.location.replace("login.html");
-
-}, INACTIVITY_LIMIT);
-
-  // ⏳ Console countdown
   countdownInterval = setInterval(() => {
-    remainingTime -= 1000;
+    remainingTime = Math.max(0, remainingTime - 1000);
 
-    const secondsLeft = Math.floor(remainingTime / 1000);
+    const secondsLeft = Math.ceil(remainingTime / 1000);
 
-    console.log("⏳ Session expire dans:", secondsLeft, "secondes");
-
-    // 🔔 Afficher warning à 60 secondes
     if (remainingTime === WARNING_TIME) {
       showWarningBanner();
     }
 
-    // 🔄 Mettre à jour affichage si visible
     const countdownEl = document.getElementById("sessionCountdown");
     if (countdownEl) {
       countdownEl.innerText = secondsLeft;
     }
 
+    if (remainingTime === 0) {
+      clearInterval(countdownInterval);
+    }
   }, 1000);
 }
+
 
 // Activité utilisateur
 ["click","mousemove","keydown","scroll","touchstart"].forEach(event => {
