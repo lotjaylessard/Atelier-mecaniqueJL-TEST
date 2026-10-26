@@ -2812,26 +2812,7 @@ const { data, error } = await sb
   throw new Error(
     "Aucune donnée trouvée pour le garage actif. Initialisation automatique bloquée."
   );
-
-  const created = await createInitialCloudData();
-
-      if (!created) {
-        return false;
-      }
-
-CLOUD_DATA_VERSION = 0;
-
-      cloudData = {
-        clients: [],
-        invoices: [],
-        workorders: [],
-        notes: [],
-        parts: [],
-        services: [],
-        settings: {}
-      };
-
-    } else {
+} else {
       cloudData = data.data;
 
       
