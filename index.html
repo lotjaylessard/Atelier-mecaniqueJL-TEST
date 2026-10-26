@@ -3411,6 +3411,105 @@ async function tryAutoMergeAddedNotes(localPayload, expectedVersion, savingRevis
   return reject('Trois tentatives de version concurrente épuisées');
 }
 
+/* TEST : fusion automatique STRICTEMENT des créations de clients.
+   Les modifications/suppressions de clients existants restent bloquées.
+   Aucune autre catégorie locale ne doit avoir changé depuis le snapshot confirmé. */
+async function tryAutoMergeAddedClients(localPayload, expectedVersion, savingRevision) {
+  const reject = (reason, details = {}) => {
+    console.warn('[TEST AUTO-FUSION CLIENTS] Refus : ' + reason, details);
+    return false;
+  };
+  const base = CLOUD_LAST_CONFIRMED_SNAPSHOT;
+  if (!base || CLOUD_CHANGE_REVISION !== savingRevision ||
+      !Array.isArray(base.clients) || !Array.isArray(localPayload.clients))
+    return reject('Snapshot absent, clients invalides ou révision modifiée');
+
+  const stable = value => {
+    if (Array.isArray(value)) return value.map(stable);
+    if (value && typeof value === 'object')
+      return Object.fromEntries(Object.keys(value).sort().map(k => [k, stable(value[k])]));
+    return value;
+  };
+  const same = (a,b) => JSON.stringify(stable(a)) === JSON.stringify(stable(b));
+  const withoutClients = obj => { const copy = {...obj}; delete copy.clients; return copy; };
+  if (!same(withoutClients(localPayload), withoutClients(base)))
+    return reject('Autres données locales modifiées');
+
+  const valid = c => c && (typeof c.id === 'string' && c.id.length > 0 ||
+    Number.isSafeInteger(c.id)) && typeof c.name === 'string' &&
+    c.name.trim().length > 0 && Array.isArray(c.vehicles);
+  if (!base.clients.every(valid) || !localPayload.clients.every(valid))
+    return reject('Format de client invalide');
+  const idsUnique = arr => new Set(arr.map(c => String(c.id))).size === arr.length;
+  if (!idsUnique(base.clients) || !idsUnique(localPayload.clients))
+    return reject('Identifiants de clients dupliqués');
+
+  const baseMap = new Map(base.clients.map(c => [String(c.id), c]));
+  const localMap = new Map(localPayload.clients.map(c => [String(c.id), c]));
+  for (const [id, original] of baseMap) {
+    if (!localMap.has(id) || !same(original, localMap.get(id)))
+      return reject('Client existant modifié ou supprimé localement', {id});
+  }
+  const additions = localPayload.clients.filter(c => !baseMap.has(String(c.id)));
+  if (!additions.length) return reject('Aucun nouveau client');
+  // Les créations ne doivent pas contenir de véhicule préexistant ou ajouté :
+  // la fusion des véhicules aura son propre contrôle ultérieurement.
+  if (additions.some(c => c.vehicles.length !== 0))
+    return reject('Nouveau client avec véhicules : fusion automatique non autorisée');
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (CLOUD_CHANGE_REVISION !== savingRevision)
+      return reject('Nouvelle modification locale pendant la fusion');
+    const {data: cloud, error: readError} = await sb.from('garage_data')
+      .select('data, version').eq('garage_id', ACTIVE_GARAGE_ID).maybeSingle();
+    if (readError || !cloud || !Number.isSafeInteger(cloud.version) ||
+        !cloud.data || !Array.isArray(cloud.data.clients))
+      return reject('Lecture cloud invalide', {message: readError?.message});
+    if (cloud.version <= expectedVersion) return reject('Version cloud non supérieure');
+    if (!cloud.data.clients.every(valid) || !idsUnique(cloud.data.clients))
+      return reject('Clients cloud invalides ou dupliqués');
+    const remote = new Map(cloud.data.clients.map(c => [String(c.id), c]));
+    for (const [id, original] of baseMap) {
+      if (!remote.has(id) || !same(original, remote.get(id)))
+        return reject('Client préexistant modifié ou supprimé dans le cloud', {id});
+    }
+    for (const client of additions) {
+      if (remote.has(String(client.id)) && !same(remote.get(String(client.id)), client))
+        return reject('Collision identifiant client', {id: client.id});
+    }
+    const toAdd = additions.filter(c => !remote.has(String(c.id)));
+    const merged = {...cloud.data, clients: [...cloud.data.clients, ...toAdd]};
+    if (!toAdd.length) {
+      if (CLOUD_CHANGE_REVISION !== savingRevision)
+        return reject('Modification locale avant hydratation');
+      CLOUD_DATA_VERSION = cloud.version;
+      hydrateLocalFromCloud(merged);
+      loadClients(); renderClientsTable(); refreshInvoiceClientSelect(); renderDashboard();
+      return true;
+    }
+    if (CLOUD_CHANGE_REVISION !== savingRevision)
+      return reject('Modification locale avant écriture');
+    const {data: rows, error: writeError} = await sb.from('garage_data')
+      .update({data:merged, version:cloud.version+1, updated_at:new Date().toISOString()})
+      .eq('garage_id', ACTIVE_GARAGE_ID).eq('version', cloud.version)
+      .select('garage_id, version');
+    if (writeError) return reject('Écriture Supabase refusée', {message: writeError.message});
+    if (!Array.isArray(rows) || rows.length !== 1) continue;
+    if (rows[0].garage_id !== ACTIVE_GARAGE_ID || rows[0].version !== cloud.version+1)
+      return reject('Confirmation de version inattendue');
+    // L'écriture cloud a réussi : ne jamais réhydrater si des changements
+    // locaux supplémentaires sont arrivés entre-temps.
+    CLOUD_DATA_VERSION = rows[0].version;
+    if (CLOUD_CHANGE_REVISION !== savingRevision)
+      return reject('Écriture confirmée mais nouvelles modifications locales : récupération requise');
+    hydrateLocalFromCloud(merged);
+    loadClients(); renderClientsTable(); refreshInvoiceClientSelect(); renderDashboard();
+    console.log('TEST : nouveaux clients fusionnés automatiquement :', toAdd.length);
+    return true;
+  }
+  return reject('Trois tentatives de version concurrente épuisées');
+}
+
 function scheduleCloudSync(delay = 1500){
 
   if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY) {
@@ -3499,6 +3598,13 @@ if (!error && (!Array.isArray(savedRows) || savedRows.length === 0)) {
     CLOUD_SYNC_DIRTY = false;
     CLOUD_SYNC_PENDING = false;
     console.log('TEST : conflit resolu automatiquement pour ajouts de notes.');
+    return;
+  }
+  if (await tryAutoMergeAddedClients(payload, expectedVersion, savingRevision)) {
+    CLOUD_SYNC_FAILED = false;
+    CLOUD_SYNC_DIRTY = false;
+    CLOUD_SYNC_PENDING = false;
+    console.log('TEST : conflit résolu automatiquement pour ajouts de clients.');
     return;
   }
   throw new Error(
