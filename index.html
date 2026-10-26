@@ -3141,10 +3141,86 @@ let cloudSyncTimer = null;
 window.attemptSafeLogout = attemptSafeLogout;
 
   
+/* ===================== TEST : RECUPERATION DES CONFLITS =====================
+   Chaque echec conserve une copie distincte des donnees locales.
+   Aucune fusion ni re-ecriture cloud automatique : revue manuelle requise.
+*/
+function captureLocalGarageSnapshot() {
+  return {
+    clients: loadArrayFromStorage(STORAGE.clients),
+    invoices: loadArrayFromStorage(STORAGE.invoices),
+    workorders: loadArrayFromStorage(STORAGE.workorders),
+    notes: loadArrayFromStorage(STORAGE.notes),
+    links: loadArrayFromStorage(STORAGE.links),
+    parts: loadArrayFromStorage(STORAGE.parts),
+    services: loadArrayFromStorage(STORAGE.services),
+    settings: JSON.parse(localStorage.getItem(STORAGE.settings) || "{}"),
+    invoiceCounter: Number(localStorage.getItem(STORAGE.invoiceCounter) || 0)
+  };
+}
+
+function preserveFailedCloudSnapshot(reason, payload) {
+  const backup = {
+    format: "atelier-test-unsynced-v1",
+    reason,
+    capturedAt: new Date().toISOString(),
+    garageId: ACTIVE_GARAGE_ID,
+    userId: SUPABASE_USER?.id,
+    expectedCloudVersion: CLOUD_DATA_VERSION,
+    data: payload || captureLocalGarageSnapshot()
+  };
+  // Une cle unique empeche qu'un deuxieme conflit ecrase le premier.
+  const key = `${TEST_STORAGE_PREFIX}_${ACTIVE_GARAGE_ID}_unsynced_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  try {
+    localStorage.setItem(key, JSON.stringify(backup));
+    showCloudRecoveryBanner(key);
+    console.warn("Copie de recuperation TEST conservee sous :", key);
+    return true;
+  } catch (err) {
+    console.error("IMPOSSIBLE de conserver la copie locale :", err);
+    // La copie reste au moins accessible dans la session JS en cours.
+    window.__garageEmergencyBackup = backup;
+    showCloudRecoveryBanner(null);
+    return false;
+  }
+}
+
+function showCloudRecoveryBanner(key) {
+  let box = document.getElementById("cloudRecoveryBanner");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "cloudRecoveryBanner";
+    box.style.cssText = "position:fixed;bottom:12px;left:240px;right:12px;z-index:20000;background:#3b1717;color:white;border:2px solid #ff7777;padding:14px;border-radius:8px;box-shadow:0 6px 25px #000";
+    document.body.appendChild(box);
+  }
+  box.replaceChildren();
+  const msg = document.createElement("span");
+  msg.textContent = "⚠️ Sauvegarde cloud refusée. Une copie locale est disponible. Télécharge-la AVANT de recharger ou de te déconnecter. ";
+  box.appendChild(msg);
+  const btn = document.createElement("button");
+  btn.textContent = "Télécharger les données non synchronisées";
+  btn.onclick = () => {
+    const raw = key ? localStorage.getItem(key) : JSON.stringify(window.__garageEmergencyBackup);
+    if (!raw) { alert("Copie introuvable. Ne recharge pas la page."); return; }
+    const url = URL.createObjectURL(new Blob([raw], {type:"application/json"}));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `atelier-test-recuperation-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
+  box.appendChild(btn);
+}
+
 function scheduleCloudSync(delay = 1500){
 
   if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY) {
     console.warn("Synchronisation bloquée : session, garage ou données cloud non prêts.");
+    if (ACTIVE_GARAGE_ID && !CLOUD_DATA_READY) {
+      preserveFailedCloudSnapshot("Modification avec synchronisation bloquee");
+    }
     return;
   }
 
@@ -3196,18 +3272,7 @@ try {
   // Révision des modifications au début de cette sauvegarde
   const savingRevision = CLOUD_CHANGE_REVISION;
 
-  const payload = {
-
-    clients: loadArrayFromStorage(STORAGE.clients),
-    invoices: loadArrayFromStorage(STORAGE.invoices),
-    workorders: loadArrayFromStorage(STORAGE.workorders),
-    notes: loadArrayFromStorage(STORAGE.notes),
-    links: loadArrayFromStorage(STORAGE.links),
-    parts: loadArrayFromStorage(STORAGE.parts),
-    services: loadArrayFromStorage(STORAGE.services),
-    settings: JSON.parse(localStorage.getItem(STORAGE.settings) || "{}"),
-    invoiceCounter: Number(localStorage.getItem(STORAGE.invoiceCounter) || 0)
-  };
+  const payload = captureLocalGarageSnapshot();
 
   
 
@@ -3258,6 +3323,7 @@ if (error) {
   console.error("Erreur de sauvegarde Supabase :", error);
   CLOUD_SYNC_FAILED = true;
   CLOUD_DATA_READY = false;
+  preserveFailedCloudSnapshot("Erreur Supabase", payload);
 
   alert(
     "ATTENTION : la sauvegarde Supabase a échoué.\n\n" +
@@ -3275,8 +3341,8 @@ if (error) {
 } catch (err) {
   console.error("Exception pendant la sauvegarde Supabase :", err);
   CLOUD_SYNC_FAILED = true;
+  preserveFailedCloudSnapshot(err.message?.includes("CONFLIT_VERSION") ? "Conflit de version" : "Erreur de sauvegarde", captureLocalGarageSnapshot());
 
-    
   if (err.message?.includes("CONFLIT_VERSION")) {
     CLOUD_DATA_READY = false;
 
@@ -3284,7 +3350,7 @@ if (error) {
       "CONFLIT DE SAUVEGARDE !\n\n" +
       "Les données du garage ont peut-être été modifiées sur un autre appareil.\n" +
       "Tes modifications locales n'ont pas été enregistrées dans Supabase.\n\n" +
-      "Ne recharge pas la page et ne change pas de compte."
+      "Télécharge la copie de récupération affichée en bas de page avant toute autre action."
     );
 
     return;
