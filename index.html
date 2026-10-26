@@ -87,6 +87,7 @@ if (sessionError || !session) {
 ========================= */
 
 let inactivityTimer;
+let inactivityGeneration = 0;
 let countdownInterval;
 let remainingTime;
 
@@ -125,6 +126,7 @@ function removeWarningBanner() {
 
 
 function resetInactivityTimer() {
+  const myGeneration = ++inactivityGeneration;
   clearTimeout(inactivityTimer);
   clearInterval(countdownInterval);
   removeWarningBanner();
@@ -157,7 +159,7 @@ function resetInactivityTimer() {
     }
 
     // Réessayer seulement si aucune activité n'a réinitialisé le minuteur.
-    if (inactivityTimer) {
+        if (myGeneration === inactivityGeneration) {
       inactivityTimer = setTimeout(attemptAutomaticLogout, 60000);
     }
   }, INACTIVITY_LIMIT);
