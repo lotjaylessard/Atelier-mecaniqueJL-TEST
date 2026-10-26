@@ -1752,33 +1752,42 @@ button.link:hover{
 
   
 /* ===================== HELPERS & STORAGE ===================== */
+// TEST uniquement : espace local distinct de la production GitHub Pages.
+// Ne jamais lire, migrer ou effacer les anciennes cles de production.
+const TEST_STORAGE_PREFIX = "ar_test_nraijzsodgojkpyigefu";
+
+// Avant identification du garage, utiliser un espace provisoire TEST.
+// Aucune cle historique non prefixee ne doit etre utilisee.
 let STORAGE = {
-  invoices:'ar_invoices_v2',
-  settings:'ar_settings_v1',
-  invoiceCounter:'ar_invoice_counter_v1',
-  clients:'ar_clients_v1',
-  parts:'ar_parts_inventory_v1',
-  services:'ar_services_v1',
-  notes:'ar_notes_v1',
-  workorders:'ar_workorders_v1'
+  invoices: `${TEST_STORAGE_PREFIX}_bootstrap_invoices_v2`,
+  settings: `${TEST_STORAGE_PREFIX}_bootstrap_settings_v1`,
+  invoiceCounter: `${TEST_STORAGE_PREFIX}_bootstrap_invoice_counter_v1`,
+  clients: `${TEST_STORAGE_PREFIX}_bootstrap_clients_v1`,
+  parts: `${TEST_STORAGE_PREFIX}_bootstrap_parts_inventory_v1`,
+  services: `${TEST_STORAGE_PREFIX}_bootstrap_services_v1`,
+  notes: `${TEST_STORAGE_PREFIX}_bootstrap_notes_v1`,
+  links: `${TEST_STORAGE_PREFIX}_bootstrap_links_v1`,
+  workorders: `${TEST_STORAGE_PREFIX}_bootstrap_workorders_v1`,
+  history: `${TEST_STORAGE_PREFIX}_bootstrap_history_v1`
 };
 
-  
-function configureGarageStorage(userId) {
-  if (!userId) {
+function configureGarageStorage(garageId) {
+  if (!garageId) {
     throw new Error("Identifiant du garage manquant");
   }
 
+  const prefix = `${TEST_STORAGE_PREFIX}_${garageId}`;
   STORAGE = {
-    invoices: `ar_${userId}_invoices_v2`,
-    settings: `ar_${userId}_settings_v1`,
-    invoiceCounter: `ar_${userId}_invoice_counter_v1`,
-    clients: `ar_${userId}_clients_v1`,
-    parts: `ar_${userId}_parts_inventory_v1`,
-    services: `ar_${userId}_services_v1`,
-    notes: `ar_${userId}_notes_v1`,
-    links: `ar_${userId}_links_v1`,
-    workorders: `ar_${userId}_workorders_v1`
+    invoices: `${prefix}_invoices_v2`,
+    settings: `${prefix}_settings_v1`,
+    invoiceCounter: `${prefix}_invoice_counter_v1`,
+    clients: `${prefix}_clients_v1`,
+    parts: `${prefix}_parts_inventory_v1`,
+    services: `${prefix}_services_v1`,
+    notes: `${prefix}_notes_v1`,
+    links: `${prefix}_links_v1`,
+    workorders: `${prefix}_workorders_v1`,
+    history: `${prefix}_history_v1`
   };
 }
 
@@ -1809,32 +1818,9 @@ function configureGarageStorage(userId) {
 
 
 
-/* ===== MIGRATION LOCALSTORAGE (TEMPORAIRE) ===== */
-(function migrateOldStorage(){
-  const map = {
-    clients: ["clients","garage_clients","ar_clients"],
-    parts: ["parts","garage_parts","ar_parts"],
-    services: ["services","garage_services","ar_services"],
-    notes: ["notes","garage_notes","ar_notes"],
-    workorders: ["workorders","garage_workorders","ar_workorders"],
-    invoices: ["invoices","garage_invoices","ar_invoices"]
-  };
-
-  Object.keys(map).forEach(key=>{
-    const newKey = STORAGE[key];
-    if (localStorage.getItem(newKey)) return;
-
-    for (const oldKey of map[key]){
-      const oldVal = localStorage.getItem(oldKey);
-      if (oldVal){
-        localStorage.setItem(newKey, oldVal);
-        console.log(`✔ Migration ${oldKey} → ${newKey}`);
-        break;
-      }
-    }
-  });
-})();
-
+/* MIGRATION DES ANCIENNES CLES DESACTIVEE EN TEST.
+   Ne jamais recopier les donnees locales de production dans TEST.
+   La base Supabase TEST est la seule source pour l'hydratation initiale. */
 
 const $ = id => document.getElementById(id);
 function money(n){return Number(n||0).toFixed(2);}
@@ -6982,9 +6968,9 @@ if (btnEdit){
 
 
   function addInvoiceToHistory(inv){
-  let HISTORY = JSON.parse(localStorage.getItem("history") || "[]");
+  let HISTORY = JSON.parse(localStorage.getItem(STORAGE.history) || "[]");
   HISTORY.push(inv);
-  localStorage.setItem("history", JSON.stringify(HISTORY));
+  localStorage.setItem(STORAGE.history, JSON.stringify(HISTORY));
     scheduleCloudSync();
 }
 
