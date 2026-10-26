@@ -2863,6 +2863,8 @@ let CLOUD_SYNC_FAILED = false;
 
 let CLOUD_SYNC_DIRTY = false;
 
+let CLOUD_CHANGE_REVISION = 0;
+
 
   /* ===================== CLOUD PUSH (SYNC) ===================== */
 let cloudSyncTimer = null;
@@ -2925,6 +2927,7 @@ function scheduleCloudSync(delay = 1500){
 
   // Des modifications locales attendent une sauvegarde
   CLOUD_SYNC_DIRTY = true;
+  CLOUD_CHANGE_REVISION += 1;
 
   // Mémoriser le contexte au moment de programmer la sauvegarde
   const scheduledUserId = SUPABASE_USER.id;
