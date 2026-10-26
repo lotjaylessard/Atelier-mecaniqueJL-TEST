@@ -2859,6 +2859,7 @@ return true;
   /* ===================== CLOUD → LOCAL ===================== */
 function hydrateLocalFromCloud(data){
   if (!data) return;
+  CLOUD_LAST_CONFIRMED_SNAPSHOT = JSON.parse(JSON.stringify(data));
 
   localStorage.setItem(STORAGE.clients, JSON.stringify(data.clients || []));
   localStorage.setItem(STORAGE.invoices, JSON.stringify(data.invoices || []));
@@ -2880,6 +2881,8 @@ function hydrateLocalFromCloud(data){
   SERVICES= loadArrayFromStorage(STORAGE.services);
 }
 
+
+let CLOUD_LAST_CONFIRMED_SNAPSHOT = null;
 
 let CLOUD_DATA_READY = false;
 
@@ -3334,6 +3337,65 @@ function chooseRecoveredNotesFile() {
   input.click();
 }
 
+/* TEST : fusion automatique STRICTEMENT des ajouts de notes lors d'un conflit.
+   Refus si autre changement local, note editee/supprimee ou collision d'identifiant.
+   Compare avec le dernier snapshot confirme, jamais avec le seul JSON de recuperation. */
+async function tryAutoMergeAddedNotes(localPayload, expectedVersion, savingRevision) {
+  const base = CLOUD_LAST_CONFIRMED_SNAPSHOT;
+  if (!base || CLOUD_CHANGE_REVISION !== savingRevision ||
+      !Array.isArray(base.notes) || !Array.isArray(localPayload.notes)) return false;
+  const nonNotes = obj => { const copy = {...obj}; delete copy.notes; return copy; };
+  if (JSON.stringify(nonNotes(localPayload)) !== JSON.stringify(nonNotes(base))) return false;
+  const baseNotes = new Map(base.notes.map(n => [String(n.id), n]));
+  const localNotes = new Map(localPayload.notes.map(n => [String(n.id), n]));
+  if (baseNotes.size !== base.notes.length || localNotes.size !== localPayload.notes.length) return false;
+  for (const [id, oldNote] of baseNotes) {
+    if (!localNotes.has(id) || JSON.stringify(localNotes.get(id)) !== JSON.stringify(oldNote)) return false;
+  }
+  const additions = localPayload.notes.filter(n => !baseNotes.has(String(n.id)));
+  if (!additions.length || additions.some(n => !Number.isSafeInteger(n.id) ||
+      typeof n.text !== 'string' || typeof n.date !== 'string' || typeof n.category !== 'string')) return false;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (CLOUD_CHANGE_REVISION !== savingRevision) return false;
+    const {data: cloud, error: readError} = await sb.from('garage_data')
+      .select('data, version').eq('garage_id', ACTIVE_GARAGE_ID).maybeSingle();
+    if (readError || !cloud || !Number.isSafeInteger(cloud.version) ||
+        !cloud.data || !Array.isArray(cloud.data.notes)) return false;
+    if (cloud.version <= expectedVersion) return false;
+    const remote = new Map(cloud.data.notes.map(n => [String(n.id), n]));
+    if (remote.size !== cloud.data.notes.length) return false;
+    for (const [id, oldNote] of baseNotes) {
+      if (!remote.has(id) || JSON.stringify(remote.get(id)) !== JSON.stringify(oldNote)) return false;
+    }
+    for (const note of additions) {
+      if (remote.has(String(note.id)) && JSON.stringify(remote.get(String(note.id))) !== JSON.stringify(note)) return false;
+    }
+    const toAdd = additions.filter(n => !remote.has(String(n.id)));
+    const merged = {...cloud.data, notes: [...cloud.data.notes, ...toAdd].sort((a,b) => b.id-a.id)};
+    if (!toAdd.length) {
+      CLOUD_DATA_VERSION = cloud.version;
+      CLOUD_LAST_CONFIRMED_SNAPSHOT = JSON.parse(JSON.stringify(merged));
+      hydrateLocalFromCloud(merged);
+      loadNotes(); renderNotes(); renderDashboard();
+      return true;
+    }
+    const {data: rows, error: writeError} = await sb.from('garage_data')
+      .update({data:merged, version:cloud.version+1, updated_at:new Date().toISOString()})
+      .eq('garage_id', ACTIVE_GARAGE_ID).eq('version', cloud.version)
+      .select('garage_id, version');
+    if (writeError) return false;
+    if (!Array.isArray(rows) || rows.length !== 1) continue;
+    if (rows[0].garage_id !== ACTIVE_GARAGE_ID || rows[0].version !== cloud.version+1) return false;
+    CLOUD_DATA_VERSION = rows[0].version;
+    CLOUD_LAST_CONFIRMED_SNAPSHOT = JSON.parse(JSON.stringify(merged));
+    hydrateLocalFromCloud(merged);
+    loadNotes(); renderNotes(); renderDashboard();
+    console.log('TEST : nouvelles notes fusionnees automatiquement :', toAdd.length);
+    return true;
+  }
+  return false;
+}
+
 function scheduleCloudSync(delay = 1500){
 
   if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY) {
@@ -3417,6 +3479,13 @@ const { data: savedRows, error } = await sb
 
 
 if (!error && (!Array.isArray(savedRows) || savedRows.length === 0)) {
+  if (await tryAutoMergeAddedNotes(payload, expectedVersion, savingRevision)) {
+    CLOUD_SYNC_FAILED = false;
+    CLOUD_SYNC_DIRTY = false;
+    CLOUD_SYNC_PENDING = false;
+    console.log('TEST : conflit resolu automatiquement pour ajouts de notes.');
+    return;
+  }
   throw new Error(
     "CONFLIT_VERSION : aucune ligne mise à jour. " +
     "Les données cloud ont peut-être été modifiées ailleurs."
@@ -3432,6 +3501,7 @@ if (!error && (
 
 if (!error) {
   CLOUD_DATA_VERSION = savedRows[0].version;
+  CLOUD_LAST_CONFIRMED_SNAPSHOT = JSON.parse(JSON.stringify(payload));
   CLOUD_SYNC_FAILED = false;
 
   // Vérifier si de nouvelles modifications attendent
