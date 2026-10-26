@@ -126,19 +126,28 @@ function resetInactivityTimer() {
   removeWarningBanner();
 
   // Réessayer dans 60 secondes sans recharger la page
-  inactivityTimer = setTimeout(async () => {
+  const retryLogout = async () => {
 
   const canLogout = await waitForCloudSyncBeforeLogout();
 
   if (!canLogout) {
-    console.warn("Déconnexion toujours reportée : sauvegarde non confirmée.");
+    console.warn("Déconnexion reportée : nouvelle tentative dans 60 secondes.");
+    inactivityTimer = setTimeout(retryLogout, 60000);
     return;
   }
 
-  await supabase.auth.signOut();
-  window.location.replace("login.html");
+  const { error } = await supabase.auth.signOut();
 
-}, 60000);
+  if (error) {
+    console.error("Erreur de déconnexion Supabase :", error);
+    inactivityTimer = setTimeout(retryLogout, 60000);
+    return;
+  }
+
+  window.location.replace("login.html");
+};
+
+inactivityTimer = setTimeout(retryLogout, 60000);
 
   return;
 }
