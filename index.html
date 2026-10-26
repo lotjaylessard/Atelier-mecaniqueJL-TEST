@@ -42,33 +42,33 @@ supabase.auth.onAuthStateChange((event, session) => {
   if (btnLogout){
   btnLogout.onclick = async () => {
 
-  const canLogout = await waitForCloudSyncBeforeLogout();
+  // Empêcher plusieurs clics pendant la déconnexion
+  btnLogout.disabled = true;
 
-  if (!canLogout) {
-    console.warn("Déconnexion annulée : sauvegarde non confirmée.");
-    return;
+  try {
+    if (typeof window.attemptSafeLogout !== "function") {
+      console.error("Fonction de déconnexion sécurisée indisponible.");
+      alert("La déconnexion est indisponible. Recharge la page avant de réessayer.");
+      return;
+    }
+
+    const success = await window.attemptSafeLogout();
+
+    if (!success) {
+      console.warn("Déconnexion annulée ou échouée.");
+      return;
+    }
+
+    window.location.replace("login.html");
+
+  } catch (err) {
+    console.error("Erreur inattendue pendant la déconnexion :", err);
+    alert("Une erreur est survenue pendant la déconnexion.");
+
+  } finally {
+    btnLogout.disabled = false;
   }
-
-  const { error } = await supabase.auth.signOut();
-
-if (error) {
-  console.error("Erreur de déconnexion manuelle Supabase :", error);
-
-  // Réactiver la synchronisation seulement si la session est encore valide
-  const { data: sessionData, error: sessionError } =
-    await supabase.auth.getSession();
-
-  if (!sessionError && sessionData?.session?.user?.id === SUPABASE_USER?.id) {
-    CLOUD_DATA_READY = true;
-    console.log("Session toujours active : synchronisation réactivée.");
-  } else {
-    console.error("Session non confirmée : synchronisation maintenue bloquée.");
-  }
-
-  alert("La déconnexion a échoué. Vérifie ta session avant de continuer.");
-  return;
-}
-};
+  };
   }
 
 });
