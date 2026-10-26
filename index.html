@@ -2969,8 +2969,9 @@ if (CLOUD_SYNC_IN_PROGRESS) {
 
   CLOUD_SYNC_IN_PROGRESS = true;
 
-  try {
-
+try {
+  // Révision des modifications au début de cette sauvegarde
+  const savingRevision = CLOUD_CHANGE_REVISION;
 
   const payload = {
 
