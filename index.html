@@ -3080,10 +3080,13 @@ if (error) {
   CLOUD_SYNC_IN_PROGRESS = false;
 
 
-  if (CLOUD_SYNC_PENDING && CLOUD_DATA_READY) {
-    CLOUD_SYNC_PENDING = false;
-    scheduleCloudSync(100);
-  }
+  if (CLOUD_DATA_READY && (CLOUD_SYNC_PENDING || CLOUD_SYNC_DIRTY)) {
+  CLOUD_SYNC_PENDING = false;
+
+  console.log("Nouvelles modifications détectées : sauvegarde supplémentaire programmée.");
+
+  scheduleCloudSync(100);
+}
 }
 }
 
