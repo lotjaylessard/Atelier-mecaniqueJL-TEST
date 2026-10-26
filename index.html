@@ -143,12 +143,16 @@ function resetInactivityTimer() {
 
     if (typeof window.attemptSafeLogout !== "function") {
       console.error("Déconnexion sécurisée indisponible.");
-      inactivityTimer = setTimeout(attemptAutomaticLogout, 60000);
+      if (myGeneration === inactivityGeneration) {
+        inactivityTimer = setTimeout(attemptAutomaticLogout, 60000);
+      }
       return;
     }
 
     try {
-      const success = await window.attemptSafeLogout();
+      const success = await window.attemptSafeLogout(
+        () => myGeneration === inactivityGeneration
+      );
 
       if (success) {
         window.location.replace("login.html");
@@ -2876,6 +2880,9 @@ function hydrateLocalFromCloud(data){
   localStorage.setItem(STORAGE.parts, JSON.stringify(data.parts || []));
   localStorage.setItem(STORAGE.services, JSON.stringify(data.services || []));
   localStorage.setItem(STORAGE.settings, JSON.stringify(data.settings || {}));
+  if (Number.isSafeInteger(data.invoiceCounter) && data.invoiceCounter >= 0) {
+    localStorage.setItem(STORAGE.invoiceCounter, String(data.invoiceCounter));
+  }
 
   // 🔁 Recharger les variables mémoire
   loadInvoices();
@@ -3055,12 +3062,33 @@ let cloudSyncTimer = null;
 }
   
   
-  async function attemptSafeLogout() {
+  let logoutInProgress = false;
 
+  async function attemptSafeLogout(shouldProceed = () => true) {
+
+  if (logoutInProgress) {
+    console.warn("Déconnexion déjà en cours.");
+    return false;
+  }
+  if (!shouldProceed()) return false;
+  logoutInProgress = true;
+
+  try {
   const canLogout = await waitForCloudSyncBeforeLogout();
 
   if (!canLogout) {
     console.warn("Déconnexion refusée : sauvegarde non confirmée.");
+    return false;
+  }
+
+  // Une activité peut avoir réinitialisé le minuteur pendant les attentes.
+  // La synchronisation ayant été bloquée, la rétablir uniquement après vérification.
+  if (!shouldProceed()) {
+    const recovered = await recoverCloudSyncAfterFailedLogout();
+    if (!recovered) {
+      CLOUD_DATA_READY = false;
+      alert("Déconnexion annulée, mais synchronisation non rétablie. Ne ferme pas cette page.");
+    }
     return false;
   }
 
@@ -3116,6 +3144,9 @@ let cloudSyncTimer = null;
 
   return false;
 }
+  } finally {
+    logoutInProgress = false;
+  }
 }
 
   // Permet au script module d'utiliser la déconnexion sécurisée
@@ -3186,7 +3217,8 @@ try {
     links: loadArrayFromStorage(STORAGE.links),
     parts: loadArrayFromStorage(STORAGE.parts),
     services: loadArrayFromStorage(STORAGE.services),
-    settings: JSON.parse(localStorage.getItem(STORAGE.settings) || "{}")
+    settings: JSON.parse(localStorage.getItem(STORAGE.settings) || "{}"),
+    invoiceCounter: Number(localStorage.getItem(STORAGE.invoiceCounter) || 0)
   };
 
   
@@ -3284,12 +3316,19 @@ if (error) {
 
 
   if (CLOUD_DATA_READY && (CLOUD_SYNC_PENDING || CLOUD_SYNC_DIRTY)) {
-  CLOUD_SYNC_PENDING = false;
+    CLOUD_SYNC_PENDING = false;
 
-  console.log("Nouvelles modifications détectées : sauvegarde supplémentaire programmée.");
+    console.log("Nouvelles modifications détectées : sauvegarde supplémentaire programmée.");
 
-  scheduleCloudSync(100);
-}
+    // Les modifications sont déjà comptées dans CLOUD_CHANGE_REVISION.
+    // scheduleCloudSync() incrémenterait à tort la révision une deuxième fois.
+    clearTimeout(cloudSyncTimer);
+    cloudSyncTimer = setTimeout(() => {
+      if (CLOUD_DATA_READY && SUPABASE_USER?.id && ACTIVE_GARAGE_ID) {
+        pushLocalDataToCloud();
+      }
+    }, 100);
+  }
 }
 }
 
@@ -5262,7 +5301,7 @@ if (errorMessage){
 // 🔄 Mettre à jour le KM du véhicule
 if (veh){
   veh.km = currentKm;
-  localStorage.setItem(STORAGE.clients, JSON.stringify(CLIENTS));
+  saveClients();
 }
 
 // 2️⃣ Construire la facture PRO depuis le WO
