@@ -3058,7 +3058,19 @@ let cloudSyncTimer = null;
     return false;
   }
 
-  try {
+    try {
+
+    // Dernière vérification avant la déconnexion Supabase
+    if (
+      CLOUD_SYNC_IN_PROGRESS ||
+      CLOUD_SYNC_DIRTY ||
+      CLOUD_SYNC_PENDING ||
+      CLOUD_SYNC_FAILED ||
+      CLOUD_DATA_READY
+    ) {
+      console.error("Déconnexion annulée : état de sauvegarde non sécurisé.");
+      return false;
+    }
 
     const { error } = await sb.auth.signOut();
 
