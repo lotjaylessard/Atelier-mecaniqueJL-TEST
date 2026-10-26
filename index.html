@@ -6081,31 +6081,16 @@ function openWorkOrderDetail(wo){
 
   detail.appendChild(backBar);
 
-  // 🔹 Pré-remplir KM depuis le véhicule client si absent dans le WO
-  if (!wo.vehicleKm){
+  // TEST #16A : lecture seule à l'ouverture. Ne pas modifier le BT.
+  // Le kilométrage de repli sert uniquement à afficher le champ.
+  let displayedVehicleKm = wo.vehicleKm;
+  if (!displayedVehicleKm) {
     const client = CLIENTS.find(c => c.name === wo.clientName);
-    if (client && Array.isArray(client.vehicles)){
-      const veh = client.vehicles.find(v =>
-        `${v.year} ${v.make} ${v.model}` === wo.vehicleLabel
-      );
-      if (veh && veh.km){
-        wo.vehicleKm = veh.km;
-      }
-    }
-  }
-
-  // 🧠 Sauvegarder KM original pour validation
-if (!wo.__originalVehicleKm){
-  const client = CLIENTS.find(c => c.name === wo.clientName);
-  if (client && Array.isArray(client.vehicles)){
-    const veh = client.vehicles.find(v =>
+    const veh = client?.vehicles?.find(v =>
       `${v.year} ${v.make} ${v.model}` === wo.vehicleLabel
     );
-    if (veh){
-      wo.__originalVehicleKm = Number(veh.km || 0);
-    }
+    if (veh?.km) displayedVehicleKm = veh.km;
   }
-}
 
   // 🔥 UI DU WO
   detail.innerHTML += `
@@ -6121,7 +6106,7 @@ if (!wo.__originalVehicleKm){
           id="woVehicleKmInput"
           type="number"
           min="0"
-          value="${wo.vehicleKm || ''}"
+          value="${displayedVehicleKm || ''}"
           style="
             margin-left:6px;
             width:120px;
@@ -11664,7 +11649,16 @@ function initLinksModule() {
 function syncKmEverywhereFromWO(wo, newKm){
 
   const km = Number(newKm);
-  if (!wo || !km || km <= 0) return;
+  if (!wo || !Number.isFinite(km) || km <= 0) return;
+
+  // Ne rien sauvegarder si le kilométrage n'a pas réellement changé.
+  const linkedInvoice = INVOICES.find(inv =>
+    String(inv.workOrderNumber) === String(wo.number)
+  ) || (wo.__fromInvoice && wo.__invoiceNumber
+    ? INVOICES.find(inv => String(inv.number) === String(wo.__invoiceNumber))
+    : null);
+  if (Number(wo.vehicleKm || 0) === km &&
+      (!linkedInvoice || Number(linkedInvoice.vehicleKm || 0) === km)) return;
 
   // 1️⃣ WO uniquement
   wo.vehicleKm = km;
