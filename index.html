@@ -2931,48 +2931,43 @@ let cloudSyncTimer = null;
   
   async function waitForCloudSyncBeforeLogout() {
 
-    // Refuser la déconnexion si des modifications attendent une sauvegarde
-  if (CLOUD_SYNC_DIRTY || CLOUD_SYNC_PENDING || CLOUD_SYNC_FAILED) {
-    console.warn("Déconnexion refusée : données non confirmées dans Supabase.");
-
-    alert(
-      "Impossible de se déconnecter pour le moment.\n\n" +
-      "Des modifications ne sont pas encore confirmées dans Supabase.\n" +
-      "Attends la fin de la synchronisation avant de réessayer."
-    );
-
-    return false;
-  }
-
-  // Empêcher toute nouvelle sauvegarde
-  blockCloudSyncForLogout();
-    
-
   const startTime = Date.now();
   const maxWait = 10000; // 10 secondes
 
-  // Attendre une sauvegarde déjà commencée
+  // Attendre la fin d'une sauvegarde déjà commencée
   while (CLOUD_SYNC_IN_PROGRESS) {
 
     if (Date.now() - startTime >= maxWait) {
-      console.error("Déconnexion interrompue : sauvegarde toujours en cours.");
-      alert(
-        "Une sauvegarde est toujours en cours après 10 secondes.\n\n" +
-        "La déconnexion est interrompue pour éviter une perte de données.\n" +
-        "Veuillez réessayer."
-      );
+      console.error("Déconnexion refusée : sauvegarde toujours en cours.");
       return false;
     }
 
     await new Promise(resolve => setTimeout(resolve, 100));
   }
 
-  if (!CLOUD_DATA_READY) {
-  console.warn("Déconnexion : synchronisation cloud désactivée.");
-}
+  // Vérifier le résultat après l'attente
+  if (
+    CLOUD_SYNC_DIRTY ||
+    CLOUD_SYNC_PENDING ||
+    CLOUD_SYNC_FAILED ||
+    !CLOUD_DATA_READY
+  ) {
+    console.warn("Déconnexion refusée : données cloud non confirmées.");
 
-console.log("Aucune sauvegarde cloud en cours.");
-return true;
+    alert(
+      "Impossible de se déconnecter pour le moment.\n\n" +
+      "Certaines modifications ne sont pas confirmées dans Supabase.\n" +
+      "Vérifie la synchronisation avant de réessayer."
+    );
+
+    return false;
+  }
+
+  // Aucune sauvegarde en cours et aucune modification en attente
+  blockCloudSyncForLogout();
+
+  console.log("Synchronisation vérifiée. Déconnexion autorisée.");
+  return true;
 }
 
   
