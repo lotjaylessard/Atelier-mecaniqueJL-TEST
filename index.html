@@ -2923,6 +2923,7 @@ let cloudSyncTimer = null;
   async function waitForCloudSyncBeforeLogout() {
 
   const startTime = Date.now();
+  const startRevision = CLOUD_CHANGE_REVISION;
   const maxWait = 10000; // 10 secondes
 
   // Attendre la fin d'une sauvegarde déjà commencée
@@ -2937,6 +2938,11 @@ let cloudSyncTimer = null;
   }
 
   // Vérifier le résultat après l'attente
+
+  if (CLOUD_CHANGE_REVISION !== startRevision) {
+    console.warn("Déconnexion annulée : modifications détectées pendant l'attente.");
+    return false;
+  }
   if (
     CLOUD_SYNC_DIRTY ||
     CLOUD_SYNC_PENDING ||
