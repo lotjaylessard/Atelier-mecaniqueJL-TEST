@@ -3017,7 +3017,7 @@ let cloudSyncTimer = null;
 
   // Tenter la déconnexion Supabase
   try {
-    const { error } = await supabase.auth.signOut();
+    const { error } = await sb.auth.signOut();
 
     if (error) {
       console.error("Erreur de déconnexion Supabase :", error);
