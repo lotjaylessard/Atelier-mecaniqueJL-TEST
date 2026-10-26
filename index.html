@@ -2798,7 +2798,9 @@ CLOUD_DATA_VERSION = data.version;
     // Charger uniquement les données du garage connecté
     hydrateLocalFromCloud(cloudData);
 
-    // Actualiser l'interface après le chargement
+    // Actualiser les listes après hydratation cloud (elles étaient vides au premier affichage)
+    renderClientsTable();
+    renderVehiclesPage();
     renderDashboard();
 
     // Autoriser les sauvegardes seulement après réussite
@@ -7635,7 +7637,7 @@ function renderClientsTable(){
     data-action="open-client"
     data-id="${c.id}"
   >
-    ${c.lastName || ''}${c.firstName ? ', ' + c.firstName : ''}
+    ${c.lastName || c.firstName ? `${c.lastName || ''}${c.firstName ? ', ' + c.firstName : ''}`.replace(/^, /, '') : (c.name || '')}
   </td>
   <td>${c.phone||''}</td>
   <td>${c.email||''}</td>
