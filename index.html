@@ -3636,6 +3636,102 @@ async function tryAutoMergeAddedVehicles(localPayload, expectedVersion, savingRe
   return reject('Trois tentatives de version concurrente épuisées');
 }
 
+/* TEST #13 : fusion stricte des NOUVEAUX bons de travail uniquement.
+   Ne renumerote jamais un BT; refuse toute collision d'ID ou de numero.
+   Ne fusionne jamais les modifications/suppressions de BT existants. */
+async function tryAutoMergeAddedWorkOrders(localPayload, expectedVersion, savingRevision) {
+  const reject = (reason, details = {}) => {
+    console.warn('[TEST AUTO-FUSION BT] Refus : ' + reason, details);
+    return false;
+  };
+  const base = CLOUD_LAST_CONFIRMED_SNAPSHOT;
+  if (!base || CLOUD_CHANGE_REVISION !== savingRevision ||
+      !Array.isArray(base.workorders) || !Array.isArray(localPayload.workorders))
+    return reject('Snapshot absent, BT invalides ou revision modifiee');
+
+  const stable = value => {
+    if (Array.isArray(value)) return value.map(stable);
+    if (value && typeof value === 'object')
+      return Object.fromEntries(Object.keys(value).sort().map(k => [k, stable(value[k])]));
+    return value;
+  };
+  const same = (a, b) => JSON.stringify(stable(a)) === JSON.stringify(stable(b));
+  const withoutBT = obj => { const copy = {...obj}; delete copy.workorders; return copy; };
+  const valid = w => w && (Number.isSafeInteger(w.id) ||
+    (typeof w.id === 'string' && w.id.length > 0)) &&
+    typeof w.number === 'string' && w.number.trim().length > 0 &&
+    w.clientId != null && w.vehicleId != null;
+  const unique = (arr, key) => new Set(arr.map(w => String(w[key]))).size === arr.length;
+  const validList = arr => Array.isArray(arr) && arr.every(valid) &&
+    unique(arr, 'id') && unique(arr, 'number');
+
+  if (!same(withoutBT(localPayload), withoutBT(base)))
+    return reject('Autres categories locales modifiees');
+  if (!validList(base.workorders) || !validList(localPayload.workorders))
+    return reject('BT locaux invalides ou numeros/identifiants dupliques');
+  const baseMap = new Map(base.workorders.map(w => [String(w.id), w]));
+  const localMap = new Map(localPayload.workorders.map(w => [String(w.id), w]));
+  for (const [id, original] of baseMap) {
+    if (!localMap.has(id) || !same(original, localMap.get(id)))
+      return reject('BT existant modifie ou supprime localement', {id});
+  }
+  const additions = localPayload.workorders.filter(w => !baseMap.has(String(w.id)));
+  if (!additions.length) return reject('Aucun nouveau BT');
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (CLOUD_CHANGE_REVISION !== savingRevision)
+      return reject('Modification locale pendant la fusion');
+    const {data: cloud, error: readError} = await sb.from('garage_data')
+      .select('data, version').eq('garage_id', ACTIVE_GARAGE_ID).maybeSingle();
+    if (readError || !cloud || !Number.isSafeInteger(cloud.version) ||
+        !cloud.data || !validList(cloud.data.workorders))
+      return reject('Lecture cloud invalide', {message:readError?.message});
+    if (cloud.version <= expectedVersion) return reject('Version cloud non superieure');
+    const remote = new Map(cloud.data.workorders.map(w => [String(w.id), w]));
+    const numbers = new Map(cloud.data.workorders.map(w => [w.number, String(w.id)]));
+    for (const [id, original] of baseMap) {
+      if (!remote.has(id) || !same(original, remote.get(id)))
+        return reject('BT preexistant modifie ou supprime dans le cloud', {id});
+    }
+    const toAdd = [];
+    for (const wo of additions) {
+      const id = String(wo.id);
+      if (remote.has(id)) {
+        if (!same(remote.get(id), wo)) return reject('Collision identifiant BT', {id});
+      } else {
+        if (numbers.has(wo.number)) return reject('Collision numero BT', {number:wo.number});
+        // Les clients et vehicules references doivent encore exister dans le cloud.
+        const client = cloud.data.clients?.find(c => String(c.id) === String(wo.clientId));
+        if (!client || !Array.isArray(client.vehicles) ||
+            !client.vehicles.some(v => String(v.id) === String(wo.vehicleId)))
+          return reject('Client ou vehicule du nouveau BT absent du cloud', {id});
+        toAdd.push(wo);
+      }
+    }
+    const merged = {...cloud.data, workorders:[...cloud.data.workorders, ...toAdd]};
+    if (CLOUD_CHANGE_REVISION !== savingRevision)
+      return reject('Modification locale avant ecriture ou hydratation');
+    if (toAdd.length) {
+      const {data:rows, error:writeError} = await sb.from('garage_data')
+        .update({data:merged, version:cloud.version+1, updated_at:new Date().toISOString()})
+        .eq('garage_id', ACTIVE_GARAGE_ID).eq('version', cloud.version)
+        .select('garage_id, version');
+      if (writeError) return reject('Ecriture Supabase refusee', {message:writeError.message});
+      if (!Array.isArray(rows) || rows.length !== 1) continue;
+      if (rows[0].garage_id !== ACTIVE_GARAGE_ID || rows[0].version !== cloud.version+1)
+        return reject('Confirmation de version inattendue');
+      CLOUD_DATA_VERSION = rows[0].version;
+    } else CLOUD_DATA_VERSION = cloud.version;
+    if (CLOUD_CHANGE_REVISION !== savingRevision)
+      return reject('Fusion confirmee mais nouvelle modification locale : recuperation requise');
+    hydrateLocalFromCloud(merged);
+    loadWorkOrders(); renderWorkOrders(); renderDashboard();
+    console.log('TEST : nouveaux BT fusionnes automatiquement :', toAdd.length);
+    return true;
+  }
+  return reject('Trois tentatives de version concurrente epuisees');
+}
+
 function scheduleCloudSync(delay = 1500){
 
   if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY) {
@@ -3738,6 +3834,13 @@ if (!error && (!Array.isArray(savedRows) || savedRows.length === 0)) {
     CLOUD_SYNC_DIRTY = false;
     CLOUD_SYNC_PENDING = false;
     console.log('TEST : conflit résolu automatiquement pour ajouts de véhicules.');
+    return;
+  }
+  if (await tryAutoMergeAddedWorkOrders(payload, expectedVersion, savingRevision)) {
+    CLOUD_SYNC_FAILED = false;
+    CLOUD_SYNC_DIRTY = false;
+    CLOUD_SYNC_PENDING = false;
+    console.log('TEST : conflit resolu automatiquement pour nouveaux BT.');
     return;
   }
   throw new Error(
