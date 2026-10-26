@@ -152,8 +152,14 @@ inactivityTimer = setTimeout(retryLogout, 60000);
   return;
 }
 
-  await supabase.auth.signOut();
-  window.location.replace("login.html");
+  const { error } = await supabase.auth.signOut();
+
+if (error) {
+  console.error("Erreur de déconnexion automatique Supabase :", error);
+  return;
+}
+
+window.location.replace("login.html");
 
 }, INACTIVITY_LIMIT);
 
