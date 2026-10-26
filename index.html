@@ -3510,6 +3510,132 @@ async function tryAutoMergeAddedClients(localPayload, expectedVersion, savingRev
   return reject('Trois tentatives de version concurrente épuisées');
 }
 
+/* TEST : fusion automatique UNIQUEMENT des nouveaux véhicules sur clients existants.
+   Les véhicules sont imbriqués dans clients[].vehicles, pas dans une table distincte.
+   Refus si une autre donnée locale change, si un client/véhicule existant est
+   modifié ou supprimé, ou si l'identifiant d'un véhicule entre en collision. */
+async function tryAutoMergeAddedVehicles(localPayload, expectedVersion, savingRevision) {
+  const reject = (reason, details = {}) => {
+    console.warn('[TEST AUTO-FUSION VEHICULES] Refus : ' + reason, details);
+    return false;
+  };
+  const base = CLOUD_LAST_CONFIRMED_SNAPSHOT;
+  if (!base || CLOUD_CHANGE_REVISION !== savingRevision ||
+      !Array.isArray(base.clients) || !Array.isArray(localPayload.clients))
+    return reject('Snapshot absent, clients invalides ou révision modifiée');
+
+  const stable = value => {
+    if (Array.isArray(value)) return value.map(stable);
+    if (value && typeof value === 'object')
+      return Object.fromEntries(Object.keys(value).sort().map(k => [k, stable(value[k])]));
+    return value;
+  };
+  const same = (a, b) => JSON.stringify(stable(a)) === JSON.stringify(stable(b));
+  const withoutClients = obj => { const copy = {...obj}; delete copy.clients; return copy; };
+  const withoutVehicles = client => { const copy = {...client}; delete copy.vehicles; return copy; };
+  const idOK = obj => obj && (typeof obj.id === 'string' && obj.id.length > 0 || Number.isSafeInteger(obj.id));
+  const clientOK = c => idOK(c) && Array.isArray(c.vehicles) && c.vehicles.every(idOK);
+  const unique = arr => new Set(arr.map(x => String(x.id))).size === arr.length;
+  const clientsOK = arr => Array.isArray(arr) && arr.every(clientOK) && unique(arr) &&
+    arr.every(c => unique(c.vehicles));
+
+  if (!same(withoutClients(localPayload), withoutClients(base)))
+    return reject('Autres catégories locales modifiées');
+  if (!clientsOK(base.clients) || !clientsOK(localPayload.clients))
+    return reject('Clients ou véhicules locaux invalides / identifiants dupliqués');
+  const baseMap = new Map(base.clients.map(c => [String(c.id), c]));
+  const localMap = new Map(localPayload.clients.map(c => [String(c.id), c]));
+  if (baseMap.size !== localMap.size || [...baseMap.keys()].some(id => !localMap.has(id)))
+    return reject('Client créé ou supprimé localement');
+
+  const additions = [];
+  for (const [id, original] of baseMap) {
+    const local = localMap.get(id);
+    if (!same(withoutVehicles(original), withoutVehicles(local)))
+      return reject('Informations de client modifiées localement', {id});
+    const originalVehicles = new Map(original.vehicles.map(v => [String(v.id), v]));
+    const localVehicles = new Map(local.vehicles.map(v => [String(v.id), v]));
+    for (const [vehicleId, vehicle] of originalVehicles) {
+      if (!localVehicles.has(vehicleId) || !same(vehicle, localVehicles.get(vehicleId)))
+        return reject('Véhicule existant modifié ou supprimé localement', {id, vehicleId});
+    }
+    for (const vehicle of local.vehicles) {
+      if (!originalVehicles.has(String(vehicle.id))) additions.push({clientId:id, vehicle});
+    }
+  }
+  if (!additions.length) return reject('Aucun nouveau véhicule');
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (CLOUD_CHANGE_REVISION !== savingRevision)
+      return reject('Modification locale pendant la fusion');
+    const {data: cloud, error: readError} = await sb.from('garage_data')
+      .select('data, version').eq('garage_id', ACTIVE_GARAGE_ID).maybeSingle();
+    if (readError || !cloud || !Number.isSafeInteger(cloud.version) ||
+        !cloud.data || !clientsOK(cloud.data.clients))
+      return reject('Lecture cloud invalide', {message: readError?.message});
+    if (cloud.version <= expectedVersion) return reject('Version cloud non supérieure');
+    const remote = new Map(cloud.data.clients.map(c => [String(c.id), c]));
+    // Vérifier les clients et véhicules qui existaient dans notre snapshot.
+    for (const [id, original] of baseMap) {
+      const current = remote.get(id);
+      if (!current || !same(withoutVehicles(original), withoutVehicles(current)))
+        return reject('Client existant modifié ou supprimé dans le cloud', {id});
+      const currentVehicles = new Map(current.vehicles.map(v => [String(v.id), v]));
+      for (const vehicle of original.vehicles) {
+        if (!currentVehicles.has(String(vehicle.id)) ||
+            !same(vehicle, currentVehicles.get(String(vehicle.id))))
+          return reject('Véhicule préexistant modifié ou supprimé dans le cloud', {id, vehicleId:vehicle.id});
+      }
+    }
+    // Ne jamais réutiliser un identifiant existant, même chez un autre client.
+    const remoteIds = new Map();
+    for (const client of cloud.data.clients) {
+      for (const vehicle of client.vehicles) {
+        const id = String(vehicle.id);
+        if (remoteIds.has(id)) return reject('Identifiant véhicule dupliqué dans le cloud', {id});
+        remoteIds.set(id, {clientId:String(client.id), vehicle});
+      }
+    }
+    const addedIds = new Set();
+    const toAdd = [];
+    for (const item of additions) {
+      const id = String(item.vehicle.id);
+      if (addedIds.has(id)) return reject('Identifiant nouveau véhicule dupliqué', {id});
+      addedIds.add(id);
+      const existing = remoteIds.get(id);
+      if (existing) {
+        if (existing.clientId !== item.clientId || !same(existing.vehicle, item.vehicle))
+          return reject('Collision identifiant véhicule', {id});
+      } else toAdd.push(item);
+    }
+    const mergedClients = cloud.data.clients.map(c => ({...c, vehicles:[...c.vehicles]}));
+    const mergedMap = new Map(mergedClients.map(c => [String(c.id), c]));
+    for (const item of toAdd) mergedMap.get(item.clientId).vehicles.push(item.vehicle);
+    const merged = {...cloud.data, clients:mergedClients};
+    if (CLOUD_CHANGE_REVISION !== savingRevision)
+      return reject('Modification locale avant écriture ou hydratation');
+    if (toAdd.length) {
+      const {data: rows, error: writeError} = await sb.from('garage_data')
+        .update({data:merged, version:cloud.version+1, updated_at:new Date().toISOString()})
+        .eq('garage_id', ACTIVE_GARAGE_ID).eq('version', cloud.version)
+        .select('garage_id, version');
+      if (writeError) return reject('Écriture Supabase refusée', {message:writeError.message});
+      if (!Array.isArray(rows) || rows.length !== 1) continue;
+      if (rows[0].garage_id !== ACTIVE_GARAGE_ID || rows[0].version !== cloud.version+1)
+        return reject('Confirmation de version inattendue');
+      CLOUD_DATA_VERSION = rows[0].version;
+    } else CLOUD_DATA_VERSION = cloud.version;
+    if (CLOUD_CHANGE_REVISION !== savingRevision)
+      return reject('Fusion cloud confirmée mais modifications locales supplémentaires : récupération requise');
+    hydrateLocalFromCloud(merged);
+    loadClients(); renderClientsTable(); renderVehiclesPage();
+    refreshInvoiceClientSelect(); renderDashboard();
+    console.log('TEST : nouveaux véhicules fusionnés automatiquement :', toAdd.length);
+    return true;
+  }
+  return reject('Trois tentatives de version concurrente épuisées');
+}
+
 function scheduleCloudSync(delay = 1500){
 
   if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY) {
@@ -3605,6 +3731,13 @@ if (!error && (!Array.isArray(savedRows) || savedRows.length === 0)) {
     CLOUD_SYNC_DIRTY = false;
     CLOUD_SYNC_PENDING = false;
     console.log('TEST : conflit résolu automatiquement pour ajouts de clients.');
+    return;
+  }
+  if (await tryAutoMergeAddedVehicles(payload, expectedVersion, savingRevision)) {
+    CLOUD_SYNC_FAILED = false;
+    CLOUD_SYNC_DIRTY = false;
+    CLOUD_SYNC_PENDING = false;
+    console.log('TEST : conflit résolu automatiquement pour ajouts de véhicules.');
     return;
   }
   throw new Error(
