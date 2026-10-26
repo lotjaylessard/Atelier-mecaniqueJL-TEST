@@ -3033,6 +3033,35 @@ let cloudSyncTimer = null;
   }
 }
 
+
+  async function recoverCloudSyncAfterFailedLogout() {
+
+  // Vérifier que l'utilisateur et la version cloud sont inchangés
+  const cloudVerified = await verifyCloudStateAfterFailedLogout();
+
+  if (!cloudVerified) {
+    console.error("Reprise refusée : session ou version cloud non confirmée.");
+    return false;
+  }
+
+  // Refuser la reprise si des modifications ne sont pas confirmées
+  if (
+    CLOUD_SYNC_IN_PROGRESS ||
+    CLOUD_SYNC_DIRTY ||
+    CLOUD_SYNC_PENDING ||
+    CLOUD_SYNC_FAILED
+  ) {
+    console.error("Reprise refusée : synchronisation incomplète.");
+    return false;
+  }
+
+  // Vérifications réussies : réautoriser les sauvegardes
+  CLOUD_DATA_READY = true;
+
+  console.log("Synchronisation cloud réactivée après échec de déconnexion.");
+  return true;
+}
+  
   
   async function attemptSafeLogout() {
 
