@@ -3085,20 +3085,33 @@ let cloudSyncTimer = null;
 
   } catch (err) {
 
-    console.error("Échec de déconnexion Supabase :", err);
+  console.error("Échec de déconnexion Supabase :", err);
 
-    // Ne pas réactiver automatiquement les sauvegardes :
-    // la session et la version cloud doivent être revérifiées.
+  // Vérifier la session, la version cloud et les sauvegardes
+  // avant de réactiver la synchronisation.
+  const recovered = await recoverCloudSyncAfterFailedLogout();
+
+  if (recovered) {
+    console.log("Déconnexion échouée, mais synchronisation rétablie.");
+
+    alert(
+      "La déconnexion a échoué.\n\n" +
+      "Ta session est toujours active et la synchronisation a été rétablie. " +
+      "Tu peux continuer à travailler."
+    );
+
+  } else {
     CLOUD_DATA_READY = false;
 
     alert(
       "La déconnexion a échoué.\n\n" +
-      "Les sauvegardes sont bloquées par sécurité. " +
+      "La synchronisation n'a pas pu être rétablie. " +
       "Ne ferme pas cette page et ne fais pas de nouvelles modifications."
     );
-
-    return false;
   }
+
+  return false;
+}
 }
 
   // Permet au script module d'utiliser la déconnexion sécurisée
