@@ -3025,6 +3025,9 @@ if (!error && (
 if (!error) {
   CLOUD_DATA_VERSION = savedRows[0].version;
   CLOUD_SYNC_FAILED = false;
+
+  // Vérifier si de nouvelles modifications attendent
+  CLOUD_SYNC_DIRTY = (CLOUD_CHANGE_REVISION !== savingRevision);
 }
   
   
