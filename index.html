@@ -126,9 +126,19 @@ function resetInactivityTimer() {
   removeWarningBanner();
 
   // Réessayer dans 60 secondes sans recharger la page
-  inactivityTimer = setTimeout(() => {
-    resetInactivityTimer();
-  }, 60000);
+  inactivityTimer = setTimeout(async () => {
+
+  const canLogout = await waitForCloudSyncBeforeLogout();
+
+  if (!canLogout) {
+    console.warn("Déconnexion toujours reportée : sauvegarde non confirmée.");
+    return;
+  }
+
+  await supabase.auth.signOut();
+  window.location.replace("login.html");
+
+}, 60000);
 
   return;
 }
