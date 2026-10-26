@@ -3751,7 +3751,30 @@ async function tryAutoMergeAddedWOLines(localPayload, expectedVersion, savingRev
     original.every((line,i)=>same(line,changed[i]));
   const uniqueIds = arr => Array.isArray(arr) && arr.every(w=>w && w.id!=null) &&
     new Set(arr.map(w=>String(w.id))).size === arr.length;
-  if (!same(other(localPayload),other(base))) return reject('Autres donnees locales modifiees');
+  if (!same(other(localPayload),other(base))) {
+    // Diagnostic TEST #17D : aucune donnée sensible affichée, aucune écriture.
+    // On affiche uniquement les chemins des champs différents, jamais leurs valeurs.
+    const changedPaths = [];
+    const walk = (a,b,path,depth=0) => {
+      if (changedPaths.length >= 40) return;
+      if (same(a,b)) return;
+      if (depth >= 8 || a === null || b === null ||
+          typeof a !== 'object' || typeof b !== 'object') {
+        changedPaths.push(path || '(racine)'); return;
+      }
+      const keys = new Set([...Object.keys(a),...Object.keys(b)]);
+      for (const k of keys) {
+        if (changedPaths.length >= 40) break;
+        if (!Object.prototype.hasOwnProperty.call(a,k) ||
+            !Object.prototype.hasOwnProperty.call(b,k)) {
+          changedPaths.push(path ? path+'.'+k : k);
+        } else walk(a[k],b[k],Array.isArray(a) ? path+'['+k+']' : (path ? path+'.'+k : k),depth+1);
+      }
+    };
+    walk(other(base),other(localPayload),'');
+    console.warn('[TEST #17D] Champs locaux differents de la base (chemins seulement):', changedPaths);
+    return reject('Autres donnees locales modifiees');
+  }
   if (!uniqueIds(base.workorders) || !uniqueIds(localPayload.workorders) ||
       base.workorders.length !== localPayload.workorders.length) return reject('Liste BT modifiee');
   const baseById=new Map(base.workorders.map(w=>[String(w.id),w]));
