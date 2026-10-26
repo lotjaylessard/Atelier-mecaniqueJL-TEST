@@ -3055,6 +3055,13 @@ let cloudSyncTimer = null;
     return false;
   }
 
+    // Vérifier qu'aucune modification locale n'est apparue
+  // pendant la vérification de la session et du cloud.
+  if (CLOUD_CHANGE_REVISION !== logoutStartRevision) {
+    console.error("Reprise refusée : modifications pendant la déconnexion.");
+    return false;
+  }
+
   // Vérifications réussies : réautoriser les sauvegardes
   CLOUD_DATA_READY = true;
 
