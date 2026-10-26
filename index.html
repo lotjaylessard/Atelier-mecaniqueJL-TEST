@@ -3185,6 +3185,33 @@ function preserveFailedCloudSnapshot(reason, payload) {
   }
 }
 
+// Retrouver les copies de recuperation apres un rechargement.
+// Lecture seule : aucune donnee recuperee n'est reinjectee dans le garage.
+function restoreCloudRecoveryBanner() {
+  if (!ACTIVE_GARAGE_ID || !SUPABASE_USER?.id) return;
+  const prefix = `${TEST_STORAGE_PREFIX}_${ACTIVE_GARAGE_ID}_unsynced_`;
+  const matches = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith(prefix)) continue;
+    try {
+      const backup = JSON.parse(localStorage.getItem(key));
+      if (backup?.format !== "atelier-test-unsynced-v1" ||
+          backup.garageId !== ACTIVE_GARAGE_ID ||
+          backup.userId !== SUPABASE_USER.id ||
+          !backup.data || typeof backup.data !== "object") continue;
+      matches.push({key, capturedAt: backup.capturedAt || ""});
+    } catch (err) {
+      console.warn("Copie de recuperation invalide ignoree :", key, err);
+    }
+  }
+  matches.sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
+  if (matches.length) {
+    showCloudRecoveryBanner(matches[0].key);
+    console.warn(`${matches.length} copie(s) de recuperation TEST detectee(s). Aucune restauration automatique.`);
+  }
+}
+
 function showCloudRecoveryBanner(key) {
   let box = document.getElementById("cloudRecoveryBanner");
   if (!box) {
@@ -3195,7 +3222,7 @@ function showCloudRecoveryBanner(key) {
   }
   box.replaceChildren();
   const msg = document.createElement("span");
-  msg.textContent = "⚠️ Sauvegarde cloud refusée. Une copie locale est disponible. Télécharge-la AVANT de recharger ou de te déconnecter. ";
+  msg.textContent = "⚠️ Données non synchronisées : une copie de récupération est disponible. Télécharge-la et conserve-la. Aucune restauration automatique. ";
   box.appendChild(msg);
   const btn = document.createElement("button");
   btn.textContent = "Télécharger les données non synchronisées";
@@ -11695,6 +11722,9 @@ if (!garageLoaded) {
 
 // Configurer le stockage selon le garage actif
 configureGarageStorage(ACTIVE_GARAGE_ID);
+
+// Montrer les sauvegardes de cet utilisateur meme apres rechargement.
+restoreCloudRecoveryBanner();
 
 const cloudLoaded = await loadCloudData();
   
