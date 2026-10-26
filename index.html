@@ -41,7 +41,14 @@ supabase.auth.onAuthStateChange((event, session) => {
 
   if (btnLogout){
   btnLogout.onclick = async () => {
-  blockCloudSyncForLogout();
+
+  const canLogout = await waitForCloudSyncBeforeLogout();
+
+  if (!canLogout) {
+    console.warn("Déconnexion annulée : sauvegarde non confirmée.");
+    return;
+  }
+
   await supabase.auth.signOut();
 };
   }
