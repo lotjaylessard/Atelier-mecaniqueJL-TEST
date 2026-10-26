@@ -3007,37 +3007,38 @@ let cloudSyncTimer = null;
 
   async function attemptSafeLogout() {
 
-  // Vérifier que les données peuvent être quittées sans risque connu
   const canLogout = await waitForCloudSyncBeforeLogout();
 
   if (!canLogout) {
-    console.warn("Déconnexion refusée : synchronisation non confirmée.");
+    console.warn("Déconnexion refusée : sauvegarde non confirmée.");
     return false;
   }
 
-  // Tenter la déconnexion Supabase
   try {
+
     const { error } = await sb.auth.signOut();
 
     if (error) {
-  console.error("Erreur de déconnexion Supabase :", error);
-
-  // La déconnexion a échoué : garder les sauvegardes bloquées
-  // jusqu'à une vérification complète de la session et des données.
-  alert(
-    "La déconnexion a échoué.\n\n" +
-    "Les sauvegardes sont temporairement bloquées pour protéger tes données. " +
-    "Ne ferme pas cette page."
-  );
-
-  return false;
-}
+      throw error;
+    }
 
     console.log("Déconnexion Supabase réussie.");
     return true;
 
   } catch (err) {
-    console.error("Exception pendant la déconnexion :", err);
+
+    console.error("Échec de déconnexion Supabase :", err);
+
+    // Ne pas réactiver automatiquement les sauvegardes :
+    // la session et la version cloud doivent être revérifiées.
+    CLOUD_DATA_READY = false;
+
+    alert(
+      "La déconnexion a échoué.\n\n" +
+      "Les sauvegardes sont bloquées par sécurité. " +
+      "Ne ferme pas cette page et ne fais pas de nouvelles modifications."
+    );
+
     return false;
   }
 }
