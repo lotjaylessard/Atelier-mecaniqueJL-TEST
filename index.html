@@ -134,6 +134,10 @@ function resetInactivityTimer() {
   remainingTime = INACTIVITY_LIMIT;
 
   inactivityTimer = setTimeout(async function attemptAutomaticLogout() {
+        // Ignorer une tentative provenant d'un ancien minuteur
+    if (myGeneration !== inactivityGeneration) {
+      return;
+    }
     clearInterval(countdownInterval);
     removeWarningBanner();
 
