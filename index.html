@@ -3043,6 +3043,9 @@ let cloudSyncTimer = null;
   }
 }
 
+  // Permet au script module d'utiliser la déconnexion sécurisée
+window.attemptSafeLogout = attemptSafeLogout;
+
   
 function scheduleCloudSync(delay = 1500){
 
