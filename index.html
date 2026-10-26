@@ -119,9 +119,19 @@ function resetInactivityTimer() {
   const canLogout = await waitForCloudSyncBeforeLogout();
 
   if (!canLogout) {
-    console.warn("Déconnexion automatique annulée : sauvegarde non confirmée.");
-    return;
-  }
+  console.warn("Déconnexion automatique reportée : sauvegarde non confirmée.");
+
+  // Arrêter le compteur d'inactivité actuel
+  clearInterval(countdownInterval);
+  removeWarningBanner();
+
+  // Réessayer dans 60 secondes sans recharger la page
+  inactivityTimer = setTimeout(() => {
+    resetInactivityTimer();
+  }, 60000);
+
+  return;
+}
 
   await supabase.auth.signOut();
   window.location.replace("login.html");
