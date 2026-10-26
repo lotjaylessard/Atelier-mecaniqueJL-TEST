@@ -115,9 +115,17 @@ function resetInactivityTimer() {
   remainingTime = INACTIVITY_LIMIT;
 
   inactivityTimer = setTimeout(async () => {
-  blockCloudSyncForLogout();
+
+  const canLogout = await waitForCloudSyncBeforeLogout();
+
+  if (!canLogout) {
+    console.warn("Déconnexion automatique annulée : sauvegarde non confirmée.");
+    return;
+  }
+
   await supabase.auth.signOut();
   window.location.replace("login.html");
+
 }, INACTIVITY_LIMIT);
 
   // ⏳ Console countdown
