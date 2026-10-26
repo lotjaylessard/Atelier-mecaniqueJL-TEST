@@ -3349,8 +3349,18 @@ async function tryAutoMergeAddedNotes(localPayload, expectedVersion, savingRevis
   const base = CLOUD_LAST_CONFIRMED_SNAPSHOT;
   if (!base || CLOUD_CHANGE_REVISION !== savingRevision ||
       !Array.isArray(base.notes) || !Array.isArray(localPayload.notes)) return reject('Snapshot de base absent, notes invalides ou révision modifiée', {hasBase: !!base, revisionChanged: CLOUD_CHANGE_REVISION !== savingRevision});
+  // Comparaison profonde : l'ordre des cles d'objet n'est pas significatif.
+  // L'ordre des tableaux et toutes les valeurs restent strictement verifies.
+  const stableValue = value => {
+    if (Array.isArray(value)) return value.map(stableValue);
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableValue(value[key])]));
+    }
+    return value;
+  };
+  const sameData = (a, b) => JSON.stringify(stableValue(a)) === JSON.stringify(stableValue(b));
   const nonNotes = obj => { const copy = {...obj}; delete copy.notes; return copy; };
-  if (JSON.stringify(nonNotes(localPayload)) !== JSON.stringify(nonNotes(base))) return reject('Autres données différentes du snapshot confirmé', {localKeys: Object.keys(nonNotes(localPayload)), baseKeys: Object.keys(nonNotes(base))});
+  if (!sameData(nonNotes(localPayload), nonNotes(base))) return reject('Autres données réellement différentes du snapshot confirmé', {localKeys: Object.keys(nonNotes(localPayload)), baseKeys: Object.keys(nonNotes(base))});
   const baseNotes = new Map(base.notes.map(n => [String(n.id), n]));
   const localNotes = new Map(localPayload.notes.map(n => [String(n.id), n]));
   if (baseNotes.size !== base.notes.length || localNotes.size !== localPayload.notes.length) return reject('Identifiants de notes en double');
