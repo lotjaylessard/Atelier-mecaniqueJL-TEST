@@ -53,7 +53,19 @@ supabase.auth.onAuthStateChange((event, session) => {
 
 if (error) {
   console.error("Erreur de déconnexion manuelle Supabase :", error);
-  alert("La déconnexion a échoué. Veuillez réessayer.");
+
+  // Réactiver la synchronisation seulement si la session est encore valide
+  const { data: sessionData, error: sessionError } =
+    await supabase.auth.getSession();
+
+  if (!sessionError && sessionData?.session?.user?.id === SUPABASE_USER?.id) {
+    CLOUD_DATA_READY = true;
+    console.log("Session toujours active : synchronisation réactivée.");
+  } else {
+    console.error("Session non confirmée : synchronisation maintenue bloquée.");
+  }
+
+  alert("La déconnexion a échoué. Vérifie ta session avant de continuer.");
   return;
 }
 };
