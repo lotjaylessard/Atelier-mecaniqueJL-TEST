@@ -3036,6 +3036,9 @@ let cloudSyncTimer = null;
 
   async function recoverCloudSyncAfterFailedLogout() {
 
+  // Mémoriser la révision avant les vérifications asynchrones
+  const logoutStartRevision = CLOUD_CHANGE_REVISION;
+
   // Vérifier que l'utilisateur et la version cloud sont inchangés
   const cloudVerified = await verifyCloudStateAfterFailedLogout();
 
