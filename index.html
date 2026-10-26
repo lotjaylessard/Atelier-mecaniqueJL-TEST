@@ -3239,6 +3239,99 @@ function showCloudRecoveryBanner(key) {
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
   box.appendChild(btn);
+  const mergeBtn = document.createElement("button");
+  mergeBtn.textContent = "Fusionner les nouvelles notes du JSON (TEST)";
+  mergeBtn.style.marginLeft = "10px";
+  mergeBtn.onclick = chooseRecoveredNotesFile;
+  box.appendChild(mergeBtn);
+}
+
+/* ===================== TEST : FUSION MANUELLE DES NOUVELLES NOTES =====================
+   N'importe JAMAIS le snapshot complet. Relit le cloud, ajoute uniquement
+   les notes absentes et exige une mise a jour conditionnelle sur la version.
+   Une collision d'identifiant ou un conflit de version annule toute operation.
+*/
+async function importRecoveredNotesSafely(file) {
+  if (!file || !ACTIVE_GARAGE_ID || !SUPABASE_USER?.id) return;
+  if (CLOUD_SYNC_IN_PROGRESS || CLOUD_SYNC_PENDING || CLOUD_SYNC_DIRTY) {
+    alert("Sauvegarde locale en cours ou en attente. Fusion refusee pour eviter une perte de donnees.");
+    return;
+  }
+  let recovery;
+  try { recovery = JSON.parse(await file.text()); }
+  catch (_) { alert("Fichier JSON invalide."); return; }
+  if (recovery?.format !== "atelier-test-unsynced-v1" ||
+      recovery.garageId !== ACTIVE_GARAGE_ID ||
+      recovery.userId !== SUPABASE_USER.id ||
+      !Array.isArray(recovery.data?.notes)) {
+    alert("Sauvegarde non reconnue ou appartenant a un autre garage/utilisateur.");
+    return;
+  }
+  const incoming = recovery.data.notes;
+  if (incoming.some(n => !n || !Number.isSafeInteger(n.id) ||
+      typeof n.text !== "string" || typeof n.category !== "string" ||
+      typeof n.date !== "string") ||
+      new Set(incoming.map(n => n.id)).size !== incoming.length) {
+    alert("Notes invalides ou identifiants dupliques dans la sauvegarde.");
+    return;
+  }
+  let current;
+  try {
+    const {data, error} = await sb.from("garage_data")
+      .select("data, version").eq("garage_id", ACTIVE_GARAGE_ID).maybeSingle();
+    if (error || !data || !Number.isSafeInteger(data.version) ||
+        !data.data || !Array.isArray(data.data.notes)) throw error || new Error("Cloud invalide");
+    current = data;
+  } catch (err) {
+    console.error("Lecture cloud impossible avant fusion :", err);
+    alert("Impossible de lire les donnees actuelles du garage. Rien n'a ete modifie.");
+    return;
+  }
+  const existing = new Map(current.data.notes.map(n => [n.id, n]));
+  const collisions = incoming.filter(n => existing.has(n.id) &&
+    JSON.stringify(existing.get(n.id)) !== JSON.stringify(n));
+  if (collisions.length) {
+    alert(`${collisions.length} note(s) ont le meme identifiant mais un contenu different. Fusion annulee.`);
+    return;
+  }
+  const additions = incoming.filter(n => !existing.has(n.id));
+  if (!additions.length) {
+    alert("Aucune nouvelle note a ajouter : toutes les notes du fichier sont deja dans Supabase.");
+    return;
+  }
+  const preview = additions.map(n => `• ${n.text.slice(0, 100)}`).join("\n");
+  if (!confirm(`Ajouter UNIQUEMENT ces ${additions.length} note(s) dans Supabase TEST ?\n\n${preview}\n\nLes autres donnees du fichier ne seront PAS importees. Conserve ton JSON de secours.`)) return;
+  const merged = {...current.data, notes: [...current.data.notes, ...additions].sort((a,b) => b.id-a.id)};
+  try {
+    const {data: rows, error} = await sb.from("garage_data")
+      .update({data: merged, version: current.version + 1, updated_at: new Date().toISOString()})
+      .eq("garage_id", ACTIVE_GARAGE_ID).eq("version", current.version)
+      .select("garage_id, version");
+    if (error || !Array.isArray(rows) || rows.length !== 1 ||
+        rows[0].garage_id !== ACTIVE_GARAGE_ID || rows[0].version !== current.version + 1) {
+      throw error || new Error("Conflit de version pendant la fusion");
+    }
+    CLOUD_DATA_VERSION = rows[0].version;
+    CLOUD_DATA_READY = true;
+    CLOUD_SYNC_FAILED = false;
+    CLOUD_SYNC_PENDING = false;
+    CLOUD_SYNC_DIRTY = false;
+    hydrateLocalFromCloud(merged);
+    loadNotes(); renderNotes(); renderDashboard();
+    alert(`${additions.length} note(s) ajoutee(s) dans Supabase TEST. La copie JSON reste conservee.`);
+  } catch (err) {
+    console.error("Fusion de notes refusee :", err);
+    CLOUD_DATA_READY = false;
+    alert("Fusion non confirmee (conflit ou erreur). Aucune re-ecriture forcee. Conserve le JSON et recharge avant de reessayer.");
+  }
+}
+
+function chooseRecoveredNotesFile() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json,application/json";
+  input.onchange = () => { if (input.files?.[0]) importRecoveredNotesSafely(input.files[0]); };
+  input.click();
 }
 
 function scheduleCloudSync(delay = 1500){
