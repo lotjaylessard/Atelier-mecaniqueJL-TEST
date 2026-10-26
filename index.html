@@ -3020,9 +3020,18 @@ let cloudSyncTimer = null;
     const { error } = await sb.auth.signOut();
 
     if (error) {
-      console.error("Erreur de déconnexion Supabase :", error);
-      return false;
-    }
+  console.error("Erreur de déconnexion Supabase :", error);
+
+  // La déconnexion a échoué : garder les sauvegardes bloquées
+  // jusqu'à une vérification complète de la session et des données.
+  alert(
+    "La déconnexion a échoué.\n\n" +
+    "Les sauvegardes sont temporairement bloquées pour protéger tes données. " +
+    "Ne ferme pas cette page."
+  );
+
+  return false;
+}
 
     console.log("Déconnexion Supabase réussie.");
     return true;
