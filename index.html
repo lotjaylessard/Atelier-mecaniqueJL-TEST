@@ -2985,7 +2985,55 @@ let cloudSyncTimer = null;
   return true;
 }
 
+  
+  async function verifyCloudStateAfterFailedLogout() {
 
+  try {
+    // Vérifier que la session appartient toujours au même utilisateur
+    const { data: authData, error: authError } = await sb.auth.getUser();
+
+    if (
+      authError ||
+      !authData?.user?.id ||
+      authData.user.id !== SUPABASE_USER?.id
+    ) {
+      console.error("Session Supabase non confirmée.");
+      return false;
+    }
+
+    // Vérifier que le garage actif est toujours connu
+    if (!ACTIVE_GARAGE_ID) {
+      console.error("Garage actif manquant.");
+      return false;
+    }
+
+    // Vérifier la version cloud sans charger les données
+    const { data, error } = await sb
+      .from("garage_data")
+      .select("version")
+      .eq("garage_id", ACTIVE_GARAGE_ID)
+      .maybeSingle();
+
+    if (
+      error ||
+      !data ||
+      !Number.isSafeInteger(data.version) ||
+      data.version !== CLOUD_DATA_VERSION
+    ) {
+      console.error("Version cloud différente ou non confirmée.");
+      return false;
+    }
+
+    console.log("Session et version cloud vérifiées.");
+    return true;
+
+  } catch (err) {
+    console.error("Erreur de vérification après déconnexion :", err);
+    return false;
+  }
+}
+
+  
   async function attemptSafeLogout() {
 
   const canLogout = await waitForCloudSyncBeforeLogout();
