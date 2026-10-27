@@ -3751,30 +3751,8 @@ async function tryAutoMergeAddedWOLines(localPayload, expectedVersion, savingRev
     original.every((line,i)=>same(line,changed[i]));
   const uniqueIds = arr => Array.isArray(arr) && arr.every(w=>w && w.id!=null) &&
     new Set(arr.map(w=>String(w.id))).size === arr.length;
-  if (!same(other(localPayload),other(base))) {
-    // Diagnostic TEST #17D : aucune donnée sensible affichée, aucune écriture.
-    // On affiche uniquement les chemins des champs différents, jamais leurs valeurs.
-    const changedPaths = [];
-    const walk = (a,b,path,depth=0) => {
-      if (changedPaths.length >= 40) return;
-      if (same(a,b)) return;
-      if (depth >= 8 || a === null || b === null ||
-          typeof a !== 'object' || typeof b !== 'object') {
-        changedPaths.push(path || '(racine)'); return;
-      }
-      const keys = new Set([...Object.keys(a),...Object.keys(b)]);
-      for (const k of keys) {
-        if (changedPaths.length >= 40) break;
-        if (!Object.prototype.hasOwnProperty.call(a,k) ||
-            !Object.prototype.hasOwnProperty.call(b,k)) {
-          changedPaths.push(path ? path+'.'+k : k);
-        } else walk(a[k],b[k],Array.isArray(a) ? path+'['+k+']' : (path ? path+'.'+k : k),depth+1);
-      }
-    };
-    walk(other(base),other(localPayload),'');
-    console.warn('[TEST #17D] Champs locaux differents de la base (chemins seulement):', changedPaths);
-    return reject('Autres donnees locales modifiees');
-  }
+  // TEST #17E : reporter la verification des autres categories apres identification du BT.
+  // Seule une hausse du KM de la fiche du vehicule lie au BT sera autorisee.
   if (!uniqueIds(base.workorders) || !uniqueIds(localPayload.workorders) ||
       base.workorders.length !== localPayload.workorders.length) return reject('Liste BT modifiee');
   const baseById=new Map(base.workorders.map(w=>[String(w.id),w]));
@@ -3795,6 +3773,28 @@ async function tryAutoMergeAddedWOLines(localPayload, expectedVersion, savingRev
     target={id,b};
   }
   if (!target || localById.size !== baseById.size) return reject('BT ajoute ou supprime');
+
+  // Verifier toutes les donnees locales hors BT. Seule la mise a jour automatique
+  // du KM du vehicule de ce BT est permise, sans aucune autre modification.
+  const km = Number(target.b.vehicleKm);
+  if (!Number.isFinite(km) || km <= 0) return reject('KM BT invalide');
+  const findVehicle = (snapshot) => {
+    const client = snapshot.clients?.find(c=>String(c.id)===String(target.b.clientId));
+    return client?.vehicles?.find(v=>String(v.id)===String(target.b.vehicleId));
+  };
+  const baseVehicle=findVehicle(base), localVehicle=findVehicle(localPayload);
+  if (!baseVehicle || !localVehicle) return reject('Vehicule BT absent');
+  const baseKm=Number(baseVehicle.km), localKm=Number(localVehicle.km);
+  if (!Number.isFinite(baseKm) || !Number.isFinite(localKm)) return reject('KM vehicule invalide');
+  const localNormalized=structuredClone(localPayload);
+  const normalizedVehicle=findVehicle(localNormalized);
+  // La valeur du KM doit etre soit inchangee, soit exactement celle du BT.
+  if (localKm !== baseKm && !(localKm === km && km > baseKm))
+    return reject('KM local different de la mise a jour automatique du BT');
+  normalizedVehicle.km=baseVehicle.km;
+  if (!same(other(localNormalized),other(base)))
+    return reject('Autres donnees locales modifiees (hors KM automatique)');
+
   if (base.invoices?.some(i=>String(i.workOrderNumber)===String(target.b.number)))
     return reject('BT deja associe a une facture');
   for(let attempt=0;attempt<3;attempt++) {
@@ -3808,6 +3808,13 @@ async function tryAutoMergeAddedWOLines(localPayload, expectedVersion, savingRev
     if(!validLines(remote) || !same(meta(remote),meta(target.b)) ||
        !prefix(target.b.parts,remote.parts) || !prefix(target.b.labor,remote.labor))
       return reject('BT distant modifie autrement que par ajout');
+    // Ne jamais ecraser une modification concurrente du vehicule.
+    const remoteVehicle=findVehicle(cloud.data);
+    if (!remoteVehicle || !Number.isFinite(Number(remoteVehicle.km)))
+      return reject('KM vehicule cloud absent ou invalide');
+    const remoteKm=Number(remoteVehicle.km);
+    if (remoteKm !== baseKm && remoteKm !== localKm)
+      return reject('KM vehicule cloud modifie differemment');
     if(cloud.data.invoices?.some(i=>String(i.workOrderNumber)===String(target.b.number)))
       return reject('BT facture dans le cloud');
     // Les nouveaux ajouts distants sont conserves, les ajouts locaux suivent.
@@ -3817,6 +3824,13 @@ async function tryAutoMergeAddedWOLines(localPayload, expectedVersion, savingRev
       sum+Number(line.total || (line.qty*line.rate) || (line.hours*line.rate) || 0),0);
     const merged={...cloud.data,workorders:cloud.data.workorders.map(w=>
       String(w.id)===target.id ? updated : w)};
+    // Hausse du KM seulement si le cloud n'a pas ete modifie entretemps.
+    if (localKm > remoteKm) {
+      merged.clients=structuredClone(cloud.data.clients);
+      const mergedVehicle=findVehicle(merged);
+      if (!mergedVehicle) return reject('Vehicule fusionne introuvable');
+      mergedVehicle.km=localKm;
+    }
     if(CLOUD_CHANGE_REVISION!==savingRevision) return reject('Revision locale changee avant ecriture');
     const {data:rows,error:writeError}=await sb.from('garage_data')
       .update({data:merged,version:cloud.version+1,updated_at:new Date().toISOString()})
