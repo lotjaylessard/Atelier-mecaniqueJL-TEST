@@ -3855,6 +3855,109 @@ async function tryAutoMergeAddedWOLines(localPayload, expectedVersion, savingRev
   return reject('Trois collisions de version consecutives');
 }
 
+// TEST #19B : fusion conservative de modifications sur des lignes distinctes du meme BT.
+async function tryAutoMergeDistinctWOLineEdits(localPayload, expectedVersion, savingRevision) {
+  const reject = reason => { console.warn('[TEST #19B] Fusion refusee :', reason); return false; };
+  const base = CLOUD_LAST_CONFIRMED_SNAPSHOT;
+  if (!base || CLOUD_CHANGE_REVISION !== savingRevision) return reject('Base ou revision invalide');
+  const stable = x => Array.isArray(x) ? x.map(stable) :
+    x && typeof x === 'object' ? Object.fromEntries(Object.keys(x).sort().map(k => [k,stable(x[k])])) : x;
+  const same = (a,b) => JSON.stringify(stable(a)) === JSON.stringify(stable(b));
+  const other = x => { const y={...x}; delete y.workorders; return y; };
+  const meta = w => { const y={...w}; delete y.parts; delete y.labor; delete y.estimateTotal; return y; };
+  const unique = arr => Array.isArray(arr) && arr.every(w => w && w.id != null) &&
+    new Set(arr.map(w => String(w.id))).size === arr.length;
+  const lines = w => Array.isArray(w?.parts) && Array.isArray(w?.labor);
+  const differences = (a,b) => a.map((v,i) => same(v,b[i]) ? -1 : i).filter(i => i >= 0);
+  const calc = w => [...w.parts,...w.labor].reduce((sum,line) =>
+    sum + Number(line.total || (line.qty * line.rate) || (line.hours * line.rate) || 0), 0);
+  if (!unique(base.workorders) || !unique(localPayload.workorders) ||
+      base.workorders.length !== localPayload.workorders.length) return reject('Liste BT locale modifiee');
+  const localMap=new Map(localPayload.workorders.map(w=>[String(w.id),w]));
+  let target=null;
+  for (const b of base.workorders) {
+    const l=localMap.get(String(b.id));
+    if (!l || !lines(b) || !lines(l)) return reject('BT local absent ou invalide');
+    if (same(b,l)) continue;
+    if (target || !same(meta(b),meta(l)) || b.parts.length!==l.parts.length ||
+        b.labor.length!==l.labor.length) return reject('Plusieurs BT, metadata ou lignes ajoutees/supprimees');
+    const parts=differences(b.parts,l.parts), labor=differences(b.labor,l.labor);
+    if (parts.length+labor.length!==1 || Number(l.estimateTotal)!==calc(l))
+      return reject('Modification locale non unique ou total incorrect');
+    target={b,l,id:String(b.id),kind:parts.length?'parts':'labor',index:parts.length?parts[0]:labor[0]};
+  }
+  if (!target) return reject('Aucune ligne locale modifiee');
+  const findVehicle = snap => {
+    const c=snap.clients?.find(c=>String(c.id)===String(target.b.clientId));
+    return c?.vehicles?.find(v=>String(v.id)===String(target.b.vehicleId));
+  };
+  const baseVehicle=findVehicle(base), localVehicle=findVehicle(localPayload);
+  if (!baseVehicle || !localVehicle) return reject('Vehicule absent');
+  const baseKm=Number(baseVehicle.km), localKm=Number(localVehicle.km), btKm=Number(target.b.vehicleKm);
+  if (![baseKm,localKm,btKm].every(Number.isFinite) || btKm<=0 ||
+      (localKm!==baseKm && !(localKm===btKm && btKm>baseKm)))
+    return reject('KM local incompatible');
+  const normalized=structuredClone(localPayload);
+  findVehicle(normalized).km=baseVehicle.km;
+  if (!same(other(normalized),other(base))) return reject('Autres categories locales modifiees');
+  if (base.invoices?.some(i=>String(i.workOrderNumber)===String(target.b.number)))
+    return reject('BT deja facture localement');
+  for(let attempt=0;attempt<3;attempt++) {
+    if(CLOUD_CHANGE_REVISION!==savingRevision) return reject('Revision locale changee');
+    const {data:cloud,error:readError}=await sb.from('garage_data').select('data, version')
+      .eq('garage_id',ACTIVE_GARAGE_ID).maybeSingle();
+    if(readError || !cloud || !Number.isSafeInteger(cloud.version) ||
+       cloud.version<=expectedVersion || !unique(cloud.data?.workorders))
+      return reject('Lecture cloud invalide');
+    const remote=cloud.data.workorders.find(w=>String(w.id)===target.id);
+    if(!lines(remote) || !same(meta(remote),meta(target.b)) ||
+       remote.parts.length!==target.b.parts.length || remote.labor.length!==target.b.labor.length)
+      return reject('Structure BT distante modifiee');
+    const remoteParts=differences(target.b.parts,remote.parts);
+    const remoteLabor=differences(target.b.labor,remote.labor);
+    if(remoteParts.length+remoteLabor.length!==1 ||
+       (target.kind==='parts' && remoteParts.includes(target.index)) ||
+       (target.kind==='labor' && remoteLabor.includes(target.index)))
+      return reject('Modification distante non independante');
+    if (Number(remote.estimateTotal)!==calc(remote)) return reject('Total distant incorrect');
+    if(cloud.data.invoices?.some(i=>String(i.workOrderNumber)===String(target.b.number)))
+      return reject('BT facture dans le cloud');
+    const remoteVehicle=findVehicle(cloud.data);
+    if(!remoteVehicle || !Number.isFinite(Number(remoteVehicle.km))) return reject('KM cloud invalide');
+    const remoteKm=Number(remoteVehicle.km);
+    if(remoteKm!==baseKm && remoteKm!==localKm) return reject('KM cloud modifie differemment');
+    const updated=structuredClone(remote);
+    updated[target.kind][target.index]=structuredClone(target.l[target.kind][target.index]);
+    updated.estimateTotal=calc(updated);
+    const merged={...cloud.data,workorders:cloud.data.workorders.map(w=>
+      String(w.id)===target.id?updated:w)};
+    if(localKm>remoteKm){
+      merged.clients=structuredClone(cloud.data.clients);
+      findVehicle(merged).km=localKm;
+    }
+    if(CLOUD_CHANGE_REVISION!==savingRevision) return reject('Revision changee avant ecriture');
+    const {data:rows,error:writeError}=await sb.from('garage_data')
+      .update({data:merged,version:cloud.version+1,updated_at:new Date().toISOString()})
+      .eq('garage_id',ACTIVE_GARAGE_ID).eq('version',cloud.version)
+      .select('garage_id, version');
+    if(writeError) return reject('Ecriture refusee : '+writeError.message);
+    if(!Array.isArray(rows)||rows.length!==1) continue;
+    if(rows[0].garage_id!==ACTIVE_GARAGE_ID||rows[0].version!==cloud.version+1)
+      return reject('Confirmation inattendue');
+    CLOUD_DATA_VERSION=rows[0].version;
+    if(CLOUD_CHANGE_REVISION!==savingRevision)
+      return reject('Fusion confirmee mais nouvelles modifications locales');
+    hydrateLocalFromCloud(merged);
+    renderWorkOrders(); renderDashboard();
+    if(document.getElementById('woDetailCard')?.style.display!=='none' &&
+       String(document.getElementById('woEditId')?.value)===target.id)
+      openWorkOrderDetail(WORKORDERS.find(w=>String(w.id)===target.id));
+    console.log('[TEST #19B] Deux modifications de lignes distinctes fusionnees',target.id);
+    return true;
+  }
+  return reject('Trois collisions consecutives');
+}
+
 function scheduleCloudSync(delay = 1500){
 
   if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY) {
@@ -3971,6 +4074,13 @@ if (!error && (!Array.isArray(savedRows) || savedRows.length === 0)) {
     CLOUD_SYNC_DIRTY = false;
     CLOUD_SYNC_PENDING = false;
     console.log('TEST : conflit resolu automatiquement pour ajouts de lignes BT.');
+    return;
+  }
+  if (await tryAutoMergeDistinctWOLineEdits(payload, expectedVersion, savingRevision)) {
+    CLOUD_SYNC_FAILED = false;
+    CLOUD_SYNC_DIRTY = false;
+    CLOUD_SYNC_PENDING = false;
+    console.log('[TEST #19B] Conflit resolu pour modifications de lignes distinctes.');
     return;
   }
   throw new Error(
