@@ -5202,15 +5202,18 @@ function saveManualPart(){
     return;
   }
 
+  // TEST #22B : utiliser le meme format que les autres lignes de pieces.
+  // Calculer le total avant la sauvegarde et la synchronisation cloud.
   wo.parts.push({
-  name,
-  qty,
-  cost,   // 👈 vient du champ
-  price: rate
-});
+    name,
+    qty,
+    cost,
+    rate,
+    total: qty * rate
+  });
 
-  saveWorkOrders();
   woRenderLines(wo);
+  saveWorkOrders();
 
   // reset + fermer
   $("woManualPartName").value = "";
