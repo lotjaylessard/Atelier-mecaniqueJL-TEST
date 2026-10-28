@@ -5213,7 +5213,10 @@ function saveManualPart(){
   });
 
   woRenderLines(wo);
-  saveWorkOrders();
+  // TEST #22D : persister le BT recalcule dans WORKORDERS avant le snapshot cloud.
+  // Contrairement a saveWorkOrders(), persistActiveWO remet aussi l'objet actif
+  // dans WORKORDERS et recalcule estimateTotal avant la sauvegarde.
+  persistActiveWO(wo);
 
   // reset + fermer
   $("woManualPartName").value = "";
