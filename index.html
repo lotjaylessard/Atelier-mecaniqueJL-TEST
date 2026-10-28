@@ -7004,8 +7004,9 @@ wo.parts.push({
   total: qty * rate
 });
 
-    saveWorkOrders();
-    woRenderLines(wo);
+    // TEST #22E : recalculer le total AVANT la sauvegarde
+woRenderLines(wo);
+saveWorkOrders();
 
     // reset + fermer
     document.getElementById("woManualPartName").value = "";
