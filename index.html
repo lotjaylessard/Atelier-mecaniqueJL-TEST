@@ -3958,6 +3958,79 @@ async function tryAutoMergeDistinctWOLineEdits(localPayload, expectedVersion, sa
   return reject('Trois collisions consecutives');
 }
 
+/* TEST #27 : fusion conservative de descriptions sur deux BT distincts.
+   Accepte uniquement UNE description locale modifiee, sans autre changement local.
+   Refuse si le meme BT a change dans le cloud, meme sur un autre champ.
+   La mise a jour Supabase reste conditionnelle sur la version. */
+async function tryAutoMergeDistinctWODescriptions(localPayload, expectedVersion, savingRevision) {
+  const reject = reason => { console.warn('[TEST #27] Fusion descriptions refusee :', reason); return false; };
+  const base = CLOUD_LAST_CONFIRMED_SNAPSHOT;
+  if (!base || CLOUD_CHANGE_REVISION !== savingRevision ||
+      !Array.isArray(base.workorders) || !Array.isArray(localPayload.workorders))
+    return reject('Snapshot ou revision invalide');
+  const stable = x => Array.isArray(x) ? x.map(stable) :
+    x && typeof x === 'object' ? Object.fromEntries(Object.keys(x).sort().map(k => [k, stable(x[k])])) : x;
+  const same = (a,b) => JSON.stringify(stable(a)) === JSON.stringify(stable(b));
+  const other = x => { const y = {...x}; delete y.workorders; return y; };
+  const withoutDescription = w => { const y = {...w}; delete y.description; return y; };
+  const unique = arr => Array.isArray(arr) && arr.every(w => w && w.id != null && typeof w.number === 'string') &&
+    new Set(arr.map(w => String(w.id))).size === arr.length &&
+    new Set(arr.map(w => w.number)).size === arr.length;
+  if (!same(other(base), other(localPayload))) return reject('Autres categories locales modifiees');
+  if (!unique(base.workorders) || !unique(localPayload.workorders) ||
+      base.workorders.length !== localPayload.workorders.length)
+    return reject('Liste de BT invalide ou modifiee');
+  const localMap = new Map(localPayload.workorders.map(w => [String(w.id), w]));
+  let target = null;
+  for (const original of base.workorders) {
+    const local = localMap.get(String(original.id));
+    if (!local || !same(withoutDescription(original), withoutDescription(local)))
+      return reject('BT local modifie hors description ou supprime');
+    if (same(original, local)) continue;
+    if (target || typeof local.description !== 'string')
+      return reject('Plusieurs BT modifies ou description invalide');
+    target = {id:String(original.id), original, local};
+  }
+  if (!target) return reject('Aucune description locale modifiee');
+  if (base.invoices?.some(i => String(i.workOrderNumber) === target.original.number))
+    return reject('BT deja facture localement');
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (CLOUD_CHANGE_REVISION !== savingRevision) return reject('Revision locale changee');
+    const {data:cloud, error:readError} = await sb.from('garage_data')
+      .select('data, version').eq('garage_id', ACTIVE_GARAGE_ID).maybeSingle();
+    if (readError || !cloud || !Number.isSafeInteger(cloud.version) ||
+        cloud.version <= expectedVersion || !cloud.data || !unique(cloud.data.workorders))
+      return reject('Lecture cloud ou version invalide');
+    const remote = cloud.data.workorders.find(w => String(w.id) === target.id);
+    if (!remote || !same(remote, target.original))
+      return reject('Le meme BT a ete modifie ou supprime dans le cloud');
+    if (cloud.data.invoices?.some(i => String(i.workOrderNumber) === target.original.number))
+      return reject('BT facture dans le cloud');
+    const merged = {...cloud.data, workorders:cloud.data.workorders.map(w =>
+      String(w.id) === target.id ? {...w, description:target.local.description} : w)};
+    if (CLOUD_CHANGE_REVISION !== savingRevision) return reject('Revision changee avant ecriture');
+    const {data:rows, error:writeError} = await sb.from('garage_data')
+      .update({data:merged, version:cloud.version+1, updated_at:new Date().toISOString()})
+      .eq('garage_id', ACTIVE_GARAGE_ID).eq('version', cloud.version)
+      .select('garage_id, version');
+    if (writeError) return reject('Ecriture refusee : ' + writeError.message);
+    if (!Array.isArray(rows) || rows.length !== 1) continue;
+    if (rows[0].garage_id !== ACTIVE_GARAGE_ID || rows[0].version !== cloud.version+1)
+      return reject('Confirmation de version inattendue');
+    CLOUD_DATA_VERSION = rows[0].version;
+    if (CLOUD_CHANGE_REVISION !== savingRevision)
+      return reject('Fusion confirmee mais nouvelles modifications locales');
+    hydrateLocalFromCloud(merged);
+    renderWorkOrders(); renderDashboard();
+    if (document.getElementById('woDetailCard')?.style.display !== 'none' &&
+        String(document.getElementById('woEditId')?.value) === target.id)
+      openWorkOrderDetail(WORKORDERS.find(w => String(w.id) === target.id));
+    console.log('[TEST #27] Descriptions de BT distincts fusionnees automatiquement', target.id);
+    return true;
+  }
+  return reject('Trois collisions de version consecutives');
+}
+
 function scheduleCloudSync(delay = 1500){
 
   if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY) {
@@ -4081,6 +4154,13 @@ if (!error && (!Array.isArray(savedRows) || savedRows.length === 0)) {
     CLOUD_SYNC_DIRTY = false;
     CLOUD_SYNC_PENDING = false;
     console.log('[TEST #19B] Conflit resolu pour modifications de lignes distinctes.');
+    return;
+  }
+  if (await tryAutoMergeDistinctWODescriptions(payload, expectedVersion, savingRevision)) {
+    CLOUD_SYNC_FAILED = false;
+    CLOUD_SYNC_DIRTY = false;
+    CLOUD_SYNC_PENDING = false;
+    console.log('[TEST #27] Conflit resolu pour descriptions de BT distincts.');
     return;
   }
   throw new Error(
