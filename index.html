@@ -4093,6 +4093,17 @@ try {
 
   const payload = captureLocalGarageSnapshot();
 
+  // TEST #290 : ne pas transmettre de sauvegarde sans modification locale.
+  // Un autre utilisateur peut avoir change la version cloud entre-temps.
+  if (CLOUD_LAST_CONFIRMED_SNAPSHOT !== null &&
+      JSON.stringify(payload) === JSON.stringify(CLOUD_LAST_CONFIRMED_SNAPSHOT)) {
+    CLOUD_SYNC_DIRTY = (CLOUD_CHANGE_REVISION !== savingRevision);
+    CLOUD_SYNC_FAILED = false;
+    console.log("[TEST #290] Aucune modification locale : sauvegarde cloud ignoree.");
+    return;
+  }
+
+
   
 
 const expectedVersion = CLOUD_DATA_VERSION;
