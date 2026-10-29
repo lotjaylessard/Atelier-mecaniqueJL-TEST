@@ -4022,9 +4022,12 @@ async function tryAutoMergeDistinctWODescriptions(localPayload, expectedVersion,
       return reject('Fusion confirmee mais nouvelles modifications locales');
     hydrateLocalFromCloud(merged);
     renderWorkOrders(); renderDashboard();
-    if (document.getElementById('woDetailCard')?.style.display !== 'none' &&
-        String(document.getElementById('woEditId')?.value) === target.id)
-      openWorkOrderDetail(WORKORDERS.find(w => String(w.id) === target.id));
+    // TEST #27C : ne pas rouvrir le detail pendant la sauvegarde asynchrone.
+    // openWorkOrderDetail() appelle showPage(), qui reinitialise le module BT
+    // et peut retirer les controles du formulaire encore actif.
+    // La fusion n'a change que la description du BT courant : les controles
+    // deja affiches restent valides. La navigation suivante recharge le detail.
+    // La liste et le tableau de bord ont deja ete rafraichis ci-dessus.
     console.log('[TEST #27] Descriptions de BT distincts fusionnees automatiquement', target.id);
     return true;
   }
