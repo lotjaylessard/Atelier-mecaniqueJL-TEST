@@ -6754,15 +6754,10 @@ const statusLabel =
     "
   > km
 </div>
-  <b>Description Problème/Travail :</b>
-<span style="
-  background: #ffeb3b;
-  color: #000;
-  padding: 2px 6px;
-  border-radius: 4px;
-">
-  ${wo.description || "—"}
-</span>
+  <label for="woDescriptionEdit" style="display:block;font-weight:bold;margin-top:8px;">Description Problème/Travail :</label>
+  <textarea id="woDescriptionEdit" ${isPaid ? "disabled" : ""}
+    style="display:block;width:100%;max-width:650px;min-height:65px;margin-top:5px;"
+    placeholder="Description du problème ou du travail">${String(wo.description || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</textarea>
 </div>
     </div>
 
@@ -7225,6 +7220,16 @@ if (stopBtn){
 const saveBtn = $("woSaveBtn");
 if (saveBtn){
   saveBtn.onclick = () => {
+    // TEST #25 : description modifiable uniquement si le BT n'est pas payé.
+    const linkedInvoice = INVOICES.find(inv => String(inv.workOrderNumber) === String(wo.number));
+    if (linkedInvoice && linkedInvoice.status === "paid") {
+      alert("Ce bon de travail est verrouillé : facture payée.");
+      return;
+    }
+    const descriptionInput = $("woDescriptionEdit");
+    if (descriptionInput) {
+      wo.description = descriptionInput.value.trim();
+    }
 
     // recalcul totals
     const totalParts = wo.parts.reduce((s,p)=> s + (Number(p.rate||0) * Number(p.qty||0)), 0);
