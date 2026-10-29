@@ -4070,6 +4070,31 @@ function scheduleCloudSync(delay = 1500){
 }
 
 
+// TEST #303 : comparaison stable des snapshots avec valeurs par defaut.
+// On conserve tous les champs metier et on ignore uniquement l'ordre des cles.
+function garageSnapshotsEquivalent(a, b) {
+  const normalize = (snapshot) => {
+    const value = snapshot || {};
+    const normalized = {...value};
+    for (const key of ['clients','invoices','workorders','notes','links','parts','services']) {
+      if (normalized[key] == null) normalized[key] = [];
+    }
+    if (normalized.settings == null) normalized.settings = {};
+    if (normalized.invoiceCounter == null) normalized.invoiceCounter = 0;
+    const canonical = (v) => {
+      if (Array.isArray(v)) return v.map(canonical);
+      if (v && typeof v === 'object') {
+        const out = {};
+        for (const k of Object.keys(v).sort()) out[k] = canonical(v[k]);
+        return out;
+      }
+      return v;
+    };
+    return JSON.stringify(canonical(normalized));
+  };
+  return normalize(a) === normalize(b);
+}
+
 async function pushLocalDataToCloud(){
 
   if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY) {
@@ -4093,10 +4118,11 @@ try {
 
   const payload = captureLocalGarageSnapshot();
 
-  // TEST #290 : ne pas transmettre de sauvegarde sans modification locale.
-  // Un autre utilisateur peut avoir change la version cloud entre-temps.
+  // TEST #303 : comparer des donnees metier normalisees, pas la forme brute du JSON.
+  // Une ancienne ligne cloud peut omettre links ou invoiceCounter ; cela ne
+  // represente pas une modification de l'utilisateur.
   if (CLOUD_LAST_CONFIRMED_SNAPSHOT !== null &&
-      JSON.stringify(payload) === JSON.stringify(CLOUD_LAST_CONFIRMED_SNAPSHOT)) {
+      garageSnapshotsEquivalent(payload, CLOUD_LAST_CONFIRMED_SNAPSHOT)) {
     CLOUD_SYNC_DIRTY = (CLOUD_CHANGE_REVISION !== savingRevision);
     CLOUD_SYNC_FAILED = false;
     console.log("[TEST #290] Aucune modification locale : sauvegarde cloud ignoree.");
@@ -7408,8 +7434,21 @@ function initWorkOrderSaveButton(){
         return;
       }
       const descriptionInput = $("woDescriptionEdit");
+      const nextDescription = descriptionInput ? descriptionInput.value.trim() : (wo.description || "");
+
+      // TEST #303 : le clic Enregistrer n'est pas une modification en soi.
+      // Ne pas recalculer / reprogrammer une ecriture si aucune modification
+      // n'attend deja la synchronisation et si le formulaire est inchange.
+      // Ceci protege notamment une session ouverte sur une ancienne version.
+      if (nextDescription === (wo.description || "") &&
+          !CLOUD_SYNC_DIRTY && !CLOUD_SYNC_PENDING &&
+          !CLOUD_SYNC_IN_PROGRESS && !CLOUD_SYNC_FAILED) {
+        console.log("[TEST #303] BT inchange : aucune sauvegarde cloud programmee.");
+        alert("Aucune modification à enregistrer.");
+        return;
+      }
       if (descriptionInput) {
-        wo.description = descriptionInput.value.trim();
+        wo.description = nextDescription;
       }
 
       // 🔁 Recalcul COMPLET
