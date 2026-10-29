@@ -3845,10 +3845,10 @@ async function tryAutoMergeAddedWOLines(localPayload, expectedVersion, savingRev
       return reject('Fusion confirmee mais nouvelles modifications locales');
     hydrateLocalFromCloud(merged);
     renderWorkOrders(); renderDashboard();
-    // Ne pas conserver d'objet BT obsolete dans le detail ouvert.
-    if(document.getElementById('woDetailCard')?.style.display !== 'none' &&
-       String(document.getElementById('woEditId')?.value)===target.id)
-      openWorkOrderDetail(WORKORDERS.find(w=>String(w.id)===target.id));
+    // TEST #226 : ne pas rouvrir le detail pendant une fusion asynchrone.
+    // openWorkOrderDetail() appelle showPage(), qui peut reinitialiser les
+    // controles du BT actif. Le detail sera recharge a la prochaine ouverture.
+    // Les listes et le tableau de bord sont actualises ci-dessus.
     console.log('TEST : lignes BT fusionnees automatiquement',target.id);
     return true;
   }
@@ -3949,9 +3949,8 @@ async function tryAutoMergeDistinctWOLineEdits(localPayload, expectedVersion, sa
       return reject('Fusion confirmee mais nouvelles modifications locales');
     hydrateLocalFromCloud(merged);
     renderWorkOrders(); renderDashboard();
-    if(document.getElementById('woDetailCard')?.style.display!=='none' &&
-       String(document.getElementById('woEditId')?.value)===target.id)
-      openWorkOrderDetail(WORKORDERS.find(w=>String(w.id)===target.id));
+    // TEST #226 : garder le formulaire actif intact pendant la fusion.
+    // La reouverture du detail via showPage() perturbe ses controles.
     console.log('[TEST #19B] Deux modifications de lignes distinctes fusionnees',target.id);
     return true;
   }
