@@ -7305,8 +7305,19 @@ function initWorkOrderSaveButton(){
       const wo = WORKORDERS.find(w => String(w.id) === String(editId));
       if (!wo) return alert("Erreur : bon de travail introuvable.");
 
-      // 🔒 Description non modifiable ici (elle est dans l'entête)
-      // wo.description = $("woDescription")?.value.trim();
+      // TEST #25 : enregistrer la description dans le gestionnaire réellement actif.
+      // initWorkOrderSaveButton() remplace le onclick défini dans le détail du BT.
+      const linkedInvoice = INVOICES.find(inv =>
+        String(inv.workOrderNumber) === String(wo.number)
+      );
+      if (linkedInvoice?.status === "paid") {
+        alert("Ce bon de travail est verrouillé : facture payée.");
+        return;
+      }
+      const descriptionInput = $("woDescriptionEdit");
+      if (descriptionInput) {
+        wo.description = descriptionInput.value.trim();
+      }
 
       // 🔁 Recalcul COMPLET
       const totalParts = wo.parts.reduce((s,p)=> s + (p.rate * p.qty), 0);
