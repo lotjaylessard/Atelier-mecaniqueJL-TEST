@@ -4033,6 +4033,100 @@ async function tryAutoMergeDistinctWODescriptions(localPayload, expectedVersion,
   return reject('Trois collisions de version consecutives');
 }
 
+/* TEST #326 : fusion conservative des ajouts de notes techniques d'un seul BT.
+   La base est le dernier snapshot cloud confirme de CETTE session.
+   Les deux versions doivent conserver exactement le texte initial en prefixe.
+   Toute edition/suppression, modification locale supplementaire ou conflit de
+   facturation est refuse. Ecriture protegee par version (CAS). */
+async function tryAutoMergeAppendedWOTechnicalNotes(localPayload, expectedVersion, savingRevision) {
+  const reject = (reason) => {
+    console.warn('[TEST #326] Fusion notes techniques refusee :', reason);
+    return false;
+  };
+  const base = CLOUD_LAST_CONFIRMED_SNAPSHOT;
+  if (!base || CLOUD_CHANGE_REVISION !== savingRevision) return reject('Base ou revision invalide');
+  const same = garageSnapshotsEquivalent;
+  const withoutWorkOrders = snap => { const out = {...snap}; delete out.workorders; return out; };
+  const withoutNotes = wo => { const out = {...wo}; delete out.notes; return out; };
+  const unique = arr => Array.isArray(arr) && arr.every(w => w && w.id != null && typeof w.number === 'string') &&
+    new Set(arr.map(w => String(w.id))).size === arr.length &&
+    new Set(arr.map(w => w.number)).size === arr.length;
+  if (!unique(base.workorders) || !unique(localPayload.workorders) ||
+      base.workorders.length !== localPayload.workorders.length)
+    return reject('Liste de BT modifiee ou invalide');
+  if (!same(withoutWorkOrders(base), withoutWorkOrders(localPayload)))
+    return reject('Autres categories locales modifiees');
+  const localById = new Map(localPayload.workorders.map(w => [String(w.id), w]));
+  let target = null;
+  for (const original of base.workorders) {
+    const local = localById.get(String(original.id));
+    if (!local || !same(withoutNotes(original), withoutNotes(local)))
+      return reject('BT supprime ou modifie hors notes techniques');
+    const initial = original.notes == null ? '' : original.notes;
+    const edited = local.notes == null ? '' : local.notes;
+    if (typeof initial !== 'string' || typeof edited !== 'string')
+      return reject('Format des notes invalide');
+    if (initial === edited) continue;
+    if (target || !edited.startsWith(initial) || edited.length <= initial.length)
+      return reject('Plusieurs BT modifies ou notes initiales editees');
+    target = {id:String(original.id), original, initial, appended:edited.slice(initial.length)};
+  }
+  if (!target || !target.appended.trim()) return reject('Aucun ajout admissible');
+  if (base.invoices?.some(i => String(i.workOrderNumber) === target.original.number))
+    return reject('BT deja facture localement');
+  for (let attempt=0; attempt<3; attempt++) {
+    if (CLOUD_CHANGE_REVISION !== savingRevision) return reject('Revision locale changee');
+    const {data:cloud,error:readError} = await sb.from('garage_data')
+      .select('data, version').eq('garage_id',ACTIVE_GARAGE_ID).maybeSingle();
+    if (readError || !cloud || !Number.isSafeInteger(cloud.version) ||
+        cloud.version <= expectedVersion || !cloud.data || !unique(cloud.data.workorders))
+      return reject('Lecture cloud ou version invalide');
+    const remote = cloud.data.workorders.find(w => String(w.id) === target.id);
+    if (!remote || !same(withoutNotes(remote), withoutNotes(target.original)))
+      return reject('BT distant modifie hors notes techniques');
+    const remoteNotes = remote.notes == null ? '' : remote.notes;
+    if (typeof remoteNotes !== 'string' || !remoteNotes.startsWith(target.initial))
+      return reject('Notes distantes modifiees ou supprimees');
+    if (cloud.data.invoices?.some(i => String(i.workOrderNumber) === target.original.number))
+      return reject('BT facture dans le cloud');
+    const remoteSuffix = remoteNotes.slice(target.initial.length);
+    // Si l'ajout local est deja inclus, ne pas le dupliquer.
+    const alreadyIncluded = remoteSuffix === target.appended ||
+      remoteSuffix.endsWith(target.appended);
+    const separator = remoteNotes && !remoteNotes.endsWith('\n') &&
+      !target.appended.startsWith('\n') ? '\n' : '';
+    const combined = alreadyIncluded ? remoteNotes : remoteNotes + separator + target.appended;
+    if (combined === remoteNotes) {
+      CLOUD_DATA_VERSION = cloud.version;
+      if (CLOUD_CHANGE_REVISION !== savingRevision) return reject('Revision changee');
+      hydrateLocalFromCloud(cloud.data);
+      renderWorkOrders(); renderDashboard();
+      console.log('[TEST #326] Notes deja presentes dans le cloud : aucune duplication');
+      return true;
+    }
+    const merged = {...cloud.data, workorders:cloud.data.workorders.map(w =>
+      String(w.id) === target.id ? {...w,notes:combined} : w)};
+    if (CLOUD_CHANGE_REVISION !== savingRevision) return reject('Revision changee avant ecriture');
+    const {data:rows,error:writeError} = await sb.from('garage_data')
+      .update({data:merged,version:cloud.version+1,updated_at:new Date().toISOString()})
+      .eq('garage_id',ACTIVE_GARAGE_ID).eq('version',cloud.version)
+      .select('garage_id, version');
+    if (writeError) return reject('Ecriture Supabase refusee : '+writeError.message);
+    if (!Array.isArray(rows) || rows.length !== 1) continue;
+    if (rows[0].garage_id !== ACTIVE_GARAGE_ID || rows[0].version !== cloud.version+1)
+      return reject('Confirmation Supabase inattendue');
+    CLOUD_DATA_VERSION = rows[0].version;
+    if (CLOUD_CHANGE_REVISION !== savingRevision)
+      return reject('Fusion confirmee, mais nouvelles modifications locales');
+    hydrateLocalFromCloud(merged);
+    renderWorkOrders(); renderDashboard();
+    // Ne pas reconstruire le formulaire du BT pendant sa saisie.
+    console.log('[TEST #326] Ajouts de notes techniques fusionnes :',target.id);
+    return true;
+  }
+  return reject('Trois collisions de version consecutives');
+}
+
 function scheduleCloudSync(delay = 1500){
 
   if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY) {
@@ -4200,6 +4294,13 @@ if (!error && (!Array.isArray(savedRows) || savedRows.length === 0)) {
     CLOUD_SYNC_DIRTY = false;
     CLOUD_SYNC_PENDING = false;
     console.log('[TEST #27] Conflit resolu pour descriptions de BT distincts.');
+    return;
+  }
+  if (await tryAutoMergeAppendedWOTechnicalNotes(payload, expectedVersion, savingRevision)) {
+    CLOUD_SYNC_FAILED = false;
+    CLOUD_SYNC_DIRTY = false;
+    CLOUD_SYNC_PENDING = false;
+    console.log('[TEST #326] Conflit resolu pour ajouts de notes techniques.');
     return;
   }
   throw new Error(
