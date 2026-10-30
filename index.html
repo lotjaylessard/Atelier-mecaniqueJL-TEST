@@ -7440,6 +7440,29 @@ function initWorkOrderSaveButton(){
       // Ne pas recalculer / reprogrammer une ecriture si aucune modification
       // n'attend deja la synchronisation et si le formulaire est inchange.
       // Ceci protege notamment une session ouverte sur une ancienne version.
+      // TEST #312 : diagnostic non destructif des sauvegardes sans modification visible.
+      // Aucune protection de synchronisation n'est contournee.
+      if (nextDescription === (wo.description || "")) {
+        const diagnosticSnapshot = captureLocalGarageSnapshot();
+        const baseline = CLOUD_LAST_CONFIRMED_SNAPSHOT;
+        const keys = ['clients','invoices','workorders','notes','links','parts','services','settings','invoiceCounter'];
+        const differingSections = baseline ? keys.filter(key =>
+          !garageSnapshotsEquivalent({[key]: diagnosticSnapshot[key]}, {[key]: baseline[key]})
+        ) : ['baseline_absente'];
+        const baselineWO = Array.isArray(baseline?.workorders) ?
+          baseline.workorders.find(item => String(item.id) === String(wo.id)) : null;
+        console.info('[TEST #312] Diagnostic clic Enregistrer sans changement de description', {
+          cloudVersion: CLOUD_DATA_VERSION,
+          dirty: CLOUD_SYNC_DIRTY,
+          pending: CLOUD_SYNC_PENDING,
+          inProgress: CLOUD_SYNC_IN_PROGRESS,
+          failed: CLOUD_SYNC_FAILED,
+          currentRevision: CLOUD_CHANGE_REVISION,
+          snapshotEquivalent: baseline ? garageSnapshotsEquivalent(diagnosticSnapshot, baseline) : null,
+          differingSections,
+          workOrderEquivalent: baselineWO ? garageSnapshotsEquivalent({workorders:[wo]}, {workorders:[baselineWO]}) : null
+        });
+      }
       if (nextDescription === (wo.description || "") &&
           !CLOUD_SYNC_DIRTY && !CLOUD_SYNC_PENDING &&
           !CLOUD_SYNC_IN_PROGRESS && !CLOUD_SYNC_FAILED) {
