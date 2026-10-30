@@ -4131,9 +4131,9 @@ function scheduleCloudSync(delay = 1500){
 
   if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY) {
     console.warn("Synchronisation bloquée : session, garage ou données cloud non prêts.");
-    if (ACTIVE_GARAGE_ID && !CLOUD_DATA_READY) {
-      preserveFailedCloudSnapshot("Modification avec synchronisation bloquee");
-    }
+    // TEST #336 : le conflit a deja produit une copie de recuperation.
+    // Ne pas en creer une autre pour chaque frappe pendant le blocage.
+    // Les modifications restent dans le stockage local jusqu'a une reprise controlee.
     return;
   }
 
@@ -5558,6 +5558,9 @@ function validateAndUpdateVehicleKM(wo){
   return true;
 }
 
+
+let woTechnicalNotesSyncTimer = null;
+let woTechnicalNotesBlockedNoticeShown = false;
 
 function saveWorkOrders(){
   localStorage.setItem(STORAGE.workorders, JSON.stringify(WORKORDERS));
@@ -7238,14 +7241,28 @@ if (cancelManualBtn){
 }
 
     
-    // === NOTES TECHNIQUES DU BON DE TRAVAIL ===
+    // TEST #336 : minuteur partage entre les ouvertures du formulaire BT.
+// La sauvegarde locale reste immediate ; seule la demande cloud est differee.
+// === NOTES TECHNIQUES DU BON DE TRAVAIL ===
 const notesField = document.getElementById("woNotes");
 if (notesField){
   notesField.value = wo.notes || "";
 
   notesField.oninput = () => {
     wo.notes = notesField.value;
-    saveWorkOrders();
+    // TEST #336 : conserver immediatement la saisie localement,
+    // mais ne demander une synchronisation qu'apres une pause de frappe.
+    localStorage.setItem(STORAGE.workorders, JSON.stringify(WORKORDERS));
+    clearTimeout(woTechnicalNotesSyncTimer);
+    woTechnicalNotesSyncTimer = setTimeout(() => {
+      woTechnicalNotesSyncTimer = null;
+      if (CLOUD_DATA_READY && !CLOUD_SYNC_FAILED) {
+        scheduleCloudSync();
+      } else if (!woTechnicalNotesBlockedNoticeShown) {
+        woTechnicalNotesBlockedNoticeShown = true;
+        console.warn('[TEST #336] Notes conservees localement ; synchronisation bloquee apres conflit. Copie de recuperation precedente a conserver.');
+      }
+    }, 1000);
   };
 }
 
