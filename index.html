@@ -4127,6 +4127,96 @@ async function tryAutoMergeAppendedWOTechnicalNotes(localPayload, expectedVersio
   return reject('Trois collisions de version consecutives');
 }
 
+/* TEST #385 : fusion prudente des ajouts de fichiers sur un seul BT.
+   Aucune suppression locale, aucun changement de champ autre que attachments.
+   Le cloud reste la source de verite pour tous les autres champs. */
+async function tryAutoMergeAddedWOAttachments(localPayload, expectedVersion, savingRevision) {
+  const reject = reason => {
+    console.warn('[TEST #385] Fusion fichiers refusee :', reason);
+    return false;
+  };
+  const base = CLOUD_LAST_CONFIRMED_SNAPSHOT;
+  const same = garageSnapshotsEquivalent;
+  if (!base || CLOUD_CHANGE_REVISION !== savingRevision) return reject('Snapshot ou revision invalide');
+  const stripWO = snap => { const out={...snap}; delete out.workorders; return out; };
+  const stripAttachments = wo => { const out={...wo}; delete out.attachments; return out; };
+  const validWOs = arr => Array.isArray(arr) && arr.every(w => w && w.id != null && typeof w.number === 'string') &&
+    new Set(arr.map(w => String(w.id))).size === arr.length;
+  const validAttachments = arr => Array.isArray(arr) && arr.every(a => a && a.id != null &&
+    typeof a.path === 'string' && a.path.length > 0 && typeof a.name === 'string') &&
+    new Set(arr.map(a => String(a.id))).size === arr.length &&
+    new Set(arr.map(a => a.path)).size === arr.length;
+  if (!validWOs(base.workorders) || !validWOs(localPayload.workorders) ||
+      base.workorders.length !== localPayload.workorders.length ||
+      !same(stripWO(base), stripWO(localPayload))) return reject('Autres donnees locales modifiees');
+  const locals = new Map(localPayload.workorders.map(w => [String(w.id),w]));
+  let target=null;
+  for (const original of base.workorders) {
+    const local=locals.get(String(original.id));
+    if (!local || !same(stripAttachments(original),stripAttachments(local)))
+      return reject('BT local modifie hors fichiers');
+    const old=original.attachments || [], now=local.attachments || [];
+    if (!validAttachments(old) || !validAttachments(now) || now.length < old.length ||
+        !old.every(a => now.some(b => String(a.id)===String(b.id) && same(a,b))))
+      return reject('Fichiers locaux modifies ou supprimes');
+    const added=now.filter(a => !old.some(b => String(b.id)===String(a.id)));
+    if (!added.length) continue;
+    if (target || added.some(a => !a.path.startsWith(`${SUPABASE_USER.id}/`)))
+      return reject('Plusieurs BT ou chemin de fichier invalide');
+    target={id:String(original.id),number:original.number,old,added};
+  }
+  if (!target) return reject('Aucun fichier ajoute');
+  for (let attempt=0;attempt<3;attempt++) {
+    if (CLOUD_CHANGE_REVISION !== savingRevision) return reject('Revision locale changee');
+    const {data:cloud,error:readError}=await sb.from('garage_data')
+      .select('data, version').eq('garage_id',ACTIVE_GARAGE_ID).maybeSingle();
+    if (readError || !cloud || !Number.isSafeInteger(cloud.version) ||
+        cloud.version <= expectedVersion || !cloud.data || !validWOs(cloud.data.workorders))
+      return reject('Lecture cloud ou version invalide');
+    const remote=cloud.data.workorders.find(w => String(w.id)===target.id);
+    if (!remote || remote.number !== target.number ||
+        cloud.data.invoices?.some(i => String(i.workOrderNumber)===target.number))
+      return reject('BT distant absent, renomme ou facture');
+    const existing=remote.attachments || [];
+    if (!validAttachments(existing) || !target.old.every(a =>
+      existing.some(b => String(a.id)===String(b.id) && same(a,b))))
+      return reject('Fichier initial supprime ou modifie dans le cloud');
+    const mergedAttachments=[...existing];
+    for (const att of target.added) {
+      const byId=mergedAttachments.find(a => String(a.id)===String(att.id));
+      const byPath=mergedAttachments.find(a => a.path===att.path);
+      if ((byId && !same(byId,att)) || (byPath && !same(byPath,att)) ||
+          (byId && byPath && byId!==byPath)) return reject('Collision ID ou chemin de fichier');
+      if (!byId && !byPath) mergedAttachments.push(att);
+    }
+    const merged={...cloud.data,workorders:cloud.data.workorders.map(w =>
+      String(w.id)===target.id ? {...w,attachments:mergedAttachments} : w)};
+    if (same(merged,cloud.data)) {
+      CLOUD_DATA_VERSION=cloud.version;
+      if (CLOUD_CHANGE_REVISION !== savingRevision) return reject('Revision changee');
+      hydrateLocalFromCloud(cloud.data); renderWorkOrders(); renderDashboard();
+      console.log('[TEST #385] Fichiers deja references dans le cloud');
+      return true;
+    }
+    if (CLOUD_CHANGE_REVISION !== savingRevision) return reject('Revision changee avant ecriture');
+    const {data:rows,error:writeError}=await sb.from('garage_data')
+      .update({data:merged,version:cloud.version+1,updated_at:new Date().toISOString()})
+      .eq('garage_id',ACTIVE_GARAGE_ID).eq('version',cloud.version)
+      .select('garage_id,version');
+    if (writeError) return reject('Ecriture refusee : '+writeError.message);
+    if (!Array.isArray(rows) || rows.length!==1) continue;
+    if (rows[0].garage_id!==ACTIVE_GARAGE_ID || rows[0].version!==cloud.version+1)
+      return reject('Confirmation de version inattendue');
+    CLOUD_DATA_VERSION=rows[0].version;
+    if (CLOUD_CHANGE_REVISION !== savingRevision)
+      return reject('Fusion confirmee mais modifications locales supplementaires');
+    hydrateLocalFromCloud(merged); renderWorkOrders(); renderDashboard();
+    console.log('[TEST #385] Fichiers ajoutes fusionnes dans le cloud',target.id);
+    return true;
+  }
+  return reject('Trois collisions de version consecutives');
+}
+
 function scheduleCloudSync(delay = 1500){
 
   if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY) {
@@ -4301,6 +4391,13 @@ if (!error && (!Array.isArray(savedRows) || savedRows.length === 0)) {
     CLOUD_SYNC_DIRTY = false;
     CLOUD_SYNC_PENDING = false;
     console.log('[TEST #326] Conflit resolu pour ajouts de notes techniques.');
+    return;
+  }
+  if (await tryAutoMergeAddedWOAttachments(payload, expectedVersion, savingRevision)) {
+    CLOUD_SYNC_FAILED = false;
+    CLOUD_SYNC_DIRTY = false;
+    CLOUD_SYNC_PENDING = false;
+    console.log('[TEST #385] Conflit resolu pour ajouts de fichiers BT.');
     return;
   }
   throw new Error(
