@@ -18,3 +18,5 @@ jobs:
         run: node audit/check-static.cjs
       - name: Scénarios de suppression simulés
         run: node audit/test-a01.cjs
+      - name: Fusion concurrente des pièces jointes (simulée)
+        run: node audit/test-attachments.cjs
