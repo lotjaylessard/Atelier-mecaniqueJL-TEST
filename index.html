@@ -2057,8 +2057,7 @@ async function commitSafeWORemoval(woId, attId = null) {
   const reject = message => { alert(message); return false; };
   if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY ||
       CLOUD_SYNC_FAILED || CLOUD_SYNC_IN_PROGRESS || CLOUD_SYNC_DIRTY || CLOUD_SYNC_PENDING ||
-      cloudSyncTimer !== null && CLOUD_CHANGE_REVISION > 0 &&
-        !garageSnapshotsEquivalent(captureLocalGarageSnapshot(), CLOUD_LAST_CONFIRMED_SNAPSHOT)) {
+      cloudSyncTimer !== null) {
     return reject('Suppression bloquée : une sauvegarde est en cours, en attente ou en conflit. Attends sa confirmation, puis recharge si nécessaire.');
   }
   const local = captureLocalGarageSnapshot();
@@ -2121,6 +2120,10 @@ async function commitSafeWORemoval(woId, attId = null) {
       CLOUD_DATA_READY=false;
       throw new Error('Suppression cloud confirmée, mais modifications locales simultanées : copie de récupération conservée. Ne recharge pas avant de la télécharger.');
     }
+    // Eviter tout ancien minuteur de sauvegarde apres le commit versionne.
+    clearTimeout(cloudSyncTimer);
+    cloudSyncTimer = null;
+    CLOUD_SYNC_PENDING = false;
     hydrateLocalFromCloud(next);
     CLOUD_SYNC_DIRTY=false;
     CLOUD_SYNC_FAILED=false;
