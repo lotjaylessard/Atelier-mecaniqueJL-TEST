@@ -2050,60 +2050,99 @@ card.appendChild(title);
 
 
   
-async function deleteWOAttachment(woId, attId) {
-  const wo = WORKORDERS.find(
-    w => String(w.id) === String(woId)
-  );
-
-  if (!wo || !wo.attachments) return;
-
-  const att = wo.attachments.find(
-    a => String(a.id) === String(attId)
-  );
-
-  if (!att) return;
-
-  if (!att.path) {
-    alert("Chemin du fichier introuvable. Suppression annulée.");
-    return;
+/* AUDIT #A01 — suppression atomique de REFERENCES, sans suppression Storage.
+   Aucune donnée locale n'est changée avant confirmation du CAS Supabase.
+   Les objets physiques restent conservés jusqu'à une purge séparée et contrôlée. */
+async function commitSafeWORemoval(woId, attId = null) {
+  const reject = message => { alert(message); return false; };
+  if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY ||
+      CLOUD_SYNC_FAILED || CLOUD_SYNC_IN_PROGRESS || CLOUD_SYNC_DIRTY || CLOUD_SYNC_PENDING ||
+      cloudSyncTimer !== null && CLOUD_CHANGE_REVISION > 0 &&
+        !garageSnapshotsEquivalent(captureLocalGarageSnapshot(), CLOUD_LAST_CONFIRMED_SNAPSHOT)) {
+    return reject('Suppression bloquée : une sauvegarde est en cours, en attente ou en conflit. Attends sa confirmation, puis recharge si nécessaire.');
   }
-
-  if (!SUPABASE_USER?.id ||
-      !att.path.startsWith(`${SUPABASE_USER.id}/`)) {
-    alert("Ce fichier n'appartient pas au garage connecté.");
-    return;
+  const local = captureLocalGarageSnapshot();
+  if (!CLOUD_LAST_CONFIRMED_SNAPSHOT ||
+      !garageSnapshotsEquivalent(local, CLOUD_LAST_CONFIRMED_SNAPSHOT)) {
+    return reject('Suppression bloquée : changements locaux non confirmés.');
   }
+  const original = local.workorders.find(w => String(w.id) === String(woId));
+  if (!original) return reject('Bon de travail introuvable.');
+  const attachments = Array.isArray(original.attachments) ? original.attachments : [];
+  const target = attId === null ? null : attachments.find(a => String(a.id) === String(attId));
+  if (attId !== null && !target) return reject('Pièce jointe introuvable.');
+  if (attId !== null && !target.path) return reject('Pièce jointe sans chemin valide.');
+  if (!confirm(attId === null
+      ? `Supprimer le bon de travail #${original.number} ?\n\nLes fichiers physiques resteront conservés temporairement par sécurité.`
+      : `Retirer « ${target.name} » du bon de travail ?\n\nLe fichier physique restera conservé temporairement par sécurité.`)) return false;
 
-  if (!confirm("Supprimer ce fichier définitivement ?")) return;
-
+  const revision = CLOUD_CHANGE_REVISION;
+  const expectedVersion = CLOUD_DATA_VERSION;
+  const garageId = ACTIVE_GARAGE_ID;
+  const userId = SUPABASE_USER.id;
+  if (!Number.isSafeInteger(expectedVersion)) return reject('Version cloud invalide.');
+  // Le verrou empêche un autre push simultané; les changements UI restent vérifiés par revision.
+  CLOUD_SYNC_IN_PROGRESS = true;
   try {
-    const { data, error } = await sb.storage
-      .from("wo-files")
-      .remove([att.path]);
+    const {data:row,error:readError} = await sb.from('garage_data')
+      .select('data,version').eq('garage_id',garageId).maybeSingle();
+    if (readError || !row || row.version !== expectedVersion || !row.data ||
+        !Array.isArray(row.data.workorders)) throw new Error('Version cloud modifiée : suppression annulée.');
+    if (CLOUD_CHANGE_REVISION !== revision || ACTIVE_GARAGE_ID !== garageId ||
+        SUPABASE_USER?.id !== userId ||
+        !garageSnapshotsEquivalent(captureLocalGarageSnapshot(),local))
+      throw new Error('Modifications locales survenues : suppression annulée.');
+    const remote = row.data.workorders.find(w => String(w.id) === String(woId));
+    if (!remote || !garageSnapshotsEquivalent(remote,original))
+      throw new Error('Le BT diffère du cloud : suppression annulée.');
+    if (attId !== null && !(remote.attachments || []).some(a =>
+        String(a.id) === String(attId) && garageSnapshotsEquivalent(a,target)))
+      throw new Error('Pièce jointe modifiée dans le cloud.');
+    if (attId === null && (row.data.invoices || []).some(i =>
+        String(i.workOrderNumber) === String(remote.number)))
+      throw new Error('BT lié à une facture : suppression bloquée pour protéger les données.');
 
-    if (error) throw error;
-
-    const removed = data?.some(
-      item => item.name === att.path
-    );
-
-    if (!removed) {
-      throw new Error("Suppression du fichier non confirmée.");
+    const next = structuredClone(row.data);
+    if (attId === null) next.workorders = next.workorders.filter(w => String(w.id) !== String(woId));
+    else {
+      const nextWO = next.workorders.find(w => String(w.id) === String(woId));
+      nextWO.attachments = (nextWO.attachments || []).filter(a => String(a.id) !== String(attId));
     }
-
-    wo.attachments = wo.attachments.filter(
-      a => String(a.id) !== String(attId)
-    );
-
-    saveWorkOrders();
-    renderWorkOrderAttachments(wo);
-
-  } catch (err) {
-    console.error("Erreur suppression pièce jointe:", err);
-    alert("La suppression n'a pas été confirmée. Réessaie.");
+    const {data:written,error:writeError} = await sb.from('garage_data')
+      .update({data:next,version:expectedVersion+1,updated_at:new Date().toISOString()})
+      .eq('garage_id',garageId).eq('version',expectedVersion).select('garage_id,version');
+    if (writeError || !Array.isArray(written) || written.length !== 1 ||
+        written[0].garage_id !== garageId || written[0].version !== expectedVersion+1)
+      throw new Error('Sauvegarde non confirmée ou conflit de version : aucun fichier physique supprimé.');
+    CLOUD_DATA_VERSION=expectedVersion+1;
+    if (CLOUD_CHANGE_REVISION !== revision || ACTIVE_GARAGE_ID !== garageId ||
+        SUPABASE_USER?.id !== userId || !garageSnapshotsEquivalent(captureLocalGarageSnapshot(),local)) {
+      preserveFailedCloudSnapshot('Suppression cloud confirmée, mais nouvelles modifications locales détectées', captureLocalGarageSnapshot());
+      CLOUD_DATA_READY=false;
+      throw new Error('Suppression cloud confirmée, mais modifications locales simultanées : copie de récupération conservée. Ne recharge pas avant de la télécharger.');
+    }
+    hydrateLocalFromCloud(next);
+    CLOUD_SYNC_DIRTY=false;
+    CLOUD_SYNC_FAILED=false;
+    renderWorkOrders();
+    renderDashboard();
+    console.log('[AUDIT #A01] Suppression des références confirmée. Objets Storage conservés.');
+    return true;
+  } catch(err) {
+    console.error('[AUDIT #A01] Suppression refusée :',err);
+    return reject(err.message || 'Suppression non confirmée.');
+  } finally {
+    CLOUD_SYNC_IN_PROGRESS=false;
   }
 }
 
+async function deleteWOAttachment(woId, attId) {
+  const ok = await commitSafeWORemoval(woId,attId);
+  if (ok) {
+    const wo = WORKORDERS.find(w=>String(w.id)===String(woId));
+    if (wo) renderWorkOrderAttachments(wo);
+  }
+}
 
 async function openWOAttachment(attId, woId) {
   const wo = WORKORDERS.find(w => String(w.id) === String(woId));
@@ -6531,80 +6570,12 @@ openInvoiceEditModal(invoice.number);
   
 
 async function deleteWorkOrder(id) {
-  const wo = WORKORDERS.find(
-    w => String(w.id) === String(id)
-  );
-
-  if (!wo) {
-    alert("Bon de travail introuvable.");
-    return;
-  }
-
-  if (!SUPABASE_USER?.id) {
-    alert("Session du garage introuvable.");
-    return;
-  }
-
-  const paths = (wo.attachments || [])
-    .map(a => a.path)
-    .filter(Boolean);
-
-  if ((wo.attachments || []).some(a => !a.path)) {
-    alert("Une pièce jointe n'a pas de chemin valide. Suppression annulée.");
-    return;
-  }
-
-  if (paths.some(path =>
-    !path.startsWith(`${SUPABASE_USER.id}/`)
-  )) {
-    alert("Certains fichiers n'appartiennent pas au garage connecté.");
-    return;
-  }
-
-  if (!confirm(
-    `Supprimer le bon de travail #${wo.number} et tous ses fichiers ?`
-  )) return;
-
-  try {
-    if (paths.length) {
-      const { data, error } = await sb.storage
-        .from("wo-files")
-        .remove(paths);
-
-      if (error) throw error;
-
-      const removed = new Set(
-        (data || []).map(item => item.name)
-      );
-
-      if (paths.some(path => !removed.has(path))) {
-        throw new Error(
-          "La suppression de certains fichiers n'a pas été confirmée."
-        );
-      }
-    }
-
-    WORKORDERS = WORKORDERS.filter(
-      w => String(w.id) !== String(id)
-    );
-
-    saveWorkOrders();
-    renderWorkOrders();
-
+  const ok = await commitSafeWORemoval(id);
+  if (ok) {
     const detail = $("woDetailContent");
-    if (detail) {
-      detail.innerHTML =
-        `<div class="muted">Bon de travail supprimé.</div>`;
-    }
-
-  } catch (err) {
-    console.error("Erreur suppression WO:", err);
-    alert(
-      "Suppression incomplète ou non confirmée. Vérifie les fichiers avant de réessayer."
-    );
+    if (detail) detail.innerHTML = `<div class="muted">Bon de travail supprimé.</div>`;
   }
 }
-
 
 // ===== Voir un BON DE TRAVAIL dans l'historique =====
 function openWorkOrderDetail(wo){
