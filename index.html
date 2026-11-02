@@ -4280,6 +4280,8 @@ function scheduleCloudSync(delay = 1500){
   clearTimeout(cloudSyncTimer);
 
   cloudSyncTimer = setTimeout(() => {
+    // Le minuteur est deja execute : ne pas bloquer A01 a tort.
+    cloudSyncTimer = null;
 
     if (
       !CLOUD_DATA_READY ||
@@ -4524,6 +4526,7 @@ if (error) {
     // scheduleCloudSync() incrémenterait à tort la révision une deuxième fois.
     clearTimeout(cloudSyncTimer);
     cloudSyncTimer = setTimeout(() => {
+      cloudSyncTimer = null;
       if (CLOUD_DATA_READY && SUPABASE_USER?.id && ACTIVE_GARAGE_ID) {
         pushLocalDataToCloud();
       }
