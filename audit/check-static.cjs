@@ -23,5 +23,11 @@ assert.ok(/CLOUD_CHANGE_REVISION !== revision/.test(section),'Protection de rév
 assert.ok(/hydrateLocalFromCloud\(next\)/.test(section),'Hydratation après succès absente');
 assert.ok(/async function deleteWorkOrder\(id\)/.test(html),'Handler de suppression non async');
 assert.ok(html.includes('tryAutoMergeAddedWOAttachments'),'Fusion fichiers #385 absente');
+const timerCallbacks = [...html.matchAll(/cloudSyncTimer = setTimeout\(\(\) => \{/g)];
+assert.equal(timerCallbacks.length,2,'Deux minuteurs cloud attendus');
+for (const m of timerCallbacks) {
+  const next=html.slice(m.index,m.index+140);
+  assert.match(next,/cloudSyncTimer = null;/,'Minuteur cloud non libere apres execution');
+}
 console.log('AUDIT A01 : syntaxe des scripts classiques et invariants statiques OK.');
 console.log('IMPORTANT : ne vérifie ni la sécurité RLS, ni la base réelle, ni les interactions navigateur.');
