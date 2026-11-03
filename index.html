@@ -6448,8 +6448,17 @@ const isPaid = invoice && invoice.status === "paid";
 
   
 function finishWorkOrder(id){
+  // S04-F01 : protection contre une deuxieme cloture ou facture double.
+  loadWorkOrders();
+  loadInvoices();
   const wo = WORKORDERS.find(w => String(w.id) === String(id));
-  if(!wo) return alert("Bon de travail introuvable.");
+  if (!wo) return alert("Bon de travail introuvable.");
+  if (wo.status === "termine" || wo.status === "billed" ||
+      INVOICES.some(inv => String(inv.workOrderNumber) === String(wo.number) ||
+        String(inv.number) === String(btToInvoiceNumber(wo.number)))) {
+    alert("Ce bon de travail est deja termine ou possede une facture. Aucune nouvelle facture creee.");
+    return;
+  }
 
   // 🔄 Forcer lecture directe du champ KM (sécuritaire)
 const kmInput = document.getElementById("woVehicleKmInput");
@@ -6508,6 +6517,13 @@ if (errorMessage){
 }
 
   if (!confirm(`Terminer le bon de travail #${wo.number} et créer une facture ?`)) return;
+  // Recontroler apres la confirmation pour ne pas terminer deux fois le meme BT.
+  if (wo.status !== "en_cours" ||
+      INVOICES.some(inv => String(inv.workOrderNumber) === String(wo.number))) {
+    alert("Ce bon de travail a deja ete termine ou facture.");
+    return;
+  }
+
 
   // 1) Marquer le WO comme terminé
   wo.status = "termine";
