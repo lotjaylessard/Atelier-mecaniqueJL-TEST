@@ -4720,62 +4720,66 @@ function toggleInvoicePaymentMenu(number){
 }
 
 
+function toggleInvoicePartialMenu(number){
+  const partial = document.getElementById("invoicePartialMenu-" + number);
+  const full = document.getElementById("invoicePayMenu-" + number);
+  if (!partial) return;
+  if (full) full.style.display = "none";
+  partial.style.display = partial.style.display === "block" ? "none" : "block";
+}
+
 function payInvoiceWithMethod(number, method){
+  // S03-F02 : aucune mutation avant validation complete.
   loadInvoices();
-
   const inv = INVOICES.find(i => String(i.number) === String(number));
-  if (!inv){
-    alert("Facture introuvable.");
+  if (!inv) { alert("Facture introuvable."); return; }
+  if (inv.status === "paid" || inv.archived) {
+    alert("Cette facture est deja payee ou archivee.");
     return;
   }
 
-  const total = Number(inv.total || 0);
-  const alreadyPaid = Number(inv.paidAmount || 0);
-  const balance = Math.max(0, total - alreadyPaid);
-
-  // 🔒 Rien à payer
-  if (balance <= 0){
-    inv.status = "paid";
-    inv.paymentMethod = method;
-    saveInvoices();
-    openInvoiceEditModal(number);
+  const validMethods = ["cash", "transfer", "card", "unspecified", "other"];
+  if (!validMethods.includes(method)) {
+    alert("Mode de paiement invalide : aucune modification enregistree.");
     return;
   }
 
-  // 🧾 Initialiser l'historique si manquant
-  if (!Array.isArray(inv.payments)){
-    inv.payments = [];
+  const total = Number(inv.total);
+  const previouslyPaid = Number(inv.paidAmount || 0);
+  const payments = Array.isArray(inv.payments) ? inv.payments : [];
+  const historyTotal = payments.reduce((sum, entry) => sum + Number(entry.amount), 0);
+
+  if (![total, previouslyPaid, historyTotal].every(Number.isFinite) ||
+      total <= 0 || previouslyPaid < 0 || historyTotal < 0 ||
+      previouslyPaid > total + 0.009 ||
+      (payments.length > 0 && Math.abs(previouslyPaid - historyTotal) > 0.009) ||
+      (payments.length === 0 && previouslyPaid > 0.009)) {
+    alert("Paiement bloque : l'historique et le montant deja paye ne concordent pas. Verifier la facture.");
+    return;
   }
 
-  // ➕ AJOUT DU PAIEMENT FINAL
-  inv.payments.push({
+  const totalCents = Math.round(total * 100);
+  const paidCents = Math.round(previouslyPaid * 100);
+  const remainingCents = totalCents - paidCents;
+  if (!Number.isSafeInteger(totalCents) || !Number.isSafeInteger(paidCents) ||
+      remainingCents <= 0) {
+    alert("Solde invalide : aucun paiement enregistre.");
+    return;
+  }
+
+  inv.payments = [...payments, {
     date: new Date().toLocaleString("fr-CA"),
-    amount: balance,
-    method: method
-  });
-
-  // 🔢 Mettre la facture complètement payée
-  inv.paidAmount = total;
+    amount: remainingCents / 100,
+    method
+  }];
+  inv.paidAmount = totalCents / 100;
   inv.status = "paid";
+  inv.paidDate = new Date().toLocaleDateString("fr-CA");
   inv.paymentMethod = method;
-
   saveInvoices();
-
-// 🔁 RAFRAÎCHIR TOUTE L’UI (SANS RELOAD)
-loadInvoices();
-renderInvoiceList();
-
-if (typeof renderDashboard === "function") {
-  renderDashboard();
-}
-
-// 🔄 Si on est déjà sur la page factures, on force l’UI visible
-if (document.getElementById("page-invoice-list")?.style.display === "block") {
   renderInvoiceList();
-}
-
-// 🔁 ROUVRIR LE MODAL MIS À JOUR
-openInvoiceEditModal(number);
+  if (typeof renderDashboard === "function") renderDashboard();
+  openInvoiceEditModal(number);
 }
 
   
@@ -11031,6 +11035,7 @@ if (clientObj && Array.isArray(clientObj.vehicles)){
     <tr>
       <td>${i+1}</td>
       <td>${p.date}</td>
+      <td>${invoicePaymentMethodLabel(p.method)}</td>
       <td style="text-align:right;">${money(p.amount)} $</td>
     </tr>
   `;
@@ -11107,7 +11112,7 @@ content.innerHTML = `
   <!-- COLONNE DROITE : BADGE -->
   ${inv.status === "paid" ? `
     <div class="invoice-paid-badge">
-      PAYÉ (${inv.paymentMethod === "cash" ? "Comptant" : "Virement"})
+      PAYÉ (${invoicePaymentMethodLabel(inv.paymentMethod)})
     </div>
   ` : ""}
 </div>
@@ -11276,6 +11281,7 @@ ${inv.discount && inv.discount > 0 ? `
         <tr>
           <th>#</th>
           <th>Date</th>
+          <th>Mode</th>
           <th style="text-align:right;">Montant</th>
         </tr>
       </thead>
@@ -11318,43 +11324,28 @@ ${inv.discount && inv.discount > 0 ? `
 
   <div class="no-print">
 
-    <!-- ✔ Payée + menu -->
-    <div style="position:relative; display:inline-block;">
-      <button class="ghost" ${isLocked ? "disabled" : ""} onclick="toggleInvoicePaymentMenu('${inv.number}')">
-        ✔ Payée
-      </button>
-
-      <div id="invoicePayMenu-${inv.number}"
-           style="
-             display:none;
-             position:absolute;
-             right:0;
-             bottom:100%;
-             margin-bottom:6px;
-             background:#111;
-             border:1px solid #444;
-             border-radius:6px;
-             z-index:50;
-             overflow:hidden;
-             min-width:160px;
-           ">
-        <button class="ghost"
-                style="width:100%;text-align:left;"
-                onclick="payInvoiceWithMethod('${inv.number}','cash')">
-          💵 Comptant
-        </button>
-
-        <button class="ghost"
-                style="width:100%;text-align:left;"
-                onclick="payInvoiceWithMethod('${inv.number}','transfer')">
-          🔁 Virement
-        </button>
+    <!-- S03-F03 : menus de paiement complets et partiels coherents -->
+    <div style="position:relative;display:inline-block;">
+      <button class="ghost" ${isLocked ? "disabled" : ""} onclick="toggleInvoicePaymentMenu('${inv.number}')">✔ Payée</button>
+      <div id="invoicePayMenu-${inv.number}" style="display:none;position:absolute;right:0;bottom:100%;margin-bottom:6px;background:#111;border:1px solid #444;border-radius:6px;z-index:50;min-width:175px;">
+        <button class="ghost" style="display:block;width:100%;text-align:left;white-space:nowrap;" onclick="payInvoiceWithMethod('${inv.number}','cash')">💵 Comptant</button>
+        <button class="ghost" style="display:block;width:100%;text-align:left;white-space:nowrap;" onclick="payInvoiceWithMethod('${inv.number}','transfer')">🔁 Virement</button>
+        <button class="ghost" style="display:block;width:100%;text-align:left;white-space:nowrap;" onclick="payInvoiceWithMethod('${inv.number}','card')">💳 Carte</button>
+        <button class="ghost" style="display:block;width:100%;text-align:left;white-space:nowrap;" onclick="payInvoiceWithMethod('${inv.number}','unspecified')">❔ Non spécifié</button>
+        <button class="ghost" style="display:block;width:100%;text-align:left;white-space:nowrap;" onclick="payInvoiceWithMethod('${inv.number}','other')">➕ Autre</button>
       </div>
     </div>
-
-    <!-- autres boutons -->
-    <button class="ghost" ${isLocked ? "disabled" : ""} onclick="markInvoicePartial('${inv.number}')">➗ Partielle</button>
-    <button class="ghost" onclick="printInvoice()">🖨 Imprimer</button>
+    <div style="position:relative;display:inline-block;">
+      <button class="ghost" ${isLocked ? "disabled" : ""} onclick="toggleInvoicePartialMenu('${inv.number}')">➗ Partielle</button>
+      <div id="invoicePartialMenu-${inv.number}" style="display:none;position:absolute;right:0;bottom:100%;margin-bottom:6px;background:#111;border:1px solid #444;border-radius:6px;z-index:50;min-width:175px;">
+        <button class="ghost" style="display:block;width:100%;text-align:left;white-space:nowrap;" onclick="markInvoicePartial('${inv.number}','cash')">💵 Comptant</button>
+        <button class="ghost" style="display:block;width:100%;text-align:left;white-space:nowrap;" onclick="markInvoicePartial('${inv.number}','transfer')">🔁 Virement</button>
+        <button class="ghost" style="display:block;width:100%;text-align:left;white-space:nowrap;" onclick="markInvoicePartial('${inv.number}','card')">💳 Carte</button>
+        <button class="ghost" style="display:block;width:100%;text-align:left;white-space:nowrap;" onclick="markInvoicePartial('${inv.number}','unspecified')">❔ Non spécifié</button>
+        <button class="ghost" style="display:block;width:100%;text-align:left;white-space:nowrap;" onclick="markInvoicePartial('${inv.number}','other')">➕ Autre</button>
+      </div>
+    </div>
+        <button class="ghost" onclick="printInvoice()">🖨 Imprimer</button>
     <button class="ghost" onclick="closeInvoiceModal()">Fermer</button>
 
   </div>
@@ -12629,16 +12620,8 @@ clone.querySelectorAll("h3").forEach(h=>{
 
 
   function markInvoicePaid(number){
-  const inv = INVOICES.find(i => String(i.number) === String(number));
-  if (!inv) return;
-
-  inv.status = "paid";
-  inv.paidAmount = inv.total;
-  inv.paidDate = new Date().toLocaleDateString("fr-CA");
-
-  saveInvoices();
-  renderInvoiceList();
-  openInvoiceEditModal(number);
+  // S03-F02 : reutiliser le meme controle de coherence et l'historique.
+  payInvoiceWithMethod(number, "unspecified");
 }
 
 
@@ -12667,41 +12650,65 @@ function archiveInvoice(number){
 }
 
   
-function markInvoicePartial(number){
+function invoicePaymentMethodLabel(method) {
+  const labels = {
+    cash: "Comptant",
+    transfer: "Virement",
+    card: "Carte",
+    unspecified: "Non spécifié",
+    other: "Autre"
+  };
+  return labels[method] || "Non spécifié";
+}
+
+function markInvoicePartial(number, method){
+  // S03-F01 : ne rien modifier avant la validation complète.
+  loadInvoices();
   const inv = INVOICES.find(i => String(i.number) === String(number));
-  if (!inv) return;
+  if (!inv || inv.status === "paid" || inv.archived) return;
 
-  if (!Array.isArray(inv.payments)) inv.payments = [];
+  const total = Number(inv.total);
+  const previouslyPaid = Number(inv.paidAmount || 0);
+  const payments = Array.isArray(inv.payments) ? inv.payments : [];
+  const historyTotal = payments.reduce((sum,p) => sum + Number(p.amount), 0);
+  if (![total,previouslyPaid,historyTotal].every(Number.isFinite) ||
+      total <= 0 || previouslyPaid < 0 || historyTotal < 0 ||
+      previouslyPaid > total + 0.009 ||
+      (payments.length > 0 && Math.abs(previouslyPaid-historyTotal) > 0.009) ||
+      (payments.length === 0 && previouslyPaid > 0.009)) {
+    alert("Paiement bloqué : l'historique et le montant déjà payé ne concordent pas. Vérifier la facture avant toute modification.");
+    return;
+  }
+  const remainingCents = Math.round((total-previouslyPaid)*100);
+  if (remainingCents <= 0) return;
+  const entered = prompt(`Montant payé (reste ${money(remainingCents/100)} $) :`, (remainingCents/100).toFixed(2));
+  if (entered === null) return;
+  const amt = Number(entered.trim().replace(",","."));
+  const amountCents = Math.round(amt*100);
+  if (!Number.isFinite(amt) || amt <= 0 || !Number.isSafeInteger(amountCents) ||
+      Math.abs(amt*100-amountCents) > 0.00001 ||
+      amountCents <= 0 || amountCents > remainingCents) {
+    alert("Montant invalide : entrer une somme positive avec au maximum deux décimales, sans dépasser le solde.");
+    return;
+  }
+  if (!["cash","transfer","card","unspecified","other"].includes(method)) {
+    alert("Mode de paiement invalide : aucune modification enregistrée.");
+    return;
+  }
 
-  const remaining = Math.max(0, inv.total - (inv.paidAmount || 0));
-
-  const amt = Number(
-    prompt(
-      `Montant payé (reste ${money(remaining)} $) :`,
-      remaining
-    )
-  );
-
-  if (!amt || amt <= 0 || amt > remaining) return;
-
-  // Ajouter le paiement à l'historique
-  inv.payments.push({
+  inv.payments = [...payments, {
     date: new Date().toLocaleDateString("fr-CA"),
-    amount: amt
-  });
-
-  // Recalculer le total payé
-  inv.paidAmount = inv.payments.reduce((s,p)=>s + p.amount, 0);
-
-  // Mettre à jour le statut
-  inv.status = inv.paidAmount >= inv.total ? "paid" : "partial";
+    amount: amountCents/100,
+    method
+  }];
+  inv.paidAmount = Math.round(previouslyPaid*100 + amountCents)/100;
+  inv.status = Math.round(inv.paidAmount*100) >= Math.round(total*100) ? "paid" : "partial";
   inv.paidDate = new Date().toLocaleDateString("fr-CA");
-
+  if (inv.status === "paid") inv.paymentMethod = method;
   saveInvoices();
   renderInvoiceList();
   openInvoiceEditModal(number);
 }
-
 
   if ($("vehicleSearch")){
   $("vehicleSearch").oninput = renderVehicles;
