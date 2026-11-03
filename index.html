@@ -5746,6 +5746,7 @@ const wo = {
     clientName: client.name,
     vehicleId,
     vehicleLabel: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+    vehicleKm,
     description,
     notes: "",          // 📝 notes techniques
     attachments: [],
@@ -7110,7 +7111,7 @@ const statusLabel =
     ${woContactHtml(wo)}
     <label for="woKmInput" style="display:block;font-weight:bold;">Kilométrage</label>
     <div style="display:flex;gap:8px;align-items:center;margin:6px 0 12px;">
-      <input id="woKmInput" type="number" min="0" value="${escapeHTML(String(wo.vehicleKm || ""))}"
+      <input id="woKmInput" type="number" min="0" value="${escapeHTML(String(wo.vehicleKm || woContactInfo(wo).vehicle?.km || ""))}"
         style="width:145px;padding:6px;border-radius:5px;border:1px solid var(--border);background:#111;color:#fff;"> km
     </div>
     <label for="woDescriptionEdit" style="display:block;font-weight:bold;">Description du problème / travail</label>
