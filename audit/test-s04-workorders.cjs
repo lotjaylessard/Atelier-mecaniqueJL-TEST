@@ -43,8 +43,8 @@ assert.ok(html.includes('id="woDescriptionEdit"'), 'Edition description absente'
 console.log('S04-F03 : entete client/vehicule et copie VIN verifie (statique).');
 console.log('S04-F01/F02 : garde anti-doublon et colonne description verifiees (simulees).');
 
-assert.ok(/vehicleLabel: \`\\$\\{vehicle.year\\} \\$\\{vehicle.make\\} \\$\\{vehicle.model\\}\\\`,\\s*vehicleKm,/.test(html),
-  'Creation BT : kilometrage du vehicule non enregistre');
+const createdWoCode = html.slice(html.indexOf('function saveNewWorkOrder()'), html.indexOf('function renderPartPicker()'));
+assert.ok(createdWoCode.includes('    vehicleKm,'), 'Creation BT : kilometrage du vehicule non enregistre');
 assert.ok(html.includes('woContactInfo(wo).vehicle?.km'),
   'Ancien BT : kilometrage de repli absent');
 console.log('S04-F04 : pre-remplissage du kilometrage et compatibilite anciens BT verifies.');
