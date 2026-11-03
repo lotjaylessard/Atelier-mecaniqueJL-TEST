@@ -6312,7 +6312,7 @@ function woContactInfo(wo){
 
 function woValidKm(value){
   if (value === null || value === undefined || String(value).trim() === "") return null;
-  const n = Number(String(value).replace(/[\\s\\u00A0\\u202F]/g,"").replace(",","."));
+  const n = Number(String(value).replace(/[\s\u00A0\u202F]/g,"").replace(",","."));
   return Number.isSafeInteger(n) && n > 0 ? n : null;
 }
 function woDisplayKm(wo){
