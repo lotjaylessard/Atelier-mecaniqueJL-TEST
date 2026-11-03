@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - "audit/**"
+      - "s03/**"
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,3 +21,5 @@ jobs:
         run: node audit/test-a01.cjs
       - name: Fusion concurrente des pièces jointes (simulée)
         run: node audit/test-attachments.cjs
+      - name: Paiements partiels S03-F01 (simulés)
+        run: node audit/test-s03-factures.cjs
