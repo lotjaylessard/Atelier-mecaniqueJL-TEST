@@ -56,3 +56,62 @@ for (const responses of [[null],['30',null],['30','0'],['1000','1'],['-2','1'],[
  assert.equal(r.saved,0);assert.ok(r.alerts.some(s=>s.includes('ne concordent')));
 }
 console.log('S03-F01 : scénarios de paiement partiel réussis (mockés).');
+
+
+// S03-F02 : regles des paiements complets (aucun acces au reseau/Supabase).
+const fullStart = html.indexOf('function payInvoiceWithMethod(number, method){');
+const fullEnd = html.indexOf('/* ===================== WORK ORDERS', fullStart);
+assert.ok(fullStart > 0 && fullEnd > fullStart, 'Fonction paiement complet introuvable');
+const fullCode = html.slice(fullStart, fullEnd);
+const markStart = html.indexOf('function markInvoicePaid(number){');
+const markEnd = html.indexOf('function archiveInvoice(number){', markStart);
+assert.ok(markStart > 0 && markEnd > markStart, 'Fonction marquer payee introuvable');
+const markCode = html.slice(markStart, markEnd);
+function runFull(initial, method, useLegacy = false){
+  const inv = structuredClone(initial);
+  let saved=0, rendered=0, opened=0;
+  const alerts=[];
+  const ctx={
+    INVOICES:[inv],loadInvoices(){}, saveInvoices(){saved++;},
+    renderInvoiceList(){rendered++;},openInvoiceEditModal(){opened++;},
+    renderDashboard(){},alert(message){alerts.push(message)}
+  };
+  vm.createContext(ctx);
+  vm.runInContext(fullCode + '\\n' + markCode, ctx);
+  if (useLegacy) ctx.markInvoicePaid(inv.number);
+  else ctx.payInvoiceWithMethod(inv.number, method);
+  return { inv, saved, rendered, opened, alerts };
+}
+for (const method of ['cash','transfer','card','unspecified','other']){
+  const result = runFull({number:'FULL',total:100,paidAmount:25,status:'partial',
+    payments:[{date:'old',amount:25,method:'cash'}]},method);
+  assert.equal(result.saved,1);
+  assert.equal(result.inv.status,'paid');
+  assert.equal(result.inv.paidAmount,100);
+  assert.equal(result.inv.payments.length,2);
+  assert.equal(result.inv.payments[1].amount,75);
+  assert.equal(result.inv.payments[1].method,method);
+}
+{
+  const result=runFull({number:'LEGACY',total:100,paidAmount:20,status:'partial',
+    payments:[{date:'old',amount:20}]},null,true);
+  assert.equal(result.saved,1);
+  assert.equal(result.inv.payments.length,2);
+  assert.equal(result.inv.payments[1].method,'unspecified');
+}
+for (const [invoice,method] of [
+  [{number:'A',total:100,paidAmount:100,status:'paid',payments:[{amount:100}]},'cash'],
+  [{number:'B',total:100,paidAmount:0,status:'unpaid',archived:true,payments:[]},'cash'],
+  [{number:'C',total:100,paidAmount:20,status:'partial',payments:[]},'cash'],
+  [{number:'D',total:100,paidAmount:40,status:'partial',payments:[{amount:30}]},'cash'],
+  [{number:'E',total:100,paidAmount:0,status:'unpaid',payments:[]},'invalid'],
+  [{number:'F',total:0,paidAmount:0,status:'unpaid',payments:[]},'cash'],
+  [{number:'G',total:100,paidAmount:120,status:'partial',payments:[{amount:120}]},'cash'],
+  [{number:'H',total:100,paidAmount:0,status:'unpaid',payments:[{amount:'x'}]},'cash']
+]){
+  const before=JSON.stringify(invoice);
+  const result=runFull(invoice,method);
+  assert.equal(result.saved,0,'Aucun enregistrement attendu pour '+invoice.number);
+  assert.equal(JSON.stringify(result.inv),before,'Aucune mutation attendue pour '+invoice.number);
+}
+console.log('S03-F02 : paiements complets, protections et historique reussis (mockes).');
