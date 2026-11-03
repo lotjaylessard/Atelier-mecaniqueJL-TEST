@@ -48,3 +48,26 @@ assert.ok(createdWoCode.includes('    vehicleKm,'), 'Creation BT : kilometrage d
 assert.ok(html.includes('woContactInfo(wo).vehicle?.km'),
   'Ancien BT : kilometrage de repli absent');
 console.log('S04-F04 : pre-remplissage du kilometrage et compatibilite anciens BT verifies.');
+
+const infoStart = html.indexOf('function woContactInfo(wo){');
+const infoEnd = html.indexOf('function woContactHtml(wo){',infoStart);
+assert.ok(infoStart > 0 && infoEnd > infoStart,'Resolveur KM S04-F05 absent');
+function runKm(wo, clients){
+ const ctx={
+  STORAGE:{clients:'test-clients'},
+  loadArrayFromStorage(){return structuredClone(clients);}
+ };
+ vm.createContext(ctx);
+ vm.runInContext(html.slice(infoStart,infoEnd),ctx);
+ return ctx.woDisplayKm(structuredClone(wo));
+}
+const clientData=[{id:1,name:'TEST FACTURE',vehicles:[
+  {id:2,year:1999,make:'Mazda',model:'Miata',km:12000}
+]}];
+assert.equal(runKm({clientId:1,vehicleId:2,vehicleLabel:'1999 Mazda Miata',status:'en_cours'},clientData).value,12000);
+assert.equal(runKm({clientId:1,vehicleId:2,vehicleKm:8000,status:'en_cours'},clientData).value,8000);
+assert.equal(runKm({clientId:1,vehicleId:2,status:'termine'},clientData).value,null);
+assert.equal(runKm({clientId:1,vehicleId:2,status:'en_cours'},[]).source,'missing');
+assert.equal(runKm({clientId:1,vehicleId:2,status:'en_cours'},[{...clientData[0],vehicles:[{...clientData[0].vehicles[0],km:'12 000'}]}]).value,12000);
+assert.ok(html.includes('placeholder="KM non renseigné"'));
+console.log('S04-F05 : KM fiche vehicule, historique et affichage vide verifies (simules).');
