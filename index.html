@@ -1166,6 +1166,7 @@ button.link:hover{
               <th>Client</th>
               <th>Véhicule</th>
               <th>Km</th>
+              <th>Description</th>
               <th>Statut</th>
               <th>Total estimé</th>
               <th></th>
@@ -6299,7 +6300,7 @@ function renderWorkOrders(){
   if (!WORKORDERS.length){
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" class="muted">Aucun bon de travail pour le moment.</td>
+        <td colspan="9" class="muted">Aucun bon de travail pour le moment.</td>
       </tr>`;
     return;
   }
@@ -6339,6 +6340,7 @@ const isPaid = invoice && invoice.status === "paid";
       ${clientNameSearch}
       ${wo.vehicleLabel || ""}
       ${wo.number || ""}
+      ${wo.description || ""}
     `.toLowerCase();
 
     if (!hay.includes(search)) return false;
@@ -6408,6 +6410,9 @@ const isPaid = invoice && invoice.status === "paid";
           <span class="muted">KM :</span>
           <b>${wo.vehicleKm || "-"}</b>
         </div>
+      </td>
+      <td class="wo-description" title="${escapeHTML(String(wo.description || ''))}" style="max-width:260px;min-width:160px;white-space:normal;overflow-wrap:anywhere;">
+        ${escapeHTML(String(wo.description || '').slice(0,90))}${String(wo.description || '').length > 90 ? '…' : ''}
       </td>
       <td>
         <span class="status-badge status-${wo.status}">
