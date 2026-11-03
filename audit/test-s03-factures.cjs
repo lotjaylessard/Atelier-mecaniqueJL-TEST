@@ -63,8 +63,8 @@ for (const [method,label] of [
  ['cash','Comptant'],['transfer','Virement'],['card','Carte'],
  ['unspecified','Non spécifié'],['other','Autre']
 ]){
- assert.ok(html.includes("markInvoicePartial('\\${inv.number}','"+method+"')"),'Menu partiel manquant : '+label);
- assert.ok(html.includes("payInvoiceWithMethod('\\${inv.number}','"+method+"')"),'Menu complet manquant : '+label);
+ assert.ok(html.includes("markInvoicePartial('\${inv.number}','"+method+"')"),'Menu partiel manquant : '+label);
+ assert.ok(html.includes("payInvoiceWithMethod('\${inv.number}','"+method+"')"),'Menu complet manquant : '+label);
 }
 console.log('S03-F01 : scénarios de paiement partiel réussis (mockés).');
 
