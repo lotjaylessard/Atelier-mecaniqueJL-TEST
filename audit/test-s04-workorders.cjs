@@ -33,4 +33,12 @@ assert.ok(html.includes('if (wo.status !== "en_cours"'), 'Revalidation apres con
 assert.ok(html.includes('<th>Description</th>'), 'Colonne Description absente');
 assert.ok(html.includes('class="wo-description"'), 'Description non rendue');
 assert.ok(html.includes('${wo.description || ""}'), 'Description non recherchable');
+assert.ok(html.includes('function woContactInfo(wo)'), 'Recherche client/vehicule absente');
+assert.ok(html.includes('String(c.id) === String(wo.clientId)'), 'Recherche client par identifiant absente');
+assert.ok(html.includes('String(v.id) === String(wo.vehicleId)'), 'Recherche vehicule par identifiant absente');
+assert.ok(html.includes('function copyWorkOrderVIN(button)'), 'Bouton copier VIN absent');
+assert.ok(html.includes('navigator.clipboard.writeText(vin)'), 'Copie VIN absente');
+assert.ok(html.includes('woContactHtml(wo)'), 'En-tete professionnel absent');
+assert.ok(html.includes('id="woDescriptionEdit"'), 'Edition description absente');
+console.log('S04-F03 : entete client/vehicule et copie VIN verifie (statique).');
 console.log('S04-F01/F02 : garde anti-doublon et colonne description verifiees (simulees).');
