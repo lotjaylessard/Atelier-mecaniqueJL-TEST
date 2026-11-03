@@ -5746,7 +5746,7 @@ const wo = {
     clientName: client.name,
     vehicleId,
     vehicleLabel: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
-    vehicleKm,
+    vehicleKm: woValidKm(vehicleKm),
     description,
     notes: "",          // 📝 notes techniques
     attachments: [],
@@ -6295,11 +6295,34 @@ function woRemoveLabor(woId,index){
 
 // S04-F03 : lecture des coordonnees existantes, sans migration des anciens BT.
 function woContactInfo(wo){
-  const client = CLIENTS.find(c => String(c.id) === String(wo.clientId)) ||
-    CLIENTS.find(c => c.name === wo.clientName);
-  const vehicle = client?.vehicles?.find(v => String(v.id) === String(wo.vehicleId)) ||
-    client?.vehicles?.find(v => `${v.year} ${v.make} ${v.model}` === wo.vehicleLabel);
+  // Les fiches client et vehicule sont la source des coordonnees et du KM courant.
+  // Recharger uniquement pour la lecture : ne modifie pas les anciens BT.
+  const clients = loadArrayFromStorage(STORAGE.clients);
+  const matches = clients.filter(c =>
+    (wo.clientId != null && String(c.id) === String(wo.clientId)) ||
+    (wo.clientName && String(c.name || "").trim() === String(wo.clientName).trim())
+  );
+  const client = matches.find(c => wo.clientId != null && String(c.id) === String(wo.clientId))
+    || matches[0] || null;
+  const vehicle = client?.vehicles?.find(v => wo.vehicleId != null && String(v.id) === String(wo.vehicleId))
+    || client?.vehicles?.find(v => `${v.year} ${v.make} ${v.model}`.trim() === String(wo.vehicleLabel || "").trim())
+    || null;
   return {client, vehicle};
+}
+
+function woValidKm(value){
+  if (value === null || value === undefined || String(value).trim() === "") return null;
+  const n = Number(String(value).replace(/[\\s\\u00A0\\u202F]/g,"").replace(",","."));
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+function woDisplayKm(wo){
+  const recorded = woValidKm(wo.vehicleKm);
+  if (recorded !== null) return {value:recorded, source:"bt"};
+  // Un ancien BT termine ne doit jamais afficher le KM actuel comme historique.
+  if (wo.status !== "en_cours") return {value:null, source:"missing-history"};
+  const {vehicle} = woContactInfo(wo);
+  const current = woValidKm(vehicle?.km);
+  return current !== null ? {value:current, source:"vehicle"} : {value:null, source:"missing"};
 }
 
 function woContactHtml(wo){
@@ -7091,6 +7114,7 @@ const statusLabel =
   wo.status === "termine" ? "Terminé" :
   wo.status;
 
+    const woKmDisplay = woDisplayKm(wo);
     detail.innerHTML = `
   <button class="ghost" onclick="backToWorkOrdersList()" style="margin-bottom:10px;">
     ⬅ Retour aux bons de travail
@@ -7111,8 +7135,13 @@ const statusLabel =
     ${woContactHtml(wo)}
     <label for="woKmInput" style="display:block;font-weight:bold;">Kilométrage</label>
     <div style="display:flex;gap:8px;align-items:center;margin:6px 0 12px;">
-      <input id="woKmInput" type="number" min="0" value="${escapeHTML(String(wo.vehicleKm || woContactInfo(wo).vehicle?.km || ""))}"
+      <input id="woKmInput" type="number" min="0" value="${woKmDisplay.value ?? ""}" placeholder="KM non renseigné"
         style="width:145px;padding:6px;border-radius:5px;border:1px solid var(--border);background:#111;color:#fff;"> km
+    </div>
+    <div class="muted" style="font-size:12px;margin:-6px 0 12px;">
+      ${woKmDisplay.source === "vehicle" ? "Prérempli depuis la fiche véhicule — non enregistré dans cet ancien BT."
+      : woKmDisplay.source === "missing-history" ? "KM historique non renseigné — aucune substitution par le KM actuel."
+      : woKmDisplay.source === "missing" ? "KM non renseigné dans le BT ou la fiche véhicule." : "Kilométrage enregistré dans ce BT."}
     </div>
     <label for="woDescriptionEdit" style="display:block;font-weight:bold;">Description du problème / travail</label>
     <textarea id="woDescriptionEdit" ${isPaid ? "disabled" : ""}
