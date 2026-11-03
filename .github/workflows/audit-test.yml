@@ -4,6 +4,7 @@ on:
     branches:
       - "audit/**"
       - "s03/**"
+      - "s04/**"
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,3 +24,5 @@ jobs:
         run: node audit/test-attachments.cjs
       - name: Paiements partiels S03-F01 (simulés)
         run: node audit/test-s03-factures.cjs
+      - name: Bons de travail S04 (simulés)
+        run: node audit/test-s04-workorders.cjs
