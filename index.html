@@ -6292,6 +6292,52 @@ function woRemoveLabor(woId,index){
 }
 
 
+// S04-F03 : lecture des coordonnees existantes, sans migration des anciens BT.
+function woContactInfo(wo){
+  const client = CLIENTS.find(c => String(c.id) === String(wo.clientId)) ||
+    CLIENTS.find(c => c.name === wo.clientName);
+  const vehicle = client?.vehicles?.find(v => String(v.id) === String(wo.vehicleId)) ||
+    client?.vehicles?.find(v => `${v.year} ${v.make} ${v.model}` === wo.vehicleLabel);
+  return {client, vehicle};
+}
+
+function woContactHtml(wo){
+  const {client, vehicle} = woContactInfo(wo);
+  const phone = String(client?.phone || "").trim();
+  const vin = String(vehicle?.vin || "").trim();
+  const plate = String(vehicle?.plate || "").trim();
+  const phoneDigits = phone.replace(/[^+0-9]/g, "");
+  return `
+    <div class="wo-contact-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:12px 0;">
+      <div style="padding:12px;border:1px solid var(--border);border-radius:8px;min-width:0;">
+        <div class="muted">👤 Client</div>
+        <strong>${escapeHTML(wo.clientName || "Non renseigné")}</strong>
+        <div style="margin-top:8px;">Téléphone : ${phone
+          ? `<a href="tel:${escapeHTML(phoneDigits)}">${escapeHTML(phone)}</a>`
+          : '<span class="muted">Non renseigné</span>'}</div>
+      </div>
+      <div style="padding:12px;border:1px solid var(--border);border-radius:8px;min-width:0;">
+        <div class="muted">🚗 Véhicule</div>
+        <strong>${escapeHTML(wo.vehicleLabel || "Non renseigné")}</strong>
+        <div style="margin-top:8px;overflow-wrap:anywhere;">VIN : <span class="wo-vin-text">${escapeHTML(vin || "Non renseigné")}</span>
+          ${vin ? '<button class="ghost" type="button" onclick="copyWorkOrderVIN(this)" style="padding:4px 8px;margin-left:6px;">📋 Copier</button>' : ''}</div>
+        <div>Plaque : ${escapeHTML(plate || "Non renseignée")}</div>
+      </div>
+    </div>`;
+}
+async function copyWorkOrderVIN(button){
+  const vin = button?.parentElement?.querySelector(".wo-vin-text")?.textContent?.trim();
+  if (!vin || vin === "Non renseigné") return;
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error("clipboard unavailable");
+    await navigator.clipboard.writeText(vin);
+    button.textContent = "✓ Copié";
+  } catch (error) {
+    // Repli compatible avec file:// : l'utilisateur peut copier manuellement.
+    prompt("Copie le VIN :",vin);
+  }
+}
+
 function renderWorkOrders(){
   const table = $("woTable");
   const tbody = table ? table.querySelector("tbody") : null;
@@ -7052,42 +7098,26 @@ const statusLabel =
   <input type="hidden" id="woEditId" value="${wo.id}">
 
 
-  <!-- EN-TÊTE -->
-  <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-    <div>
-      <h2 style="margin:0;">Bon de travail #${wo.number}</h2>
-      <div class="muted">${wo.date || ""}</div>
-      <div style="margin-top:6px;">
-  <b>Client :</b> ${wo.clientName || ""}<br>
-  <b>Véhicule :</b> ${wo.vehicleLabel || ""}<br>
-  <div>
-  Kilométrage :
-  <input
-    id="woKmInput"
-    type="number"
-    value="${wo.vehicleKm || ''}"
-    style="
-      width:120px;
-      padding:4px;
-      border-radius:4px;
-      border:1px solid var(--border);
-      background:#111;
-      color:#fff;
-    "
-  > km
-</div>
-  <label for="woDescriptionEdit" style="display:block;font-weight:bold;margin-top:8px;">Description Problème/Travail :</label>
-  <textarea id="woDescriptionEdit" ${isPaid ? "disabled" : ""}
-    style="display:block;width:100%;max-width:650px;min-height:65px;margin-top:5px;"
-    placeholder="Description du problème ou du travail">${String(wo.description || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</textarea>
-</div>
+  <!-- EN-TÊTE S04-F03 : compact, donnees existantes -->
+  <div class="card" style="padding:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:start;gap:12px;flex-wrap:wrap;">
+      <div style="min-width:0;">
+        <h2 style="margin:0;overflow-wrap:anywhere;">Bon de travail #${escapeHTML(wo.number || "")}</h2>
+        <div class="muted" style="margin-top:4px;">${escapeHTML(wo.date || "")}</div>
+      </div>
+      <span class="status-badge status-${wo.status}">${statusLabel}</span>
     </div>
-
-    <span class="status-badge status-${wo.status}">
-      ${statusLabel}
-    </span>
+    ${woContactHtml(wo)}
+    <label for="woKmInput" style="display:block;font-weight:bold;">Kilométrage</label>
+    <div style="display:flex;gap:8px;align-items:center;margin:6px 0 12px;">
+      <input id="woKmInput" type="number" min="0" value="${escapeHTML(String(wo.vehicleKm || ""))}"
+        style="width:145px;padding:6px;border-radius:5px;border:1px solid var(--border);background:#111;color:#fff;"> km
+    </div>
+    <label for="woDescriptionEdit" style="display:block;font-weight:bold;">Description du problème / travail</label>
+    <textarea id="woDescriptionEdit" ${isPaid ? "disabled" : ""}
+      style="display:block;width:100%;box-sizing:border-box;min-height:82px;margin-top:6px;"
+      placeholder="Description du problème ou du travail">${escapeHTML(wo.description || "")}</textarea>
   </div>
-
 
   <!-- PIÈCES -->
   <div class="card">
