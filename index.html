@@ -11031,6 +11031,7 @@ if (clientObj && Array.isArray(clientObj.vehicles)){
     <tr>
       <td>${i+1}</td>
       <td>${p.date}</td>
+      <td>${invoicePaymentMethodLabel(p.method)}</td>
       <td style="text-align:right;">${money(p.amount)} $</td>
     </tr>
   `;
@@ -11107,7 +11108,7 @@ content.innerHTML = `
   <!-- COLONNE DROITE : BADGE -->
   ${inv.status === "paid" ? `
     <div class="invoice-paid-badge">
-      PAYÉ (${inv.paymentMethod === "cash" ? "Comptant" : "Virement"})
+      PAYÉ (${invoicePaymentMethodLabel(inv.paymentMethod)})
     </div>
   ` : ""}
 </div>
@@ -11276,6 +11277,7 @@ ${inv.discount && inv.discount > 0 ? `
         <tr>
           <th>#</th>
           <th>Date</th>
+          <th>Mode</th>
           <th style="text-align:right;">Montant</th>
         </tr>
       </thead>
@@ -12667,41 +12669,66 @@ function archiveInvoice(number){
 }
 
   
+function invoicePaymentMethodLabel(method) {
+  const labels = {
+    cash: "Comptant",
+    transfer: "Virement",
+    card: "Carte",
+    unspecified: "Non spécifié",
+    other: "Autre"
+  };
+  return labels[method] || "Non spécifié";
+}
+
 function markInvoicePartial(number){
+  // S03-F01 : ne rien modifier avant la validation complète.
+  loadInvoices();
   const inv = INVOICES.find(i => String(i.number) === String(number));
-  if (!inv) return;
+  if (!inv || inv.status === "paid" || inv.archived) return;
 
-  if (!Array.isArray(inv.payments)) inv.payments = [];
+  const total = Number(inv.total);
+  const previouslyPaid = Number(inv.paidAmount || 0);
+  const payments = Array.isArray(inv.payments) ? inv.payments : [];
+  const historyTotal = payments.reduce((sum,p) => sum + Number(p.amount), 0);
+  if (![total,previouslyPaid,historyTotal].every(Number.isFinite) ||
+      total <= 0 || previouslyPaid < 0 || historyTotal < 0 ||
+      previouslyPaid > total + 0.009 ||
+      (payments.length > 0 && Math.abs(previouslyPaid-historyTotal) > 0.009) ||
+      (payments.length === 0 && previouslyPaid > 0.009)) {
+    alert("Paiement bloqué : l'historique et le montant déjà payé ne concordent pas. Vérifier la facture avant toute modification.");
+    return;
+  }
+  const remainingCents = Math.round((total-previouslyPaid)*100);
+  if (remainingCents <= 0) return;
+  const entered = prompt(`Montant payé (reste ${money(remainingCents/100)} $) :`, (remainingCents/100).toFixed(2));
+  if (entered === null) return;
+  const amt = Number(entered.trim().replace(",","."));
+  const amountCents = Math.round(amt*100);
+  if (!Number.isFinite(amt) || amt <= 0 || !Number.isSafeInteger(amountCents) ||
+      Math.abs(amt*100-amountCents) > 0.00001 ||
+      amountCents <= 0 || amountCents > remainingCents) {
+    alert("Montant invalide : entrer une somme positive avec au maximum deux décimales, sans dépasser le solde.");
+    return;
+  }
+  const selection = prompt("Mode de paiement :\\n1 - Comptant\\n2 - Virement\\n3 - Carte\\n4 - Non spécifié\\n5 - Autre", "4");
+  if (selection === null) return;
+  const methods = { "1":"cash", "2":"transfer", "3":"card", "4":"unspecified", "5":"other" };
+  const method = methods[selection.trim()];
+  if (!method) { alert("Mode de paiement invalide : aucune modification enregistrée."); return; }
 
-  const remaining = Math.max(0, inv.total - (inv.paidAmount || 0));
-
-  const amt = Number(
-    prompt(
-      `Montant payé (reste ${money(remaining)} $) :`,
-      remaining
-    )
-  );
-
-  if (!amt || amt <= 0 || amt > remaining) return;
-
-  // Ajouter le paiement à l'historique
-  inv.payments.push({
+  inv.payments = [...payments, {
     date: new Date().toLocaleDateString("fr-CA"),
-    amount: amt
-  });
-
-  // Recalculer le total payé
-  inv.paidAmount = inv.payments.reduce((s,p)=>s + p.amount, 0);
-
-  // Mettre à jour le statut
-  inv.status = inv.paidAmount >= inv.total ? "paid" : "partial";
+    amount: amountCents/100,
+    method
+  }];
+  inv.paidAmount = Math.round(previouslyPaid*100 + amountCents)/100;
+  inv.status = Math.round(inv.paidAmount*100) >= Math.round(total*100) ? "paid" : "partial";
   inv.paidDate = new Date().toLocaleDateString("fr-CA");
-
+  if (inv.status === "paid") inv.paymentMethod = method;
   saveInvoices();
   renderInvoiceList();
   openInvoiceEditModal(number);
 }
-
 
   if ($("vehicleSearch")){
   $("vehicleSearch").oninput = renderVehicles;
