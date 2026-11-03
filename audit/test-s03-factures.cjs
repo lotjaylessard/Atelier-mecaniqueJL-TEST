@@ -77,7 +77,7 @@ function runFull(initial, method, useLegacy = false){
     renderDashboard(){},alert(message){alerts.push(message)}
   };
   vm.createContext(ctx);
-  vm.runInContext(fullCode + '\\n' + markCode, ctx);
+  vm.runInContext(fullCode + '\n' + markCode, ctx);
   if (useLegacy) ctx.markInvoicePaid(inv.number);
   else ctx.payInvoiceWithMethod(inv.number, method);
   return { inv, saved, rendered, opened, alerts };
