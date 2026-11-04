@@ -3264,12 +3264,26 @@ function showCloudRecoveryBanner(key) {
   if (!box) {
     box = document.createElement("div");
     box.id = "cloudRecoveryBanner";
-    box.style.cssText = "position:fixed;bottom:12px;left:240px;right:12px;z-index:20000;background:#3b1717;color:white;border:2px solid #ff7777;padding:14px;border-radius:8px;box-shadow:0 6px 25px #000";
+    box.style.cssText = "position:fixed;bottom:12px;left:240px;right:12px;z-index:20000;color:white;padding:14px;border-radius:8px;box-shadow:0 6px 25px #000;max-height:40vh;overflow:auto";
     document.body.appendChild(box);
   }
   box.replaceChildren();
   const msg = document.createElement("span");
-  msg.textContent = "⚠️ Données non synchronisées : une copie de récupération est disponible. Télécharge-la et conserve-la. Aucune restauration automatique. ";
+  msg.id = "cloudRecoveryBannerMessage";
+  box.dataset.recoveryKey = key || "";
+  // La presence d'une ancienne copie ne signifie pas une erreur cloud active.
+  // Une copie peut contenir des changements non recuperes : ne jamais la supprimer automatiquement.
+  let capturedAt = "";
+  try {
+    const saved = key ? JSON.parse(localStorage.getItem(key) || "null") : window.__garageEmergencyBackup;
+    if (saved?.capturedAt) {
+      const date = new Date(saved.capturedAt);
+      if (Number.isFinite(date.getTime())) capturedAt = date.toLocaleString("fr-CA");
+    }
+  } catch (_) { /* La copie reste disponible sans metadonnees lisibles. */ }
+  box.dataset.capturedAt = capturedAt;
+  msg.textContent = "Copie de récupération disponible. ";
+
   box.appendChild(msg);
   const btn = document.createElement("button");
   btn.textContent = "Télécharger les données non synchronisées";
@@ -3291,6 +3305,28 @@ function showCloudRecoveryBanner(key) {
   mergeBtn.style.marginLeft = "10px";
   mergeBtn.onclick = chooseRecoveredNotesFile;
   box.appendChild(mergeBtn);
+  updateCloudRecoveryBannerAppearance();
+}
+
+// S04-F09 : signalement purement visuel, sans supprimer/editer les copies locales.
+function updateCloudRecoveryBannerAppearance(){
+  const box = document.getElementById("cloudRecoveryBanner");
+  const message = document.getElementById("cloudRecoveryBannerMessage");
+  if (!box || !message) return;
+  const activeFailure = Boolean(CLOUD_SYNC_FAILED ||
+    (SUPABASE_USER?.id && ACTIVE_GARAGE_ID && !CLOUD_DATA_READY));
+  const dateText = box.dataset.capturedAt ? " (créée le " + box.dataset.capturedAt + ")" : "";
+  if (activeFailure) {
+    box.style.background = "#3b1717";
+    box.style.border = "2px solid #ff7777";
+    message.textContent = "⚠ Erreur cloud active. Copie de récupération" + dateText +
+      " disponible : télécharge-la avant toute action. Aucune restauration automatique. ";
+  } else {
+    box.style.background = "#142e43";
+    box.style.border = "2px solid #70b9ed";
+    message.textContent = "ℹ Ancienne copie de récupération" + dateText +
+      " conservée par sécurité. Synchronisation actuelle indépendante : certaines modifications de cette copie peuvent rester à récupérer. ";
+  }
 }
 
 /* ===================== TEST : FUSION MANUELLE DES NOUVELLES NOTES =====================
@@ -4281,6 +4317,7 @@ function renderCloudSyncIndicator(){
   if (element.textContent !== state.text) element.textContent = state.text;
   element.style.color = state.color;
   element.title = state.detail;
+  updateCloudRecoveryBannerAppearance();
 }
 function scheduleCloudSync(delay = 1500){
 
