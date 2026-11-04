@@ -1037,6 +1037,7 @@ button.link:hover{
   <span id="headerGreeting" class="header-greeting">
   Bonjour, Jeremy!
 </span>
+  <span id="cloudSyncIndicator" role="status" aria-live="polite" title="État de synchronisation du garage" style="font-size:12px;white-space:nowrap;border:1px solid #666;border-radius:16px;padding:5px 9px;color:#ccc;">☁ Cloud à vérifier</span>
 </div>
 
   </div>
@@ -4259,6 +4260,33 @@ async function tryAutoMergeAddedWOAttachments(localPayload, expectedVersion, sav
   }
   return reject('Trois collisions de version consecutives');
 }
+
+// S04-F07 : indicateur en lecture seule. Aucun appel réseau et aucune mutation des sauvegardes.
+function getCloudSyncDisplayState(){
+  if (CLOUD_SYNC_FAILED) return {text:"⚠ Erreur de synchronisation", color:"#ff8080", detail:"Sauvegarde non confirmée : ne ferme pas la page avant récupération."};
+  if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID) return {text:"☁ Cloud non connecté", color:"#c3c3c3", detail:"Session ou garage non identifié."};
+  if (!CLOUD_DATA_READY) return {text:"⚠ Cloud indisponible", color:"#ffbf69", detail:"Chargement ou synchronisation bloqués. Les données locales peuvent différer."};
+  if (CLOUD_SYNC_IN_PROGRESS || CLOUD_SYNC_PENDING || CLOUD_SYNC_DIRTY || cloudSyncTimer !== null) {
+    return {text:"↻ Enregistrement en cours", color:"#ffd166", detail:"Modifications locales en attente de confirmation Supabase."};
+  }
+  if (CLOUD_LAST_CONFIRMED_SNAPSHOT === null || !Number.isSafeInteger(CLOUD_DATA_VERSION)) {
+    return {text:"☁ Cloud à vérifier", color:"#c3c3c3", detail:"Aucune version cloud confirmée pour cette session."};
+  }
+  return {text:"✓ Synchronisé", color:"#8de09a", detail:"Dernier état local confirmé par le serveur Supabase."};
+}
+function renderCloudSyncIndicator(){
+  const element = document.getElementById("cloudSyncIndicator");
+  if (!element) return;
+  const state = getCloudSyncDisplayState();
+  if (element.textContent !== state.text) element.textContent = state.text;
+  element.style.color = state.color;
+  element.title = state.detail;
+}
+// Ne lit que les variables de sauvegarde existantes ; n'initie jamais de sauvegarde.
+document.addEventListener("DOMContentLoaded", () => {
+  renderCloudSyncIndicator();
+  setInterval(renderCloudSyncIndicator, 700);
+});
 
 function scheduleCloudSync(delay = 1500){
 
