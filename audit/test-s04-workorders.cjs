@@ -223,3 +223,18 @@ for(const status of ["termine","billed"]) assert.equal(actionVisible({status},nu
 assert.equal(actionVisible({status:"en_cours"},{status:"partial"}),false);
 assert.equal(actionVisible({status:"en_cours"},{status:"paid"}),false);
 console.log('S04-F12 : boutons Terminer/Supprimer masques pour BT termines ou factures.');
+
+const detailStart = html.indexOf('function initWorkOrdersModule(){');
+const detailEnd = html.indexOf('// ===== TIMER MAIN-D',detailStart);
+assert.ok(detailStart >= 0 && detailEnd > detailStart,'S04-F13 : module de detail absent');
+const detailSource = html.slice(detailStart,detailEnd);
+assert.ok(detailSource.includes('const woReadOnly = wo.status !== "en_cours" || Boolean(invoice);'), 'S04-F13 : statut lecture seule absent');
+assert.ok(detailSource.includes('woReadOnly\n      ?'), 'S04-F13 : boutons non conditionnels');
+assert.ok(detailSource.includes('detail.querySelectorAll("input:not([type=hidden]), textarea, select")'), 'S04-F13 : champs non desactives');
+assert.ok(detailSource.includes('button.textContent.includes("Copier")'), 'S04-F13 : copie VIN doit rester disponible');
+assert.ok(detailSource.includes('if (woReadOnly) return;\n    syncKmEverywhereFromWO'), 'S04-F13 : mise a jour km non bloquee');
+assert.ok(detailSource.includes('if (woReadOnly) return;\n    wo.notes ='), 'S04-F13 : notes non bloquees');
+for(const [status,hasInvoice,expected] of [
+ ['en_cours',false,false],['en_cours',true,true],['termine',false,true],['billed',true,true]
+]) assert.equal(status !== 'en_cours' || hasInvoice,expected);
+console.log('S04-F13 : BT termines/factures en lecture seule, controles de modification masques.');
