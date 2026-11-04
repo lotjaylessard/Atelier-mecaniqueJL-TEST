@@ -4321,6 +4321,25 @@ function scheduleCloudSync(delay = 1500){
 }
 
 
+// S04-F08 : avertir avant de quitter si la sauvegarde n'est pas confirmee.
+// Pas d'avertissement pendant un chargement normal ni apres deconnexion securisee.
+function hasUnconfirmedCloudChanges(){
+  return Boolean(
+    CLOUD_SYNC_FAILED ||
+    CLOUD_SYNC_DIRTY ||
+    CLOUD_SYNC_PENDING ||
+    CLOUD_SYNC_IN_PROGRESS ||
+    cloudSyncTimer !== null
+  );
+}
+function warnBeforeLeavingWithPendingCloudChanges(event){
+  if (!hasUnconfirmedCloudChanges()) return;
+  event.preventDefault();
+  // Chrome choisit son propre message de confirmation.
+  event.returnValue = "";
+}
+window.addEventListener("beforeunload", warnBeforeLeavingWithPendingCloudChanges);
+
 // Ne lit que les variables de sauvegarde existantes ; n'initie jamais de sauvegarde.
 document.addEventListener("DOMContentLoaded", () => {
   renderCloudSyncIndicator();
