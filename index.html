@@ -10644,23 +10644,41 @@ function renderHistoryTable(){
 }
 
 
+  // S04 audit : un BT n'entre dans l'historique definitif que lorsque
+  // sa facture liee est payee ET archivee. Aucune mutation des donnees.
+  function isWorkOrderArchivedInHistory(wo, invoices = INVOICES){
+    if (!wo || !wo.number || !["termine","billed"].includes(wo.status)) return false;
+    return Array.isArray(invoices) && invoices.some(inv =>
+      String(inv.workOrderNumber) === String(wo.number) &&
+      inv.status === "paid" && inv.archived === true
+    );
+  }
+
   function populateHistoryFiltersFromWorkOrders(){
-  const selClient  = $("filterClient");
-  const selVehicle = $("filterVehicle");
-  if (!selClient || !selVehicle) return;
+    const selClient = $("filterClient");
+    const selVehicle = $("filterVehicle");
+    if (!selClient || !selVehicle) return;
 
-  const workorders = loadArrayFromStorage(STORAGE.workorders);
+    const archived = loadArrayFromStorage(STORAGE.workorders)
+      .filter(wo => isWorkOrderArchivedInHistory(wo));
 
-  workorders.forEach(wo=>{
-    if (wo.clientName && ![...selClient.options].some(o=>o.value===wo.clientName)){
-      selClient.appendChild(new Option(wo.clientName, wo.clientName));
+    // Retirer les anciennes options correspondant aux BT non archives.
+    // Garder "Tous" et eviter les doublons lors des changements de page.
+    const clientSelected = selClient.value;
+    const vehicleSelected = selVehicle.value;
+    selClient.innerHTML = '<option value="">Tous les clients</option>';
+    selVehicle.innerHTML = '<option value="">Tous les véhicules</option>';
+    for (const wo of archived) {
+      if (wo.clientName && ![...selClient.options].some(o => o.value === wo.clientName)) {
+        selClient.appendChild(new Option(wo.clientName, wo.clientName));
+      }
+      if (wo.vehicleLabel && ![...selVehicle.options].some(o => o.value === wo.vehicleLabel)) {
+        selVehicle.appendChild(new Option(wo.vehicleLabel, wo.vehicleLabel));
+      }
     }
-
-    if (wo.vehicleLabel && ![...selVehicle.options].some(o=>o.value===wo.vehicleLabel)){
-      selVehicle.appendChild(new Option(wo.vehicleLabel, wo.vehicleLabel));
-    }
-  });
-}
+    if ([...selClient.options].some(o => o.value === clientSelected)) selClient.value = clientSelected;
+    if ([...selVehicle.options].some(o => o.value === vehicleSelected)) selVehicle.value = vehicleSelected;
+  }
 
 
   // Badge Statut pour les WO (historique)
@@ -10690,7 +10708,7 @@ function renderWOStatusBadge(status){
 const filterVehicle = $("filterVehicle")?.value || "";
 
 workorders
-  .filter(wo => wo.status !== "en_cours")
+  .filter(wo => isWorkOrderArchivedInHistory(wo))
   .filter(wo => {
     if (filterClient && wo.clientName !== filterClient) return false;
     if (filterVehicle && wo.vehicleLabel !== filterVehicle) return false;
