@@ -988,7 +988,17 @@ button.link:hover{
   padding:14px;
 }
     
-  </style>
+  
+    /* S05 : design reutilisable dans tous les modules. */
+    .module-search-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+    .module-search-toolbar input[type="search"]{flex:1 1 320px;min-width:200px}
+    .module-search-toolbar select{flex:0 1 220px;min-width:160px}
+    .module-sort-button{color:var(--accent);background:transparent;border:1px solid transparent;border-radius:6px;font:inherit;font-weight:700;cursor:pointer;padding:5px 7px;white-space:nowrap}
+    .module-sort-button:hover,.module-sort-button:focus-visible{border-color:var(--accent);outline-offset:2px}
+    .module-sort-arrow{font-size:.8em;opacity:.8}
+    .module-result-count{font-size:.82rem;color:var(--muted);margin-bottom:8px}
+    @media(max-width:700px){.module-search-toolbar input[type="search"],.module-search-toolbar select{flex-basis:100%;width:100%}}
+</style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -1187,24 +1197,25 @@ button.link:hover{
   <h2>Factures</h2>
   
   <div class="card">
-    <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
-      <input id="invoiceSearch" placeholder="Recherche (#, client, véhicule)" style="flex:1;" />
-      <select id="invoiceStatusFilter">
-        <option value="">-- Statuts --</option>
+    <div class="module-search-toolbar">
+      <input id="invoiceSearch" type="search" aria-label="Rechercher une facture" placeholder="🔎 Rechercher : numéro, client, véhicule, VIN, plaque..." />
+      <select id="invoiceStatusFilter" aria-label="Filtrer par statut">
+        <option value="">Tous les statuts</option>
         <option value="pending">Impayée</option>
         <option value="partial">Partielle</option>
         <option value="paid">Payée</option>
       </select>
     </div>
+    <div id="invoiceResultCount" class="module-result-count" role="status" aria-live="polite"></div>
 
     <table id="invoiceListTable">
       <thead>
         <tr>
-          <th># Facture</th>
-          <th>Date</th>
-          <th>Client</th>
-          <th>Total</th>
-          <th>Statut</th>
+          <th data-module-sort="number" aria-sort="none"><button type="button" class="module-sort-button" onclick="setInvoiceSort('number')" title="Trier par # Facture"># Facture <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+          <th data-module-sort="date" aria-sort="none"><button type="button" class="module-sort-button" onclick="setInvoiceSort('date')" title="Trier par Date">Date <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+          <th data-module-sort="client" aria-sort="none"><button type="button" class="module-sort-button" onclick="setInvoiceSort('client')" title="Trier par Client">Client <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+          <th data-module-sort="total" aria-sort="none"><button type="button" class="module-sort-button" onclick="setInvoiceSort('total')" title="Trier par Total">Total <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+          <th data-module-sort="status" aria-sort="none"><button type="button" class="module-sort-button" onclick="setInvoiceSort('status')" title="Trier par Statut">Statut <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
           <th></th>
         </tr>
       </thead>
@@ -8350,17 +8361,80 @@ function loadInvoices(){
 }
   
 
-  function renderInvoiceList(){
+  // S05 : utilitaires de recherche/tri communs a reutiliser dans les modules.
+function moduleNormalizeSearch(value){
+  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase().replace(/[\s\-().]/g,"");
+}
+function moduleMatchesSearch(values,query){
+  const q=moduleNormalizeSearch(query);
+  return !q || values.some(v=>moduleNormalizeSearch(v).includes(q));
+}
+function moduleSortRows(rows,key,direction,getValue){
+  if (!key) return rows.slice();
+  const sign=direction==="desc"?-1:1;
+  return rows.map((row,index)=>({row,index})).sort((a,b)=>{
+    const av=getValue(a.row,key),bv=getValue(b.row,key);
+    if (av==null && bv!=null) return 1;
+    if (bv==null && av!=null) return -1;
+    const cmp=typeof av==="number" && typeof bv==="number"
+      ? av-bv
+      : String(av??"").localeCompare(String(bv??""),"fr",{numeric:true,sensitivity:"base"});
+    return cmp ? cmp*sign : a.index-b.index;
+  }).map(entry=>entry.row);
+}
+function moduleRenderSortHeaders(table,key,direction){
+  table.querySelectorAll("th[data-module-sort]").forEach(th=>{
+    const active=th.dataset.moduleSort===key;
+    th.setAttribute("aria-sort",active?(direction==="asc"?"ascending":"descending"):"none");
+    const arrow=th.querySelector(".module-sort-arrow");
+    if(arrow)arrow.textContent=active?(direction==="asc"?"▲":"▼"):"↕";
+  });
+}
+let INVOICE_SORT_KEY=null;
+let INVOICE_SORT_DIRECTION="asc";
+const INVOICE_SORT_KEYS=["number","date","client","total","status"];
+function setInvoiceSort(key){
+  if(!INVOICE_SORT_KEYS.includes(key))return;
+  if(INVOICE_SORT_KEY===key)INVOICE_SORT_DIRECTION=INVOICE_SORT_DIRECTION==="asc"?"desc":"asc";
+  else{INVOICE_SORT_KEY=key;INVOICE_SORT_DIRECTION=["date","total"].includes(key)?"desc":"asc";}
+  renderInvoiceList();
+}
+function invoiceSearchFields(inv){
+  const client=CLIENTS.find(c=>
+    (inv.customerId!=null && String(c.id)===String(inv.customerId)) ||
+    (c.name && inv.customer && c.name===inv.customer));
+  const allVehicles=Array.isArray(client?.vehicles)?client.vehicles:[];
+  const vehicle=allVehicles.find(v=>[v.year,v.make,v.model].filter(Boolean).join(" ")===inv.vehicle);
+  return [
+    inv.number,inv.workOrderNumber,inv.customer,inv.vehicle,inv.job,
+    client?.name,client?.firstName,client?.lastName,client?.phone,
+    vehicle?.vin,vehicle?.plate,
+    ...(inv.items||[]).map(it=>it.desc)
+  ];
+}
+function invoiceSortValue(inv,key){
+  switch(key){
+    case "number":return String(inv.number||"");
+    case "date":{const t=Date.parse(inv.date||"");return Number.isFinite(t)?t:null;}
+    case "client":return String(inv.customer||"");
+    case "total":return Number(inv.total)||0;
+    case "status":return String(inv.status||"");
+    default:return "";
+  }
+}
+
+function renderInvoiceList(){
   const table = $("invoiceListTable");
   const tbody = table?.querySelector("tbody");
   if (!tbody) return;
 
-  const search = ($("invoiceSearch")?.value || "").toLowerCase();
+  const search = $("invoiceSearch")?.value || "";
   const statusFilter = $("invoiceStatusFilter")?.value || "";
 
   tbody.innerHTML = "";
 
-  // 🔥 On filtre d’abord
+  // Filtrage sur les factures non archivees, sans mutation.
   const filtered = INVOICES
     .filter(inv => inv.archived !== true)
     .filter(inv => {
@@ -8376,34 +8450,22 @@ function loadInvoices(){
 
       }
 
-      if (search){
-        const clientObj = CLIENTS.find(c =>
-          c.id === inv.customerId ||
-          c.name === inv.customer
-        );
-
-        const clientNameSearch = clientObj
-          ? `${clientObj.lastName || ""} ${clientObj.firstName || ""}`
-          : (inv.customer || "");
-
-        const hay = `
-          ${inv.number}
-          ${clientNameSearch}
-          ${inv.job || ""}
-        `.toLowerCase();
-
-        if (!hay.includes(search)) return false;
-      }
+      if(search && !moduleMatchesSearch(invoiceSearchFields(inv),search))return false;
 
       return true;
     });
 
+  const sorted=moduleSortRows(filtered,INVOICE_SORT_KEY,INVOICE_SORT_DIRECTION,invoiceSortValue);
+  moduleRenderSortHeaders(table,INVOICE_SORT_KEY,INVOICE_SORT_DIRECTION);
+  const counter=$("invoiceResultCount");
+  if(counter)counter.textContent=sorted.length+" facture"+(sorted.length!==1?"s":"")+" affichée"+(sorted.length!==1?"s":"");
+
   // 🔥 Condition vide APRÈS filtrage
-  if (!filtered.length){
+  if (!sorted.length){
     tbody.innerHTML = `
       <tr>
         <td colspan="6" class="muted" style="text-align:center;padding:20px;">
-          Aucune facture pour l’instant.
+          Aucune facture ne correspond à la recherche ou au filtre.
         </td>
       </tr>
     `;
@@ -8411,7 +8473,7 @@ function loadInvoices(){
   }
 
   // 🔥 Render normal
-  filtered.forEach(inv => {
+  sorted.forEach(inv => {
     const tr = document.createElement("tr");
     tr.dataset.number = inv.number;
 
