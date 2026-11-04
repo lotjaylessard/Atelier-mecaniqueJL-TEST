@@ -1162,14 +1162,14 @@ button.link:hover{
         <table id="woTable">
           <thead>
             <tr>
-              <th># Bon Travail</th>
-              <th>Date</th>
-              <th>Client</th>
-              <th>Véhicule</th>
-              <th>Km</th>
-              <th>Description</th>
-              <th>Statut</th>
-              <th>Total estimé</th>
+              <th data-wo-sort="number" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('number')" title="Trier par # Bon Travail" style="padding:4px 6px;white-space:nowrap;"># Bon Travail <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-wo-sort="date" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('date')" title="Trier par Date" style="padding:4px 6px;white-space:nowrap;">Date <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-wo-sort="client" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('client')" title="Trier par Client" style="padding:4px 6px;white-space:nowrap;">Client <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-wo-sort="vehicle" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('vehicle')" title="Trier par Véhicule" style="padding:4px 6px;white-space:nowrap;">Véhicule <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-wo-sort="km" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('km')" title="Trier par Km" style="padding:4px 6px;white-space:nowrap;">Km <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-wo-sort="description" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('description')" title="Trier par Description" style="padding:4px 6px;white-space:nowrap;">Description <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-wo-sort="status" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('status')" title="Trier par Statut" style="padding:4px 6px;white-space:nowrap;">Statut <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-wo-sort="total" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('total')" title="Trier par Total estimé" style="padding:4px 6px;white-space:nowrap;">Total estimé <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
               <th></th>
             </tr>
           </thead>
@@ -6465,6 +6465,70 @@ function woMatchesSearch(wo, search, contactInfo){
     woSearchNormalize(combined).includes(q);
 }
 
+// S04-F11 : tri local des bons de travail, sans ecriture dans Supabase.
+let WO_SORT_KEY = null;
+let WO_SORT_DIRECTION = "asc";
+const WO_SORT_KEYS = ["number","date","client","vehicle","km","description","status","total"];
+function setWorkOrderSort(key){
+  if (!WO_SORT_KEYS.includes(key)) return;
+  if (WO_SORT_KEY === key) WO_SORT_DIRECTION = WO_SORT_DIRECTION === "asc" ? "desc" : "asc";
+  else {
+    WO_SORT_KEY = key;
+    WO_SORT_DIRECTION = ["date","number","total","km"].includes(key) ? "desc" : "asc";
+  }
+  renderWorkOrders();
+}
+function workOrderSortValue(wo,key){
+  switch (key) {
+    case "number": return String(wo.number || "");
+    case "date": {
+      const timestamp = new Date(wo.date || "").getTime();
+      return Number.isFinite(timestamp) ? timestamp : null;
+    }
+    case "client": {
+      const c = CLIENTS.find(c => String(c.id) === String(wo.clientId) || c.name === wo.clientName);
+      return c ? (`${c.lastName || ""} ${c.firstName || ""}`.trim() || String(c.name || wo.clientName || "")) : String(wo.clientName || "");
+    }
+    case "vehicle": return String(wo.vehicleLabel || "");
+    case "km": return woDisplayKm(wo).value;
+    case "description": return String(wo.description || "");
+    case "status": return String(wo.status || "");
+    case "total": return Number(wo.estimateTotal) || 0;
+    default: return "";
+  }
+}
+function sortWorkOrderRows(rows){
+  const list = rows.slice();
+  if (!WO_SORT_KEY) {
+    // Affichage par defaut preserve : BT en cours avant BT termines, puis date recente.
+    return list.sort((a,b) => {
+      if (a.status === "en_cours" && b.status === "termine") return -1;
+      if (a.status === "termine" && b.status === "en_cours") return 1;
+      return (new Date(b.date).getTime() || 0) - (new Date(a.date).getTime() || 0);
+    });
+  }
+  const direction = WO_SORT_DIRECTION === "desc" ? -1 : 1;
+  return list.sort((a,b) => {
+    const av = workOrderSortValue(a,WO_SORT_KEY), bv = workOrderSortValue(b,WO_SORT_KEY);
+    // Les valeurs non renseignees restent a la fin dans les deux directions.
+    if (av == null && bv != null) return 1;
+    if (bv == null && av != null) return -1;
+    let cmp = 0;
+    if (typeof av === "number" && typeof bv === "number") cmp = av-bv;
+    else cmp = String(av ?? "").localeCompare(String(bv ?? ""), "fr", {numeric:true,sensitivity:"base"});
+    if (cmp !== 0) return cmp*direction;
+    return String(a.number || "").localeCompare(String(b.number || ""), "fr", {numeric:true});
+  });
+}
+function renderWorkOrderSortHeaders(table){
+  table.querySelectorAll("th[data-wo-sort]").forEach(th => {
+    const active = th.dataset.woSort === WO_SORT_KEY;
+    th.setAttribute("aria-sort",active ? (WO_SORT_DIRECTION === "asc" ? "ascending" : "descending") : "none");
+    const arrow = th.querySelector(".wo-sort-arrow");
+    if (arrow) arrow.textContent = active ? (WO_SORT_DIRECTION === "asc" ? "▲" : "▼") : "↕";
+  });
+}
+
 function renderWorkOrders(){
   const table = $("woTable");
   const tbody = table ? table.querySelector("tbody") : null;
@@ -6504,31 +6568,13 @@ const isPaid = invoice && invoice.status === "paid";
   return true;
 });
 
-  filtered
-  .filter(wo => {
-    const invoice = INVOICES.find(inv =>
-      String(inv.workOrderNumber) === String(wo.number)
-    );
-
-    // 🚫 Si facture payée → ne pas afficher le WO
-    if (invoice && invoice.status === "paid") {
-      return false;
-    }
-
-    return true;
-  })
-  .slice()
-  .sort((a, b) => {
-
-
-    // ⭐ Priorité statut
-    if (a.status === "en_cours" && b.status === "termine") return -1;
-    if (a.status === "termine" && b.status === "en_cours") return 1;
-
-    // ⭐ Sinon tri par date décroissante
-    return new Date(b.date) - new Date(a.date);
-
-  })
+  const visible = filtered.filter(wo => {
+    const invoice = INVOICES.find(inv => String(inv.workOrderNumber) === String(wo.number));
+    return !(invoice && invoice.status === "paid");
+  });
+  const sorted = sortWorkOrderRows(visible);
+  renderWorkOrderSortHeaders(table);
+  sorted
   .forEach(wo => {
 
     const invoice = INVOICES.find(inv =>
