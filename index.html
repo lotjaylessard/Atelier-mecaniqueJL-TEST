@@ -6418,6 +6418,16 @@ function woEditLine(woId, type, index) {
 
   $("woEditSave").onclick = () => {
     if (!woRequireFinancialEdit(wo)) return;
+    const qtyOrHours = Number($(type === "part" ? "woEditQty" : "woEditHours").value);
+    const price = Number($("woEditRate").value);
+    const description = String($(type === "part" ? "woEditName" : "woEditDesc").value || "").trim();
+    const costValue = type === "part" ? Number($("woEditCost").value || 0) : 0;
+    if (!description || !Number.isFinite(qtyOrHours) || qtyOrHours <= 0 ||
+        !Number.isFinite(price) || price < 0 ||
+        !Number.isFinite(costValue) || costValue < 0) {
+      alert("Valeurs invalides : vérifie le nom, la quantité, les heures, le coût et le prix.");
+      return;
+    }
     if (type === "part") {
       line.name = $("woEditName").value;
       line.qty  = Number($("woEditQty").value);
@@ -7221,7 +7231,7 @@ function applyClosedWOControls(wo,detail){
       button.textContent.includes("Retour") || button.textContent.includes("Copier")) return;
     // Jamais reterminer/supprimer le BT termine ni redemarrer son compteur.
     if (button.textContent.includes("Terminé") || button.textContent.includes("Supprimer") ||
-        button.id?.startsWith("woTimer")) {
+        button.id?.startsWith("woTimer") || button.closest("#woAttachmentsList")) {
       button.style.display = "none";return;
     }
     button.style.display = isEditing ? "" : "none";
