@@ -5,6 +5,7 @@ on:
       - "audit/**"
       - "s03/**"
       - "s04/**"
+      - "s05/**"
   workflow_dispatch:
 permissions:
   contents: read
@@ -26,3 +27,6 @@ jobs:
         run: node audit/test-s03-factures.cjs
       - name: Bons de travail S04 (simulés)
         run: node audit/test-s04-workorders.cjs
+
+      - name: Recherches et tris S05 (simulés)
+        run: node audit/test-s05-search.cjs
