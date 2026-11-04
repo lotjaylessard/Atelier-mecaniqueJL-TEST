@@ -5181,11 +5181,10 @@ function woRequireFinancialEdit(wo){
   alert("Modification refusée : active Modifier le BT et vérifie que la facture est impayée.");
   return false;
 }
-function woSyncUnpaidInvoice(wo){
-  const invoice = woLinkedInvoice(wo);
-  if (!invoice || invoice.status !== "unpaid" || woInvoiceHasPayment(invoice) ||
-      !CLOUD_DATA_READY || CLOUD_SYNC_FAILED) return false;
-  const items = [
+// Les lignes de la facture peuvent avoir ete modifiees directement.
+// Avant de corriger le BT, verifier la correspondance pour ne rien ecraser.
+function woInvoiceItemsFromWO(wo){
+  return [
     ...(wo.parts || []).map(p=>({
       type:"Pièce",desc:`${p.name || ""}${p.number ? " (#"+p.number+")" : ""}`.trim(),
       qty:Number(p.qty),rate:Number(p.rate),total:Number(p.qty)*Number(p.rate)
@@ -5195,6 +5194,23 @@ function woSyncUnpaidInvoice(wo){
       qty:Number(l.hours),rate:Number(l.rate),total:Number(l.hours)*Number(l.rate)
     }))
   ];
+}
+function woInvoiceMatchesWO(wo,invoice){
+  const expected = woInvoiceItemsFromWO(wo);
+  const current = invoice?.items;
+  if (!Array.isArray(current) || expected.length !== current.length) return false;
+  return expected.every((item,i)=>{
+    const saved=current[i];
+    return !!saved && String(saved.type || "") === item.type &&
+      String(saved.desc || "").trim() === item.desc &&
+      Number(saved.qty) === item.qty && Number(saved.rate) === item.rate;
+  });
+}
+function woSyncUnpaidInvoice(wo){
+  const invoice = woLinkedInvoice(wo);
+  if (!invoice || invoice.status !== "unpaid" || woInvoiceHasPayment(invoice) ||
+      !CLOUD_DATA_READY || CLOUD_SYNC_FAILED) return false;
+  const items = woInvoiceItemsFromWO(wo);
   if (items.some(it=>!it.desc || !Number.isFinite(it.qty) || it.qty <= 0 ||
     !Number.isFinite(it.rate) || it.rate < 0)) return false;
   const next = {...invoice,items};
@@ -7247,6 +7263,10 @@ function beginClosedWOEdit(woId){
   loadInvoices();
   if (!wo || !woCanStartClosedEdit(wo)) {
     alert("Modification indisponible : facture payée, partiellement payée ou synchronisation bloquée.");
+    return;
+  }
+  if (!woInvoiceMatchesWO(wo,woLinkedInvoice(wo))) {
+    alert("Les lignes de la facture diffèrent déjà du BT. Correction automatique bloquée pour éviter de remplacer des modifications faites directement sur la facture.");
     return;
   }
   window.__woClosedEditId = String(wo.id);
