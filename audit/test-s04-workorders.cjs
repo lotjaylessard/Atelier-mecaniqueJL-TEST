@@ -403,3 +403,77 @@ assert.ok(!navigationFunction.includes('persistActiveWO('),
  assert.equal(ctx.rendered,1,'La navigation deja fermee ne doit pas relancer la liste');
 }
 console.log('S04-F14 : retour a la liste sans sauvegarde, alerte ni recalcul de facture.');
+
+/* S04 audit final : cycle complet BT -> facture -> partiel -> solde -> archive.
+   Fonctions de production executees avec environnement local simule, sans Supabase. */
+function extractLifecycleFunction(begin,end) {
+ const a=html.indexOf(begin), b=html.indexOf(end,a+begin.length);
+ assert.ok(a>=0 && b>a,"Fonction introuvable pour audit : "+begin);
+ return html.slice(a,b);
+}
+const lifecycleCode=[
+ extractLifecycleFunction('function finishWorkOrder(id){','async function deleteWorkOrder(id)'),
+ extractLifecycleFunction('function markInvoicePartial(number, method){','if ($("vehicleSearch"))'),
+ extractLifecycleFunction('function payInvoiceWithMethod(number, method){','/* ===================== WORK ORDERS (Bons de travail)'),
+ extractLifecycleFunction('function archiveInvoice(number){','function invoicePaymentMethodLabel(method)')
+].join('\n');
+function runLifecycleScenario() {
+ const logs={alerts:[],confirmations:0,cloudSaves:0,viewedInvoices:[],storedInvoices:[],storedWOs:[]};
+ const wo={id:8801,number:'BT-AUDIT-8801',status:'en_cours',vehicleKm:45000,
+   clientName:'CLIENT AUDIT',vehicleLabel:'2022 Mazda Mazda3',
+   parts:[{name:'Filtre',qty:1,rate:25,cost:10}],
+   labor:[{description:'Installation',hours:1,rate:75}],estimateTotal:100};
+ const clients=[{name:'CLIENT AUDIT',vehicles:[{year:2022,make:'Mazda',model:'Mazda3',km:44000}]}];
+ const ctx={
+   WORKORDERS:[wo],INVOICES:[],CLIENTS:clients,
+   SETTINGS:{gst:5,qst:9.975},
+   document:{getElementById(){return null;}},
+   loadWorkOrders(){},loadInvoices(){},
+   saveWorkOrders(){logs.storedWOs.push(structuredClone(ctx.WORKORDERS));logs.cloudSaves++;},
+   saveInvoices(){logs.storedInvoices.push(structuredClone(ctx.INVOICES));logs.cloudSaves++;},
+   saveClients(){logs.cloudSaves++;},
+   renderWorkOrders(){},renderInvoiceList(){},renderDashboard(){},renderHistoryTable(){},
+   showPage(){},openInvoiceEditModal(n){logs.viewedInvoices.push(n);},
+   btToInvoiceNumber(n){return n.replace(/^BT/,'FA');},
+   money(n){return Number(n).toFixed(2);},
+   confirm(){logs.confirmations++;return true;},
+   prompt(){return '30.00';},
+   alert(msg){logs.alerts.push(msg);}
+ };
+ vm.createContext(ctx);
+ vm.runInContext(lifecycleCode,ctx);
+ ctx.finishWorkOrder(wo.id);
+ assert.equal(wo.status,'termine','La cloture doit changer le statut');
+ assert.equal(ctx.INVOICES.length,1,'Un seul document facture doit etre cree');
+ const inv=ctx.INVOICES[0];
+ assert.equal(inv.number,'FA-AUDIT-8801');
+ assert.equal(inv.workOrderNumber,wo.number);
+ assert.equal(inv.status,'unpaid');
+ assert.equal(inv.items.length,2);
+ assert.equal(inv.subTotal,100);
+ assert.ok(Math.abs(inv.total-114.97375)<0.00001);
+ ctx.finishWorkOrder(wo.id);
+ assert.equal(ctx.INVOICES.length,1,'Le second clic ne doit pas doubler la facture');
+ assert.equal(logs.confirmations,1,'Le second clic ne doit pas demander une nouvelle cloture');
+ ctx.markInvoicePartial(inv.number,'cash');
+ assert.equal(inv.status,'partial');
+ assert.equal(inv.paidAmount,30);
+ assert.equal(inv.payments.length,1);
+ assert.equal(inv.payments[0].method,'cash');
+ ctx.payInvoiceWithMethod(inv.number,'transfer');
+ assert.equal(inv.status,'paid');
+ assert.equal(inv.paidAmount,inv.total);
+ assert.equal(inv.payments.length,2);
+ assert.equal(inv.payments[1].method,'transfer');
+ assert.ok(Math.abs(inv.payments[1].amount-(Math.round(inv.total*100)-3000)/100)<0.01);
+ ctx.payInvoiceWithMethod(inv.number,'card');
+ assert.equal(inv.payments.length,2,'Aucun paiement supplementaire sur facture payee');
+ ctx.archiveInvoice(inv.number);
+ assert.equal(inv.archived,true,'La facture payee peut etre archivee');
+ assert.equal(wo.status,'termine','L archivage ne doit pas rouvrir le BT');
+ assert.equal(ctx.INVOICES.length,1,'Le cycle doit garder une facture unique');
+ return logs;
+}
+const lifecycleAudit=runLifecycleScenario();
+assert.ok(lifecycleAudit.storedInvoices.length>=3,'Sauvegarde des stades facture absente');
+console.log('S04-AUDIT : cloture, facture unique, paiement partiel, solde, protection et archivage verifies.');
