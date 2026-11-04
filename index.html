@@ -7249,6 +7249,8 @@ if (!wo) return;
 
 const invoice = INVOICES.find(inv => String(inv.workOrderNumber) === String(wo.number));
 const isPaid = invoice && invoice.status === "paid";
+// S04-F13 : le BT termine ou relie a une facture est en lecture seule.
+const woReadOnly = wo.status !== "en_cours" || Boolean(invoice);
 
 const statusLabel =
   wo.status === "en_cours" ? "En cours" :
@@ -7429,11 +7431,13 @@ const statusLabel =
 </div>
 
 
-  <!-- ACTIONS -->
-  <div class="card" style="display:flex;justify-content:flex-end;gap:10px;">
-    <button id="woSaveBtn">💾 Enregistrer</button>
-    <button class="ghost" onclick="finishWorkOrder(${wo.id})">✅ Terminé</button>
-    <button class="danger" onclick="deleteWorkOrder(${wo.id})">🗑 Supprimer</button>
+  <!-- ACTIONS S04-F13 : aucun bouton de modification si BT cloture ou facture -->
+  <div class="card" style="display:flex;justify-content:flex-end;gap:10px;align-items:center;">
+    ${woReadOnly
+      ? '<span class="muted">🔒 Bon de travail en lecture seule — terminé ou facturé.</span>'
+      : `<button id="woSaveBtn">💾 Enregistrer</button>
+         <button class="ghost" onclick="finishWorkOrder(${wo.id})">✅ Terminé</button>
+         <button class="danger" onclick="deleteWorkOrder(${wo.id})">🗑 Supprimer</button>`}
   </div>
 `;
 
@@ -7457,6 +7461,7 @@ setTimeout(() => {
   if (!kmInput) return;
 
   const saveKm = () => {
+    if (woReadOnly) return;
     syncKmEverywhereFromWO(wo, kmInput.value);
 
     // 🔥 INVALIDATION CACHE VÉHICULES (OBLIGATOIRE)
@@ -7550,6 +7555,7 @@ if (notesField){
   notesField.value = wo.notes || "";
 
   notesField.oninput = () => {
+    if (woReadOnly) return;
     wo.notes = notesField.value;
     // TEST #336 : conserver immediatement la saisie localement,
     // mais ne demander une synchronisation qu'apres une pause de frappe.
@@ -7568,6 +7574,20 @@ if (notesField){
 }
 
 initWorkOrderSaveButton();
+  if (woReadOnly) {
+    // Desactiver tous les controles de modification, y compris les formulaires
+    // de pieces/main-d'oeuvre, les notes et les fichiers.
+    detail.querySelectorAll("input:not([type=hidden]), textarea, select").forEach(el => {
+      el.disabled = true;
+    });
+    detail.querySelectorAll("button").forEach(button => {
+      // Conserver la navigation et la copie du VIN.
+      if (button.closest("[id='woBackBar']") ||
+          button.textContent.includes("Retour") ||
+          button.textContent.includes("Copier")) return;
+      button.remove();
+    });
+  }
 
   }; // ✅ fin table.onclick
 } // ✅ fin if(table)
