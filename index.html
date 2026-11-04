@@ -6330,6 +6330,10 @@ if ($("woEstimatedProfit")) {
 }
   
   // Affichage uniquement : aucune sauvegarde pendant le rendu.
+  const activeDetail = document.getElementById("woDetailContent");
+  if (activeDetail?.querySelector("#woEditId")?.value === String(wo.id)) {
+    applyClosedWOControls(wo,activeDetail);
+  }
 }
 
 
@@ -7186,6 +7190,57 @@ if (typeof calcWorkOrderProfit === "function") {
    // ===============================
   // Création de Work-Order + rentrer pièces, main-d'oeuvre, LE MAIN EN FAIT
   // ===============================
+// S04-F14 : les BT termines sont consultables; seules les corrections
+// demandees explicitement sur facture impayee activent les commandes financieres.
+function woCanStartClosedEdit(wo){
+  const inv = woLinkedInvoice(wo);
+  return wo?.status === "termine" && !!inv && inv.status === "unpaid" &&
+    !woInvoiceHasPayment(inv) && CLOUD_DATA_READY && !CLOUD_SYNC_FAILED;
+}
+function applyClosedWOControls(wo,detail){
+  if (!detail || wo?.status === "en_cours" && !woLinkedInvoice(wo)) return;
+  const isEditing = woCanEditFinancials(wo);
+  detail.querySelectorAll("input:not([type=hidden]),textarea,select").forEach(el=>{
+    // Apres cloture : KM et fichiers restent proteges. Notes libres jusqu'au paiement.
+    el.disabled = !(el.id === "woNotes" && woCanEditNotes(wo));
+  });
+  const editBtn = detail.querySelector("#woEditClosedBtn");
+  const finishBtn = detail.querySelector("#woFinishClosedEditBtn");
+  if (editBtn) editBtn.style.display = isEditing ? "none" : "";
+  if (finishBtn) finishBtn.style.display = isEditing ? "" : "none";
+  detail.querySelectorAll("button").forEach(button=>{
+    if (button === editBtn || button === finishBtn ||
+      button.textContent.includes("Retour") || button.textContent.includes("Copier")) return;
+    // Jamais reterminer/supprimer le BT termine ni redemarrer son compteur.
+    if (button.textContent.includes("Terminé") || button.textContent.includes("Supprimer") ||
+        button.id?.startsWith("woTimer")) {
+      button.style.display = "none";return;
+    }
+    button.style.display = isEditing ? "" : "none";
+  });
+  // La modification concerne les lignes de pieces/services, pas l'odometre.
+  const note = detail.querySelector("#woClosedEditStatus");
+  if (note) note.textContent = isEditing
+    ? "✏️ Mode correction actif : les pièces/services modifiés mettent à jour la facture impayée."
+    : "🔒 Travaux terminés : facture inchangée tant que tu n'actives pas Modifier le BT.";
+}
+function beginClosedWOEdit(woId){
+  const wo = WORKORDERS.find(w=>String(w.id)===String(woId));
+  loadInvoices();
+  if (!wo || !woCanStartClosedEdit(wo)) {
+    alert("Modification indisponible : facture payée, partiellement payée ou synchronisation bloquée.");
+    return;
+  }
+  window.__woClosedEditId = String(wo.id);
+  applyClosedWOControls(wo,document.getElementById("woDetailContent"));
+}
+function endClosedWOEdit(woId){
+  const wo = WORKORDERS.find(w=>String(w.id)===String(woId));
+  if (!wo) return;
+  window.__woClosedEditId = null;
+  applyClosedWOControls(wo,document.getElementById("woDetailContent"));
+}
+
 function initWorkOrdersModule(){
   loadWorkOrders();
   loadInvoices();
@@ -7498,10 +7553,14 @@ const statusLabel =
 </div>
 
 
-  <!-- ACTIONS S04-F13 : aucun bouton de modification si BT cloture ou facture -->
-  <div class="card" style="display:flex;justify-content:flex-end;gap:10px;align-items:center;">
+  <!-- ACTIONS S04-F14 : correction volontaire avant paiement, jamais seconde cloture -->
+  <div class="card" style="display:flex;justify-content:flex-end;gap:10px;align-items:center;flex-wrap:wrap;">
     ${woReadOnly
-      ? '<span class="muted">🔒 Bon de travail en lecture seule — terminé ou facturé.</span>'
+      ? `<span id="woClosedEditStatus" class="muted">🔒 Travaux terminés — modification contrôlée.</span>
+         ${woCanStartClosedEdit(wo)
+           ? `<button id="woEditClosedBtn" class="ghost" onclick="beginClosedWOEdit('${wo.id}')">✏️ Modifier le BT</button>
+              <button id="woFinishClosedEditBtn" class="ghost" style="display:none;" onclick="endClosedWOEdit('${wo.id}')">✓ Fin des modifications</button>`
+           : ""}`
       : `<button id="woSaveBtn">💾 Enregistrer</button>
          <button class="ghost" onclick="finishWorkOrder(${wo.id})">✅ Terminé</button>
          <button class="danger" onclick="deleteWorkOrder(${wo.id})">🗑 Supprimer</button>`}
@@ -7623,7 +7682,7 @@ if (notesField){
   notesField.value = wo.notes || "";
 
   notesField.oninput = () => {
-    if (woReadOnly) return;
+    if (!woCanEditNotes(wo)) return;
     wo.notes = notesField.value;
     // TEST #336 : conserver immediatement la saisie localement,
     // mais ne demander une synchronisation qu'apres une pause de frappe.
@@ -7642,20 +7701,10 @@ if (notesField){
 }
 
 initWorkOrderSaveButton();
-  if (woReadOnly) {
-    // Desactiver tous les controles de modification, y compris les formulaires
-    // de pieces/main-d'oeuvre, les notes et les fichiers.
-    detail.querySelectorAll("input:not([type=hidden]), textarea, select").forEach(el => {
-      el.disabled = true;
-    });
-    detail.querySelectorAll("button").forEach(button => {
-      // Conserver la navigation et la copie du VIN.
-      if (button.closest("[id='woBackBar']") ||
-          button.textContent.includes("Retour") ||
-          button.textContent.includes("Copier")) return;
-      button.remove();
-    });
-  }
+  // Les notes restent modifiables meme sur facture partiellement payee.
+  // Les boutons financiers restent masques jusqu'a l'activation explicite.
+  window.__woClosedEditId = null;
+  applyClosedWOControls(wo,detail);
 
   }; // ✅ fin table.onclick
 } // ✅ fin if(table)
