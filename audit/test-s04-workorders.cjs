@@ -523,3 +523,54 @@ const historyFiltersStart=html.indexOf('function populateHistoryFiltersFromWorkO
 const historyFiltersEnd=html.indexOf('// Badge Statut pour les WO (historique)',historyFiltersStart);
 assert.ok(html.slice(historyFiltersStart,historyFiltersEnd).includes('.filter(wo => isWorkOrderArchivedInHistory(wo))'));
 console.log('S04-HIST : BT affiche uniquement si facture liee payee et archivee, filtres concordants.');
+
+/* S04 audit taxes : aucune mutation des montants ou taxes apres paiement. */
+const taxHelperStart=html.indexOf('function invoiceHasPaymentActivity(inv){');
+const taxHelperEnd=html.indexOf('/* ===================== RENDU LIVE DES TOTAUX FACTURE',taxHelperStart);
+assert.ok(taxHelperStart>0&&taxHelperEnd>taxHelperStart,'Fonctions fiscales centrales manquantes');
+const taxCtx={SETTINGS:{gst:5,qst:9.975}};
+vm.createContext(taxCtx);
+vm.runInContext(html.slice(taxHelperStart,taxHelperEnd),taxCtx);
+const freshTax={status:'unpaid',items:[{qty:1,rate:100}],applyGST:true,applyQST:true,discountValue:0};
+taxCtx.recalcInvoice(freshTax);
+assert.ok(Math.abs(freshTax.gst-5)<0.000001);
+assert.ok(Math.abs(freshTax.qst-9.975)<0.000001,'TVQ ne doit pas inclure TPS');
+assert.ok(Math.abs(freshTax.total-114.975)<0.000001);
+const exemptTax={status:'unpaid',items:[{qty:1,rate:50}],applyGST:false,applyQST:false};
+taxCtx.recalcInvoice(exemptTax);
+assert.equal(exemptTax.total,50);
+const oldPaidTax={
+ number:'FA-OLD',status:'paid',archived:true,
+ items:[{qty:1,rate:50}],total:50,subTotal:50,gst:0,qst:0,
+ paidAmount:57.49,payments:[{amount:50,method:'transfer'},{amount:7.49,method:'card'}]
+};
+const beforePaid=JSON.stringify(oldPaidTax);
+taxCtx.recalcInvoice(oldPaidTax);
+assert.equal(JSON.stringify(oldPaidTax),beforePaid,'Facture archivee modifiee pendant recalcul');
+assert.equal(taxCtx.invoiceMayEditFinancials(oldPaidTax),false);
+assert.match(taxCtx.invoicePaymentMismatch(oldPaidTax),/dépassent le total/);
+const oldPartialTax={...oldPaidTax,status:'partial',archived:false,paidAmount:10,payments:[{amount:10}]};
+const beforePartial=JSON.stringify(oldPartialTax);
+taxCtx.recalcInvoice(oldPartialTax);
+assert.equal(JSON.stringify(oldPartialTax),beforePartial,'Facture partielle modifiee');
+const noFlagUnpaid={status:'unpaid',items:[{qty:1,rate:100}]};
+const flagStart=html.indexOf('function normalizeInvoiceTaxes(inv){');
+const flagEnd=html.indexOf('/* ===================== RENDU LIVE DES TOTAUX FACTURE',flagStart);
+vm.runInContext(html.slice(flagStart,flagEnd),taxCtx);
+taxCtx.normalizeInvoiceTaxes(noFlagUnpaid);
+assert.equal(noFlagUnpaid.applyGST,true,'Un drapeau historique absent ne doit pas devenir faux');
+assert.equal(noFlagUnpaid.applyQST,true,'Un drapeau historique absent ne doit pas devenir faux');
+const paidWithoutFlags={status:'paid',paidAmount:100,items:[],total:100};
+taxCtx.normalizeInvoiceTaxes(paidWithoutFlags);
+assert.equal(paidWithoutFlags.applyGST,undefined,'Ne pas modifier une ancienne facture payee');
+assert.ok(!html.includes('inv.applyGST = (inv.applyGST === true)'), 'Ancien ecrasement du drapeau TPS conserve');
+assert.ok(!html.includes('inv.applyQST = (inv.applyQST === true)'), 'Ancien ecrasement du drapeau TVQ conserve');
+const activeModalStart=html.indexOf('function openInvoiceEditModal(invoiceNumber){');
+const activeModalEnd=html.indexOf('function preventLegacyInvoiceEditor(){',activeModalStart);
+const modalCode=html.slice(activeModalStart,activeModalEnd);
+assert.ok(modalCode.includes('if (!invoiceMayEditFinancials(inv)) return;'),'Taxes/escompte sans protection paiement');
+assert.ok(modalCode.includes('const paymentWarning = invoicePaymentMismatch(inv);'),'Avertissement incoherence absent');
+assert.ok(modalCode.includes('if (isLocked){'),'Contrôles de paiement non verrouilles');
+assert.ok(html.includes('if (!invoiceMayEditFinancials(currentInvoice))'),'Sauvegarde historique non verrouillee');
+assert.ok(html.includes('if (!invoiceMayEditFinancials(inv)) {\n    alert("Facture verrouillée'),'Modification facture temporaire non verrouillee');
+console.log('S04-TAXES : TPS/TVQ, drapeaux anciens, factures payees/partielles et historique des paiements proteges.');
