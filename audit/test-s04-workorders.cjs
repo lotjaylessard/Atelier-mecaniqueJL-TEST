@@ -32,7 +32,7 @@ assert.equal(sameInvoiceNumber.alerts.length,1);
 assert.ok(html.includes('if (wo.status !== "en_cours"'), 'Revalidation apres confirmation absente');
 assert.ok(html.includes('<th>Description</th>'), 'Colonne Description absente');
 assert.ok(html.includes('class="wo-description"'), 'Description non rendue');
-assert.ok(html.includes('${wo.description || ""}'), 'Description non recherchable');
+assert.ok(html.includes('woMatchesSearch(wo, search)'), 'Description non recherchable');
 assert.ok(html.includes('function woContactInfo(wo)'), 'Recherche client/vehicule absente');
 assert.ok(html.includes('String(c.id) === String(wo.clientId)'), 'Recherche client par identifiant absente');
 assert.ok(html.includes('String(v.id) === String(wo.vehicleId)'), 'Recherche vehicule par identifiant absente');
@@ -160,3 +160,18 @@ assert.match(testBanner({ready:false}).msg.textContent,/Erreur cloud active/);
 assert.match(testBanner({connected:false,ready:false}).msg.textContent,/Ancienne copie/);
 assert.ok(html.includes('updateCloudRecoveryBannerAppearance();'), 'Rafraichissement de statut manquant');
 console.log('S04-F09 : copie historique bleue et erreur active rouge verifiees.');
+
+const searchStart = html.indexOf('function woSearchNormalize(value){');
+const searchEnd = html.indexOf('function renderWorkOrders(){',searchStart);
+assert.ok(searchStart >= 0 && searchEnd > searchStart, 'S04-F10 : recherche normalisee absente');
+const searchCtx = {woContactInfo(wo){return {client:{name:'Émile Tremblay',phone:'(418) 555-1234'},vehicle:{vin:'1HG-CM82633A004352',plate:'ABC-123'}};}};
+vm.createContext(searchCtx);
+vm.runInContext(html.slice(searchStart,searchEnd),searchCtx);
+const workOrder = {number:'BT-107',clientName:'Émile Tremblay',vehicleLabel:'Mazda Miata',description:'Réparation suspension'};
+for (const term of ['emile','Tremblay','4185551234','ABC123','1hgcm82633a004352','suspension','bt107','miata']) {
+ assert.equal(searchCtx.woMatchesSearch(workOrder,term),true, 'Recherche invalide : '+term);
+}
+assert.equal(searchCtx.woMatchesSearch(workOrder,'absent99'),false);
+assert.equal(searchCtx.woMatchesSearch(workOrder,''),true);
+assert.ok(html.includes('Aucun bon de travail ne correspond à la recherche.'));
+console.log('S04-F10 : recherche numero, client, plaque, VIN, telephone et description validee.');
