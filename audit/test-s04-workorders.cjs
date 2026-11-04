@@ -74,3 +74,12 @@ assert.equal(runKm({clientId:1,vehicleId:2,status:'en_cours'},[]).source,'missin
 assert.equal(runKm({clientId:1,vehicleId:2,status:'en_cours'},[{...clientData[0],vehicles:[{...clientData[0].vehicles[0],km:'12 000'}]}]).value,12000);
 assert.ok(html.includes('placeholder="KM non renseigné"'));
 console.log('S04-F05 : KM fiche vehicule, historique et affichage vide verifies (simules).');
+
+const listStart = html.indexOf('function renderWorkOrders(){');
+const listEnd = html.indexOf('function finishWorkOrder(id){',listStart);
+const listCode = html.slice(listStart,listEnd);
+assert.ok(listCode.includes('const kmDisplay = woDisplayKm(wo);'), 'Liste BT : resolveur de kilometrage absent');
+assert.ok(listCode.includes('const kmLabel = kmDisplay.value === null ? "Non renseigné"'), 'Liste BT : texte KM absent');
+assert.ok(listCode.includes('kmDisplay.source === "vehicle"'), 'Liste BT : source fiche vehicule non identifiee');
+assert.ok(!listCode.includes('<b>${wo.vehicleKm || "-"}</b>'), 'Liste BT : ancien rendu KM encore utilise');
+console.log('S04-F06 : liste BT affiche le meme KM que le detail, sans modification historique.');
