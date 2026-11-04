@@ -493,3 +493,33 @@ function runLifecycleScenario() {
 const lifecycleAudit=runLifecycleScenario();
 assert.ok(lifecycleAudit.storedInvoices.length>=3,'Sauvegarde des stades facture absente');
 console.log('S04-AUDIT : cloture, facture unique, paiement partiel, solde, protection et archivage verifies.');
+
+/* S04 audit : coherences Historique BT et facture. */
+const historyHelperStart=html.indexOf('function isWorkOrderArchivedInHistory(wo, invoices = INVOICES){');
+const historyHelperEnd=html.indexOf('function populateHistoryFiltersFromWorkOrders(){',historyHelperStart);
+assert.ok(historyHelperStart>0&&historyHelperEnd>historyHelperStart,'Filtre historique archive absent');
+const historyCtx={INVOICES:[]};
+vm.createContext(historyCtx);
+vm.runInContext(html.slice(historyHelperStart,historyHelperEnd),historyCtx);
+const historicalWO={id:9001,number:'BT-AUDIT-HIST',status:'termine'};
+const invoiceStates=[
+ [{workOrderNumber:'BT-AUDIT-HIST',status:'unpaid',archived:false},false],
+ [{workOrderNumber:'BT-AUDIT-HIST',status:'partial',archived:false},false],
+ [{workOrderNumber:'BT-AUDIT-HIST',status:'paid',archived:false},false],
+ [{workOrderNumber:'BT-AUDIT-HIST',status:'paid',archived:true},true],
+ [{workOrderNumber:'BT-OTHER',status:'paid',archived:true},false],
+ [{workOrderNumber:'BT-AUDIT-HIST',status:'partial',archived:true},false]
+];
+for(const [invoice,expected] of invoiceStates){
+ assert.equal(historyCtx.isWorkOrderArchivedInHistory(historicalWO,[invoice]),expected);
+}
+assert.equal(historyCtx.isWorkOrderArchivedInHistory({...historicalWO,status:'en_cours'},[invoiceStates[3][0]]),false);
+assert.equal(historyCtx.isWorkOrderArchivedInHistory({...historicalWO,status:'termine'},[]),false);
+const historyListStart=html.indexOf('function renderHistoryWOTable(){');
+const historyListEnd=html.indexOf('const historyWOTable = document.querySelector',historyListStart);
+assert.ok(historyListStart>0&&historyListEnd>historyListStart);
+assert.ok(html.slice(historyListStart,historyListEnd).includes('.filter(wo => isWorkOrderArchivedInHistory(wo))'));
+const historyFiltersStart=html.indexOf('function populateHistoryFiltersFromWorkOrders(){');
+const historyFiltersEnd=html.indexOf('// Badge Statut pour les WO (historique)',historyFiltersStart);
+assert.ok(html.slice(historyFiltersStart,historyFiltersEnd).includes('.filter(wo => isWorkOrderArchivedInHistory(wo))'));
+console.log('S04-HIST : BT affiche uniquement si facture liee payee et archivee, filtres concordants.');
