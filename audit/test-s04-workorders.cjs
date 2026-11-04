@@ -230,11 +230,77 @@ assert.ok(detailStart >= 0 && detailEnd > detailStart,'S04-F13 : module de detai
 const detailSource = html.slice(detailStart,detailEnd);
 assert.ok(detailSource.includes('const woReadOnly = wo.status !== "en_cours" || Boolean(invoice);'), 'S04-F13 : statut lecture seule absent');
 assert.ok(detailSource.includes('woReadOnly\n      ?'), 'S04-F13 : boutons non conditionnels');
-assert.ok(detailSource.includes('detail.querySelectorAll("input:not([type=hidden]), textarea, select")'), 'S04-F13 : champs non desactives');
-assert.ok(detailSource.includes('button.textContent.includes("Copier")'), 'S04-F13 : copie VIN doit rester disponible');
-assert.ok(detailSource.includes('if (woReadOnly) return;\n    syncKmEverywhereFromWO'), 'S04-F13 : mise a jour km non bloquee');
-assert.ok(detailSource.includes('if (woReadOnly) return;\n    wo.notes ='), 'S04-F13 : notes non bloquees');
-for(const [status,hasInvoice,expected] of [
- ['en_cours',false,false],['en_cours',true,true],['termine',false,true],['billed',true,true]
-]) assert.equal(status !== 'en_cours' || hasInvoice,expected);
+assert.ok(html.includes('function applyClosedWOControls(wo,detail)'), 'S04-F14 : permissions detail absentes');
+assert.ok(html.includes('el.disabled = !(el.id === "woNotes" && woCanEditNotes(wo));'), 'S04-F14 : notes ou champs non proteges');
+assert.ok(html.includes('button.textContent.includes("Copier")'), 'S04-F14 : bouton copier VIN absent');
+assert.ok(detailSource.includes('if (woReadOnly) return;\n    syncKmEverywhereFromWO'), 'S04-F14 : KM modifiable apres cloture');
+assert.ok(detailSource.includes('if (!woCanEditNotes(wo)) return;'), 'S04-F14 : garde notes absente');
+assert.ok(detailSource.includes('beginClosedWOEdit'), 'S04-F14 : bouton mode correction absent');
+assert.ok(detailSource.includes('endClosedWOEdit'), 'S04-F14 : sortie de correction absente');
 console.log('S04-F13 : BT termines/factures en lecture seule, controles de modification masques.');
+
+const f14Start = html.indexOf('window.__woClosedEditId = null;');
+const f14End = html.indexOf('function persistActiveWO(wo){',f14Start);
+assert.ok(f14Start > 0 && f14End > f14Start, 'S04-F14 : mecanisme de synchronisation absent');
+const f14code=html.slice(f14Start,f14End);
+function buildF14(invoices) {
+ const snapshot={};
+ const ctx={
+  window:{}, INVOICES:invoices,WORKORDERS:[],
+  CLOUD_DATA_READY:true,CLOUD_SYNC_FAILED:false,
+  STORAGE:{workorders:'wo',invoices:'inv'},
+  localStorage:{setItem(k,v){snapshot[k]=JSON.parse(v);}},
+  SETTINGS:{gst:5,qst:9.975},
+  recalcInvoice(inv){
+    const sub=inv.items.reduce((v,x)=>v+x.qty*x.rate,0);
+    const discount=inv.discountType==='percent' ? sub*Number(inv.discountValue||0)/100 : Number(inv.discountValue||0);
+    const taxable=Math.max(0,sub-discount);
+    inv.subTotal=sub;inv.discount=discount;
+    inv.gst=inv.applyGST===false?0:taxable*0.05;
+    inv.qst=inv.applyQST===false?0:taxable*0.09975;
+    inv.total=taxable+inv.gst+inv.qst;
+  },
+  scheduleCloudSync(){ctx.synced=(ctx.synced||0)+1;},
+  renderInvoiceList(){}
+ };
+ vm.createContext(ctx);
+ vm.runInContext(f14code,ctx);
+ return {ctx,snapshot};
+}
+const closedWO={id:77,number:'BT-77',status:'termine',
+  parts:[{name:'Filtre',qty:2,rate:25,cost:8}],
+  labor:[{description:'Pose filtre',hours:1,rate:80}]};
+const originalInvoice={number:'FA-77',workOrderNumber:'BT-77',status:'unpaid',
+ paidAmount:0,payments:[],discountValue:10,discountType:'percent',
+ applyGST:false,applyQST:true,items:[{desc:'Avant',qty:1,rate:50}]};
+const scenario=buildF14([structuredClone(originalInvoice)]);
+scenario.ctx.WORKORDERS.push(closedWO);
+assert.equal(scenario.ctx.woCanEditFinancials(closedWO),false);
+scenario.ctx.window.__woClosedEditId='77';
+assert.equal(scenario.ctx.woCanEditFinancials(closedWO),true);
+assert.equal(scenario.ctx.woSyncUnpaidInvoice(closedWO),true);
+assert.equal(scenario.ctx.synced,1);
+assert.equal(scenario.ctx.INVOICES[0].items.length,2);
+assert.equal(scenario.ctx.INVOICES[0].subTotal,130);
+assert.equal(scenario.ctx.INVOICES[0].total,130*0.9*1.09975);
+assert.equal(scenario.ctx.INVOICES[0].paidAmount,0);
+assert.equal(scenario.ctx.INVOICES[0].applyGST,false);
+assert.equal(scenario.snapshot.wo[0].number,'BT-77');
+assert.equal(scenario.snapshot.inv[0].items.length,2);
+for(const status of ['partial','paid']) {
+ const locked=buildF14([{...structuredClone(originalInvoice),status,paidAmount:status==='partial'?20:130,
+ payments:[{amount:status==='partial'?20:130}]}]);
+ locked.ctx.window.__woClosedEditId='77';
+ assert.equal(locked.ctx.woCanEditFinancials(closedWO),false);
+ assert.equal(locked.ctx.woSyncUnpaidInvoice(closedWO),false);
+ assert.equal(locked.ctx.synced,undefined);
+ assert.equal(locked.ctx.woCanEditNotes(closedWO),status==='partial');
+}
+const irregular=buildF14([{...structuredClone(originalInvoice),payments:[{amount:1}]}]);
+irregular.ctx.window.__woClosedEditId='77';
+assert.equal(irregular.ctx.woCanEditFinancials(closedWO),false);
+assert.equal(irregular.ctx.woSyncUnpaidInvoice(closedWO),false);
+assert.equal(buildF14([]).ctx.woCanEditNotes(closedWO),false);
+assert.ok(html.includes('if (!woRequireFinancialEdit(wo)) return;'));
+assert.ok(html.includes('persistActiveWO(wo);\nwoRenderLines(wo);'));
+console.log('S04-F14 : mode correction impaye, facture et paiements preserves, verrouillage partiel/paye verifies.');
