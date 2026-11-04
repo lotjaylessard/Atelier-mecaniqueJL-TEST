@@ -4282,12 +4282,6 @@ function renderCloudSyncIndicator(){
   element.style.color = state.color;
   element.title = state.detail;
 }
-// Ne lit que les variables de sauvegarde existantes ; n'initie jamais de sauvegarde.
-document.addEventListener("DOMContentLoaded", () => {
-  renderCloudSyncIndicator();
-  setInterval(renderCloudSyncIndicator, 700);
-});
-
 function scheduleCloudSync(delay = 1500){
 
   if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY) {
@@ -4326,6 +4320,12 @@ function scheduleCloudSync(delay = 1500){
   }, delay);
 }
 
+
+// Ne lit que les variables de sauvegarde existantes ; n'initie jamais de sauvegarde.
+document.addEventListener("DOMContentLoaded", () => {
+  renderCloudSyncIndicator();
+  setInterval(renderCloudSyncIndicator, 700);
+});
 
 // TEST #303 : comparaison stable des snapshots avec valeurs par defaut.
 // On conserve tous les champs metier et on ignore uniquement l'ordre des cles.
