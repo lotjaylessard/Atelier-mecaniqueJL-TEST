@@ -105,3 +105,28 @@ assert.match(syncState({CLOUD_SYNC_FAILED:true}),/Erreur/);
 assert.match(syncState({CLOUD_DATA_READY:false}),/indisponible/);
 assert.match(syncState({CLOUD_LAST_CONFIRMED_SNAPSHOT:null}),/vérifier/);
 console.log('S04-F07 : indicateur cloud lecture seule testé avec sept scénarios simulés.');
+
+const guardStart = html.indexOf('function hasUnconfirmedCloudChanges(){');
+const guardEnd = html.indexOf('window.addEventListener("beforeunload", warnBeforeLeavingWithPendingCloudChanges);', guardStart);
+assert.ok(guardStart >= 0 && guardEnd > guardStart, 'S04-F08 : garde beforeunload absente');
+const guardSource = html.slice(guardStart,guardEnd);
+function checkExit(flags={}){
+ const context={
+   CLOUD_SYNC_FAILED:false, CLOUD_SYNC_DIRTY:false, CLOUD_SYNC_PENDING:false,
+   CLOUD_SYNC_IN_PROGRESS:false, cloudSyncTimer:null,...flags
+ };
+ vm.createContext(context);
+ vm.runInContext(guardSource,context);
+ const event={prevented:false,preventDefault(){this.prevented=true}};
+ context.warnBeforeLeavingWithPendingCloudChanges(event);
+ return {shouldWarn:context.hasUnconfirmedCloudChanges(),prevented:event.prevented,returnValue:event.returnValue};
+}
+assert.equal(checkExit().prevented,false, 'Faux avertissement apres synchronisation');
+assert.equal(checkExit({CLOUD_SYNC_DIRTY:true}).prevented,true, 'Modification en attente non protegee');
+assert.equal(checkExit({CLOUD_SYNC_IN_PROGRESS:true}).prevented,true, 'Ecriture en cours non protegee');
+assert.equal(checkExit({CLOUD_SYNC_PENDING:true}).prevented,true, 'Sauvegarde supplementaire non protegee');
+assert.equal(checkExit({cloudSyncTimer:1}).prevented,true, 'Minuteur de sauvegarde non protege');
+assert.equal(checkExit({CLOUD_SYNC_FAILED:true}).prevented,true, 'Echec cloud non protege');
+assert.equal(checkExit({CLOUD_SYNC_FAILED:true}).returnValue, '', 'Confirmation navigateur non declenchee');
+assert.ok(html.includes('window.addEventListener("beforeunload", warnBeforeLeavingWithPendingCloudChanges)'));
+console.log('S04-F08 : confirmation de fermeture testee en six etats simules.');
