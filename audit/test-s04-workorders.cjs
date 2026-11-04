@@ -265,6 +265,10 @@ function buildF14(invoices) {
  };
  vm.createContext(ctx);
  vm.runInContext(f14code,ctx);
+ const uiStart = html.indexOf('function applyClosedWOControls(wo,detail){');
+ const uiEnd = html.indexOf('function beginClosedWOEdit(woId){',uiStart);
+ assert.ok(uiStart > 0 && uiEnd > uiStart,'S04-F14 : fonction de controle des champs absente');
+ vm.runInContext(html.slice(uiStart,uiEnd),ctx);
  return {ctx,snapshot};
 }
 const closedWO={id:77,number:'BT-77',status:'termine',
