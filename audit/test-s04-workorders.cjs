@@ -130,3 +130,33 @@ assert.equal(checkExit({CLOUD_SYNC_FAILED:true}).prevented,true, 'Echec cloud no
 assert.equal(checkExit({CLOUD_SYNC_FAILED:true}).returnValue, '', 'Confirmation navigateur non declenchee');
 assert.ok(html.includes('window.addEventListener("beforeunload", warnBeforeLeavingWithPendingCloudChanges)'));
 console.log('S04-F08 : confirmation de fermeture testee en six etats simules.');
+
+const bannerStart = html.indexOf('function updateCloudRecoveryBannerAppearance(){');
+const bannerEnd = html.indexOf('/* ===================== TEST : FUSION MANUELLE',bannerStart);
+assert.ok(bannerStart >= 0 && bannerEnd > bannerStart, 'S04-F09 : distinction copie / erreur absente');
+const bannerFunction = html.slice(bannerStart,bannerEnd);
+function testBanner({failed=false,ready=true,connected=true}={}){
+ const box={dataset:{capturedAt:'2026-11-04 02:15'},style:{}};
+ const msg={textContent:''};
+ const ctx={
+  CLOUD_SYNC_FAILED:failed,CLOUD_DATA_READY:ready,
+  SUPABASE_USER:connected?{id:'test'}:null,
+  ACTIVE_GARAGE_ID:connected?'test':null,
+  document:{getElementById:(id)=>id==='cloudRecoveryBanner'?box:id==='cloudRecoveryBannerMessage'?msg:null}
+ };
+ vm.createContext(ctx);
+ vm.runInContext(bannerFunction,ctx);
+ ctx.updateCloudRecoveryBannerAppearance();
+ return {box,msg};
+}
+const oldCopy=testBanner();
+assert.match(oldCopy.msg.textContent,/Ancienne copie/);
+assert.match(oldCopy.box.style.border,/70b9ed/);
+assert.match(oldCopy.msg.textContent,/2026-11-04/);
+const errorCopy=testBanner({failed:true});
+assert.match(errorCopy.msg.textContent,/Erreur cloud active/);
+assert.match(errorCopy.box.style.border,/ff7777/);
+assert.match(testBanner({ready:false}).msg.textContent,/Erreur cloud active/);
+assert.match(testBanner({connected:false,ready:false}).msg.textContent,/Ancienne copie/);
+assert.ok(html.includes('updateCloudRecoveryBannerAppearance();'), 'Rafraichissement de statut manquant');
+console.log('S04-F09 : copie historique bleue et erreur active rouge verifiees.');
