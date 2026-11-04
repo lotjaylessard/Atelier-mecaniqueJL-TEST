@@ -175,3 +175,38 @@ assert.equal(searchCtx.woMatchesSearch(workOrder,'absent99'),false);
 assert.equal(searchCtx.woMatchesSearch(workOrder,''),true);
 assert.ok(html.includes('Aucun bon de travail ne correspond à la recherche.'));
 console.log('S04-F10 : recherche numero, client, plaque, VIN, telephone et description validee.');
+
+const sortStart = html.indexOf('let WO_SORT_KEY = null;');
+const sortEnd = html.indexOf('function renderWorkOrders(){',sortStart);
+assert.ok(sortStart>=0 && sortEnd>sortStart,'S04-F11 : fonctions de tri absentes');
+const sortCtx={
+ CLIENTS:[{id:1,firstName:'Zoé',lastName:'Benoit'},{id:2,firstName:'Émile',lastName:'Arsenault'}],
+ woDisplayKm:wo=>({value:wo.vehicleKm ?? null}),
+ renderWorkOrders(){}
+};
+vm.createContext(sortCtx);
+vm.runInContext(html.slice(sortStart,sortEnd),sortCtx);
+const wos=[
+ {number:'BT-9',date:'2026-10-01',status:'termine',clientId:1,vehicleLabel:'Mazda',vehicleKm:10000,estimateTotal:100},
+ {number:'BT-10',date:'2026-11-01',status:'en_cours',clientId:2,vehicleLabel:'Toyota',vehicleKm:50000,estimateTotal:250},
+ {number:'BT-2',date:'2026-09-01',status:'en_cours',clientId:1,vehicleLabel:'Honda',vehicleKm:null,estimateTotal:50}
+];
+assert.deepEqual(Array.from(sortCtx.sortWorkOrderRows(wos),w=>w.number),['BT-10','BT-2','BT-9']);
+sortCtx.setWorkOrderSort('number');
+assert.deepEqual(Array.from(sortCtx.sortWorkOrderRows(wos),w=>w.number),['BT-10','BT-9','BT-2']);
+sortCtx.setWorkOrderSort('number');
+assert.deepEqual(Array.from(sortCtx.sortWorkOrderRows(wos),w=>w.number),['BT-2','BT-9','BT-10']);
+sortCtx.setWorkOrderSort('km');
+assert.deepEqual(Array.from(sortCtx.sortWorkOrderRows(wos),w=>w.number),['BT-10','BT-9','BT-2']);
+sortCtx.setWorkOrderSort('km');
+assert.deepEqual(Array.from(sortCtx.sortWorkOrderRows(wos),w=>w.number),['BT-9','BT-10','BT-2']);
+sortCtx.setWorkOrderSort('client');
+assert.equal(sortCtx.sortWorkOrderRows(wos)[0].number,'BT-10');
+sortCtx.setWorkOrderSort('total');
+assert.deepEqual(Array.from(sortCtx.sortWorkOrderRows(wos),w=>w.number),['BT-10','BT-9','BT-2']);
+sortCtx.setWorkOrderSort('date');
+assert.deepEqual(Array.from(sortCtx.sortWorkOrderRows(wos),w=>w.number),['BT-10','BT-9','BT-2']);
+for (const key of ['number','date','client','vehicle','km','description','status','total']){
+ assert.ok(html.includes('data-wo-sort="'+key+'"'), 'Entete tri manquant : '+key);
+}
+console.log('S04-F11 : tri 8 colonnes, sens inverses et KM absents verifies.');
