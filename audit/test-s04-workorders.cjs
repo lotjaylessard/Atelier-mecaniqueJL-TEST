@@ -278,6 +278,14 @@ scenario.ctx.WORKORDERS.push(closedWO);
 assert.equal(scenario.ctx.woCanEditFinancials(closedWO),false);
 scenario.ctx.window.__woClosedEditId='77';
 assert.equal(scenario.ctx.woCanEditFinancials(closedWO),true);
+assert.equal(scenario.ctx.woInvoiceMatchesWO(closedWO,{items:[
+ {type:'Pièce',desc:'Filtre',qty:2,rate:25},
+ {type:"Main-d'œuvre",desc:'Pose filtre',qty:1,rate:80}
+]}),true);
+assert.equal(scenario.ctx.woInvoiceMatchesWO(closedWO,{items:[
+ {type:'Pièce',desc:'Filtre',qty:3,rate:25},
+ {type:"Main-d'œuvre",desc:'Pose filtre',qty:1,rate:80}
+]}),false);
 assert.equal(scenario.ctx.woSyncUnpaidInvoice(closedWO),true);
 assert.equal(scenario.ctx.synced,1);
 assert.equal(scenario.ctx.INVOICES[0].items.length,2);
@@ -304,3 +312,8 @@ assert.equal(buildF14([]).ctx.woCanEditNotes(closedWO),false);
 assert.ok(html.includes('if (!woRequireFinancialEdit(wo)) return;'));
 assert.ok(html.includes('persistActiveWO(wo);\nwoRenderLines(wo);'));
 console.log('S04-F14 : mode correction impaye, facture et paiements preserves, verrouillage partiel/paye verifies.');
+
+// L'autorisation d'ouvrir le mode correction exige une facture encore identique au BT.
+assert.ok(html.includes('if (!woInvoiceMatchesWO(wo,woLinkedInvoice(wo)))'), 'S04-F14 : protection anti-ecrasement facture absente');
+assert.ok(html.includes('if (button.textContent.includes("Terminé")'), 'S04-F14 : boutons de cloture non bloques');
+console.log('S04-F14 : lignes facture independamment modifiees detectees sans ecrasement.');
