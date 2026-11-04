@@ -6470,6 +6470,14 @@ const isPaid = invoice && invoice.status === "paid";
   wo.status === "termine" ? "Terminé" :
   wo.status;
 
+    // S04-F06 : meme source de KM que le detail, sans modifier les anciens BT.
+    const kmDisplay = woDisplayKm(wo);
+    const kmLabel = kmDisplay.value === null ? "Non renseigné" : String(kmDisplay.value);
+    const kmTip = kmDisplay.source === "vehicle"
+      ? "Kilométrage actuel de la fiche véhicule (non enregistré dans ce BT)"
+      : kmDisplay.source === "bt" ? "Kilométrage enregistré dans ce BT"
+      : "Kilométrage historique non renseigné";
+
     tr.innerHTML = `
       <td>${wo.number || ""}</td>
       <td>${wo.date || ""}</td>
@@ -6478,7 +6486,7 @@ const isPaid = invoice && invoice.status === "paid";
       <td id="wo-km-cell-${wo.id}">
         <div>
           <span class="muted">KM :</span>
-          <b>${wo.vehicleKm || "-"}</b>
+          <b title="${escapeHTML(kmTip)}">${escapeHTML(kmLabel)}</b>${kmDisplay.source === "vehicle" ? '<span class="muted" title="Valeur provenant de la fiche véhicule"> *</span>' : ""}
         </div>
       </td>
       <td class="wo-description" title="${escapeHTML(String(wo.description || ''))}" style="max-width:260px;min-width:160px;white-space:normal;overflow-wrap:anywhere;">
