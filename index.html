@@ -6633,7 +6633,7 @@ const isPaid = invoice && invoice.status === "paid";
   <button class="ghost" data-action="open">Ouvrir</button>
 
   ${
-    wo.status !== "termine"
+    wo.status === "en_cours" && !invoice
       ? `
         <button class="ghost" onclick="finishWorkOrder(${wo.id})">
           ✅ Terminé
