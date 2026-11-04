@@ -1149,7 +1149,7 @@ button.link:hover{
           <button id="btnNewWorkOrder">➕ Nouveau bon de travail</button>
 
          <input id="woSearch"
-                 placeholder="Rechercher (client, véhicule, # BT...)"
+                 placeholder="Rechercher (client, véhicule, # BT, VIN, plaque, téléphone, description...)"
                  style="flex:1;min-width:200px;">
           
 <select id="woStatusFilter">
@@ -6446,6 +6446,25 @@ async function copyWorkOrderVIN(button){
   }
 }
 
+// S04-F10 : recherche BT en lecture seule, tolerante aux accents et separateurs.
+function woSearchNormalize(value){
+  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase().replace(/[\s\-().]/g,"");
+}
+function woMatchesSearch(wo, search, contactInfo){
+  const q = woSearchNormalize(search);
+  if (!q) return true;
+  const {client,vehicle} = contactInfo || woContactInfo(wo);
+  const fields = [
+    wo.number,wo.clientName,wo.vehicleLabel,wo.description,
+    client?.name,client?.firstName,client?.lastName,client?.phone,
+    vehicle?.vin,vehicle?.plate
+  ];
+  const combined = fields.map(value => String(value ?? "")).join(" ");
+  return fields.some(value => woSearchNormalize(value).includes(q)) ||
+    woSearchNormalize(combined).includes(q);
+}
+
 function renderWorkOrders(){
   const table = $("woTable");
   const tbody = table ? table.querySelector("tbody") : null;
@@ -6462,7 +6481,7 @@ function renderWorkOrders(){
   tbody.innerHTML = "";
 
   const selectedStatus = $("woStatusFilter")?.value || "";
-  const search = ($("woSearch")?.value || "").toLowerCase();
+  const search = $("woSearch")?.value || "";
 
   let filtered = WORKORDERS.filter(wo => {
 
@@ -6480,25 +6499,7 @@ const isPaid = invoice && invoice.status === "paid";
   if (!["en_cours", "termine", "billed"].includes(wo.status)) return false;
   if (selectedStatus && wo.status !== selectedStatus) return false;
 
-  if (search) {
-    const clientObj = CLIENTS.find(c =>
-      c.id === wo.clientId ||
-      c.name === wo.clientName
-    );
-
-    const clientNameSearch = clientObj
-      ? `${clientObj.lastName || ""} ${clientObj.firstName || ""}`
-      : (wo.clientName || "");
-
-    const hay = `
-      ${clientNameSearch}
-      ${wo.vehicleLabel || ""}
-      ${wo.number || ""}
-      ${wo.description || ""}
-    `.toLowerCase();
-
-    if (!hay.includes(search)) return false;
-  }
+  if (search && !woMatchesSearch(wo, search)) return false;
 
   return true;
 });
@@ -6603,6 +6604,9 @@ const isPaid = invoice && invoice.status === "paid";
 
     tbody.appendChild(tr);
   });
+  if (!tbody.children.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="muted">Aucun bon de travail ne correspond à la recherche.</td></tr>';
+  }
 
   tbody.querySelectorAll("button[data-action='open']").forEach(btn=>{
     btn.onclick = () => {
