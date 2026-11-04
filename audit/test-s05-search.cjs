@@ -29,10 +29,10 @@ assert.deepEqual(Array.from(ctx.moduleSortRows(rows,"number","asc",ctx.invoiceSo
 assert.deepEqual(Array.from(ctx.moduleSortRows(rows,"total","desc",ctx.invoiceSortValue),x=>x.number),["FA-2","FA-9","FA-10"]);
 assert.deepEqual(Array.from(ctx.moduleSortRows(rows,"date","desc",ctx.invoiceSortValue),x=>x.number),["FA-10","FA-9","FA-2"]);
 ctx.setInvoiceSort("client");
-assert.equal(ctx.INVOICE_SORT_KEY,"client");
-assert.equal(ctx.INVOICE_SORT_DIRECTION,"asc");
+assert.equal(vm.runInContext("INVOICE_SORT_KEY",ctx),"client");
+assert.equal(vm.runInContext("INVOICE_SORT_DIRECTION",ctx),"asc");
 ctx.setInvoiceSort("client");
-assert.equal(ctx.INVOICE_SORT_DIRECTION,"desc");
+assert.equal(vm.runInContext("INVOICE_SORT_DIRECTION",ctx),"desc");
 assert.equal(ctx.rendered,2);
 for(const key of ["number","date","client","total","status"])
  assert.ok(html.includes('data-module-sort="'+key+'"'),"En-tête manquant : "+key);
