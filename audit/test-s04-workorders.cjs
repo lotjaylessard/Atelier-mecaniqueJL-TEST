@@ -441,6 +441,8 @@ function runLifecycleScenario() {
      inv.total=taxable+inv.gst+inv.qst;
    },
    document:{getElementById(){return null;}},
+   STORAGE:{invoices:'test-invoices'},
+   loadArrayFromStorage(){return ctx.INVOICES;},
    loadWorkOrders(){},loadInvoices(){},
    saveWorkOrders(){logs.storedWOs.push(structuredClone(ctx.WORKORDERS));logs.cloudSaves++;},
    saveInvoices(){logs.storedInvoices.push(structuredClone(ctx.INVOICES));logs.cloudSaves++;},
