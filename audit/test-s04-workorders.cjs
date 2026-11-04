@@ -231,7 +231,7 @@ const detailSource = html.slice(detailStart,detailEnd);
 assert.ok(detailSource.includes('const woReadOnly = wo.status !== "en_cours" || Boolean(invoice);'), 'S04-F13 : statut lecture seule absent');
 assert.ok(detailSource.includes('woReadOnly\n      ?'), 'S04-F13 : boutons non conditionnels');
 assert.ok(html.includes('function applyClosedWOControls(wo,detail)'), 'S04-F14 : permissions detail absentes');
-assert.ok(html.includes('el.disabled = !(el.id === "woNotes" && woCanEditNotes(wo));'), 'S04-F14 : notes ou champs non proteges');
+assert.ok(html.includes('el.disabled = !(allowedNote || (isEditing && financialField));'), 'S04-F14 : notes ou formulaires de correction non proteges');
 assert.ok(html.includes('button.textContent.includes("Copier")'), 'S04-F14 : bouton copier VIN absent');
 assert.ok(detailSource.includes('if (woReadOnly) return;\n    syncKmEverywhereFromWO'), 'S04-F14 : KM modifiable apres cloture');
 assert.ok(detailSource.includes('if (!woCanEditNotes(wo)) return;'), 'S04-F14 : garde notes absente');
@@ -317,3 +317,57 @@ console.log('S04-F14 : mode correction impaye, facture et paiements preserves, v
 assert.ok(html.includes('if (!woInvoiceMatchesWO(wo,woLinkedInvoice(wo)))'), 'S04-F14 : protection anti-ecrasement facture absente');
 assert.ok(html.includes('if (button.textContent.includes("Terminé")'), 'S04-F14 : boutons de cloture non bloques');
 console.log('S04-F14 : lignes facture independamment modifiees detectees sans ecrasement.');
+
+function verifyF14FormPermissions(invoiceStatus,editActive){
+ const invoice={...structuredClone(originalInvoice),status:invoiceStatus};
+ const {ctx}=buildF14([invoice]);
+ const wo={...closedWO};
+ if(editActive) ctx.window.__woClosedEditId=String(wo.id);
+ const makeField=(id,section)=>({id,disabled:false,closest(sel){
+   return section && sel.includes(section) ? {} : null;
+ }});
+ const fields=[
+   makeField('woManualPartName','#woManualPartBox'),
+   makeField('woManualPartQty','#woManualPartBox'),
+   makeField('woManualPartCost','#woManualPartBox'),
+   makeField('woManualPartRate','#woManualPartBox'),
+   makeField('woManualLaborDesc','#woManualLaborBox'),
+   makeField('woManualLaborHours','#woManualLaborBox'),
+   makeField('woManualLaborRate','#woManualLaborBox'),
+   makeField('woNotes'),
+   makeField('woKmInput'),
+   makeField('woFileInput'),
+   makeField('woDescriptionEdit')
+ ];
+ const editButton={style:{},textContent:'Modifier le BT'};
+ const finishButton={style:{},textContent:'Fin des modifications'};
+ const detail={
+   querySelectorAll(selector){
+     if(selector.startsWith('input:'))return fields;
+     if(selector==='button')return [editButton,finishButton];
+     return [];
+   },
+   querySelector(selector){
+     if(selector==='#woEditClosedBtn')return editButton;
+     if(selector==='#woFinishClosedEditBtn')return finishButton;
+     if(selector==='#woClosedEditStatus')return {textContent:''};
+     return null;
+   }
+ };
+ ctx.applyClosedWOControls(wo,detail);
+ return {fields,editButton,finishButton};
+}
+const readonlyF14=verifyF14FormPermissions('unpaid',false);
+assert.ok(readonlyF14.fields.slice(0,7).every(f=>f.disabled),'Formulaires actifs sans mode correction');
+assert.equal(readonlyF14.fields[7].disabled,false,'Notes doivent rester modifiables');
+const editableF14=verifyF14FormPermissions('unpaid',true);
+assert.ok(editableF14.fields.slice(0,7).every(f=>!f.disabled),'S04-F14 : champs pieces/services encore desactives');
+assert.ok(editableF14.fields.slice(8).every(f=>f.disabled),'KM, fichiers et description doivent rester verrouilles');
+assert.equal(editableF14.editButton.style.display,'none');
+assert.equal(editableF14.finishButton.style.display,'');
+const partialF14=verifyF14FormPermissions('partial',true);
+assert.ok(partialF14.fields.slice(0,7).every(f=>f.disabled),'Facture partielle : modification financiere interdite');
+assert.equal(partialF14.fields[7].disabled,false,'Facture partielle : notes permises');
+const paidF14=verifyF14FormPermissions('paid',true);
+assert.ok(paidF14.fields.every(f=>f.disabled),'Facture payee : champs verrouilles');
+console.log('S04-F14-Fix : formulaire manuel pieces/services editable uniquement en mode correction impayee.');
