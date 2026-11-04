@@ -1037,6 +1037,7 @@ button.link:hover{
   <span id="headerGreeting" class="header-greeting">
   Bonjour, Jeremy!
 </span>
+  <span id="cloudSyncIndicator" role="status" aria-live="polite" title="État de synchronisation du garage" style="font-size:12px;white-space:nowrap;border:1px solid #666;border-radius:16px;padding:5px 9px;color:#ccc;">☁ Cloud à vérifier</span>
 </div>
 
   </div>
@@ -1148,7 +1149,7 @@ button.link:hover{
           <button id="btnNewWorkOrder">➕ Nouveau bon de travail</button>
 
          <input id="woSearch"
-                 placeholder="Rechercher (client, véhicule, # BT...)"
+                 placeholder="Rechercher (client, véhicule, # BT, VIN, plaque, téléphone, description...)"
                  style="flex:1;min-width:200px;">
           
 <select id="woStatusFilter">
@@ -1161,13 +1162,14 @@ button.link:hover{
         <table id="woTable">
           <thead>
             <tr>
-              <th># Bon Travail</th>
-              <th>Date</th>
-              <th>Client</th>
-              <th>Véhicule</th>
-              <th>Km</th>
-              <th>Statut</th>
-              <th>Total estimé</th>
+              <th data-wo-sort="number" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('number')" title="Trier par # Bon Travail" style="padding:4px 6px;white-space:nowrap;"># Bon Travail <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-wo-sort="date" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('date')" title="Trier par Date" style="padding:4px 6px;white-space:nowrap;">Date <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-wo-sort="client" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('client')" title="Trier par Client" style="padding:4px 6px;white-space:nowrap;">Client <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-wo-sort="vehicle" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('vehicle')" title="Trier par Véhicule" style="padding:4px 6px;white-space:nowrap;">Véhicule <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-wo-sort="km" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('km')" title="Trier par Km" style="padding:4px 6px;white-space:nowrap;">Km <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-wo-sort="description" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('description')" title="Trier par Description" style="padding:4px 6px;white-space:nowrap;">Description <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-wo-sort="status" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('status')" title="Trier par Statut" style="padding:4px 6px;white-space:nowrap;">Statut <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-wo-sort="total" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('total')" title="Trier par Total estimé" style="padding:4px 6px;white-space:nowrap;">Total estimé <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
               <th></th>
             </tr>
           </thead>
@@ -1823,7 +1825,13 @@ function configureGarageStorage(garageId) {
    La base Supabase TEST est la seule source pour l'hydratation initiale. */
 
 const $ = id => document.getElementById(id);
-function money(n){return Number(n||0).toFixed(2);}
+// S04 audit : formatage monetaire identique aux montants encaisses.
+// Number.toFixed(2) sur 114.975 peut afficher 114.97 en binaire.
+function money(n){
+  const value = Number(n || 0);
+  if (!Number.isFinite(value)) return "0.00";
+  return (Math.round((value + Math.sign(value) * Number.EPSILON) * 100) / 100).toFixed(2);
+}
 
 
   function calcWorkOrderProfit(wo){
@@ -2230,30 +2238,15 @@ function updateInvoiceTotalsLive(inv){
   const gstEl = document.getElementById("invGST");
   const qstEl = document.getElementById("invQST");
   const totEl = document.getElementById("invTotal");
-
   if (!subEl || !gstEl || !qstEl || !totEl) return;
-
-  // calcul local TEMPORAIRE (sans toucher à inv)
-  const subTotal = inv.items.reduce(
-    (s,it)=> s + (Number(it.qty||0) * Number(it.rate||0)), 0
-  );
-
-  const gst = (inv.applyGST !== false)
-    ? subTotal * (SETTINGS.gst / 100)
-    : 0;
-
-  const qst = (inv.applyQST !== false)
-    ? (subTotal + gst) * (SETTINGS.qst / 100)
-    : 0;
-
-  const total = subTotal + gst + qst;
-
-  subEl.textContent = money(subTotal) + " $";
-  gstEl.textContent = money(gst) + " $";
-  qstEl.textContent = money(qst) + " $";
-  totEl.textContent = money(total) + " $";
+  // Source fiscale unique; le clone evite toute mutation de facture en mode apercu.
+  const preview = {...inv};
+  recalcInvoice(preview);
+  subEl.textContent = money(preview.subTotal) + " $";
+  gstEl.textContent = money(preview.gst) + " $";
+  qstEl.textContent = money(preview.qst) + " $";
+  totEl.textContent = money(preview.total) + " $";
 }
-
 
 
   /* ===================== SUPABASE ===================== */
@@ -2314,25 +2307,45 @@ function calcTotalsFromItems(items, inv){
 
 
   function calcInvoiceTotals(inv){
-  const subTotal = (inv.items || []).reduce(
-    (sum, it) => sum + (Number(it.qty || 0) * Number(it.rate || 0)),
-    0
-  );
-
-  const applyGST = inv.applyGST !== false;
-  const applyQST = inv.applyQST !== false;
-
-  const gst = applyGST ? subTotal * (SETTINGS.gst / 100) : 0;
-  const qst = applyQST ? (subTotal + gst) * (SETTINGS.qst / 100) : 0;
-
-  const total = subTotal + gst + qst;
-
-  return { subTotal, gst, qst, total };
+  if (invoiceHasPaymentActivity(inv)) {
+    return {subTotal:inv.subTotal,gst:inv.gst,qst:inv.qst,total:inv.total};
+  }
+  const clone={...inv};
+  recalcInvoice(clone);
+  return {subTotal:clone.subTotal,gst:clone.gst,qst:clone.qst,total:clone.total};
 }
 
-
   /* ===================== RECALCUL FACTURE (SOURCE UNIQUE) ===================== */
+// S04 audit taxes : ne jamais recalculer ou retoucher une facture ayant
+// un paiement, y compris une facture partielle ou archivee.
+function invoiceHasPaymentActivity(inv){
+  if (!inv) return false;
+  return ["partial","paid"].includes(String(inv.status || "").toLowerCase()) ||
+    inv.archived === true || Number(inv.paidAmount || 0) > 0 ||
+    (Array.isArray(inv.payments) && inv.payments.length > 0);
+}
+function invoiceMayEditFinancials(inv){
+  return !!inv && !invoiceHasPaymentActivity(inv) &&
+    ["unpaid","pending","draft"].includes(String(inv.status || "").toLowerCase());
+}
+function invoicePaymentMismatch(inv){
+  if (!inv || !invoiceHasPaymentActivity(inv)) return null;
+  const total = Number(inv.total);
+  const paid = Number(inv.paidAmount || 0);
+  const payments = Array.isArray(inv.payments) ? inv.payments : [];
+  const history = payments.reduce((sum,p)=>sum+Number(p.amount || 0),0);
+  if (![total,paid,history].every(Number.isFinite)) return "Montants de paiement invalides.";
+  if (paid > total + 0.009 || history > total + 0.009)
+    return "Les paiements dépassent le total de la facture.";
+  if (payments.length && Math.abs(history-paid) > 0.009)
+    return "Le cumul des paiements diffère du montant payé enregistré.";
+  if (String(inv.status) === "paid" && Math.abs(paid-total) > 0.009)
+    return "La facture est marquée payée, mais son total diffère du montant reçu.";
+  return null;
+}
+
 function recalcInvoice(inv){
+  if (invoiceHasPaymentActivity(inv)) return; // Verrouiller le total historique.
 
   const baseSubTotal = (inv.items || []).reduce(
     (sum, it) => sum + (Number(it.qty || 0) * Number(it.rate || 0)),
@@ -2364,12 +2377,15 @@ function recalcInvoice(inv){
     ? taxableSubTotal * (Number(SETTINGS.qst || 0) / 100)
     : 0;
 
-  inv.subTotal = baseSubTotal;
-  inv.discount = discount;
-  inv.taxableSubTotal = taxableSubTotal;
-  inv.gst = gst;
-  inv.qst = qst;
-  inv.total = taxableSubTotal + gst + qst;
+  // Arrondir chaque taxe au cent avant la somme (ex. 100 $ -> 5,00 + 9,98).
+  // La petite correction epsilon evite 9.975.toFixed(2) -> 9.97 en JS.
+  const toCents = value => Math.round((value + Number.EPSILON) * 100) / 100;
+  inv.subTotal = toCents(baseSubTotal);
+  inv.discount = toCents(discount);
+  inv.taxableSubTotal = toCents(taxableSubTotal);
+  inv.gst = toCents(gst);
+  inv.qst = toCents(qst);
+  inv.total = toCents(inv.taxableSubTotal + inv.gst + inv.qst);
 }
 
 
@@ -2391,6 +2407,7 @@ function renderInvoiceTotals(inv, container){
 
   /* ===================== NORMALISATION TAXES FACTURE ===================== */
 function normalizeInvoiceTaxes(inv){
+  if (!invoiceMayEditFinancials(inv)) return;
   if (inv.applyGST === undefined) inv.applyGST = true;
   if (inv.applyQST === undefined) inv.applyQST = true;
 }
@@ -3262,12 +3279,26 @@ function showCloudRecoveryBanner(key) {
   if (!box) {
     box = document.createElement("div");
     box.id = "cloudRecoveryBanner";
-    box.style.cssText = "position:fixed;bottom:12px;left:240px;right:12px;z-index:20000;background:#3b1717;color:white;border:2px solid #ff7777;padding:14px;border-radius:8px;box-shadow:0 6px 25px #000";
+    box.style.cssText = "position:fixed;bottom:12px;left:240px;right:12px;z-index:20000;color:white;padding:14px;border-radius:8px;box-shadow:0 6px 25px #000;max-height:40vh;overflow:auto";
     document.body.appendChild(box);
   }
   box.replaceChildren();
   const msg = document.createElement("span");
-  msg.textContent = "⚠️ Données non synchronisées : une copie de récupération est disponible. Télécharge-la et conserve-la. Aucune restauration automatique. ";
+  msg.id = "cloudRecoveryBannerMessage";
+  box.dataset.recoveryKey = key || "";
+  // La presence d'une ancienne copie ne signifie pas une erreur cloud active.
+  // Une copie peut contenir des changements non recuperes : ne jamais la supprimer automatiquement.
+  let capturedAt = "";
+  try {
+    const saved = key ? JSON.parse(localStorage.getItem(key) || "null") : window.__garageEmergencyBackup;
+    if (saved?.capturedAt) {
+      const date = new Date(saved.capturedAt);
+      if (Number.isFinite(date.getTime())) capturedAt = date.toLocaleString("fr-CA");
+    }
+  } catch (_) { /* La copie reste disponible sans metadonnees lisibles. */ }
+  box.dataset.capturedAt = capturedAt;
+  msg.textContent = "Copie de récupération disponible. ";
+
   box.appendChild(msg);
   const btn = document.createElement("button");
   btn.textContent = "Télécharger les données non synchronisées";
@@ -3289,6 +3320,28 @@ function showCloudRecoveryBanner(key) {
   mergeBtn.style.marginLeft = "10px";
   mergeBtn.onclick = chooseRecoveredNotesFile;
   box.appendChild(mergeBtn);
+  updateCloudRecoveryBannerAppearance();
+}
+
+// S04-F09 : signalement purement visuel, sans supprimer/editer les copies locales.
+function updateCloudRecoveryBannerAppearance(){
+  const box = document.getElementById("cloudRecoveryBanner");
+  const message = document.getElementById("cloudRecoveryBannerMessage");
+  if (!box || !message) return;
+  const activeFailure = Boolean(CLOUD_SYNC_FAILED ||
+    (SUPABASE_USER?.id && ACTIVE_GARAGE_ID && !CLOUD_DATA_READY));
+  const dateText = box.dataset.capturedAt ? " (créée le " + box.dataset.capturedAt + ")" : "";
+  if (activeFailure) {
+    box.style.background = "#3b1717";
+    box.style.border = "2px solid #ff7777";
+    message.textContent = "⚠ Erreur cloud active. Copie de récupération" + dateText +
+      " disponible : télécharge-la avant toute action. Aucune restauration automatique. ";
+  } else {
+    box.style.background = "#142e43";
+    box.style.border = "2px solid #70b9ed";
+    message.textContent = "ℹ Ancienne copie de récupération" + dateText +
+      " conservée par sécurité. Synchronisation actuelle indépendante : certaines modifications de cette copie peuvent rester à récupérer. ";
+  }
 }
 
 /* ===================== TEST : FUSION MANUELLE DES NOUVELLES NOTES =====================
@@ -4259,6 +4312,28 @@ async function tryAutoMergeAddedWOAttachments(localPayload, expectedVersion, sav
   return reject('Trois collisions de version consecutives');
 }
 
+// S04-F07 : indicateur en lecture seule. Aucun appel réseau et aucune mutation des sauvegardes.
+function getCloudSyncDisplayState(){
+  if (CLOUD_SYNC_FAILED) return {text:"⚠ Erreur de synchronisation", color:"#ff8080", detail:"Sauvegarde non confirmée : ne ferme pas la page avant récupération."};
+  if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID) return {text:"☁ Cloud non connecté", color:"#c3c3c3", detail:"Session ou garage non identifié."};
+  if (!CLOUD_DATA_READY) return {text:"⚠ Cloud indisponible", color:"#ffbf69", detail:"Chargement ou synchronisation bloqués. Les données locales peuvent différer."};
+  if (CLOUD_SYNC_IN_PROGRESS || CLOUD_SYNC_PENDING || CLOUD_SYNC_DIRTY || cloudSyncTimer !== null) {
+    return {text:"↻ Enregistrement en cours", color:"#ffd166", detail:"Modifications locales en attente de confirmation Supabase."};
+  }
+  if (CLOUD_LAST_CONFIRMED_SNAPSHOT === null || !Number.isSafeInteger(CLOUD_DATA_VERSION)) {
+    return {text:"☁ Cloud à vérifier", color:"#c3c3c3", detail:"Aucune version cloud confirmée pour cette session."};
+  }
+  return {text:"✓ Synchronisé", color:"#8de09a", detail:"Dernier état local confirmé par le serveur Supabase."};
+}
+function renderCloudSyncIndicator(){
+  const element = document.getElementById("cloudSyncIndicator");
+  if (!element) return;
+  const state = getCloudSyncDisplayState();
+  if (element.textContent !== state.text) element.textContent = state.text;
+  element.style.color = state.color;
+  element.title = state.detail;
+  updateCloudRecoveryBannerAppearance();
+}
 function scheduleCloudSync(delay = 1500){
 
   if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID || !CLOUD_DATA_READY) {
@@ -4297,6 +4372,31 @@ function scheduleCloudSync(delay = 1500){
   }, delay);
 }
 
+
+// S04-F08 : avertir avant de quitter si la sauvegarde n'est pas confirmee.
+// Pas d'avertissement pendant un chargement normal ni apres deconnexion securisee.
+function hasUnconfirmedCloudChanges(){
+  return Boolean(
+    CLOUD_SYNC_FAILED ||
+    CLOUD_SYNC_DIRTY ||
+    CLOUD_SYNC_PENDING ||
+    CLOUD_SYNC_IN_PROGRESS ||
+    cloudSyncTimer !== null
+  );
+}
+function warnBeforeLeavingWithPendingCloudChanges(event){
+  if (!hasUnconfirmedCloudChanges()) return;
+  event.preventDefault();
+  // Chrome choisit son propre message de confirmation.
+  event.returnValue = "";
+}
+window.addEventListener("beforeunload", warnBeforeLeavingWithPendingCloudChanges);
+
+// Ne lit que les variables de sauvegarde existantes ; n'initie jamais de sauvegarde.
+document.addEventListener("DOMContentLoaded", () => {
+  renderCloudSyncIndicator();
+  setInterval(renderCloudSyncIndicator, 700);
+});
 
 // TEST #303 : comparaison stable des snapshots avec valeurs par defaut.
 // On conserve tous les champs metier et on ignore uniquement l'ordre des cles.
@@ -4667,19 +4767,23 @@ function renderInvoiceEditUI(inv){
   $("invApplyGST").checked = inv.applyGST !== false;
   $("invApplyQST").checked = inv.applyQST !== false;
 
+  $("invApplyGST").disabled = !invoiceMayEditFinancials(inv);
+  $("invApplyQST").disabled = !invoiceMayEditFinancials(inv);
   $("invApplyGST").onchange = () => {
+    if (!invoiceMayEditFinancials(inv)) return;
     inv.applyGST = $("invApplyGST").checked;
     recalcInvoice(inv);
     renderInvoiceTotals(inv, document);
   };
 
   $("invApplyQST").onchange = () => {
+    if (!invoiceMayEditFinancials(inv)) return;
     inv.applyQST = $("invApplyQST").checked;
     recalcInvoice(inv);
     renderInvoiceTotals(inv, document);
   };
 
-  // rendu items + totaux
+  // rendu items + totaux ; une facture payee conserve ses montants.
   renderItems();
   recalcInvoice(inv);
   renderInvoiceTotals(inv, document);
@@ -4692,6 +4796,10 @@ function renderInvoiceEditUI(inv){
 
 function saveInvoiceEdits(){
   if (!currentInvoice) return;
+  if (!invoiceMayEditFinancials(currentInvoice)) {
+    alert("Facture verrouillée : un paiement est déjà enregistré.");
+    return;
+  }
 
   // réinjecter les items édités
   currentInvoice.items = items.map(it => ({ ...it }));
@@ -4926,6 +5034,7 @@ recalcInvoice(inv);
   if (qstBox) qstBox.checked = inv.applyQST !== false;
 
   const onToggle = () => {
+    if (!invoiceMayEditFinancials(inv)) return;
     if (gstBox) inv.applyGST = gstBox.checked;
     if (qstBox) inv.applyQST = qstBox.checked;
 
@@ -4933,8 +5042,14 @@ recalcInvoice(inv);
     updateInvoiceTotalsLive(inv);
   };
 
-  if (gstBox) gstBox.onchange = onToggle;
-  if (qstBox) qstBox.onchange = onToggle;
+  if (gstBox) {
+    gstBox.disabled = !invoiceMayEditFinancials(inv);
+    gstBox.onchange = onToggle;
+  }
+  if (qstBox) {
+    qstBox.disabled = !invoiceMayEditFinancials(inv);
+    qstBox.onchange = onToggle;
+  }
 }, 0);
   }
 }
@@ -5062,8 +5177,94 @@ function getActiveWOById(woId){
 
   
 /* 2) Sauver: si c'est une facture -> INVOICES, sinon -> WORKORDERS */
+// S04-F14 : seules les factures strictement impayees sont modifiables financierement.
+window.__woClosedEditId = null;
+function woLinkedInvoice(wo){
+  return INVOICES.find(inv => String(inv.workOrderNumber) === String(wo.number)) || null;
+}
+function woInvoiceHasPayment(inv){
+  return Boolean(inv && (Number(inv.paidAmount || 0) > 0 ||
+    (Array.isArray(inv.payments) && inv.payments.some(p => Number(p.amount || 0) > 0))));
+}
+function woCanEditFinancials(wo){
+  if (!wo) return false;
+  if (wo.__fromInvoice) {
+    // Preserve existing invoice editing workflows, including partial payments.
+    const invoiceNumber = wo.__invoiceNumber || String(wo.id || "").replace("INV-","");
+    const inv = INVOICES.find(i=>String(i.number)===String(invoiceNumber));
+    return !!inv && inv.status !== "paid";
+  }
+  const inv = woLinkedInvoice(wo);
+  if (wo.status === "en_cours") return !inv;
+  return wo.status === "termine" && !!inv && inv.status === "unpaid" &&
+    !woInvoiceHasPayment(inv) && CLOUD_DATA_READY && !CLOUD_SYNC_FAILED &&
+    String(window.__woClosedEditId) === String(wo.id);
+}
+function woCanEditNotes(wo){
+  if (!wo || wo.__fromInvoice) return false;
+  const inv = woLinkedInvoice(wo);
+  return wo.status === "en_cours" ||
+    (wo.status === "termine" && !!inv && ["unpaid","partial"].includes(inv.status));
+}
+function woRequireFinancialEdit(wo){
+  if (woCanEditFinancials(wo)) return true;
+  alert("Modification refusée : active Modifier le BT et vérifie que la facture est impayée.");
+  return false;
+}
+// Les lignes de la facture peuvent avoir ete modifiees directement.
+// Avant de corriger le BT, verifier la correspondance pour ne rien ecraser.
+function woInvoiceItemsFromWO(wo){
+  return [
+    ...(wo.parts || []).map(p=>({
+      type:"Pièce",desc:`${p.name || ""}${p.number ? " (#"+p.number+")" : ""}`.trim(),
+      qty:Number(p.qty),rate:Number(p.rate),total:Number(p.qty)*Number(p.rate)
+    })),
+    ...(wo.labor || []).map(l=>({
+      type:"Main-d'œuvre",desc:String(l.description || ""),
+      qty:Number(l.hours),rate:Number(l.rate),total:Number(l.hours)*Number(l.rate)
+    }))
+  ];
+}
+function woInvoiceMatchesWO(wo,invoice){
+  const expected = woInvoiceItemsFromWO(wo);
+  const current = invoice?.items;
+  if (!Array.isArray(current) || expected.length !== current.length) return false;
+  return expected.every((item,i)=>{
+    const saved=current[i];
+    return !!saved && String(saved.type || "") === item.type &&
+      String(saved.desc || "").trim() === item.desc &&
+      Number(saved.qty) === item.qty && Number(saved.rate) === item.rate;
+  });
+}
+function woSyncUnpaidInvoice(wo){
+  const invoice = woLinkedInvoice(wo);
+  if (!invoice || invoice.status !== "unpaid" || woInvoiceHasPayment(invoice) ||
+      !CLOUD_DATA_READY || CLOUD_SYNC_FAILED) return false;
+  const items = woInvoiceItemsFromWO(wo);
+  if (items.some(it=>!it.desc || !Number.isFinite(it.qty) || it.qty <= 0 ||
+    !Number.isFinite(it.rate) || it.rate < 0)) return false;
+  const next = {...invoice,items};
+  recalcInvoice(next); // Preserve taxes, rabais et historique de paiement.
+  if (!Number.isFinite(next.total) || next.total < 0) return false;
+  Object.assign(invoice,next);
+  wo.estimateTotal = items.reduce((sum,it)=>sum+it.total,0);
+  localStorage.setItem(STORAGE.workorders,JSON.stringify(WORKORDERS));
+  localStorage.setItem(STORAGE.invoices,JSON.stringify(INVOICES));
+  scheduleCloudSync(); // Le snapshot synchronise contient BT et facture.
+  if (typeof renderInvoiceList === "function") renderInvoiceList();
+  return true;
+}
+
 function persistActiveWO(wo){
   if (!wo || !wo.id) return;
+  if (wo.status !== "en_cours" && !wo.__fromInvoice) {
+    if (!woRequireFinancialEdit(wo)) return false;
+    if (!woSyncUnpaidInvoice(wo)) {
+      alert("Synchronisation BT/facture refusée. Aucune nouvelle sauvegarde confirmée.");
+      return false;
+    }
+    return true;
+  }
 
     // 🔥 VALIDATION KM INTELLIGENTE
   if (!validateAndUpdateVehicleKM(wo)){
@@ -5264,18 +5465,15 @@ function returnToWOListFromDetail(){
     return;
   }
 
-  const woId = $("woEditId")?.value;
-  if (woId){
-    const wo = getActiveWOById(woId);
-    if (wo){
-      persistActiveWO(wo);
-    }
-  }
-
+  // S04-F14 : la navigation n'est jamais une operation de sauvegarde.
+  // Les pieces/services sont persistes par leurs actions et les notes techniques
+  // par leur mecanisme de synchronisation differee. Ne pas ecrire une facture
+  // lorsque le mode de correction du BT termine est deja ferme.
+  window.__woClosedEditId = null;
   $("woDetailCard").style.display = "none";
   $("woListCard").style.display = "block";
 
-  initWorkOrdersModule(); // ✅ bon rendu
+  initWorkOrdersModule();
 }
 
 
@@ -5324,6 +5522,10 @@ function saveTempWOToInvoice(tempWO){
   const inv = INVOICES.find(i => String(i.number) === String(invNumber));
   if (!inv){
     alert("Facture introuvable pour sauvegarde.");
+    return;
+  }
+  if (!invoiceMayEditFinancials(inv)) {
+    alert("Facture verrouillée : aucun changement financier après paiement.");
     return;
   }
 
@@ -5745,6 +5947,7 @@ const wo = {
     clientName: client.name,
     vehicleId,
     vehicleLabel: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+    vehicleKm: woValidKm(vehicleKm),
     description,
     notes: "",          // 📝 notes techniques
     attachments: [],
@@ -5865,6 +6068,7 @@ setTimeout(() => {
   
   /* Ajouter une pièce à un WO */
 function woAddPartLine(wo) {
+  if (!woRequireFinancialEdit(wo)) return;
   const modal = $("partPickerModal");
   const listEl = $("partPickerList");
   if (!modal || !listEl) return;
@@ -5909,6 +6113,7 @@ function woAddPartLine(wo) {
         alert("Attention : la quantité demandée dépasse le stock actuel (" + stock + ").");
       }
 
+      if (!woRequireFinancialEdit(wo)) return;
       wo.parts.push({
         name: part.name,
         number: part.number,
@@ -5928,6 +6133,7 @@ function woAddPartLine(wo) {
 
 /* Ajouter main-d'œuvre à un WO */
 function woAddLaborLine(wo) {
+  if (!woRequireFinancialEdit(wo)) return;
   const modal = $("servicePickerModal");
   const listEl = $("servicePickerList");
   if (!modal || !listEl) return;
@@ -5984,6 +6190,7 @@ function woAddLaborLine(wo) {
         rate = Number(srv.rate || 0);
       }
 
+      if (!woRequireFinancialEdit(wo)) return;
       wo.labor.push({
         description: srv.name,
         hours,
@@ -6178,6 +6385,10 @@ if ($("woEstimatedProfit")) {
 }
   
   // Affichage uniquement : aucune sauvegarde pendant le rendu.
+  const activeDetail = document.getElementById("woDetailContent");
+  if (activeDetail?.querySelector("#woEditId")?.value === String(wo.id)) {
+    applyClosedWOControls(wo,activeDetail);
+  }
 }
 
 
@@ -6214,7 +6425,7 @@ function updateTimerDisplay() {
 
 function woEditLine(woId, type, index) {
   const wo = getActiveWOById(woId);
-  if (!wo) return;
+  if (!wo || !woRequireFinancialEdit(wo)) return;
 
   const modal = $("woEditModal");
   const box = $("woEditContent");
@@ -6253,6 +6464,17 @@ function woEditLine(woId, type, index) {
   $("woEditCancel").onclick = () => modal.style.display = "none";
 
   $("woEditSave").onclick = () => {
+    if (!woRequireFinancialEdit(wo)) return;
+    const qtyOrHours = Number($(type === "part" ? "woEditQty" : "woEditHours").value);
+    const price = Number($("woEditRate").value);
+    const description = String($(type === "part" ? "woEditName" : "woEditDesc").value || "").trim();
+    const costValue = type === "part" ? Number($("woEditCost").value || 0) : 0;
+    if (!description || !Number.isFinite(qtyOrHours) || qtyOrHours <= 0 ||
+        !Number.isFinite(price) || price < 0 ||
+        !Number.isFinite(costValue) || costValue < 0) {
+      alert("Valeurs invalides : vérifie le nom, la quantité, les heures, le coût et le prix.");
+      return;
+    }
     if (type === "part") {
       line.name = $("woEditName").value;
       line.qty  = Number($("woEditQty").value);
@@ -6276,7 +6498,7 @@ function woEditLine(woId, type, index) {
   
 function woRemovePart(woId,index){
   const wo = getActiveWOById(woId);
-  if(!wo) return;
+  if (!wo || !woRequireFinancialEdit(wo)) return;
   wo.parts.splice(index,1);
   persistActiveWO(wo);
   woRenderLines(wo);
@@ -6284,12 +6506,164 @@ function woRemovePart(woId,index){
 
 function woRemoveLabor(woId,index){
   const wo = getActiveWOById(woId);
-  if(!wo) return;
+  if (!wo || !woRequireFinancialEdit(wo)) return;
   wo.labor.splice(index,1);
   persistActiveWO(wo);
   woRenderLines(wo);
 }
 
+
+// S04-F03 : lecture des coordonnees existantes, sans migration des anciens BT.
+function woContactInfo(wo){
+  // Les fiches client et vehicule sont la source des coordonnees et du KM courant.
+  // Recharger uniquement pour la lecture : ne modifie pas les anciens BT.
+  const clients = loadArrayFromStorage(STORAGE.clients);
+  const matches = clients.filter(c =>
+    (wo.clientId != null && String(c.id) === String(wo.clientId)) ||
+    (wo.clientName && String(c.name || "").trim() === String(wo.clientName).trim())
+  );
+  const client = matches.find(c => wo.clientId != null && String(c.id) === String(wo.clientId))
+    || matches[0] || null;
+  const vehicle = client?.vehicles?.find(v => wo.vehicleId != null && String(v.id) === String(wo.vehicleId))
+    || client?.vehicles?.find(v => `${v.year} ${v.make} ${v.model}`.trim() === String(wo.vehicleLabel || "").trim())
+    || null;
+  return {client, vehicle};
+}
+
+function woValidKm(value){
+  if (value === null || value === undefined || String(value).trim() === "") return null;
+  const n = Number(String(value).replace(/[\s\u00A0\u202F]/g,"").replace(",","."));
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+function woDisplayKm(wo){
+  const recorded = woValidKm(wo.vehicleKm);
+  if (recorded !== null) return {value:recorded, source:"bt"};
+  // Un ancien BT termine ne doit jamais afficher le KM actuel comme historique.
+  if (wo.status !== "en_cours") return {value:null, source:"missing-history"};
+  const {vehicle} = woContactInfo(wo);
+  const current = woValidKm(vehicle?.km);
+  return current !== null ? {value:current, source:"vehicle"} : {value:null, source:"missing"};
+}
+
+function woContactHtml(wo){
+  const {client, vehicle} = woContactInfo(wo);
+  const phone = String(client?.phone || "").trim();
+  const vin = String(vehicle?.vin || "").trim();
+  const plate = String(vehicle?.plate || "").trim();
+  const phoneDigits = phone.replace(/[^+0-9]/g, "");
+  return `
+    <div class="wo-contact-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:12px 0;">
+      <div style="padding:12px;border:1px solid var(--border);border-radius:8px;min-width:0;">
+        <div class="muted">👤 Client</div>
+        <strong>${escapeHTML(wo.clientName || "Non renseigné")}</strong>
+        <div style="margin-top:8px;">Téléphone : ${phone
+          ? `<a href="tel:${escapeHTML(phoneDigits)}">${escapeHTML(phone)}</a>`
+          : '<span class="muted">Non renseigné</span>'}</div>
+      </div>
+      <div style="padding:12px;border:1px solid var(--border);border-radius:8px;min-width:0;">
+        <div class="muted">🚗 Véhicule</div>
+        <strong>${escapeHTML(wo.vehicleLabel || "Non renseigné")}</strong>
+        <div style="margin-top:8px;overflow-wrap:anywhere;">VIN : <span class="wo-vin-text">${escapeHTML(vin || "Non renseigné")}</span>
+          ${vin ? '<button class="ghost" type="button" onclick="copyWorkOrderVIN(this)" style="padding:4px 8px;margin-left:6px;">📋 Copier</button>' : ''}</div>
+        <div>Plaque : ${escapeHTML(plate || "Non renseignée")}</div>
+      </div>
+    </div>`;
+}
+async function copyWorkOrderVIN(button){
+  const vin = button?.parentElement?.querySelector(".wo-vin-text")?.textContent?.trim();
+  if (!vin || vin === "Non renseigné") return;
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error("clipboard unavailable");
+    await navigator.clipboard.writeText(vin);
+    button.textContent = "✓ Copié";
+  } catch (error) {
+    // Repli compatible avec file:// : l'utilisateur peut copier manuellement.
+    prompt("Copie le VIN :",vin);
+  }
+}
+
+// S04-F10 : recherche BT en lecture seule, tolerante aux accents et separateurs.
+function woSearchNormalize(value){
+  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase().replace(/[\s\-().]/g,"");
+}
+function woMatchesSearch(wo, search, contactInfo){
+  const q = woSearchNormalize(search);
+  if (!q) return true;
+  const {client,vehicle} = contactInfo || woContactInfo(wo);
+  const fields = [
+    wo.number,wo.clientName,wo.vehicleLabel,wo.description,
+    client?.name,client?.firstName,client?.lastName,client?.phone,
+    vehicle?.vin,vehicle?.plate
+  ];
+  const combined = fields.map(value => String(value ?? "")).join(" ");
+  return fields.some(value => woSearchNormalize(value).includes(q)) ||
+    woSearchNormalize(combined).includes(q);
+}
+
+// S04-F11 : tri local des bons de travail, sans ecriture dans Supabase.
+let WO_SORT_KEY = null;
+let WO_SORT_DIRECTION = "asc";
+const WO_SORT_KEYS = ["number","date","client","vehicle","km","description","status","total"];
+function setWorkOrderSort(key){
+  if (!WO_SORT_KEYS.includes(key)) return;
+  if (WO_SORT_KEY === key) WO_SORT_DIRECTION = WO_SORT_DIRECTION === "asc" ? "desc" : "asc";
+  else {
+    WO_SORT_KEY = key;
+    WO_SORT_DIRECTION = ["date","number","total","km"].includes(key) ? "desc" : "asc";
+  }
+  renderWorkOrders();
+}
+function workOrderSortValue(wo,key){
+  switch (key) {
+    case "number": return String(wo.number || "");
+    case "date": {
+      const timestamp = new Date(wo.date || "").getTime();
+      return Number.isFinite(timestamp) ? timestamp : null;
+    }
+    case "client": {
+      const c = CLIENTS.find(c => (wo.clientId != null && String(c.id) === String(wo.clientId)) || (c.name && wo.clientName && c.name === wo.clientName));
+      return c ? (`${c.lastName || ""} ${c.firstName || ""}`.trim() || String(c.name || wo.clientName || "")) : String(wo.clientName || "");
+    }
+    case "vehicle": return String(wo.vehicleLabel || "");
+    case "km": return woDisplayKm(wo).value;
+    case "description": return String(wo.description || "");
+    case "status": return String(wo.status || "");
+    case "total": return Number(wo.estimateTotal) || 0;
+    default: return "";
+  }
+}
+function sortWorkOrderRows(rows){
+  const list = rows.slice();
+  if (!WO_SORT_KEY) {
+    // Affichage par defaut preserve : BT en cours avant BT termines, puis date recente.
+    return list.sort((a,b) => {
+      if (a.status === "en_cours" && b.status === "termine") return -1;
+      if (a.status === "termine" && b.status === "en_cours") return 1;
+      return (new Date(b.date).getTime() || 0) - (new Date(a.date).getTime() || 0);
+    });
+  }
+  const direction = WO_SORT_DIRECTION === "desc" ? -1 : 1;
+  return list.sort((a,b) => {
+    const av = workOrderSortValue(a,WO_SORT_KEY), bv = workOrderSortValue(b,WO_SORT_KEY);
+    // Les valeurs non renseignees restent a la fin dans les deux directions.
+    if (av == null && bv != null) return 1;
+    if (bv == null && av != null) return -1;
+    let cmp = 0;
+    if (typeof av === "number" && typeof bv === "number") cmp = av-bv;
+    else cmp = String(av ?? "").localeCompare(String(bv ?? ""), "fr", {numeric:true,sensitivity:"base"});
+    if (cmp !== 0) return cmp*direction;
+    return String(a.number || "").localeCompare(String(b.number || ""), "fr", {numeric:true});
+  });
+}
+function renderWorkOrderSortHeaders(table){
+  table.querySelectorAll("th[data-wo-sort]").forEach(th => {
+    const active = th.dataset.woSort === WO_SORT_KEY;
+    th.setAttribute("aria-sort",active ? (WO_SORT_DIRECTION === "asc" ? "ascending" : "descending") : "none");
+    const arrow = th.querySelector(".wo-sort-arrow");
+    if (arrow) arrow.textContent = active ? (WO_SORT_DIRECTION === "asc" ? "▲" : "▼") : "↕";
+  });
+}
 
 function renderWorkOrders(){
   const table = $("woTable");
@@ -6299,7 +6673,7 @@ function renderWorkOrders(){
   if (!WORKORDERS.length){
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" class="muted">Aucun bon de travail pour le moment.</td>
+        <td colspan="9" class="muted">Aucun bon de travail pour le moment.</td>
       </tr>`;
     return;
   }
@@ -6307,7 +6681,7 @@ function renderWorkOrders(){
   tbody.innerHTML = "";
 
   const selectedStatus = $("woStatusFilter")?.value || "";
-  const search = ($("woSearch")?.value || "").toLowerCase();
+  const search = $("woSearch")?.value || "";
 
   let filtered = WORKORDERS.filter(wo => {
 
@@ -6325,53 +6699,18 @@ const isPaid = invoice && invoice.status === "paid";
   if (!["en_cours", "termine", "billed"].includes(wo.status)) return false;
   if (selectedStatus && wo.status !== selectedStatus) return false;
 
-  if (search) {
-    const clientObj = CLIENTS.find(c =>
-      c.id === wo.clientId ||
-      c.name === wo.clientName
-    );
-
-    const clientNameSearch = clientObj
-      ? `${clientObj.lastName || ""} ${clientObj.firstName || ""}`
-      : (wo.clientName || "");
-
-    const hay = `
-      ${clientNameSearch}
-      ${wo.vehicleLabel || ""}
-      ${wo.number || ""}
-    `.toLowerCase();
-
-    if (!hay.includes(search)) return false;
-  }
+  if (search && !woMatchesSearch(wo, search)) return false;
 
   return true;
 });
 
-  filtered
-  .filter(wo => {
-    const invoice = INVOICES.find(inv =>
-      String(inv.workOrderNumber) === String(wo.number)
-    );
-
-    // 🚫 Si facture payée → ne pas afficher le WO
-    if (invoice && invoice.status === "paid") {
-      return false;
-    }
-
-    return true;
-  })
-  .slice()
-  .sort((a, b) => {
-
-
-    // ⭐ Priorité statut
-    if (a.status === "en_cours" && b.status === "termine") return -1;
-    if (a.status === "termine" && b.status === "en_cours") return 1;
-
-    // ⭐ Sinon tri par date décroissante
-    return new Date(b.date) - new Date(a.date);
-
-  })
+  const visible = filtered.filter(wo => {
+    const invoice = INVOICES.find(inv => String(inv.workOrderNumber) === String(wo.number));
+    return !(invoice && invoice.status === "paid");
+  });
+  const sorted = sortWorkOrderRows(visible);
+  renderWorkOrderSortHeaders(table);
+  sorted
   .forEach(wo => {
 
     const invoice = INVOICES.find(inv =>
@@ -6398,6 +6737,14 @@ const isPaid = invoice && invoice.status === "paid";
   wo.status === "termine" ? "Terminé" :
   wo.status;
 
+    // S04-F06 : meme source de KM que le detail, sans modifier les anciens BT.
+    const kmDisplay = woDisplayKm(wo);
+    const kmLabel = kmDisplay.value === null ? "Non renseigné" : String(kmDisplay.value);
+    const kmTip = kmDisplay.source === "vehicle"
+      ? "Kilométrage actuel de la fiche véhicule (non enregistré dans ce BT)"
+      : kmDisplay.source === "bt" ? "Kilométrage enregistré dans ce BT"
+      : "Kilométrage historique non renseigné";
+
     tr.innerHTML = `
       <td>${wo.number || ""}</td>
       <td>${wo.date || ""}</td>
@@ -6406,8 +6753,11 @@ const isPaid = invoice && invoice.status === "paid";
       <td id="wo-km-cell-${wo.id}">
         <div>
           <span class="muted">KM :</span>
-          <b>${wo.vehicleKm || "-"}</b>
+          <b title="${escapeHTML(kmTip)}">${escapeHTML(kmLabel)}</b>${kmDisplay.source === "vehicle" ? '<span class="muted" title="Valeur provenant de la fiche véhicule"> *</span>' : ""}
         </div>
+      </td>
+      <td class="wo-description" title="${escapeHTML(String(wo.description || ''))}" style="max-width:260px;min-width:160px;white-space:normal;overflow-wrap:anywhere;">
+        ${escapeHTML(String(wo.description || '').slice(0,90))}${String(wo.description || '').length > 90 ? '…' : ''}
       </td>
       <td>
         <span class="status-badge status-${wo.status}">
@@ -6419,7 +6769,7 @@ const isPaid = invoice && invoice.status === "paid";
   <button class="ghost" data-action="open">Ouvrir</button>
 
   ${
-    wo.status !== "termine"
+    wo.status === "en_cours" && !invoice
       ? `
         <button class="ghost" onclick="finishWorkOrder(${wo.id})">
           ✅ Terminé
@@ -6436,6 +6786,9 @@ const isPaid = invoice && invoice.status === "paid";
 
     tbody.appendChild(tr);
   });
+  if (!tbody.children.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="muted">Aucun bon de travail ne correspond à la recherche.</td></tr>';
+  }
 
   tbody.querySelectorAll("button[data-action='open']").forEach(btn=>{
     btn.onclick = () => {
@@ -6448,8 +6801,17 @@ const isPaid = invoice && invoice.status === "paid";
 
   
 function finishWorkOrder(id){
+  // S04-F01 : protection contre une deuxieme cloture ou facture double.
+  loadWorkOrders();
+  loadInvoices();
   const wo = WORKORDERS.find(w => String(w.id) === String(id));
-  if(!wo) return alert("Bon de travail introuvable.");
+  if (!wo) return alert("Bon de travail introuvable.");
+  if (wo.status === "termine" || wo.status === "billed" ||
+      INVOICES.some(inv => String(inv.workOrderNumber) === String(wo.number) ||
+        String(inv.number) === String(btToInvoiceNumber(wo.number)))) {
+    alert("Ce bon de travail est deja termine ou possede une facture. Aucune nouvelle facture creee.");
+    return;
+  }
 
   // 🔄 Forcer lecture directe du champ KM (sécuritaire)
 const kmInput = document.getElementById("woVehicleKmInput");
@@ -6508,6 +6870,13 @@ if (errorMessage){
 }
 
   if (!confirm(`Terminer le bon de travail #${wo.number} et créer une facture ?`)) return;
+  // Recontroler apres la confirmation pour ne pas terminer deux fois le meme BT.
+  if (wo.status !== "en_cours" ||
+      INVOICES.some(inv => String(inv.workOrderNumber) === String(wo.number))) {
+    alert("Ce bon de travail a deja ete termine ou facture.");
+    return;
+  }
+
 
   // 1) Marquer le WO comme terminé
   wo.status = "termine";
@@ -6561,9 +6930,10 @@ invoice.subTotal = invoice.items.reduce(
   (s,it)=> s + (it.qty * it.rate), 0
 );
 
-invoice.gst = invoice.subTotal * (SETTINGS.gst / 100);
-invoice.qst = (invoice.subTotal + invoice.gst) * (SETTINGS.qst / 100);
-invoice.total = invoice.subTotal + invoice.gst + invoice.qst;
+// S04 audit final : reutiliser le calcul fiscal central de la facture.
+// Evite une TVQ calculee sur TPS+montant alors que le resume
+// et les corrections ulterieures utilisent la base taxable seule.
+recalcInvoice(invoice);
 
 
   INVOICES.push(invoice);
@@ -6886,6 +7256,65 @@ if (typeof calcWorkOrderProfit === "function") {
    // ===============================
   // Création de Work-Order + rentrer pièces, main-d'oeuvre, LE MAIN EN FAIT
   // ===============================
+// S04-F14 : les BT termines sont consultables; seules les corrections
+// demandees explicitement sur facture impayee activent les commandes financieres.
+function woCanStartClosedEdit(wo){
+  const inv = woLinkedInvoice(wo);
+  return wo?.status === "termine" && !!inv && inv.status === "unpaid" &&
+    !woInvoiceHasPayment(inv) && CLOUD_DATA_READY && !CLOUD_SYNC_FAILED;
+}
+function applyClosedWOControls(wo,detail){
+  if (!detail || wo?.status === "en_cours" && !woLinkedInvoice(wo)) return;
+  const isEditing = woCanEditFinancials(wo);
+  detail.querySelectorAll("input:not([type=hidden]),textarea,select").forEach(el=>{
+    // S04-F14-Fix : permettre la saisie des formulaires de pieces et services
+    // UNIQUEMENT en mode correction de la facture impayee.
+    // Le KM, la description historique et les fichiers restent verrouilles.
+    const financialField = Boolean(el.closest("#woManualPartBox, #woManualLaborBox"));
+    const allowedNote = el.id === "woNotes" && woCanEditNotes(wo);
+    el.disabled = !(allowedNote || (isEditing && financialField));
+  });
+  const editBtn = detail.querySelector("#woEditClosedBtn");
+  const finishBtn = detail.querySelector("#woFinishClosedEditBtn");
+  if (editBtn) editBtn.style.display = isEditing ? "none" : "";
+  if (finishBtn) finishBtn.style.display = isEditing ? "" : "none";
+  detail.querySelectorAll("button").forEach(button=>{
+    if (button === editBtn || button === finishBtn ||
+      button.textContent.includes("Retour") || button.textContent.includes("Copier")) return;
+    // Jamais reterminer/supprimer le BT termine ni redemarrer son compteur.
+    if (button.textContent.includes("Terminé") || button.textContent.includes("Supprimer") ||
+        button.id?.startsWith("woTimer") || button.closest("#woAttachmentsList")) {
+      button.style.display = "none";return;
+    }
+    button.style.display = isEditing ? "" : "none";
+  });
+  // La modification concerne les lignes de pieces/services, pas l'odometre.
+  const note = detail.querySelector("#woClosedEditStatus");
+  if (note) note.textContent = isEditing
+    ? "✏️ Mode correction actif : les pièces/services modifiés mettent à jour la facture impayée."
+    : "🔒 Travaux terminés : facture inchangée tant que tu n'actives pas Modifier le BT.";
+}
+function beginClosedWOEdit(woId){
+  const wo = WORKORDERS.find(w=>String(w.id)===String(woId));
+  loadInvoices();
+  if (!wo || !woCanStartClosedEdit(wo)) {
+    alert("Modification indisponible : facture payée, partiellement payée ou synchronisation bloquée.");
+    return;
+  }
+  if (!woInvoiceMatchesWO(wo,woLinkedInvoice(wo))) {
+    alert("Les lignes de la facture diffèrent déjà du BT. Correction automatique bloquée pour éviter de remplacer des modifications faites directement sur la facture.");
+    return;
+  }
+  window.__woClosedEditId = String(wo.id);
+  applyClosedWOControls(wo,document.getElementById("woDetailContent"));
+}
+function endClosedWOEdit(woId){
+  const wo = WORKORDERS.find(w=>String(w.id)===String(woId));
+  if (!wo) return;
+  window.__woClosedEditId = null;
+  applyClosedWOControls(wo,document.getElementById("woDetailContent"));
+}
+
 function initWorkOrdersModule(){
   loadWorkOrders();
   loadInvoices();
@@ -7016,6 +7445,8 @@ if (!wo) return;
 
 const invoice = INVOICES.find(inv => String(inv.workOrderNumber) === String(wo.number));
 const isPaid = invoice && invoice.status === "paid";
+// S04-F13 : le BT termine ou relie a une facture est en lecture seule.
+const woReadOnly = wo.status !== "en_cours" || Boolean(invoice);
 
 const statusLabel =
   wo.status === "en_cours" ? "En cours" :
@@ -7023,6 +7454,7 @@ const statusLabel =
   wo.status === "termine" ? "Terminé" :
   wo.status;
 
+    const woKmDisplay = woDisplayKm(wo);
     detail.innerHTML = `
   <button class="ghost" onclick="backToWorkOrdersList()" style="margin-bottom:10px;">
     ⬅ Retour aux bons de travail
@@ -7031,42 +7463,31 @@ const statusLabel =
   <input type="hidden" id="woEditId" value="${wo.id}">
 
 
-  <!-- EN-TÊTE -->
-  <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-    <div>
-      <h2 style="margin:0;">Bon de travail #${wo.number}</h2>
-      <div class="muted">${wo.date || ""}</div>
-      <div style="margin-top:6px;">
-  <b>Client :</b> ${wo.clientName || ""}<br>
-  <b>Véhicule :</b> ${wo.vehicleLabel || ""}<br>
-  <div>
-  Kilométrage :
-  <input
-    id="woKmInput"
-    type="number"
-    value="${wo.vehicleKm || ''}"
-    style="
-      width:120px;
-      padding:4px;
-      border-radius:4px;
-      border:1px solid var(--border);
-      background:#111;
-      color:#fff;
-    "
-  > km
-</div>
-  <label for="woDescriptionEdit" style="display:block;font-weight:bold;margin-top:8px;">Description Problème/Travail :</label>
-  <textarea id="woDescriptionEdit" ${isPaid ? "disabled" : ""}
-    style="display:block;width:100%;max-width:650px;min-height:65px;margin-top:5px;"
-    placeholder="Description du problème ou du travail">${String(wo.description || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</textarea>
-</div>
+  <!-- EN-TÊTE S04-F03 : compact, donnees existantes -->
+  <div class="card" style="padding:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:start;gap:12px;flex-wrap:wrap;">
+      <div style="min-width:0;">
+        <h2 style="margin:0;overflow-wrap:anywhere;">Bon de travail #${escapeHTML(wo.number || "")}</h2>
+        <div class="muted" style="margin-top:4px;">${escapeHTML(wo.date || "")}</div>
+      </div>
+      <span class="status-badge status-${wo.status}">${statusLabel}</span>
     </div>
-
-    <span class="status-badge status-${wo.status}">
-      ${statusLabel}
-    </span>
+    ${woContactHtml(wo)}
+    <label for="woKmInput" style="display:block;font-weight:bold;">Kilométrage</label>
+    <div style="display:flex;gap:8px;align-items:center;margin:6px 0 12px;">
+      <input id="woKmInput" type="number" min="0" value="${woKmDisplay.value ?? ""}" placeholder="KM non renseigné"
+        style="width:145px;padding:6px;border-radius:5px;border:1px solid var(--border);background:#111;color:#fff;"> km
+    </div>
+    <div class="muted" style="font-size:12px;margin:-6px 0 12px;">
+      ${woKmDisplay.source === "vehicle" ? "Prérempli depuis la fiche véhicule — non enregistré dans cet ancien BT."
+      : woKmDisplay.source === "missing-history" ? "KM historique non renseigné — aucune substitution par le KM actuel."
+      : woKmDisplay.source === "missing" ? "KM non renseigné dans le BT ou la fiche véhicule." : "Kilométrage enregistré dans ce BT."}
+    </div>
+    <label for="woDescriptionEdit" style="display:block;font-weight:bold;">Description du problème / travail</label>
+    <textarea id="woDescriptionEdit" ${isPaid ? "disabled" : ""}
+      style="display:block;width:100%;box-sizing:border-box;min-height:82px;margin-top:6px;"
+      placeholder="Description du problème ou du travail">${escapeHTML(wo.description || "")}</textarea>
   </div>
-
 
   <!-- PIÈCES -->
   <div class="card">
@@ -7206,11 +7627,17 @@ const statusLabel =
 </div>
 
 
-  <!-- ACTIONS -->
-  <div class="card" style="display:flex;justify-content:flex-end;gap:10px;">
-    <button id="woSaveBtn">💾 Enregistrer</button>
-    <button class="ghost" onclick="finishWorkOrder(${wo.id})">✅ Terminé</button>
-    <button class="danger" onclick="deleteWorkOrder(${wo.id})">🗑 Supprimer</button>
+  <!-- ACTIONS S04-F14 : correction volontaire avant paiement, jamais seconde cloture -->
+  <div class="card" style="display:flex;justify-content:flex-end;gap:10px;align-items:center;flex-wrap:wrap;">
+    ${woReadOnly
+      ? `<span id="woClosedEditStatus" class="muted">🔒 Travaux terminés — modification contrôlée.</span>
+         ${woCanStartClosedEdit(wo)
+           ? `<button id="woEditClosedBtn" class="ghost" onclick="beginClosedWOEdit('${wo.id}')">✏️ Modifier le BT</button>
+              <button id="woFinishClosedEditBtn" class="ghost" style="display:none;" onclick="endClosedWOEdit('${wo.id}')">✓ Fin des modifications</button>`
+           : ""}`
+      : `<button id="woSaveBtn">💾 Enregistrer</button>
+         <button class="ghost" onclick="finishWorkOrder(${wo.id})">✅ Terminé</button>
+         <button class="danger" onclick="deleteWorkOrder(${wo.id})">🗑 Supprimer</button>`}
   </div>
 `;
 
@@ -7234,6 +7661,7 @@ setTimeout(() => {
   if (!kmInput) return;
 
   const saveKm = () => {
+    if (woReadOnly) return;
     syncKmEverywhereFromWO(wo, kmInput.value);
 
     // 🔥 INVALIDATION CACHE VÉHICULES (OBLIGATOIRE)
@@ -7282,6 +7710,7 @@ const cancelManualBtn = document.getElementById("woManualPartCancel");
 
 if (saveManualBtn){
   saveManualBtn.onclick = () => {
+    if (!woRequireFinancialEdit(wo)) return;
     const name = document.getElementById("woManualPartName").value.trim();
     const qty = Number(document.getElementById("woManualPartQty").value);
     const rate = Number(document.getElementById("woManualPartRate").value);
@@ -7301,8 +7730,8 @@ wo.parts.push({
 });
 
     // TEST #22E : recalculer le total AVANT la sauvegarde
+persistActiveWO(wo);
 woRenderLines(wo);
-saveWorkOrders();
 
     // reset + fermer
     document.getElementById("woManualPartName").value = "";
@@ -7327,6 +7756,7 @@ if (notesField){
   notesField.value = wo.notes || "";
 
   notesField.oninput = () => {
+    if (!woCanEditNotes(wo)) return;
     wo.notes = notesField.value;
     // TEST #336 : conserver immediatement la saisie localement,
     // mais ne demander une synchronisation qu'apres une pause de frappe.
@@ -7345,6 +7775,10 @@ if (notesField){
 }
 
 initWorkOrderSaveButton();
+  // Les notes restent modifiables meme sur facture partiellement payee.
+  // Les boutons financiers restent masques jusqu'a l'activation explicite.
+  window.__woClosedEditId = null;
+  applyClosedWOControls(wo,detail);
 
   }; // ✅ fin table.onclick
 } // ✅ fin if(table)
@@ -10244,23 +10678,41 @@ function renderHistoryTable(){
 }
 
 
+  // S04 audit : un BT n'entre dans l'historique definitif que lorsque
+  // sa facture liee est payee ET archivee. Aucune mutation des donnees.
+  function isWorkOrderArchivedInHistory(wo, invoices = INVOICES){
+    if (!wo || !wo.number || !["termine","billed"].includes(wo.status)) return false;
+    return Array.isArray(invoices) && invoices.some(inv =>
+      String(inv.workOrderNumber) === String(wo.number) &&
+      inv.status === "paid" && inv.archived === true
+    );
+  }
+
   function populateHistoryFiltersFromWorkOrders(){
-  const selClient  = $("filterClient");
-  const selVehicle = $("filterVehicle");
-  if (!selClient || !selVehicle) return;
+    const selClient = $("filterClient");
+    const selVehicle = $("filterVehicle");
+    if (!selClient || !selVehicle) return;
 
-  const workorders = loadArrayFromStorage(STORAGE.workorders);
+    const archived = loadArrayFromStorage(STORAGE.workorders)
+      .filter(wo => isWorkOrderArchivedInHistory(wo));
 
-  workorders.forEach(wo=>{
-    if (wo.clientName && ![...selClient.options].some(o=>o.value===wo.clientName)){
-      selClient.appendChild(new Option(wo.clientName, wo.clientName));
+    // Retirer les anciennes options correspondant aux BT non archives.
+    // Garder "Tous" et eviter les doublons lors des changements de page.
+    const clientSelected = selClient.value;
+    const vehicleSelected = selVehicle.value;
+    selClient.innerHTML = '<option value="">Tous les clients</option>';
+    selVehicle.innerHTML = '<option value="">Tous les véhicules</option>';
+    for (const wo of archived) {
+      if (wo.clientName && ![...selClient.options].some(o => o.value === wo.clientName)) {
+        selClient.appendChild(new Option(wo.clientName, wo.clientName));
+      }
+      if (wo.vehicleLabel && ![...selVehicle.options].some(o => o.value === wo.vehicleLabel)) {
+        selVehicle.appendChild(new Option(wo.vehicleLabel, wo.vehicleLabel));
+      }
     }
-
-    if (wo.vehicleLabel && ![...selVehicle.options].some(o=>o.value===wo.vehicleLabel)){
-      selVehicle.appendChild(new Option(wo.vehicleLabel, wo.vehicleLabel));
-    }
-  });
-}
+    if ([...selClient.options].some(o => o.value === clientSelected)) selClient.value = clientSelected;
+    if ([...selVehicle.options].some(o => o.value === vehicleSelected)) selVehicle.value = vehicleSelected;
+  }
 
 
   // Badge Statut pour les WO (historique)
@@ -10290,7 +10742,7 @@ function renderWOStatusBadge(status){
 const filterVehicle = $("filterVehicle")?.value || "";
 
 workorders
-  .filter(wo => wo.status !== "en_cours")
+  .filter(wo => isWorkOrderArchivedInHistory(wo))
   .filter(wo => {
     if (filterClient && wo.clientName !== filterClient) return false;
     if (filterVehicle && wo.vehicleLabel !== filterVehicle) return false;
@@ -10991,13 +11443,12 @@ if (!inv){
   return;
 }
 
-// 🔒 VERROUILLAGE DE L'ÉTAT DES TAXES (CRITIQUE)
-inv.applyGST = (inv.applyGST === true);
-inv.applyQST = (inv.applyQST === true);
-
-// ⚠️ normalisation APRÈS verrouillage
-normalizeInvoiceTaxes(inv);
-recalcInvoice(inv);
+// Une ancienne facture ne doit pas devenir exoneree si ses drapeaux de
+// taxes sont absents. Apres paiement, lire les montants sans les recalculer.
+if (invoiceMayEditFinancials(inv)) {
+  normalizeInvoiceTaxes(inv);
+  recalcInvoice(inv);
+}
 
 
 if(!inv){
@@ -11056,7 +11507,10 @@ if (clientObj && Array.isArray(clientObj.vehicles)){
     `;
   });
 
-const isLocked = inv.status === "paid";
+// Encaisser le solde reste permis apres paiement PARTIEL.
+const isLocked = inv.status === "paid" || inv.archived === true;
+const financialLocked = !invoiceMayEditFinancials(inv);
+const paymentWarning = invoicePaymentMismatch(inv);
 
   
 content.innerHTML = `
@@ -11134,6 +11588,7 @@ content.innerHTML = `
 </div>
 
 
+  ${paymentWarning ? `<div role="alert" style="margin:12px 0;padding:10px;border:1px solid #e99b6c;border-radius:7px;color:#ffd29e;">⚠ Anomalie de paiement : ${escapeHTML(paymentWarning)} Vérification manuelle nécessaire; aucun montant modifié automatiquement.</div>` : ""}
   <!-- DÉTAILS -->
   <table class="table">
     <thead>
@@ -11361,23 +11816,23 @@ setTimeout(() => {
   const discountType  = $("invDiscountType");
 
   // 🔒 Verrouillage escompte si facture payée
-if (inv.status === "paid"){
+if (financialLocked){
   if (discountInput) discountInput.disabled = true;
   if (discountType)  discountType.disabled  = true;
 }
 
   // 🔒 Verrouillage taxes si facture payée
-if (inv.status === "paid"){
+if (financialLocked){
   if (gstBox) gstBox.disabled = true;
   if (qstBox) qstBox.disabled = true;
 }
 
-  if (inv.status === "paid"){
+  if (financialLocked){
   if (discountInput) discountInput.style.opacity = "0.6";
   if (discountType)  discountType.style.opacity  = "0.6";
 }
 
-  if (inv.status === "paid"){
+  if (financialLocked){
   if (gstBox) gstBox.parentElement.style.opacity = "0.6";
   if (qstBox) qstBox.parentElement.style.opacity = "0.6";
 }
@@ -11389,6 +11844,7 @@ if (inv.status === "paid"){
   if (qstBox) qstBox.checked = (inv.applyQST !== false);
 
   const applyAndRefresh = () => {
+    if (!invoiceMayEditFinancials(inv)) return;
     if (gstBox) inv.applyGST = !!gstBox.checked;
     if (qstBox) inv.applyQST = !!qstBox.checked;
 
@@ -11408,6 +11864,7 @@ if (inv.status === "paid"){
 
 if (discountInput && discountType){
   const onDiscountChange = () => {
+    if (!invoiceMayEditFinancials(inv)) return;
     inv.discountValue = Number(discountInput.value || 0);
     inv.discountType  = discountType.value;
 

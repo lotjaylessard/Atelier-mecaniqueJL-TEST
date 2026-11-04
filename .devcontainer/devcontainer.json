@@ -1,0 +1,21 @@
+{
+  "name": "Atelier-mecaniqueJL S04 — prévisualisation",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
+  "forwardPorts": [
+    8000
+  ],
+  "portsAttributes": {
+    "8000": {
+      "label": "Atelier-mecaniqueJL S04 (TEST)",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "postStartCommand": "(python3 -m http.server 8000 --bind 0.0.0.0 > /tmp/atelier-s04-preview.log 2>&1 &)",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "workbench.startupEditor": "none"
+      }
+    }
+  }
+}
