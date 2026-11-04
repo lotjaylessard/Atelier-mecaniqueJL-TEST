@@ -210,3 +210,16 @@ for (const key of ['number','date','client','vehicle','km','description','status
  assert.ok(html.includes('data-wo-sort="'+key+'"'), 'Entete tri manquant : '+key);
 }
 console.log('S04-F11 : tri 8 colonnes, sens inverses et KM absents verifies.');
+
+const actionListStart = html.indexOf('function renderWorkOrders(){');
+const actionListEnd = html.indexOf('function finishWorkOrder(id){', actionListStart);
+assert.ok(actionListStart > 0 && actionListEnd > actionListStart, 'S04-F12 liste BT absente');
+const actionMarkup = html.slice(actionListStart,actionListEnd);
+assert.ok(actionMarkup.includes('wo.status === "en_cours" && !invoice'), 'S04-F12 actions ouvertes aux BT termines ou factures');
+assert.ok(!actionMarkup.includes('wo.status !== "termine"'), 'S04-F12 ancienne condition de fin de BT conservee');
+function actionVisible(wo,invoice){return wo.status==="en_cours" && !invoice;}
+assert.equal(actionVisible({status:"en_cours"},null),true);
+for(const status of ["termine","billed"]) assert.equal(actionVisible({status},null),false);
+assert.equal(actionVisible({status:"en_cours"},{status:"partial"}),false);
+assert.equal(actionVisible({status:"en_cours"},{status:"paid"}),false);
+console.log('S04-F12 : boutons Terminer/Supprimer masques pour BT termines ou factures.');
