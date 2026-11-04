@@ -588,3 +588,20 @@ assert.equal(taxCtx.invoiceMayEditFinancials(paymentsPartial),false,'Taxes et es
 const paidTaxConfirm={status:'paid',archived:false,paidAmount:114.98,payments:[{amount:40},{amount:74.98}],total:114.98};
 assert.equal(paidTaxConfirm.status==='paid'||paidTaxConfirm.archived===true,true);
 console.log('S04-ENCAISSEMENT : paiements partiels permis, montants figes, taxes arrondies au cent.');
+
+/* S04 audit : affichage au cent identique aux paiements (cas reel 114,975 $). */
+const currencyStart=html.indexOf('function money(n){');
+const currencyEnd=html.indexOf('function calcWorkOrderProfit(',currencyStart);
+assert.ok(currencyStart>=0 && currencyEnd>currencyStart,'S04 : fonction money absente');
+const currencyCtx={};
+vm.createContext(currencyCtx);
+vm.runInContext(html.slice(currencyStart,currencyEnd),currencyCtx);
+assert.equal(currencyCtx.money(114.975),'114.98','Ancien affichage toFixed(2) produisait 114,97 $');
+assert.equal(currencyCtx.money(114.98),'114.98');
+assert.equal(currencyCtx.money(114.97),'114.97');
+assert.equal(currencyCtx.money(50),'50.00');
+assert.equal(currencyCtx.money(7.49),'7.49');
+assert.equal(currencyCtx.money(0),'0.00');
+assert.equal(currencyCtx.money(114.975),currencyCtx.money(Math.round(114.975*100)/100),
+ 'Montant affiche doit etre coherent avec le solde encaisse au cent');
+console.log('S04-ARRONDI : total historique 114,975 presente a 114,98 comme paiement du solde.');
