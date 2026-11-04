@@ -7235,8 +7235,12 @@ function applyClosedWOControls(wo,detail){
   if (!detail || wo?.status === "en_cours" && !woLinkedInvoice(wo)) return;
   const isEditing = woCanEditFinancials(wo);
   detail.querySelectorAll("input:not([type=hidden]),textarea,select").forEach(el=>{
-    // Apres cloture : KM et fichiers restent proteges. Notes libres jusqu'au paiement.
-    el.disabled = !(el.id === "woNotes" && woCanEditNotes(wo));
+    // S04-F14-Fix : permettre la saisie des formulaires de pieces et services
+    // UNIQUEMENT en mode correction de la facture impayee.
+    // Le KM, la description historique et les fichiers restent verrouilles.
+    const financialField = Boolean(el.closest("#woManualPartBox, #woManualLaborBox"));
+    const allowedNote = el.id === "woNotes" && woCanEditNotes(wo);
+    el.disabled = !(allowedNote || (isEditing && financialField));
   });
   const editBtn = detail.querySelector("#woEditClosedBtn");
   const finishBtn = detail.querySelector("#woFinishClosedEditBtn");
