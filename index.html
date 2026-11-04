@@ -6486,7 +6486,7 @@ function workOrderSortValue(wo,key){
       return Number.isFinite(timestamp) ? timestamp : null;
     }
     case "client": {
-      const c = CLIENTS.find(c => String(c.id) === String(wo.clientId) || c.name === wo.clientName);
+      const c = CLIENTS.find(c => (wo.clientId != null && String(c.id) === String(wo.clientId)) || (c.name && wo.clientName && c.name === wo.clientName));
       return c ? (`${c.lastName || ""} ${c.firstName || ""}`.trim() || String(c.name || wo.clientName || "")) : String(wo.clientName || "");
     }
     case "vehicle": return String(wo.vehicleLabel || "");
