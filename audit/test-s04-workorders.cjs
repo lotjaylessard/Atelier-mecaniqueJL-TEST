@@ -375,3 +375,31 @@ assert.equal(partialF14.fields[7].disabled,false,'Facture partielle : notes perm
 const paidF14=verifyF14FormPermissions('paid',true);
 assert.ok(paidF14.fields.every(f=>f.disabled),'Facture payee : champs verrouilles');
 console.log('S04-F14-Fix : formulaire manuel pieces/services editable uniquement en mode correction impayee.');
+
+const navigationStart = html.indexOf('function returnToWOListFromDetail(){');
+const navigationEnd = html.indexOf('function saveInvoiceFromWO(){',navigationStart);
+assert.ok(navigationStart >= 0 && navigationEnd > navigationStart,
+  'S04-F14 : fonction de retour BT introuvable');
+const navigationFunction = html.slice(navigationStart,navigationEnd);
+assert.ok(!navigationFunction.includes('persistActiveWO('),
+  'S04-F14 : navigation ne doit pas modifier la facture');
+{
+ const detail={style:{display:'block'}};
+ const list={style:{display:'none'}};
+ const ctx={
+   window:{__woClosedEditId:'77'},
+   $(id){return id==='woDetailCard'?detail:id==='woListCard'?list:null;},
+   initWorkOrdersModule(){ctx.rendered=(ctx.rendered||0)+1;},
+   persistActiveWO(){throw new Error('La navigation ne doit pas sauvegarder!');}
+ };
+ vm.createContext(ctx);
+ vm.runInContext(navigationFunction,ctx);
+ ctx.returnToWOListFromDetail();
+ assert.equal(detail.style.display,'none');
+ assert.equal(list.style.display,'block');
+ assert.equal(ctx.window.__woClosedEditId,null);
+ assert.equal(ctx.rendered,1);
+ ctx.returnToWOListFromDetail();
+ assert.equal(ctx.rendered,1,'La navigation deja fermee ne doit pas relancer la liste');
+}
+console.log('S04-F14 : retour a la liste sans sauvegarde, alerte ni recalcul de facture.');
