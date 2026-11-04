@@ -2232,30 +2232,15 @@ function updateInvoiceTotalsLive(inv){
   const gstEl = document.getElementById("invGST");
   const qstEl = document.getElementById("invQST");
   const totEl = document.getElementById("invTotal");
-
   if (!subEl || !gstEl || !qstEl || !totEl) return;
-
-  // calcul local TEMPORAIRE (sans toucher à inv)
-  const subTotal = inv.items.reduce(
-    (s,it)=> s + (Number(it.qty||0) * Number(it.rate||0)), 0
-  );
-
-  const gst = (inv.applyGST !== false)
-    ? subTotal * (SETTINGS.gst / 100)
-    : 0;
-
-  const qst = (inv.applyQST !== false)
-    ? (subTotal + gst) * (SETTINGS.qst / 100)
-    : 0;
-
-  const total = subTotal + gst + qst;
-
-  subEl.textContent = money(subTotal) + " $";
-  gstEl.textContent = money(gst) + " $";
-  qstEl.textContent = money(qst) + " $";
-  totEl.textContent = money(total) + " $";
+  // Source fiscale unique; le clone evite toute mutation de facture en mode apercu.
+  const preview = {...inv};
+  recalcInvoice(preview);
+  subEl.textContent = money(preview.subTotal) + " $";
+  gstEl.textContent = money(preview.gst) + " $";
+  qstEl.textContent = money(preview.qst) + " $";
+  totEl.textContent = money(preview.total) + " $";
 }
-
 
 
   /* ===================== SUPABASE ===================== */
@@ -2316,22 +2301,13 @@ function calcTotalsFromItems(items, inv){
 
 
   function calcInvoiceTotals(inv){
-  const subTotal = (inv.items || []).reduce(
-    (sum, it) => sum + (Number(it.qty || 0) * Number(it.rate || 0)),
-    0
-  );
-
-  const applyGST = inv.applyGST !== false;
-  const applyQST = inv.applyQST !== false;
-
-  const gst = applyGST ? subTotal * (SETTINGS.gst / 100) : 0;
-  const qst = applyQST ? (subTotal + gst) * (SETTINGS.qst / 100) : 0;
-
-  const total = subTotal + gst + qst;
-
-  return { subTotal, gst, qst, total };
+  if (invoiceHasPaymentActivity(inv)) {
+    return {subTotal:inv.subTotal,gst:inv.gst,qst:inv.qst,total:inv.total};
+  }
+  const clone={...inv};
+  recalcInvoice(clone);
+  return {subTotal:clone.subTotal,gst:clone.gst,qst:clone.qst,total:clone.total};
 }
-
 
   /* ===================== RECALCUL FACTURE (SOURCE UNIQUE) ===================== */
 // S04 audit taxes : ne jamais recalculer ou retoucher une facture ayant
@@ -4782,19 +4758,23 @@ function renderInvoiceEditUI(inv){
   $("invApplyGST").checked = inv.applyGST !== false;
   $("invApplyQST").checked = inv.applyQST !== false;
 
+  $("invApplyGST").disabled = !invoiceMayEditFinancials(inv);
+  $("invApplyQST").disabled = !invoiceMayEditFinancials(inv);
   $("invApplyGST").onchange = () => {
+    if (!invoiceMayEditFinancials(inv)) return;
     inv.applyGST = $("invApplyGST").checked;
     recalcInvoice(inv);
     renderInvoiceTotals(inv, document);
   };
 
   $("invApplyQST").onchange = () => {
+    if (!invoiceMayEditFinancials(inv)) return;
     inv.applyQST = $("invApplyQST").checked;
     recalcInvoice(inv);
     renderInvoiceTotals(inv, document);
   };
 
-  // rendu items + totaux
+  // rendu items + totaux ; une facture payee conserve ses montants.
   renderItems();
   recalcInvoice(inv);
   renderInvoiceTotals(inv, document);
@@ -5045,6 +5025,7 @@ recalcInvoice(inv);
   if (qstBox) qstBox.checked = inv.applyQST !== false;
 
   const onToggle = () => {
+    if (!invoiceMayEditFinancials(inv)) return;
     if (gstBox) inv.applyGST = gstBox.checked;
     if (qstBox) inv.applyQST = qstBox.checked;
 
@@ -5052,8 +5033,14 @@ recalcInvoice(inv);
     updateInvoiceTotalsLive(inv);
   };
 
-  if (gstBox) gstBox.onchange = onToggle;
-  if (qstBox) qstBox.onchange = onToggle;
+  if (gstBox) {
+    gstBox.disabled = !invoiceMayEditFinancials(inv);
+    gstBox.onchange = onToggle;
+  }
+  if (qstBox) {
+    qstBox.disabled = !invoiceMayEditFinancials(inv);
+    qstBox.onchange = onToggle;
+  }
 }, 0);
   }
 }
