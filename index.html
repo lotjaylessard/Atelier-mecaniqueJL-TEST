@@ -2371,12 +2371,15 @@ function recalcInvoice(inv){
     ? taxableSubTotal * (Number(SETTINGS.qst || 0) / 100)
     : 0;
 
-  inv.subTotal = baseSubTotal;
-  inv.discount = discount;
-  inv.taxableSubTotal = taxableSubTotal;
-  inv.gst = gst;
-  inv.qst = qst;
-  inv.total = taxableSubTotal + gst + qst;
+  // Arrondir chaque taxe au cent avant la somme (ex. 100 $ -> 5,00 + 9,98).
+  // La petite correction epsilon evite 9.975.toFixed(2) -> 9.97 en JS.
+  const toCents = value => Math.round((value + Number.EPSILON) * 100) / 100;
+  inv.subTotal = toCents(baseSubTotal);
+  inv.discount = toCents(discount);
+  inv.taxableSubTotal = toCents(taxableSubTotal);
+  inv.gst = toCents(gst);
+  inv.qst = toCents(qst);
+  inv.total = toCents(inv.taxableSubTotal + inv.gst + inv.qst);
 }
 
 
@@ -11498,7 +11501,9 @@ if (clientObj && Array.isArray(clientObj.vehicles)){
     `;
   });
 
-const isLocked = invoiceHasPaymentActivity(inv);
+// Encaisser le solde reste permis apres paiement PARTIEL.
+const isLocked = inv.status === "paid" || inv.archived === true;
+const financialLocked = !invoiceMayEditFinancials(inv);
 const paymentWarning = invoicePaymentMismatch(inv);
 
   
@@ -11805,23 +11810,23 @@ setTimeout(() => {
   const discountType  = $("invDiscountType");
 
   // 🔒 Verrouillage escompte si facture payée
-if (isLocked){
+if (financialLocked){
   if (discountInput) discountInput.disabled = true;
   if (discountType)  discountType.disabled  = true;
 }
 
   // 🔒 Verrouillage taxes si facture payée
-if (isLocked){
+if (financialLocked){
   if (gstBox) gstBox.disabled = true;
   if (qstBox) qstBox.disabled = true;
 }
 
-  if (isLocked){
+  if (financialLocked){
   if (discountInput) discountInput.style.opacity = "0.6";
   if (discountType)  discountType.style.opacity  = "0.6";
 }
 
-  if (isLocked){
+  if (financialLocked){
   if (gstBox) gstBox.parentElement.style.opacity = "0.6";
   if (qstBox) qstBox.parentElement.style.opacity = "0.6";
 }
