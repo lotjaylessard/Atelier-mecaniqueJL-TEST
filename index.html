@@ -6896,9 +6896,10 @@ invoice.subTotal = invoice.items.reduce(
   (s,it)=> s + (it.qty * it.rate), 0
 );
 
-invoice.gst = invoice.subTotal * (SETTINGS.gst / 100);
-invoice.qst = (invoice.subTotal + invoice.gst) * (SETTINGS.qst / 100);
-invoice.total = invoice.subTotal + invoice.gst + invoice.qst;
+// S04 audit final : reutiliser le calcul fiscal central de la facture.
+// Evite une TVQ calculee sur TPS+montant alors que le resume
+// et les corrections ulterieures utilisent la base taxable seule.
+recalcInvoice(invoice);
 
 
   INVOICES.push(invoice);
