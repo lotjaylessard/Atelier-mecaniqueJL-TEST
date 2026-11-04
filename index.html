@@ -5147,8 +5147,72 @@ function getActiveWOById(woId){
 
   
 /* 2) Sauver: si c'est une facture -> INVOICES, sinon -> WORKORDERS */
+// S04-F14 : seules les factures strictement impayees sont modifiables financierement.
+window.__woClosedEditId = null;
+function woLinkedInvoice(wo){
+  return INVOICES.find(inv => String(inv.workOrderNumber) === String(wo.number)) || null;
+}
+function woInvoiceHasPayment(inv){
+  return Boolean(inv && (Number(inv.paidAmount || 0) > 0 ||
+    (Array.isArray(inv.payments) && inv.payments.some(p => Number(p.amount || 0) > 0))));
+}
+function woCanEditFinancials(wo){
+  if (!wo || wo.__fromInvoice) return false;
+  const inv = woLinkedInvoice(wo);
+  if (wo.status === "en_cours") return !inv;
+  return wo.status === "termine" && !!inv && inv.status === "unpaid" &&
+    !woInvoiceHasPayment(inv) && CLOUD_DATA_READY && !CLOUD_SYNC_FAILED &&
+    String(window.__woClosedEditId) === String(wo.id);
+}
+function woCanEditNotes(wo){
+  if (!wo || wo.__fromInvoice) return false;
+  const inv = woLinkedInvoice(wo);
+  return wo.status === "en_cours" ||
+    (wo.status === "termine" && !!inv && ["unpaid","partial"].includes(inv.status));
+}
+function woRequireFinancialEdit(wo){
+  if (woCanEditFinancials(wo)) return true;
+  alert("Modification refusée : active Modifier le BT et vérifie que la facture est impayée.");
+  return false;
+}
+function woSyncUnpaidInvoice(wo){
+  const invoice = woLinkedInvoice(wo);
+  if (!invoice || invoice.status !== "unpaid" || woInvoiceHasPayment(invoice) ||
+      !CLOUD_DATA_READY || CLOUD_SYNC_FAILED) return false;
+  const items = [
+    ...(wo.parts || []).map(p=>({
+      type:"Pièce",desc:`${p.name || ""}${p.number ? " (#"+p.number+")" : ""}`.trim(),
+      qty:Number(p.qty),rate:Number(p.rate),total:Number(p.qty)*Number(p.rate)
+    })),
+    ...(wo.labor || []).map(l=>({
+      type:"Main-d'œuvre",desc:String(l.description || ""),
+      qty:Number(l.hours),rate:Number(l.rate),total:Number(l.hours)*Number(l.rate)
+    }))
+  ];
+  if (items.some(it=>!it.desc || !Number.isFinite(it.qty) || it.qty <= 0 ||
+    !Number.isFinite(it.rate) || it.rate < 0)) return false;
+  const next = {...invoice,items};
+  recalcInvoice(next); // Preserve taxes, rabais et historique de paiement.
+  if (!Number.isFinite(next.total) || next.total < 0) return false;
+  Object.assign(invoice,next);
+  wo.estimateTotal = items.reduce((sum,it)=>sum+it.total,0);
+  localStorage.setItem(STORAGE.workorders,JSON.stringify(WORKORDERS));
+  localStorage.setItem(STORAGE.invoices,JSON.stringify(INVOICES));
+  scheduleCloudSync(); // Le snapshot synchronise contient BT et facture.
+  if (typeof renderInvoiceList === "function") renderInvoiceList();
+  return true;
+}
+
 function persistActiveWO(wo){
   if (!wo || !wo.id) return;
+  if (wo.status !== "en_cours" && !wo.__fromInvoice) {
+    if (!woRequireFinancialEdit(wo)) return false;
+    if (!woSyncUnpaidInvoice(wo)) {
+      alert("Synchronisation BT/facture refusée. Aucune nouvelle sauvegarde confirmée.");
+      return false;
+    }
+    return true;
+  }
 
     // 🔥 VALIDATION KM INTELLIGENTE
   if (!validateAndUpdateVehicleKM(wo)){
@@ -5951,6 +6015,7 @@ setTimeout(() => {
   
   /* Ajouter une pièce à un WO */
 function woAddPartLine(wo) {
+  if (!woRequireFinancialEdit(wo)) return;
   const modal = $("partPickerModal");
   const listEl = $("partPickerList");
   if (!modal || !listEl) return;
@@ -6014,6 +6079,7 @@ function woAddPartLine(wo) {
 
 /* Ajouter main-d'œuvre à un WO */
 function woAddLaborLine(wo) {
+  if (!woRequireFinancialEdit(wo)) return;
   const modal = $("servicePickerModal");
   const listEl = $("servicePickerList");
   if (!modal || !listEl) return;
@@ -6300,7 +6366,7 @@ function updateTimerDisplay() {
 
 function woEditLine(woId, type, index) {
   const wo = getActiveWOById(woId);
-  if (!wo) return;
+  if (!wo || !woRequireFinancialEdit(wo)) return;
 
   const modal = $("woEditModal");
   const box = $("woEditContent");
@@ -6339,6 +6405,7 @@ function woEditLine(woId, type, index) {
   $("woEditCancel").onclick = () => modal.style.display = "none";
 
   $("woEditSave").onclick = () => {
+    if (!woRequireFinancialEdit(wo)) return;
     if (type === "part") {
       line.name = $("woEditName").value;
       line.qty  = Number($("woEditQty").value);
@@ -6362,7 +6429,7 @@ function woEditLine(woId, type, index) {
   
 function woRemovePart(woId,index){
   const wo = getActiveWOById(woId);
-  if(!wo) return;
+  if (!wo || !woRequireFinancialEdit(wo)) return;
   wo.parts.splice(index,1);
   persistActiveWO(wo);
   woRenderLines(wo);
@@ -6370,7 +6437,7 @@ function woRemovePart(woId,index){
 
 function woRemoveLabor(woId,index){
   const wo = getActiveWOById(woId);
-  if(!wo) return;
+  if (!wo || !woRequireFinancialEdit(wo)) return;
   wo.labor.splice(index,1);
   persistActiveWO(wo);
   woRenderLines(wo);
@@ -7510,6 +7577,7 @@ const cancelManualBtn = document.getElementById("woManualPartCancel");
 
 if (saveManualBtn){
   saveManualBtn.onclick = () => {
+    if (!woRequireFinancialEdit(wo)) return;
     const name = document.getElementById("woManualPartName").value.trim();
     const qty = Number(document.getElementById("woManualPartQty").value);
     const rate = Number(document.getElementById("woManualPartRate").value);
@@ -7529,8 +7597,8 @@ wo.parts.push({
 });
 
     // TEST #22E : recalculer le total AVANT la sauvegarde
+persistActiveWO(wo);
 woRenderLines(wo);
-saveWorkOrders();
 
     // reset + fermer
     document.getElementById("woManualPartName").value = "";
