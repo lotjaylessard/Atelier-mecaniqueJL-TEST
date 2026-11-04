@@ -5435,18 +5435,15 @@ function returnToWOListFromDetail(){
     return;
   }
 
-  const woId = $("woEditId")?.value;
-  if (woId){
-    const wo = getActiveWOById(woId);
-    if (wo){
-      persistActiveWO(wo);
-    }
-  }
-
+  // S04-F14 : la navigation n'est jamais une operation de sauvegarde.
+  // Les pieces/services sont persistes par leurs actions et les notes techniques
+  // par leur mecanisme de synchronisation differee. Ne pas ecrire une facture
+  // lorsque le mode de correction du BT termine est deja ferme.
+  window.__woClosedEditId = null;
   $("woDetailCard").style.display = "none";
   $("woListCard").style.display = "block";
 
-  initWorkOrdersModule(); // ✅ bon rendu
+  initWorkOrdersModule();
 }
 
 
