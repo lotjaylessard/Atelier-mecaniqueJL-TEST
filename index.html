@@ -5157,7 +5157,13 @@ function woInvoiceHasPayment(inv){
     (Array.isArray(inv.payments) && inv.payments.some(p => Number(p.amount || 0) > 0))));
 }
 function woCanEditFinancials(wo){
-  if (!wo || wo.__fromInvoice) return false;
+  if (!wo) return false;
+  if (wo.__fromInvoice) {
+    // Preserve existing invoice editing workflows, including partial payments.
+    const invoiceNumber = wo.__invoiceNumber || String(wo.id || "").replace("INV-","");
+    const inv = INVOICES.find(i=>String(i.number)===String(invoiceNumber));
+    return !!inv && inv.status !== "paid";
+  }
   const inv = woLinkedInvoice(wo);
   if (wo.status === "en_cours") return !inv;
   return wo.status === "termine" && !!inv && inv.status === "unpaid" &&
@@ -6060,6 +6066,7 @@ function woAddPartLine(wo) {
         alert("Attention : la quantité demandée dépasse le stock actuel (" + stock + ").");
       }
 
+      if (!woRequireFinancialEdit(wo)) return;
       wo.parts.push({
         name: part.name,
         number: part.number,
@@ -6136,6 +6143,7 @@ function woAddLaborLine(wo) {
         rate = Number(srv.rate || 0);
       }
 
+      if (!woRequireFinancialEdit(wo)) return;
       wo.labor.push({
         description: srv.name,
         hours,
