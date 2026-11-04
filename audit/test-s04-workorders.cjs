@@ -427,6 +427,19 @@ function runLifecycleScenario() {
  const ctx={
    WORKORDERS:[wo],INVOICES:[],CLIENTS:clients,
    SETTINGS:{gst:5,qst:9.975},
+   recalcInvoice(inv){
+     const subtotal=(inv.items||[]).reduce((sum,it)=>sum+Number(it.qty)*Number(it.rate),0);
+     const discount=inv.discountType==="percent"
+       ? subtotal*Number(inv.discountValue||0)/100
+       : Number(inv.discountValue||0);
+     const taxable=Math.max(0,subtotal-discount);
+     inv.subTotal=subtotal;
+     inv.discount=discount;
+     inv.taxableSubTotal=taxable;
+     inv.gst=inv.applyGST===false?0:taxable*0.05;
+     inv.qst=inv.applyQST===false?0:taxable*0.09975;
+     inv.total=taxable+inv.gst+inv.qst;
+   },
    document:{getElementById(){return null;}},
    loadWorkOrders(){},loadInvoices(){},
    saveWorkOrders(){logs.storedWOs.push(structuredClone(ctx.WORKORDERS));logs.cloudSaves++;},
@@ -451,7 +464,8 @@ function runLifecycleScenario() {
  assert.equal(inv.status,'unpaid');
  assert.equal(inv.items.length,2);
  assert.equal(inv.subTotal,100);
- assert.ok(Math.abs(inv.total-114.97375)<0.00001);
+ assert.ok(Math.abs(inv.total-114.975)<0.00001);
+ assert.ok(Math.abs(inv.qst-9.975)<0.00001,'TVQ calculee sur base taxable et non TPS incluse');
  ctx.finishWorkOrder(wo.id);
  assert.equal(ctx.INVOICES.length,1,'Le second clic ne doit pas doubler la facture');
  assert.equal(logs.confirmations,1,'Le second clic ne doit pas demander une nouvelle cloture');
