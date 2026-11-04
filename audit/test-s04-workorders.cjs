@@ -83,3 +83,25 @@ assert.ok(listCode.includes('const kmLabel = kmDisplay.value === null ? "Non ren
 assert.ok(listCode.includes('kmDisplay.source === "vehicle"'), 'Liste BT : source fiche vehicule non identifiee');
 assert.ok(!listCode.includes('<b>${wo.vehicleKm || "-"}</b>'), 'Liste BT : ancien rendu KM encore utilise');
 console.log('S04-F06 : liste BT affiche le meme KM que le detail, sans modification historique.');
+
+const displayBegin = html.indexOf('function getCloudSyncDisplayState(){');
+const displayEnd = html.indexOf('function renderCloudSyncIndicator(){', displayBegin);
+assert.ok(displayBegin >= 0 && displayEnd > displayBegin,'Indicateur cloud S04-F07 introuvable');
+assert.ok(html.includes('id="cloudSyncIndicator"'),'Zone de statut cloud absente');
+function syncState(overrides={}){
+  const ctx = {CLOUD_SYNC_FAILED:false,SUPABASE_USER:{id:'test'},ACTIVE_GARAGE_ID:'garage-test',
+    CLOUD_DATA_READY:true,CLOUD_SYNC_IN_PROGRESS:false,CLOUD_SYNC_PENDING:false,
+    CLOUD_SYNC_DIRTY:false,cloudSyncTimer:null,CLOUD_LAST_CONFIRMED_SNAPSHOT:{},
+    CLOUD_DATA_VERSION:1,...overrides};
+  vm.createContext(ctx);
+  vm.runInContext(html.slice(displayBegin,displayEnd),ctx);
+  return ctx.getCloudSyncDisplayState().text;
+}
+assert.match(syncState(),/Synchronisé/);
+assert.match(syncState({CLOUD_SYNC_DIRTY:true}),/Enregistrement/);
+assert.match(syncState({CLOUD_SYNC_IN_PROGRESS:true}),/Enregistrement/);
+assert.match(syncState({cloudSyncTimer:1}),/Enregistrement/);
+assert.match(syncState({CLOUD_SYNC_FAILED:true}),/Erreur/);
+assert.match(syncState({CLOUD_DATA_READY:false}),/indisponible/);
+assert.match(syncState({CLOUD_LAST_CONFIRMED_SNAPSHOT:null}),/vérifier/);
+console.log('S04-F07 : indicateur cloud lecture seule testé avec sept scénarios simulés.');
