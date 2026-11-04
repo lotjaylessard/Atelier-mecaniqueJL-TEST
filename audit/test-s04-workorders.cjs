@@ -476,7 +476,7 @@ function runLifecycleScenario() {
  assert.equal(inv.payments[0].method,'cash');
  ctx.payInvoiceWithMethod(inv.number,'transfer');
  assert.equal(inv.status,'paid');
- assert.equal(inv.paidAmount,inv.total);
+ assert.equal(Math.round(inv.paidAmount*100),Math.round(inv.total*100), 'Le paiement doit solder le total arrondi au cent');
  assert.equal(inv.payments.length,2);
  assert.equal(inv.payments[1].method,'transfer');
  assert.ok(Math.abs(inv.payments[1].amount-(Math.round(inv.total*100)-3000)/100)<0.01);
