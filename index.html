@@ -1825,7 +1825,13 @@ function configureGarageStorage(garageId) {
    La base Supabase TEST est la seule source pour l'hydratation initiale. */
 
 const $ = id => document.getElementById(id);
-function money(n){return Number(n||0).toFixed(2);}
+// S04 audit : formatage monetaire identique aux montants encaisses.
+// Number.toFixed(2) sur 114.975 peut afficher 114.97 en binaire.
+function money(n){
+  const value = Number(n || 0);
+  if (!Number.isFinite(value)) return "0.00";
+  return (Math.round((value + Math.sign(value) * Number.EPSILON) * 100) / 100).toFixed(2);
+}
 
 
   function calcWorkOrderProfit(wo){
