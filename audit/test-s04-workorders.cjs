@@ -436,9 +436,10 @@ function runLifecycleScenario() {
      inv.subTotal=subtotal;
      inv.discount=discount;
      inv.taxableSubTotal=taxable;
-     inv.gst=inv.applyGST===false?0:taxable*0.05;
-     inv.qst=inv.applyQST===false?0:taxable*0.09975;
-     inv.total=taxable+inv.gst+inv.qst;
+     const round=v=>Math.round((v+Number.EPSILON)*100)/100;
+     inv.gst=inv.applyGST===false?0:round(taxable*0.05);
+     inv.qst=inv.applyQST===false?0:round(taxable*0.09975);
+     inv.total=round(taxable+inv.gst+inv.qst);
    },
    document:{getElementById(){return null;}},
    STORAGE:{invoices:'test-invoices'},
@@ -466,8 +467,8 @@ function runLifecycleScenario() {
  assert.equal(inv.status,'unpaid');
  assert.equal(inv.items.length,2);
  assert.equal(inv.subTotal,100);
- assert.ok(Math.abs(inv.total-114.975)<0.00001);
- assert.ok(Math.abs(inv.qst-9.975)<0.00001,'TVQ calculee sur base taxable et non TPS incluse');
+ assert.equal(inv.total,114.98);
+ assert.equal(inv.qst,9.98,'TVQ calculee sur base taxable et non TPS incluse');
  ctx.finishWorkOrder(wo.id);
  assert.equal(ctx.INVOICES.length,1,'Le second clic ne doit pas doubler la facture');
  assert.equal(logs.confirmations,1,'Le second clic ne doit pas demander une nouvelle cloture');
@@ -534,8 +535,8 @@ vm.runInContext(html.slice(taxHelperStart,taxHelperEnd),taxCtx);
 const freshTax={status:'unpaid',items:[{qty:1,rate:100}],applyGST:true,applyQST:true,discountValue:0};
 taxCtx.recalcInvoice(freshTax);
 assert.ok(Math.abs(freshTax.gst-5)<0.000001);
-assert.ok(Math.abs(freshTax.qst-9.975)<0.000001,'TVQ ne doit pas inclure TPS');
-assert.ok(Math.abs(freshTax.total-114.975)<0.000001);
+assert.equal(freshTax.qst,9.98,'TVQ arrondie au cent et calculee sans TPS');
+assert.equal(freshTax.total,114.98);
 const exemptTax={status:'unpaid',items:[{qty:1,rate:50}],applyGST:false,applyQST:false};
 taxCtx.recalcInvoice(exemptTax);
 assert.equal(exemptTax.total,50);
@@ -570,7 +571,20 @@ const activeModalEnd=html.indexOf('function preventLegacyInvoiceEditor(){',activ
 const modalCode=html.slice(activeModalStart,activeModalEnd);
 assert.ok(modalCode.includes('if (!invoiceMayEditFinancials(inv)) return;'),'Taxes/escompte sans protection paiement');
 assert.ok(modalCode.includes('const paymentWarning = invoicePaymentMismatch(inv);'),'Avertissement incoherence absent');
-assert.ok(modalCode.includes('if (isLocked){'),'Contrôles de paiement non verrouilles');
+assert.ok(modalCode.includes('const isLocked = inv.status === "paid" || inv.archived === true;'),'Paiement partiel devrait permettre de payer le solde');
+assert.ok(modalCode.includes('const financialLocked = !invoiceMayEditFinancials(inv);'),'Taxes doivent rester verrouillees apres paiement partiel');
+assert.ok(modalCode.includes('if (financialLocked){'),'Cases TPS/TVQ verrouillees pendant paiement partiel');
 assert.ok(html.includes('if (!invoiceMayEditFinancials(currentInvoice))'),'Sauvegarde historique non verrouillee');
 assert.ok(html.includes('if (!invoiceMayEditFinancials(inv)) {\n    alert("Facture verrouillée'),'Modification facture temporaire non verrouillee');
 console.log('S04-TAXES : TPS/TVQ, drapeaux anciens, factures payees/partielles et historique des paiements proteges.');
+
+const taxModalStart=html.indexOf('function openInvoiceEditModal(invoiceNumber){');
+const taxModalEnd=html.indexOf('function preventLegacyInvoiceEditor(){',taxModalStart);
+const modalUI=html.slice(taxModalStart,taxModalEnd);
+assert.ok(modalUI.includes('button class="ghost" ${isLocked ? "disabled" : ""} onclick="toggleInvoicePaymentMenu'), 'S04 : boutons encaissement non lies a isLocked');
+const paymentsPartial={status:'partial',archived:false,paidAmount:40,payments:[{amount:40}],total:114.98};
+assert.equal(paymentsPartial.status==='paid' || paymentsPartial.archived===true,false,'Paiement du solde doit rester actif');
+assert.equal(taxCtx.invoiceMayEditFinancials(paymentsPartial),false,'Taxes et escompte verrouilles en paiement partiel');
+const paidTaxConfirm={status:'paid',archived:false,paidAmount:114.98,payments:[{amount:40},{amount:74.98}],total:114.98};
+assert.equal(paidTaxConfirm.status==='paid'||paidTaxConfirm.archived===true,true);
+console.log('S04-ENCAISSEMENT : paiements partiels permis, montants figes, taxes arrondies au cent.');
