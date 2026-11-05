@@ -1,0 +1,26 @@
+"use strict";
+// S06-F04b : audit de l'integration visuelle du panneau, sans minuterie.
+const assert=require("node:assert/strict");
+const fs=require("node:fs");
+const html=fs.readFileSync("index.html","utf8");
+const expectOne=(regex,label)=>assert.equal((html.match(regex)||[]).length,1,label);
+expectOne(/id="s06PreviewToggle"/g,"un seul bouton dans la barre");
+expectOne(/id="s06PreviewPanel"/g,"un seul panneau");
+expectOne(/id="s06PreviewClose"/g,"un bouton fermer");
+assert.match(html,/<button id="s06PreviewToggle"[^>]*aria-controls="s06PreviewPanel"[^>]*aria-expanded="false"/);
+assert.match(html,/<aside id="s06PreviewPanel"[^>]*hidden>/);
+assert.match(html,/<strong>Simulation uniquement\.<\/strong>/);
+assert.match(html,/<button type="button" disabled>▶ Démarrer<\/button>/);
+assert.match(html,/<button type="button" disabled>Terminer<\/button>/);
+assert.match(html,/const show=open=>\{panel.hidden=!open;toggle.setAttribute\('aria-expanded',String\(open\)\);\};/);
+assert.match(html,/toggle.addEventListener\('click',\(\)=>show\(panel.hidden\)\)/);
+assert.match(html,/close.addEventListener\('click',\(\)=>show\(false\)\)/);
+assert.match(html,/ev.key==='Escape'/);
+const start=html.indexOf('<!-- S06-F04b : aperçu visuel');
+const end=html.indexOf('<!-- PAGES -->',start);
+const snippet=html.slice(start,end);
+assert.ok(start>=0&&end>start,"panneau entre topbar et pages");
+for(const forbidden of [/localStorage/i,/sessionStorage/i,/garageSupabase/i,/\.rpc\(/,/\.from\(/,/setInterval\(/,/fetch\(/,/WO_TIMER_/])assert.doesNotMatch(snippet,forbidden,"Aucun acces reel dans l'apercu");
+assert.match(html,/id="cloudSyncIndicator"/,"sync actuel preserve");
+assert.match(html,/id="woTimerBtn"/,"minuterie historique preservee");
+console.log("S06-F04b : apercu global isole, aucun stockage, minuterie ancienne preservee.");
