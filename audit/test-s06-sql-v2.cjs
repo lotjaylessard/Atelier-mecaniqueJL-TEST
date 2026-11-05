@@ -20,6 +20,8 @@ const checks=[
  [/gm\.user_id=p_uid AND gm\.garage_id=p_garage_id/,"appartenance"],
  [/p_uid IS DISTINCT FROM auth\.uid\(\)/,"auth contre usurpation"],
  [/gd\.garage_id=p_garage_id/,"snapshot garage"],
+ [/LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = ''/,"lecture fraiche"],
+ [/FROM public\.garage_data gd WHERE gd\.garage_id=p_garage_id FOR SHARE/,"verrou partage concurrent"],
  [/jsonb_typeof\(v_snapshot->'workorders'\)<>'array'/,"schema BT"],
  [/jsonb_typeof\(v_snapshot->'invoices'\)<>'array'/,"schema facture"],
  [/wo\.value->>'id'=p_work_order_id/,"identite BT"],
