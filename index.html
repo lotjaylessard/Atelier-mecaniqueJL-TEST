@@ -1229,21 +1229,19 @@ button.link:hover{
     <div class="page" id="page-clients">
       <h2>Gestion des clients</h2>
       <div class="card">
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-          <input id="clientSearch" placeholder="Rechercher un client..." style="flex:1;min-width:200px;" />
-          <button id="btnAddClient">Ajouter client</button>
+        <div class="module-search-toolbar">
+          <input id="clientSearch" type="search" aria-label="Rechercher un client" placeholder="🔎 Rechercher : nom, téléphone, courriel, adresse, véhicule, VIN, plaque..." />
+          <button id="btnAddClient" type="button">Ajouter client</button>
         </div>
-      </div>
-      <div class="card">
+        <div id="clientResultCount" class="module-result-count" role="status" aria-live="polite"></div>
         <table id="clientsTable">
           <thead>
             <tr>
-              <h3>Clients</h3>
-              <th><button id="toggleClientSort" class="ghost">Nom ⬍</button></th>
-              <th>Téléphone</th>
-              <th>Email</th>
-              <th>Adresse</th>
-              <th>Véhicules</th>
+              <th data-module-sort="name" aria-sort="none"><button type="button" class="module-sort-button" onclick="setClientSort('name')">Nom <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="phone" aria-sort="none"><button type="button" class="module-sort-button" onclick="setClientSort('phone')">Téléphone <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="email" aria-sort="none"><button type="button" class="module-sort-button" onclick="setClientSort('email')">Email <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="address" aria-sort="none"><button type="button" class="module-sort-button" onclick="setClientSort('address')">Adresse <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="vehicles" aria-sort="none"><button type="button" class="module-sort-button" onclick="setClientSort('vehicles')">Véhicules <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -9282,56 +9280,77 @@ function bindVehicleSort(){
 }
 
 
+/* S05-F03 : recherche et tri des clients avec composants communs */
+let CLIENT_SORT_KEY = "name";
+let CLIENT_SORT_DIRECTION = "asc";
+const CLIENT_SORT_KEYS = ["name", "phone", "email", "address", "vehicles"];
+
+function clientDisplayName(c){
+  return c.lastName || c.firstName
+    ? `${c.lastName || ""}${c.firstName ? ", " + c.firstName : ""}`.replace(/^, /, "")
+    : (c.name || "");
+}
+function clientVehicleCount(c){
+  return Array.isArray(c.vehicles) ? c.vehicles.length : 0;
+}
+function clientSearchFields(c){
+  return [
+    clientDisplayName(c), c.name, c.firstName, c.lastName,
+    c.phone, c.email, c.address,
+    ...(Array.isArray(c.vehicles) ? c.vehicles.flatMap(v =>
+      [v.make, v.model, v.year, v.plate, v.vin, v.km]) : [])
+  ];
+}
+function clientSortValue(c,key){
+  switch(key){
+    case "name": return clientDisplayName(c);
+    case "phone": return String(c.phone || "");
+    case "email": return String(c.email || "");
+    case "address": return String(c.address || "");
+    case "vehicles": return clientVehicleCount(c);
+    default: return "";
+  }
+}
+function setClientSort(key){
+  if(!CLIENT_SORT_KEYS.includes(key)) return;
+  if(CLIENT_SORT_KEY === key) CLIENT_SORT_DIRECTION = CLIENT_SORT_DIRECTION === "asc" ? "desc" : "asc";
+  else { CLIENT_SORT_KEY = key; CLIENT_SORT_DIRECTION = "asc"; }
+  renderClientsTable();
+}
 function renderClientsTable(){
-  const tbody = document.querySelector('#clientsTable tbody');
+  const table = $("clientsTable");
+  const tbody = table?.querySelector("tbody");
   if(!tbody) return;
-  const q = ($('clientSearch')?.value || '').toLowerCase();
-  tbody.innerHTML='';
-[...CLIENTS]
-  .sort((a,b)=>{
-  const na = (a.lastName || a.name || '').toLowerCase().trim();
-  const nb = (b.lastName || b.name || '').toLowerCase().trim();
-  return clientSortAsc ? na.localeCompare(nb) : nb.localeCompare(na);
-})
-  .forEach(c=>{
-    const hay = `${c.name||''} ${c.phone||''} ${c.email||''} ${c.address||''}`.toLowerCase();
-    if(q && !hay.includes(q)) return;
-    const vehicleCount = Array.isArray(c.vehicles)?c.vehicles.length:0;
-    const tr=document.createElement('tr');
-    tr.innerHTML = `
-  <td 
-    class="client-name-link"
-    data-action="open-client"
-    data-id="${c.id}"
-  >
-    ${c.lastName || c.firstName ? `${c.lastName || ''}${c.firstName ? ', ' + c.firstName : ''}`.replace(/^, /, '') : (c.name || '')}
-  </td>
-  <td>${c.phone||''}</td>
-  <td>${c.email||''}</td>
-  <td>${c.address||''}</td>
-  <td>${vehicleCount}</td>
-`;
+  const query = $("clientSearch")?.value || "";
+  const filtered = CLIENTS.filter(c => moduleMatchesSearch(clientSearchFields(c), query));
+  const sorted = moduleSortRows(filtered, CLIENT_SORT_KEY, CLIENT_SORT_DIRECTION, clientSortValue);
+  moduleRenderSortHeaders(table, CLIENT_SORT_KEY, CLIENT_SORT_DIRECTION);
+  const counter = $("clientResultCount");
+  if(counter) counter.textContent = sorted.length + " client" + (sorted.length !== 1 ? "s" : "") + " affiché" + (sorted.length !== 1 ? "s" : "");
+
+  tbody.innerHTML = "";
+  if(!sorted.length){
+    tbody.innerHTML = '<tr><td colspan="5" class="muted" style="text-align:center;padding:20px;">Aucun client ne correspond à la recherche.</td></tr>';
+  }
+  sorted.forEach(c => {
+    const tr = document.createElement("tr");
+    const nameCell = document.createElement("td");
+    nameCell.className = "client-name-link";
+    nameCell.dataset.action = "open-client";
+    nameCell.dataset.id = c.id;
+    nameCell.textContent = clientDisplayName(c);
+    tr.appendChild(nameCell);
+    for(const value of [c.phone || "", c.email || "", c.address || "", clientVehicleCount(c)]){
+      const td = document.createElement("td");
+      td.textContent = String(value);
+      tr.appendChild(td);
+    }
+    nameCell.addEventListener("click", () => openClientModal(c.id));
     tbody.appendChild(tr);
   });
-  tbody.querySelectorAll('[data-action="open-client"]').forEach(el=>{
-  el.addEventListener('click',()=>{
-    const id = el.dataset.id;
-    openClientModal(id);
-  });
-});
   renderVehiclesPage();
   renderDashboard();
 }
-
-  
-  if ($('toggleClientSort')){
-  $('toggleClientSort').onclick = () => {
-    clientSortAsc = !clientSortAsc;
-    $('toggleClientSort').textContent = clientSortAsc ? 'Nom ⬆️' : 'Nom ⬇️';
-    renderClientsTable();
-  };
-}
-
 
 function findClientById(id){
   return CLIENTS.find(c=>String(c.id)===String(id));
