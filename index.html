@@ -1376,7 +1376,10 @@ button.link:hover{
     <option value="Moteur">Moteur</option>
     <option value="Divers">Divers</option>
   </select>
-
+  <select id="serviceSort" aria-label="Trier les services">
+    <option value="name">Nom</option><option value="category">Catégorie</option><option value="price">Prix</option>
+  </select>
+  <button id="serviceSortDirection" type="button" class="ghost">Nom ↑</button>
 </div>
 <div id="serviceResultCount" class="module-result-count" role="status" aria-live="polite"></div>
 <div id="servicesList"></div>
@@ -1443,7 +1446,12 @@ button.link:hover{
         <option value="Pneus">Pneus</option>
         <option value="Divers">Divers</option>
       </select>
-
+      <select id="partSort" aria-label="Trier les pièces">
+        <option value="name">Nom</option><option value="number">Numéro</option>
+        <option value="category">Catégorie</option><option value="qty">Stock</option>
+        <option value="cost">Coût</option><option value="price">Prix</option>
+      </select>
+      <button id="partSortDirection" type="button" class="ghost">Nom ↑</button>
       </div>
       <div id="partResultCount" class="module-result-count" role="status" aria-live="polite"></div>
       <div id="partsInventoryList"></div>
@@ -10078,7 +10086,10 @@ function deleteService(id){
     return;
   }
 
-  filtered.forEach(s => {
+  const sorted = moduleSortRows(filtered, $("serviceSort")?.value || "name", S05_SERVICE_DIRECTION, (item,key) =>
+    key === "price" ? (Number(item.priceFixed)>0 ? Number(item.priceFixed) : Number(item.hours||0)*Number(item.rate||0)) : String(item[key]||"")
+  );
+  sorted.forEach(s => {
     list.innerHTML += `
       <div class="service-row">
         <div class="srv-name">
@@ -10129,7 +10140,10 @@ function renderPartsList(){
     return;
   }
 
-  filtered.forEach(p=>{
+  const sorted = moduleSortRows(filtered, $("partSort")?.value || "name", S05_PART_DIRECTION, (item,key) =>
+    ["qty","cost","price"].includes(key) ? Number(item[key])||0 : String(item[key]||"")
+  );
+  sorted.forEach(p=>{
 
     list.innerHTML += `
       <div class="service-row">
@@ -10208,7 +10222,28 @@ function renderPartsList(){
 }
 
 
-  document.addEventListener("DOMContentLoaded", () => {
+  /* S05-F05 : controles de tri en lecture seule. */
+let S05_SERVICE_DIRECTION="asc";
+let S05_PART_DIRECTION="asc";
+function setupCatalogSort(selectId,buttonId,type,render){
+  const select=$(selectId),button=$(buttonId);
+  if(!select||!button)return;
+  const update=()=>{
+    const direction=type==="service"?S05_SERVICE_DIRECTION:S05_PART_DIRECTION;
+    button.textContent=(select.options[select.selectedIndex]?.text||"Nom")+" "+(direction==="asc"?"↑":"↓");
+    render();
+  };
+  select.addEventListener("change",update);
+  button.addEventListener("click",()=>{
+    if(type==="service")S05_SERVICE_DIRECTION=S05_SERVICE_DIRECTION==="asc"?"desc":"asc";
+    else S05_PART_DIRECTION=S05_PART_DIRECTION==="asc"?"desc":"asc";
+    update();
+  });
+  update();
+}
+document.addEventListener("DOMContentLoaded", () => {
+  setupCatalogSort("serviceSort","serviceSortDirection","service",renderServicesList);
+  setupCatalogSort("partSort","partSortDirection","part",renderPartsList);
 
   if ($("partInvSearch")){
   $("partInvSearch").addEventListener("input", renderPartsList);
