@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>S06-F05 — Aperçu confirmation de main-d'œuvre</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,Segoe UI,sans-serif;background:#141414;color:#eee}
+*{box-sizing:border-box}body{margin:0;padding:24px}
+main{max-width:600px;margin:auto}
+h1{font-size:22px;color:#ffd400}
+.demo{background:#312813;border:1px solid #927321;border-radius:9px;padding:12px;line-height:1.4}
+.panel{margin-top:15px;background:#202020;border:1px solid #555;border-radius:10px;padding:20px}
+.panel h2{margin:0 0 14px;font-size:18px;color:#ffd400}
+label{display:block;font-weight:650;margin-top:15px}
+textarea,input{font:inherit;background:#151515;color:#fff;border:1px solid #777;border-radius:6px;padding:10px;width:100%;margin-top:6px}
+textarea{min-height:100px;resize:vertical}
+.summary{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:14px}
+.summary strong{font-variant-numeric:tabular-nums}
+.total{border-top:1px solid #555;padding-top:10px;color:#ffd400;font-weight:800}
+.actions{display:flex;gap:10px;margin-top:18px}
+button{flex:1;border:1px solid #ffd400;color:#ffd400;background:transparent;border-radius:7px;padding:11px;font:inherit;cursor:pointer}
+button.primary{background:#ffd400;color:#111;font-weight:700}
+button:disabled{opacity:.5;cursor:not-allowed}
+.preview{white-space:pre-wrap;padding:12px;border:1px solid #666;background:#161616;border-radius:7px;margin-top:14px;overflow-wrap:anywhere}
+.error{color:#ff9b87;font-size:13px;min-height:20px}
+</style>
+</head>
+<body>
+<main>
+<h1>⏱ S06 — Terminer et ajouter au BT</h1>
+<p class="demo"><strong>MAQUETTE UNIQUEMENT — aucune écriture.</strong> Cette fenêtre utilise un BT fictif. Confirmer affiche la note proposée, mais ne modifie aucune facture, aucune main-d'œuvre ni aucun compte Supabase.</p>
+<section class="panel">
+<h2>BT-DEMO-001 — Mazda Miata</h2>
+<div class="summary"><span>Temps confirmé</span><strong>1 h 30 min</strong></div>
+<label for="description">Description du travail effectué *</label>
+<textarea id="description" maxlength="2000" placeholder="Ex. : Remplacement des plaquettes avant, nettoyage et essai routier."></textarea>
+<label for="rate">Taux horaire ($/h)</label>
+<input id="rate" type="number" min="0" step="0.01" value="90.00">
+<div class="summary"><span>Heures facturables</span><strong>1,50 h</strong><span>Taux horaire</span><strong id="shownRate">90,00 $/h</strong><span class="total">Main-d'œuvre à ajouter</span><strong class="total" id="total">135,00 $</strong></div>
+<p class="error" id="error" role="status"></p>
+<div class="actions"><button id="cancel" type="button">Annuler</button><button id="confirm" class="primary" type="button">Confirmer (simulation)</button></div>
+<div id="result" hidden><h2 style="margin-top:20px">📝 Note qui serait ajoutée dans le BT</h2><div class="preview" id="note"></div></div>
+</section>
+</main>
+<script>
+"use strict";
+(() => {
+  const desc=document.getElementById("description");
+  const rate=document.getElementById("rate");
+  const error=document.getElementById("error");
+  const total=document.getElementById("total");
+  const shown=document.getElementById("shownRate");
+  const result=document.getElementById("result");
+  const formatter=new Intl.NumberFormat("fr-CA",{style:"currency",currency:"CAD"});
+  const formatNumber=new Intl.NumberFormat("fr-CA",{minimumFractionDigits:2,maximumFractionDigits:2});
+  function refresh(){
+    const val=Number(rate.value);
+    if(rate.value==="" || !Number.isFinite(val) || val<0 || val>100000){error.textContent="Taux horaire invalide.";return false;}
+    error.textContent="";
+    const rounded=Math.round(val*100)/100;
+    shown.textContent=formatNumber.format(rounded)+" $/h";
+    total.textContent=formatter.format(Math.round(150*rounded)/100);
+    return true;
+  }
+  rate.addEventListener("input",refresh);
+  document.getElementById("cancel").addEventListener("click",()=>{result.hidden=true;desc.value="";error.textContent="Simulation annulée — aucune donnée modifiée.";});
+  document.getElementById("confirm").addEventListener("click",()=>{
+    result.hidden=true;
+    if(!refresh())return;
+    const work=desc.value.trim();
+    if(!work){error.textContent="Décris le travail effectué avant de confirmer.";desc.focus();return;}
+    error.textContent="";
+    const rounded=Math.round(Number(rate.value)*100)/100;
+    document.getElementById("note").textContent=[
+      "[S06 minuterie : session fictive]",
+      "Travail effectué : "+work,
+      "Temps confirmé : 1 h 30 min 00 s",
+      "Main-d'œuvre : 1,50 h × "+formatNumber.format(rounded)+" $/h = "+formatter.format(Math.round(150*rounded)/100)
+    ].join("\n");
+    result.hidden=false;
+  });
+  refresh();
+})();
+</script>
+</body>
+</html>
