@@ -6,6 +6,7 @@ on:
       - "s03/**"
       - "s04/**"
       - "s05/**"
+      - "s06/**"
   workflow_dispatch:
 permissions:
   contents: read
@@ -30,3 +31,5 @@ jobs:
 
       - name: Recherches et tris S05 (simulés)
         run: node audit/test-s05-search.cjs
+      - name: Minuterie S06-F01 (pure, simulée)
+        run: node audit/test-s06-timer.cjs
