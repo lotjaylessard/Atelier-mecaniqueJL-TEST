@@ -42,7 +42,7 @@ CREATE POLICY s06_timer_select_own ON public.garage_timer_sessions
 CREATE FUNCTION public.s06_timer_check_work_order(
  p_uid uuid, p_garage_id uuid, p_work_order_id text
 ) RETURNS boolean
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = ''
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = ''
 AS $$
 DECLARE
  v_snapshot jsonb;
@@ -57,8 +57,10 @@ BEGIN
   WHERE gm.user_id=p_uid AND gm.garage_id=p_garage_id
  ) THEN RETURN false; END IF;
 
+ -- Verrou PARTAGE sur le JSON : une facturation ou cloture concurrente
+ -- (UPDATE garage_data) doit se serialiser avant/apres la validation.
  SELECT gd.data INTO v_snapshot
- FROM public.garage_data gd WHERE gd.garage_id=p_garage_id;
+ FROM public.garage_data gd WHERE gd.garage_id=p_garage_id FOR SHARE;
  IF NOT FOUND OR jsonb_typeof(v_snapshot->'workorders')<>'array'
     OR jsonb_typeof(v_snapshot->'invoices')<>'array' THEN RETURN false; END IF;
  SELECT count(*), (jsonb_agg(wo.value)->0) INTO v_found,v_wo
