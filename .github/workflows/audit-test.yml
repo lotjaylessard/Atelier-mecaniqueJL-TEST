@@ -39,6 +39,8 @@ jobs:
         run: node audit/test-s06-client.cjs
       - name: Panneau global S06-F04 (maquette isolee)
         run: node audit/test-s06-panel.cjs
+      - name: Apercu global S06 integre TEST (lecture seule)
+        run: node audit/test-s06-preview-integration.cjs
       - name: Validation BT S06 (simulations)
         run: node audit/test-s06-eligibility.cjs
       - name: Proposition serveur S06 V2 (audit statique)
