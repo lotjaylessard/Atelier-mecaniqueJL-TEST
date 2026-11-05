@@ -1001,18 +1001,24 @@ button.link:hover{
     #page-workorders .module-search-toolbar,
     #page-invoice-list .module-search-toolbar,
     #page-clients .module-search-toolbar,
-    #page-vehicles .module-search-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+    #page-vehicles .module-search-toolbardisplay:flex;,
+    #page-services .module-search-toolbardisplay:flex;,
+    #page-parts .module-search-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
     #page-workorders .module-search-toolbar input,
     #page-invoice-list .module-search-toolbar input,
     #page-clients .module-search-toolbar input,
-    #page-vehicles .module-search-toolbar input{
+    #page-vehicles .module-search-toolbar input,
+    #page-services .module-search-toolbar input,
+    #page-parts .module-search-toolbar input{
       background:#111;color:#fff;border:1px solid var(--border);border-radius:5px;
       padding:6px;flex:1 1 320px;min-width:200px;margin-top:0
     }
     #page-workorders .module-search-toolbar select,
     #page-invoice-list .module-search-toolbar select,
     #page-clients .module-search-toolbar select,
-    #page-vehicles .module-search-toolbar select{
+    #page-vehicles .module-search-toolbar select,
+    #page-services .module-search-toolbar select,
+    #page-parts .module-search-toolbar select{
       background:#111;color:#fff;border:1px solid var(--border);border-radius:5px;
       padding:6px;margin-top:0
     }
@@ -1020,6 +1026,9 @@ button.link:hover{
     #page-clients .module-sort-button,
     #page-vehicles .module-sort-button{font-size:inherit}
     #page-workorders .module-result-count{margin-top:2px}
+    #page-services .s05-catalog .module-search-toolbar,#page-parts .s05-catalog .module-search-toolbar{margin:0 0 10px}
+    #page-services .s05-catalog #serviceSearchInput,#page-parts .s05-catalog #partInvSearch{flex:1 1 320px;min-width:200px;width:auto;height:auto;padding:6px;margin:0}
+    #page-services .s05-catalog select,#page-parts .s05-catalog select{flex:0 1 220px;min-width:160px;width:auto;height:auto;padding:6px;margin:0}
     @media(max-width:700px){.module-search-toolbar input[type="search"],.module-search-toolbar select{flex-basis:100%;width:100%}}
 </style>
 
@@ -1343,12 +1352,12 @@ button.link:hover{
       <h3>Services enregistrés</h3>
 
 <!-- 🔍 Barre recherche + filtre -->
-<div class="services-toolbar">
+<div class="card s05-catalog"><div class="module-search-toolbar">
 
   <input
-    type="text"
+    type="search"
     id="serviceSearchInput"
-    placeholder="Rechercher un service..."
+    placeholder="🔎 Rechercher : service, catégorie, description..."
   />
 
   <select id="serviceCategoryFilter">
@@ -1369,8 +1378,9 @@ button.link:hover{
   </select>
 
 </div>
-
+<div id="serviceResultCount" class="module-result-count" role="status" aria-live="polite"></div>
 <div id="servicesList"></div>
+</div>
     </div>
 
     <!-- PIÈCES -->
@@ -1415,7 +1425,9 @@ button.link:hover{
         <button id="partInvAddBtn" type="button" style="margin-top:8px;">Ajouter dans l’inventaire</button>
       </div>
 
-      <select id="partInvFilter" style="margin-bottom:10px;">
+      <div class="card s05-catalog"><div class="module-search-toolbar">
+      <input id="partInvSearch" type="search" placeholder="🔎 Rechercher : nom, numéro, catégorie, stock..." aria-label="Rechercher une pièce" />
+      <select id="partInvFilter">
         <option value="">Toutes catégories</option>
         <option value="Moteur">Moteur</option>
         <option value="Transmission">Transmission</option>
@@ -1432,9 +1444,10 @@ button.link:hover{
         <option value="Divers">Divers</option>
       </select>
 
-      <input id="partInvSearch" placeholder="Rechercher une pièce (nom, # ou catégorie)..." style="margin-bottom:15px;" />
-
+      </div>
+      <div id="partResultCount" class="module-result-count" role="status" aria-live="polite"></div>
       <div id="partsInventoryList"></div>
+      </div>
     </div>
 
     <!-- HISTORIQUE GLOBAL -->
@@ -10044,15 +10057,13 @@ function deleteService(id){
   const list = $("servicesList");
   if (!list) return;
 
-  const search = $("serviceSearchInput")?.value.toLowerCase() || "";
+  const search = $("serviceSearchInput")?.value || "";
   const category = $("serviceCategoryFilter")?.value || "";
 
   list.innerHTML = "";
 
   const filtered = SERVICES.filter(s => {
-    const matchText =
-      s.name.toLowerCase().includes(search) ||
-      (s.desc || "").toLowerCase().includes(search);
+    const matchText = moduleMatchesSearch([s.name,s.desc,s.category],search);
 
     const matchCategory =
       !category || s.category === category;
@@ -10060,6 +10071,8 @@ function deleteService(id){
     return matchText && matchCategory;
   });
 
+  const counter=$("serviceResultCount");
+  if(counter)counter.textContent=filtered.length+" service"+(filtered.length!==1?"s":"")+" affiché"+(filtered.length!==1?"s":"");
   if (filtered.length === 0){
     list.innerHTML = `<div class="muted">Aucun service trouvé.</div>`;
     return;
@@ -10098,18 +10111,19 @@ function renderPartsList(){
   const list = $("partsInventoryList");
   if (!list) return;
 
-  const search = ($("partInvSearch")?.value || "").toLowerCase();
+  const search = $("partInvSearch")?.value || "";
   const category = $("partInvFilter")?.value || "";
 
   list.innerHTML = "";
 
   const filtered = PARTS.filter(p=>{
-    const hay = `${p.name} ${p.number||""} ${p.category}`.toLowerCase();
-    if (search && !hay.includes(search)) return false;
+    if (search && !moduleMatchesSearch([p.name,p.number,p.category,p.qty,p.cost,p.price],search)) return false;
     if (category && p.category !== category) return false;
     return true;
   });
 
+  const counter=$("partResultCount");
+  if(counter)counter.textContent=filtered.length+" pièce"+(filtered.length!==1?"s":"")+" affichée"+(filtered.length!==1?"s":"");
   if (!filtered.length){
     list.innerHTML = `<div class="muted">Aucune pièce trouvée.</div>`;
     return;
