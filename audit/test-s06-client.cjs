@@ -21,7 +21,7 @@ const client={
     if(rejectNetwork)return {data:null,error:{message:"Connexion perdue"}};
     if(conflictNext){conflictNext=false;return {data:null,error:{code:"40001",message:"revision conflictuelle"}};}
     if(args.p_action==="create"){
-      const row={id:"session-1",user_id:UID,work_order_id:args.p_work_order_id,status:"paused",confirmed_ms:0,last_heartbeat_at:null,revision:0,posted_labor_id:null,updated_at:"now"};
+      const row={id:"session-1",user_id:UID,garage_id:"garage-test-1",work_order_id:args.p_work_order_id,status:"paused",confirmed_ms:0,last_heartbeat_at:null,revision:0,posted_labor_id:null,updated_at:"now"};
       DB.set(row.id,row);return {data:copy(row),error:null};
     }
     const old=DB.get(args.p_id);if(!old)return {data:null,error:{message:"Session inconnue"}};
@@ -39,6 +39,8 @@ const client={
   assert.deepEqual(await a.read(),[]);
   const newRow=await a.transition({id:null,action:"create",revision:0,workOrderId:"BT-123"});
   assert.equal(newRow.status,"paused");
+  assert.equal(newRow.garage_id,"garage-test-1");
+  assert.equal((await a.read())[0].garage_id,"garage-test-1");
   const active=await a.transition({id:newRow.id,action:"start",revision:0});
   assert.equal(active.status,"running");
   const beat=await a.transition({id:active.id,action:"heartbeat",revision:1});
