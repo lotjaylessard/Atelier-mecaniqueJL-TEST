@@ -13576,6 +13576,10 @@ if (window.garageSupabase) {
     const chosen=metadata(chosenId);
     // Lecture APRES les gestionnaires historiques, sans les remplacer.
     setTimeout(()=>{
+      if(timerButton.id==="woTimerStopBtn"){
+        activeId=null;activeMetadata=null;box.hidden=true;
+        return;
+      }
       if(timerButton.id==="woTimerBtn" && chosen && state()){
         activeId=chosen.id;activeMetadata=chosen;
       }
