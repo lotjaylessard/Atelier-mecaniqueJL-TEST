@@ -33,3 +33,5 @@ jobs:
         run: node audit/test-s05-search.cjs
       - name: Minuterie S06-F01 (pure, simulée)
         run: node audit/test-s06-timer.cjs
+      - name: Protections S06-F02 (statiques, migration non executee)
+        run: node audit/test-s06-storage.cjs
