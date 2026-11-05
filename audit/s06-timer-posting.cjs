@@ -74,7 +74,7 @@ function proposedWorkNote({quote,description,existingNotes="",actorId,actorName,
   if(typeof actorId!=="string"||!actorId.trim()||
      typeof actorName!=="string"||!actorName.trim()||actorName.trim().length>100)
     fail("actor","Identite de l'employe absente ou invalide");
-  if(typeof confirmedAt!=="string"||!/^\\d{4}-\\d{2}-\\d{2}T/.test(confirmedAt)||
+  if(typeof confirmedAt!=="string"||!/^\d{4}-\d{2}-\d{2}T/.test(confirmedAt)||
      !Number.isFinite(Date.parse(confirmedAt)))
     fail("date","Date de confirmation invalide");
   const marker="[S06 minuterie : "+quote.sessionId+"]";
