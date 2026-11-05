@@ -13,7 +13,7 @@ const posDashboard=html.indexOf('<button class="navBtn" data-page="page-dashboar
 assert.ok(posMenu>=0&&posTimer>posMenu&&posDashboard>posTimer,"entre Menu et Dashboard");
 const widget=html.slice(posTimer,html.indexOf("</section>",posTimer));
 assert.match(widget,/Minuterie/);
-assert.match(widget,/Aperçu — non activée/);
+assert.match(widget,/● Inactive/);
 assert.match(widget,/# BT :/);
 assert.match(widget,/Véhicule :/);
 assert.match(widget,/Description :/);
