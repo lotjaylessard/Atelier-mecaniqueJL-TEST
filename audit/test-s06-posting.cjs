@@ -43,7 +43,7 @@ const note=proposedWorkNote({quote,description:"Remplacement des freins",existin
 assert.match(note.noteEntry,/Travail effectue : Remplacement des freins/);
 assert.match(note.noteEntry,/Temps confirme : 1 h 30 min 00 s/);
 assert.match(note.noteEntry,/Main-d'oeuvre : 1.50 h/);
-assert.ok(note.nextNotes.startsWith("Contrôle initial OK\\n\\n"));
+assert.ok(note.nextNotes.startsWith("Contrôle initial OK\n\n"));
 assert.equal(note.nextNotes.split(note.marker).length,2,"Une seule note S06");
 assert.throws(()=>proposedWorkNote({quote,description:"Encore",existingNotes:note.nextNotes}),e=>e.code==="duplicate");
 assert.throws(()=>proposedWorkNote({quote,description:"  "}),e=>e.code==="description");
