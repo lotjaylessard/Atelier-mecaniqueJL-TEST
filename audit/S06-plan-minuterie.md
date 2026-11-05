@@ -40,4 +40,11 @@ S06-F06 : tests multi-ordinateur/conflits, fermeture normale et brutale, pertes 
 - Si un ordinateur reste silencieux >60 secondes, son ancienne session active peut etre mise en pause lors du prochain demarrage sur le meme compte. Aucun temps non confirme n'est ajoute.
 - Un appel direct a `recover` est bloque si un heartbeat recent suggere que l'autre ordinateur est actif.
 - GitHub Actions verifie les invariants et la syntaxe JavaScript des tests; ce N'EST PAS une execution SQL, RLS, ni un test concurrent reel.
-- **Blocage actuel :** ne pas activer ni executer SQL avant revue SQL et essais sur une base jetable, puis tests de permissions multi-comptes sur Supabase TEST avec sauvegarde validee.
+- **Blocage actuel :** ne pas activer ni executer SQL avant revue SQL, verification d'une sauvegarde/export recuperable de Supabase TEST, et protocole de tests de permissions multi-comptes sur ce meme projet TEST. La creation d'un troisieme projet n'est PAS une etape demandee. Aucun changement en production.
+
+## Decision utilisateur — 5 novembre 2026
+- Continuer exclusivement dans **Atelier-mecaniqueJL-TEST** (GitHub et Supabase existants), sans demander un troisieme projet.
+- Ne pas refaire les audits S02–S05 ni les verifications RLS deja obtenues; exploiter leurs constats.
+- Supabase Free : sauvegardes automatiques non incluses. Les sauvegardes JSON et mecanismes de reprise deja construits sont a preserver, mais ne constituent pas un dump PostgreSQL ni une restauration eprouvee de cette migration.
+- Avant toute execution SQL, obtenir une sauvegarde/export effectivement recuperable sans exiger de changement d'abonnement et verifier la migration par une revue de syntaxe et de permissions. Toute mutation doit etre limitative et reversible.
+- Integrer le module nouveau progressivement; **index.html reste inchange tant que la couche serveur n'est pas confirmee**. Eviter de reutiliser les anciennes fonctions WO_TIMER_* sans audit exact des gestionnaires.
