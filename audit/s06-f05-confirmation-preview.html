@@ -38,8 +38,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <input id="rate" type="number" min="0" step="0.01" value="90.00">
 <div class="summary"><span>Heures facturables</span><strong>1,50 h</strong><span>Taux horaire</span><strong id="shownRate">90,00 $/h</strong><span class="total">Main-d'œuvre à ajouter</span><strong class="total" id="total">135,00 $</strong></div>
 <p class="error" id="error" role="status"></p>
-<div class="actions"><button id="cancel" type="button">Annuler</button><button id="confirm" class="primary" type="button">Confirmer (simulation)</button></div>
-<div id="result" hidden><h2 style="margin-top:20px">📝 Note qui serait ajoutée dans le BT</h2><div class="preview" id="note"></div></div>
+<div id="result" hidden role="status" aria-live="polite" tabindex="-1"><h2 style="margin-top:20px">✅ Simulation confirmée — note proposée pour le BT</h2><div class="preview" id="note"></div><p class="demo">Aucune donnée enregistrée : aperçu uniquement.</p></div>
+<div class="actions"><button id="cancel" type="button">Annuler</button><button id="confirm" class="primary" type="button">Afficher la note (simulation)</button></div>
 </section>
 </main>
 <script>
@@ -78,6 +78,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
       "Main-d'œuvre : 1,50 h × "+formatNumber.format(rounded)+" $/h = "+formatter.format(Math.round(150*rounded)/100)
     ].join("\n");
     result.hidden=false;
+    result.scrollIntoView({behavior:"smooth",block:"center"});
+    result.focus({preventScroll:true});
   });
   refresh();
 })();
