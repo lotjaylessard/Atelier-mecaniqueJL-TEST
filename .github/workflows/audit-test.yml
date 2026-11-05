@@ -39,3 +39,5 @@ jobs:
         run: node audit/test-s06-client.cjs
       - name: Panneau global S06-F04 (maquette isolee)
         run: node audit/test-s06-panel.cjs
+      - name: Validation BT S06 (simulations)
+        run: node audit/test-s06-eligibility.cjs
