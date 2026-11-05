@@ -64,3 +64,9 @@ S06-F06 : tests multi-ordinateur/conflits, fermeture normale et brutale, pertes 
 - Code pur non destructif prepare : `audit/s06-timer-posting.cjs`, fonction `proposedWorkNote`, avec validations et tests.
 - Apercu visuel autonome (aucune ecriture) : `audit/s06-f05-confirmation-preview.html` ; permet de tester le champ et le rendu de la note dans Codespaces.
 - **Aucune ecriture reelle encore** : la confirmation future devra etre atomique et idempotente avec la revision du JSON garage et celle de la minuterie, et refuser tout BT facture ou termine. Ne pas reutiliser le stop historique qui ajoute immediatement de la main-d'oeuvre.
+
+## S06 — Attribution de l'employe a une intervention
+- Le nom affiche est un instantane du profil lie au `auth.uid()` courant et l'identifiant reste enregistree dans la note. Ne pas utiliser le libelle statique `Bonjour, Jeremy` du HTML comme preuve d'identite.
+- S06-F05 a une fonction pure `audit/s06-timer-actor.cjs` et des tests dans `audit/test-s06-actor.cjs`. Elle refuse les profils dont le `user_id` ne correspond pas a l'utilisateur authentifie, un nom vide, ou une date invalide.
+- Ceci ne cree pas de table de profils, ne configure pas d'employe dans Supabase et ne modifie pas `index.html`. Avant le branchement reel, selectionner une source de profil fiable, controler sa correspondance avec `auth.uid()`, puis imposer identite/date du cote serveur de la transaction atomique.
+- Decision de design : le bouton de pause n'ajoute aucune main-d'oeuvre ni note; seule la confirmation « Terminer et ajouter au BT » pourra ajouter les deux dans UNE transaction idempotente.
