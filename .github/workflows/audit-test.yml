@@ -35,3 +35,5 @@ jobs:
         run: node audit/test-s06-timer.cjs
       - name: Protections S06-F02 (statiques, migration non executee)
         run: node audit/test-s06-storage.cjs
+      - name: Adaptateur S06-F03 (Supabase simule)
+        run: node audit/test-s06-client.cjs
