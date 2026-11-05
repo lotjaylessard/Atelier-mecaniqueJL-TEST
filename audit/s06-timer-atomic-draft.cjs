@@ -27,9 +27,11 @@ function prepareAtomicPosting({
      expectedSessionRevision!==session.revision)
     fail("conflict","Minuterie modifiée sur un autre appareil");
   // A la transaction reelle, auth.uid() doit etre impose par PostgreSQL.
-  const actor=confirmedActor({authenticatedUser,profile,confirmedAt});
-  if(session.user_id!==actor.actorId)
+  // Refuser un autre proprietaire AVANT de lire le profil d'affichage.
+  if(typeof authenticatedUser?.id!=="string"||
+     session.user_id!==authenticatedUser.id)
     fail("owner","Cette minuterie n'appartient pas au compte connecté");
+  const actor=confirmedActor({authenticatedUser,profile,confirmedAt});
   if(typeof session.garage_id!=="string"||!session.garage_id.trim())
     fail("garage","Garage de la minuterie invalide");
   if(!garageSnapshot||typeof garageSnapshot!=="object"||Array.isArray(garageSnapshot))
