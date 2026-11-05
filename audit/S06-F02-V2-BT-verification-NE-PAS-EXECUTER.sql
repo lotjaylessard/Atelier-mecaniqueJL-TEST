@@ -61,7 +61,7 @@ BEGIN
  FROM public.garage_data gd WHERE gd.garage_id=p_garage_id;
  IF NOT FOUND OR jsonb_typeof(v_snapshot->'workorders')<>'array'
     OR jsonb_typeof(v_snapshot->'invoices')<>'array' THEN RETURN false; END IF;
- SELECT count(*), max(wo.value) INTO v_found,v_wo
+ SELECT count(*), (jsonb_agg(wo.value)->0) INTO v_found,v_wo
  FROM jsonb_array_elements(v_snapshot->'workorders') AS wo(value)
  WHERE wo.value->>'id'=p_work_order_id;
  IF v_found<>1 OR v_wo->>'status'<>'en_cours' THEN RETURN false; END IF;
@@ -110,7 +110,7 @@ BEGIN
    RAISE EXCEPTION 'Arguments invalides' USING ERRCODE='22023';
   END IF;
   -- Un seul garage par compte, conformement au contrat du logiciel actuel.
-  SELECT min(gm.garage_id) INTO v_garage_id
+  SELECT (array_agg(gm.garage_id))[1] INTO v_garage_id
   FROM public.garage_members gm WHERE gm.user_id=v_uid
   HAVING count(DISTINCT gm.garage_id)=1;
   IF v_garage_id IS NULL OR NOT public.s06_timer_check_work_order(v_uid,v_garage_id,btrim(p_work_order_id)) THEN
