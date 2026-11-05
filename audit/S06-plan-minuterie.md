@@ -56,3 +56,11 @@ S06-F06 : tests multi-ordinateur/conflits, fermeture normale et brutale, pertes 
 - Premiere couche preparee et testee : `audit/s06-timer-posting.cjs` calcule une proposition pure, sans ecrire quoi que ce soit; `audit/test-s06-posting.cjs` couvre les refus de doublon et les cas invalides.
 - **Pas encore branche au logiciel ni au Supabase** : le commit de la ligne et de l'etat de session devra etre atomique (une seule transaction CAS sur garage_data et timer). Ne pas reutiliser l'ancien Stop qui ajoute immediatement de la main-d'oeuvre.
 - Interface validee dans Chrome : panneau masque sans minuterie, affiche en cours, pause orange, lien vers BT; elle observe l'ancienne minuterie et ne constitue pas encore une persistance multi-appareil.
+
+## S06-F05 — Description et note du BT (5 novembre 2026)
+- Decision utilisateur : une description du travail effectue est saisie dans la fenetre de confirmation. Apres confirmation reelle, ajouter une ligne de main-d'oeuvre et une entree de note technique au BT, avec temps, taux et description.
+- Reutiliser le champ existant `wo.notes` (Notes techniques) en preservant son contenu; pas de deuxieme registre de notes.
+- La proposition de note comporte le marqueur stable de session `[S06 minuterie : ...]`; refuser une note ou une ligne de main-d'oeuvre deja presente.
+- Code pur non destructif prepare : `audit/s06-timer-posting.cjs`, fonction `proposedWorkNote`, avec validations et tests.
+- Apercu visuel autonome (aucune ecriture) : `audit/s06-f05-confirmation-preview.html` ; permet de tester le champ et le rendu de la note dans Codespaces.
+- **Aucune ecriture reelle encore** : la confirmation future devra etre atomique et idempotente avec la revision du JSON garage et celle de la minuterie, et refuser tout BT facture ou termine. Ne pas reutiliser le stop historique qui ajoute immediatement de la main-d'oeuvre.
