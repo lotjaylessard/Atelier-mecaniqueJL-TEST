@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>S06-F04 | Aperçu du panneau minuteur — DEMO</title>
+<style>
+:root{color-scheme:dark;--accent:#ffd400;--card:#202020;--bg:#111;--border:#454545;--muted:#bebebe}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#eee;font:15px system-ui,-apple-system,Segoe UI,sans-serif}
+button{font:inherit;cursor:pointer;border:1px solid var(--accent);border-radius:7px;background:transparent;color:var(--accent);padding:9px 12px}
+button:focus-visible{outline:2px solid #fff;outline-offset:2px}button:hover{background:#3c3400}
+button.primary{background:var(--accent);color:#111;font-weight:750}
+button:disabled{opacity:.5;cursor:not-allowed}
+header{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:14px 22px;border-bottom:1px solid var(--border);background:#1b1b1b;flex-wrap:wrap}
+.brand{font-weight:700;color:var(--accent)}
+.header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sync{padding:6px 10px;border:1px solid #777;border-radius:20px;color:#8de09a;font-size:12px}
+#timerTrigger{display:flex;gap:8px;align-items:center;background:#161616;border:1px solid var(--accent);padding:7px 10px;white-space:nowrap}
+#timerTrigger .status{font-size:11px;color:#9fe0ab}
+#timerTrigger.is-paused .status{color:#ffcb69}
+#timerTrigger .clock{font-variant-numeric:tabular-nums;font-weight:750}
+.shell{max-width:1000px;margin:28px auto;padding:0 20px}
+.shell h1{font-size:25px;color:var(--accent)}
+.menu{display:flex;flex-wrap:wrap;gap:10px}.menu button{min-width:115px}
+.card{margin-top:25px;padding:25px;border:1px solid var(--border);border-radius:10px;background:var(--card)}
+.demo{color:#ffc56d;background:#302715;border:1px solid #886b22;border-radius:7px;padding:10px 14px;font-size:13px;line-height:1.5}
+#timerPanel{position:absolute;right:18px;top:76px;z-index:10;width:min(390px,calc(100vw - 36px));padding:17px;border:1px solid var(--accent);border-radius:11px;background:#1b1b1b;box-shadow:0 16px 40px #000a}
+#timerPanel[hidden]{display:none}
+.panel-title{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.panel-title strong{color:var(--accent)}
+.panel-title button{padding:2px 8px}
+.bt-number{color:var(--accent);font-size:13px;font-weight:600;margin-top:18px}
+.bt-name{font-size:17px;font-weight:700;margin-top:5px}
+.bt-description{color:var(--muted);font-size:13px}
+.time{text-align:center;font-variant-numeric:tabular-nums;font-size:39px;font-weight:800;letter-spacing:2px;margin:23px 0}
+.actions{display:flex;gap:10px}.actions button{flex:1}
+.note{color:var(--muted);font-size:12px;margin-top:14px}
+@media(max-width:620px){header{padding:10px 12px}#timerPanel{top:104px;right:10px;width:calc(100vw - 20px)}.brand{font-size:13px}}
+</style>
+</head>
+<body>
+<header>
+ <div class="brand">🛠 Garage-Atelier Mécanique J.L — Gestion</div>
+ <div class="header-actions">
+  <span class="sync">✓ Synchronisé (simulation)</span>
+  <button id="timerTrigger" type="button" aria-expanded="false" aria-controls="timerPanel">
+   ⏱ <span class="clock" id="timerMini">00:35:00</span><span class="status" id="timerMiniStatus">En pause</span> ▾
+  </button>
+ </div>
+</header>
+<section class="shell">
+ <div class="demo" role="note"><strong>MAQUETTE S06-F04 — DONNÉES FICTIVES.</strong>
+ Aucun accès Supabase. Aucun changement de BT, facture ou temps réel n'est enregistré.
+ Cette page sert uniquement à valider le design du panneau avant l'intégration.</div>
+ <h1 id="pageTitle">Bons de travail (exemple)</h1>
+ <div class="menu" aria-label="Navigation simulée">
+  <button type="button" data-page="Bons de travail">Bons de travail</button>
+  <button type="button" data-page="Factures">Factures</button>
+  <button type="button" data-page="Clients">Clients</button>
+  <button type="button" data-page="Pièces">Pièces</button>
+ </div>
+ <div class="card">Le minuteur reste visible dans la barre supérieure, peu importe le module sélectionné.</div>
+</section>
+<aside id="timerPanel" hidden aria-label="Détails de la minuterie" role="region">
+ <div class="panel-title"><strong>⏱ MINUTERIE — SIMULATION</strong><button id="closePanel" type="button" aria-label="Fermer le panneau">✕</button></div>
+ <div class="bt-number">BT-DEMO-001</div>
+ <div class="bt-name">Mazda Miata — Client fictif</div>
+ <div class="bt-description">Entretien et suspension (données d'exemple)</div>
+ <div class="time" id="timerFull" aria-live="off">00:35:00</div>
+ <div class="actions">
+  <button class="primary" type="button" id="toggleTimer">▶ Reprendre</button>
+  <button type="button" id="finishTimer" disabled title="Disponible après validation de la sauvegarde">Terminer</button>
+ </div>
+ <div class="note" id="timerHelp">Simulation seulement : ce temps ne sera pas enregistré.</div>
+</aside>
+<script>
+"use strict";
+(() => {
+  const trigger=document.getElementById("timerTrigger");
+  const panel=document.getElementById("timerPanel");
+  const mini=document.getElementById("timerMini");
+  const full=document.getElementById("timerFull");
+  const status=document.getElementById("timerMiniStatus");
+  const toggle=document.getElementById("toggleTimer");
+  let ms=35*60*1000;
+  let running=false;
+  let tickStart=0;
+  let interval=null;
+  function formatted(value){
+    const seconds=Math.floor(value/1000);
+    return [Math.floor(seconds/3600),Math.floor(seconds/60)%60,seconds%60]
+      .map(n=>String(n).padStart(2,"0")).join(":");
+  }
+  function current(){return ms+(running?Math.max(0,Date.now()-tickStart):0);}
+  function paint(){
+    mini.textContent=full.textContent=formatted(current());
+    status.textContent=running?"En cours":"En pause";
+    trigger.classList.toggle("is-paused",!running);
+    toggle.textContent=running?"⏸ Pause":"▶ Reprendre";
+  }
+  function setRunning(next){
+    if(next===running)return;
+    if(next){tickStart=Date.now();running=true;interval=setInterval(paint,250);}
+    else{ms=current();running=false;clearInterval(interval);interval=null;}
+    paint();
+  }
+  function setOpen(next){
+    panel.hidden=!next;
+    trigger.setAttribute("aria-expanded",String(next));
+  }
+  trigger.addEventListener("click",()=>setOpen(panel.hidden));
+  document.getElementById("closePanel").addEventListener("click",()=>setOpen(false));
+  toggle.addEventListener("click",()=>setRunning(!running));
+  document.querySelectorAll("[data-page]").forEach(button=>
+    button.addEventListener("click",()=>{document.getElementById("pageTitle").textContent=button.dataset.page+" (exemple)";}));
+  document.addEventListener("keydown",event=>{if(event.key==="Escape")setOpen(false);});
+  // Maquette : une fermeture remet obligatoirement le timer en pause.
+  window.addEventListener("pagehide",()=>setRunning(false));
+  paint();
+})();
+</script>
+</body>
+</html>
