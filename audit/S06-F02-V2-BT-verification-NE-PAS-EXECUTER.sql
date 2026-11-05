@@ -176,6 +176,9 @@ BEGIN
   END IF;
  ELSIF p_action='recover' THEN
   IF v_rec.status<>'running' THEN RAISE EXCEPTION 'Session deja arretee' USING ERRCODE='22023'; END IF;
+  IF v_rec.last_heartbeat_at > v_now - interval '60 seconds' THEN
+   RAISE EXCEPTION 'Minuterie possiblement active sur un autre appareil' USING ERRCODE='22023';
+  END IF;
   -- Recuperation explicite : ne compte aucun temps non confirme.
   v_rec.status:='paused';
   v_rec.last_heartbeat_at:=NULL;
