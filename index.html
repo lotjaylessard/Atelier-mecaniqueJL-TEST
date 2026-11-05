@@ -1004,14 +1004,16 @@ button.link:hover{
     #page-vehicles .module-search-toolbar,
     #page-services .module-search-toolbar,
     #page-parts .module-search-toolbar,
-    #page-history .module-search-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+    #page-history .module-search-toolbar,
+    #page-notes .module-search-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
     #page-workorders .module-search-toolbar input,
     #page-invoice-list .module-search-toolbar input,
     #page-clients .module-search-toolbar input,
     #page-vehicles .module-search-toolbar input,
     #page-services .module-search-toolbar input,
     #page-parts .module-search-toolbar input,
-    #page-history .module-search-toolbar input{
+    #page-history .module-search-toolbar input,
+    #page-notes .module-search-toolbar input{
       background:#111;color:#fff;border:1px solid var(--border);border-radius:5px;
       padding:6px;flex:1 1 320px;min-width:200px;margin-top:0
     }
@@ -1021,7 +1023,8 @@ button.link:hover{
     #page-vehicles .module-search-toolbar select,
     #page-services .module-search-toolbar select,
     #page-parts .module-search-toolbar select,
-    #page-history .module-search-toolbar select{
+    #page-history .module-search-toolbar select,
+    #page-notes .module-search-toolbar select{
       background:#111;color:#fff;border:1px solid var(--border);border-radius:5px;
       padding:6px;margin-top:0
     }
@@ -1533,7 +1536,17 @@ button.link:hover{
   <div class="card">
     <h3>Historique des notes</h3>
 
-    <input id="noteSearch" placeholder="Rechercher une note..." style="width:100%;margin-bottom:10px;padding:6px;">
+    <div class="module-search-toolbar">
+      <input id="noteSearch" type="search" aria-label="Rechercher une note"
+        placeholder="🔎 Rechercher : contenu, catégorie, date..." />
+      <select id="noteCategoryFilter" aria-label="Filtrer les notes par catégorie">
+        <option value="">Toutes les catégories</option>
+        <option value="urgent">Urgent</option><option value="todo">À faire</option>
+        <option value="general">Général</option>
+      </select>
+      <button id="noteDateSort" type="button" class="ghost" aria-label="Inverser le tri des notes">Plus récentes ↓</button>
+    </div>
+    <div id="noteResultCount" class="module-result-count" role="status" aria-live="polite"></div>
 
     <div id="notesList"></div>
 
@@ -12368,18 +12381,21 @@ function deleteNote(id) {
     renderDashboard();
 }
 
+/* S05-F06 : tri de date visuel, par categorie. */
+let S05_NOTE_DATE_DESC=true;
 /* Rendu Notes */
 function renderNotes() {
     const wrap = $("notesList");
     if (!wrap) return;
 
-    const search = ($("noteSearch")?.value || "").toLowerCase();
-
-    let filtered = NOTES.filter(n =>
-        n.text.toLowerCase().includes(search) ||
-        n.category.toLowerCase().includes(search) ||
-        n.date.toLowerCase().includes(search)
+    const search=$("noteSearch")?.value||"";
+    const category=$("noteCategoryFilter")?.value||"";
+    const filtered=NOTES.filter(n =>
+      (!category||n.category===category) &&
+      moduleMatchesSearch([n.text,n.category,n.date],search)
     );
+    const counter=$("noteResultCount");
+    if(counter)counter.textContent=filtered.length+" note"+(filtered.length!==1?"s":"")+" affichée"+(filtered.length!==1?"s":"");
 
   // TRI INTELLIGENT : Urgent → À faire → Général, puis date
 const priority = { urgent: 1, todo: 2, general: 3 };
@@ -12388,7 +12404,7 @@ filtered.sort((a, b) => {
     if (priority[a.category] !== priority[b.category]) {
         return priority[a.category] - priority[b.category];
     }
-    return b.id - a.id; // plus récent en premier
+    return S05_NOTE_DATE_DESC ? b.id - a.id : a.id - b.id; // ordre des dates dans chaque categorie
 });
 
     if (filtered.length === 0) {
@@ -12550,6 +12566,12 @@ function initNotesModule() {
     }
 
     if ($("noteSearch")) $("noteSearch").oninput = renderNotes;
+    if ($("noteCategoryFilter")) $("noteCategoryFilter").onchange = renderNotes;
+    if ($("noteDateSort")) $("noteDateSort").onclick=()=>{
+      S05_NOTE_DATE_DESC=!S05_NOTE_DATE_DESC;
+      $("noteDateSort").textContent=S05_NOTE_DATE_DESC?"Plus récentes ↓":"Plus anciennes ↑";
+      renderNotes();
+    };
 
     if ($("exportNotesBtn")) $("exportNotesBtn").onclick = exportNotes;
 
