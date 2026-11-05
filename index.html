@@ -1003,13 +1003,15 @@ button.link:hover{
     #page-clients .module-search-toolbar,
     #page-vehicles .module-search-toolbar,
     #page-services .module-search-toolbar,
-    #page-parts .module-search-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+    #page-parts .module-search-toolbar,
+    #page-history .module-search-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
     #page-workorders .module-search-toolbar input,
     #page-invoice-list .module-search-toolbar input,
     #page-clients .module-search-toolbar input,
     #page-vehicles .module-search-toolbar input,
     #page-services .module-search-toolbar input,
-    #page-parts .module-search-toolbar input{
+    #page-parts .module-search-toolbar input,
+    #page-history .module-search-toolbar input{
       background:#111;color:#fff;border:1px solid var(--border);border-radius:5px;
       padding:6px;flex:1 1 320px;min-width:200px;margin-top:0
     }
@@ -1018,13 +1020,15 @@ button.link:hover{
     #page-clients .module-search-toolbar select,
     #page-vehicles .module-search-toolbar select,
     #page-services .module-search-toolbar select,
-    #page-parts .module-search-toolbar select{
+    #page-parts .module-search-toolbar select,
+    #page-history .module-search-toolbar select{
       background:#111;color:#fff;border:1px solid var(--border);border-radius:5px;
       padding:6px;margin-top:0
     }
     #page-invoice-list .module-sort-button,
     #page-clients .module-sort-button,
-    #page-vehicles .module-sort-button{font-size:inherit}
+    #page-vehicles .module-sort-button,
+    #page-history .module-sort-button{font-size:inherit}
     #page-workorders .module-result-count{margin-top:2px}
     #page-services .s05-catalog .module-search-toolbar,#page-parts .s05-catalog .module-search-toolbar{margin:0 0 10px}
     #page-services .s05-catalog #serviceSearchInput,#page-parts .s05-catalog #partInvSearch{flex:1 1 320px;min-width:200px;width:auto;height:auto;padding:6px;margin:0}
@@ -1460,58 +1464,47 @@ button.link:hover{
 
     <!-- HISTORIQUE GLOBAL -->
     <div class="page" id="page-history">
-
-      <div style="display:flex; gap:15px; margin:10px 0;">
-  
-  <div>
-    <label>Filtrer par client :</label><br>
-    <select id="filterClient">
-      <option value="">Tous les clients</option>
-    </select>
-  </div>
-
-  <div>
-    <label>Filtrer par véhicule :</label><br>
-    <select id="filterVehicle">
-      <option value="">Tous les véhicules</option>
-    </select>
-  </div>
-
-</div>
-      
+      <h2>Historique</h2>
+      <div class="card">
+        <div class="module-search-toolbar">
+          <input id="historySearch" type="search" aria-label="Rechercher dans l'historique"
+            placeholder="🔎 Rechercher : numéro, client, véhicule, description, VIN, plaque..." />
+          <select id="filterClient" aria-label="Filtrer l'historique par client">
+            <option value="">Tous les clients</option>
+          </select>
+          <select id="filterVehicle" aria-label="Filtrer l'historique par véhicule">
+            <option value="">Tous les véhicules</option>
+          </select>
+        </div>
+      </div>
       <h2>Historique des bons de travail</h2>
-<div class="card">
-  <table id="historyWOTable">
-    <thead>
-      <tr>
-        <th># Bon de travail</th>
-        <th>Date</th>
-        <th>Client</th>
-        <th>Véhicule</th>
-        <th>KM</th>
-        <th>Statut</th>
-        <th style="text-align:right;">Total estimé</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-</div>
-
-      
+      <div class="card">
+        <div id="historyWOResultCount" class="module-result-count" role="status" aria-live="polite"></div>
+        <table id="historyWOTable">
+          <thead><tr>
+            <th data-module-sort="number" aria-sort="none"><button type="button" class="module-sort-button" onclick="setHistorySort('wo','number')"># Bon de travail <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th data-module-sort="date" aria-sort="none"><button type="button" class="module-sort-button" onclick="setHistorySort('wo','date')">Date <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th data-module-sort="client" aria-sort="none"><button type="button" class="module-sort-button" onclick="setHistorySort('wo','client')">Client <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th data-module-sort="vehicle" aria-sort="none"><button type="button" class="module-sort-button" onclick="setHistorySort('wo','vehicle')">Véhicule <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th data-module-sort="km" aria-sort="none"><button type="button" class="module-sort-button" onclick="setHistorySort('wo','km')">KM <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th data-module-sort="status" aria-sort="none"><button type="button" class="module-sort-button" onclick="setHistorySort('wo','status')">Statut <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th data-module-sort="total" aria-sort="none"><button type="button" class="module-sort-button" onclick="setHistorySort('wo','total')">Total estimé <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
       <h2>Historique des factures</h2>
       <div class="card">
-        
+        <div id="historyInvoiceResultCount" class="module-result-count" role="status" aria-live="polite"></div>
         <table id="historyTable">
-          <thead>
-  <tr>
-    <th># Facture</th>
-    <th>Date</th>
-    <th>Client</th>
-    <th>Véhicule / Job</th>
-    <th style="text-align:right;">Total Facturé</th>
-    <th style="text-align:right;">Profit</th>
-  </tr>
-</thead>
+          <thead><tr>
+            <th data-module-sort="number" aria-sort="none"><button type="button" class="module-sort-button" onclick="setHistorySort('invoice','number')"># Facture <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th data-module-sort="date" aria-sort="none"><button type="button" class="module-sort-button" onclick="setHistorySort('invoice','date')">Date <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th data-module-sort="client" aria-sort="none"><button type="button" class="module-sort-button" onclick="setHistorySort('invoice','client')">Client <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th data-module-sort="vehicle" aria-sort="none"><button type="button" class="module-sort-button" onclick="setHistorySort('invoice','vehicle')">Véhicule / Job <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th data-module-sort="total" aria-sort="none"><button type="button" class="module-sort-button" onclick="setHistorySort('invoice','total')">Total facturé <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th data-module-sort="profit" aria-sort="none"><button type="button" class="module-sort-button" onclick="setHistorySort('invoice','profit')">Profit <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+          </tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -2765,6 +2758,7 @@ function showPage(id){
     };
   }
 
+  if ($("historySearch")) $("historySearch").oninput = () => {renderHistoryTable();renderHistoryWOTable();};
   renderHistoryTable();
   renderHistoryWOTable();
   break;
@@ -10617,6 +10611,66 @@ if (btnClosePartPicker) {
 partPickerFilter.onchange = renderPartPicker;
 
   
+/* S05-F06 : tris de l'historique en lecture seule. */
+const S05_HISTORY_SORT = {
+  wo: {key:"date",direction:"desc"},
+  invoice: {key:"date",direction:"desc"}
+};
+const S05_HISTORY_KEYS = {
+  wo:["number","date","client","vehicle","km","status","total"],
+  invoice:["number","date","client","vehicle","total","profit"]
+};
+function setHistorySort(type,key){
+  if(!S05_HISTORY_KEYS[type]?.includes(key))return;
+  const state=S05_HISTORY_SORT[type];
+  if(state.key===key)state.direction=state.direction==="asc"?"desc":"asc";
+  else{state.key=key;state.direction=["number","date","total","km","profit"].includes(key)?"desc":"asc";}
+  if(type==="wo")renderHistoryWOTable();else renderHistoryTable();
+}
+function historySearchMatches(values){
+  return moduleMatchesSearch(values,$("historySearch")?.value||"");
+}
+function historyWOFields(wo){
+  const client=CLIENTS.find(c=>String(c.id)===String(wo.clientId)||c.name===wo.clientName);
+  const vehicles=Array.isArray(client?.vehicles)?client.vehicles:[];
+  const vehicle=vehicles.find(v=>[v.year,v.make,v.model].filter(Boolean).join(" ")===wo.vehicleLabel);
+  return [wo.number,wo.date,wo.completedAt,wo.clientName,wo.vehicleLabel,
+    wo.vehicleKm,wo.status,wo.description,client?.phone,vehicle?.plate,vehicle?.vin];
+}
+function historyInvoiceFields(inv){
+  const client=CLIENTS.find(c=>String(c.id)===String(inv.customerId)||c.name===inv.customer);
+  const vehicles=Array.isArray(client?.vehicles)?client.vehicles:[];
+  const vehicle=vehicles.find(v=>[v.year,v.make,v.model].filter(Boolean).join(" ")===inv.vehicle);
+  return [inv.number,inv.date,inv.customer,inv.vehicle,inv.job,inv.workOrderNumber,
+    client?.phone,vehicle?.plate,vehicle?.vin,...(Array.isArray(inv.items)?inv.items.map(it=>it.desc):[])];
+}
+function historyWOValue(wo,key){
+  switch(key){
+    case "number":return String(wo.number||"");
+    case "date":{const date=Date.parse(wo.completedAt||wo.date||"");return Number.isFinite(date)?date:null;}
+    case "client":return String(wo.clientName||"");
+    case "vehicle":return String(wo.vehicleLabel||"");
+    case "km":return woDisplayKm(wo).value;
+    case "status":return String(wo.status||"");
+    case "total":return calcWorkOrderTotal(wo);
+    default:return "";
+  }
+}
+function historyInvoiceValue(inv,key){
+  switch(key){
+    case "number":return String(inv.number||"");
+    case "date":{const date=Date.parse(inv.date||"");return Number.isFinite(date)?date:null;}
+    case "client":return String(inv.customer||"");
+    case "vehicle":return String(inv.vehicle||inv.job||"");
+    case "total":return Number(inv.total)||0;
+    case "profit":{
+      const wo=WORKORDERS.find(w=>String(w.number)===String(inv.workOrderNumber));
+      return wo?calcWorkOrderProfit(wo):0;
+    }
+    default:return "";
+  }
+}
+
 /* ===================== HISTORIQUE & DASHBOARD ===================== */
 function renderHistoryTable(){
   const tbody = document.querySelector('#historyTable tbody');
@@ -10633,19 +10687,18 @@ function renderHistoryTable(){
   let totalFacture = 0;
   let totalProfit = 0;
 
-  INVOICES
-    .slice()
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .filter(inv => {
-
-      if (inv.status !== "paid") return false;
-      if (inv.archived !== true) return false;
-      if (filterClient && inv.customer !== filterClient) return false;
-      if (filterVehicle && inv.vehicle !== filterVehicle) return false;
-
-      return true;
-    })
-    .forEach(inv => {
+  const filtered=INVOICES.filter(inv => {
+    if(inv.status!=="paid"||inv.archived!==true)return false;
+    if(filterClient&&inv.customer!==filterClient)return false;
+    if(filterVehicle&&inv.vehicle!==filterVehicle)return false;
+    return historySearchMatches(historyInvoiceFields(inv));
+  });
+  const sorting=S05_HISTORY_SORT.invoice;
+  const sorted=moduleSortRows(filtered,sorting.key,sorting.direction,historyInvoiceValue);
+  moduleRenderSortHeaders($("historyTable"),sorting.key,sorting.direction);
+  const counter=$("historyInvoiceResultCount");
+  if(counter)counter.textContent=sorted.length+" facture"+(sorted.length!==1?"s":"")+" archivée"+(sorted.length!==1?"s":"")+" affichée"+(sorted.length!==1?"s":"");
+  sorted.forEach(inv => {
 
       const tr = document.createElement("tr");
 
@@ -10771,19 +10824,18 @@ function renderWOStatusBadge(status){
   const filterClient = $("filterClient")?.value || "";
 const filterVehicle = $("filterVehicle")?.value || "";
 
-workorders
-  .filter(wo => isWorkOrderArchivedInHistory(wo))
-  .filter(wo => {
-    if (filterClient && wo.clientName !== filterClient) return false;
-    if (filterVehicle && wo.vehicleLabel !== filterVehicle) return false;
-    return true;
-  })
-  .sort((a, b) => {
-  const dateA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
-  const dateB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
-  return dateB - dateA;
-})
-  .forEach(wo => {
+const filtered=workorders.filter(wo => {
+  if(!isWorkOrderArchivedInHistory(wo))return false;
+  if(filterClient&&wo.clientName!==filterClient)return false;
+  if(filterVehicle&&wo.vehicleLabel!==filterVehicle)return false;
+  return historySearchMatches(historyWOFields(wo));
+});
+const sort=S05_HISTORY_SORT.wo;
+const sorted=moduleSortRows(filtered,sort.key,sort.direction,historyWOValue);
+moduleRenderSortHeaders($("historyWOTable"),sort.key,sort.direction);
+const count=$("historyWOResultCount");
+if(count)count.textContent=sorted.length+" bon"+(sorted.length!==1?"s":"")+" de travail archivé"+(sorted.length!==1?"s":"")+" affiché"+(sorted.length!==1?"s":"");
+sorted.forEach(wo => {
   const tr = document.createElement("tr");
 
   const total  = calcWorkOrderTotal(wo);
