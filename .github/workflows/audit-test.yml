@@ -43,5 +43,7 @@ jobs:
         run: node audit/test-s06-preview-integration.cjs
       - name: Validation BT S06 (simulations)
         run: node audit/test-s06-eligibility.cjs
+      - name: Confirmation main oeuvre S06-F05 (simulations)
+        run: node audit/test-s06-posting.cjs
       - name: Proposition serveur S06 V2 (audit statique)
         run: node audit/test-s06-sql-v2.cjs
