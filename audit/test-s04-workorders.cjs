@@ -519,7 +519,7 @@ assert.equal(historyCtx.isWorkOrderArchivedInHistory({...historicalWO,status:'te
 const historyListStart=html.indexOf('function renderHistoryWOTable(){');
 const historyListEnd=html.indexOf('const historyWOTable = document.querySelector',historyListStart);
 assert.ok(historyListStart>0&&historyListEnd>historyListStart);
-assert.ok(html.slice(historyListStart,historyListEnd).includes('.filter(wo => isWorkOrderArchivedInHistory(wo))'));
+assert.match(html.slice(historyListStart,historyListEnd), /(?:\.filter\(wo\s*=>\s*isWorkOrderArchivedInHistory\(wo\)\)|if\s*\(!isWorkOrderArchivedInHistory\(wo\)\)\s*return false)/, 'La liste historique doit exclure les BT non archives');
 const historyFiltersStart=html.indexOf('function populateHistoryFiltersFromWorkOrders(){');
 const historyFiltersEnd=html.indexOf('// Badge Statut pour les WO (historique)',historyFiltersStart);
 assert.ok(html.slice(historyFiltersStart,historyFiltersEnd).includes('.filter(wo => isWorkOrderArchivedInHistory(wo))'));
