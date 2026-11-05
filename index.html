@@ -1038,18 +1038,17 @@ button.link:hover{
     #page-services .s05-catalog select,#page-parts .s05-catalog select{flex:0 1 220px;min-width:160px;width:auto;height:auto;padding:6px;margin:0}
     @media(max-width:700px){.module-search-toolbar input[type="search"],.module-search-toolbar select{flex-basis:100%;width:100%}}
 
-/* S06-F04b : aperçu visuel isolé, AUCUNE minuterie active / Supabase */
-#s06PreviewToggle{font-size:12px;border:1px solid #e0ba00;background:transparent;color:#ffd400;border-radius:17px;padding:6px 10px;white-space:nowrap;cursor:pointer}
-#s06PreviewToggle:focus-visible,#s06PreviewClose:focus-visible{outline:2px solid #fff;outline-offset:2px}
-#s06PreviewPanel{position:fixed;z-index:9500;right:18px;top:83px;width:min(360px,calc(100vw - 36px));background:#1e1e1e;color:#eee;border:1px solid #ffd400;border-radius:10px;padding:17px;box-shadow:0 12px 30px #0009;font-family:inherit}
-#s06PreviewPanel[hidden]{display:none!important}
-#s06PreviewPanel .s06-preview-heading{display:flex;justify-content:space-between;gap:12px;align-items:center;color:#ffd400;font-weight:700}
-#s06PreviewClose{cursor:pointer;background:transparent;border:1px solid #777;border-radius:5px;color:#fff;padding:3px 9px}
-#s06PreviewPanel .s06-preview-note{margin-top:11px;font-size:12px;line-height:1.45;color:#ffdf92}
-#s06PreviewPanel .s06-preview-time{text-align:center;font-variant-numeric:tabular-nums;font-size:35px;font-weight:750;margin:18px 0;color:#fff}
-#s06PreviewPanel .s06-preview-actions{display:flex;gap:10px}
-#s06PreviewPanel .s06-preview-actions button{flex:1;padding:8px;border:1px solid #777;background:#333;color:#bbb;border-radius:6px;cursor:not-allowed}
-@media(max-width:700px){#s06PreviewPanel{top:100px;right:10px;width:calc(100vw - 20px)}}
+/* S06-F04c : panneau global compact, toujours visible sous Menu.
+   Simulation sans acces aux donnees et sans minuteur actif. */
+#s06SidebarTimer{flex:0 0 auto;display:flex;flex-direction:column;gap:6px;background:#202020;color:#eee;border:1px solid #e4bc00;border-radius:9px;padding:10px 9px;margin:0 0 9px;min-width:0;overflow-wrap:anywhere}
+#s06SidebarTimer .s06-timer-label{color:#ffd400;font-size:13px;font-weight:750;letter-spacing:.15px}
+#s06SidebarTimer .s06-timer-status{font-size:11px;color:#ffc875}
+#s06SidebarTimer .s06-timer-details{font-size:11px;color:#dedede;line-height:1.5}
+#s06SidebarTimer .s06-timer-details strong{color:#fff}
+#s06SidebarTimer .s06-timer-time{font-size:27px;font-weight:800;font-variant-numeric:tabular-nums;text-align:center;color:#fff;letter-spacing:.3px;margin:3px 0}
+#s06SidebarTimer .s06-timer-controls{display:flex;gap:5px}
+#s06SidebarTimer .s06-timer-controls button{flex:1;min-width:0;font:600 11px inherit;border-radius:6px;padding:6px 2px;border:1px solid #666;background:#303030;color:#aaa;opacity:.75;cursor:not-allowed}
+#s06SidebarTimer .s06-timer-hint{color:#bbb;font-size:10px;line-height:1.35}
 </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1066,6 +1065,23 @@ button.link:hover{
   <div class="sidebar-header">
     <h2>Menu</h2>
   </div>
+
+  <!-- S06-F04c : panneau visuel permanent, aucune minuterie ni action reelle. -->
+  <section id="s06SidebarTimer" role="region" aria-label="Minuterie S06 — aperçu non actif">
+    <div class="s06-timer-label">⏱ Minuterie</div>
+    <div class="s06-timer-status">● Aperçu — non activée</div>
+    <div class="s06-timer-details">
+      <div><strong>BT :</strong> Aucun BT sélectionné</div>
+      <div><strong>Véhicule :</strong> —</div>
+      <div><strong>Client :</strong> —</div>
+    </div>
+    <div class="s06-timer-time" aria-label="Temps enregistré : zéro">00:00:00</div>
+    <div class="s06-timer-controls">
+      <button type="button" disabled>▶ Démarrer</button>
+      <button type="button" disabled>⏸ Pause</button>
+    </div>
+    <div class="s06-timer-hint">Simulation seulement. Aucun temps enregistré.</div>
+  </section>
 
   <button class="navBtn" data-page="page-dashboard">📊 Dashboard</button>
   <button class="navBtn" data-page="page-workorders">📋 Work Order</button>
@@ -1100,33 +1116,9 @@ button.link:hover{
   Bonjour, Jeremy!
 </span>
   <span id="cloudSyncIndicator" role="status" aria-live="polite" title="État de synchronisation du garage" style="font-size:12px;white-space:nowrap;border:1px solid #666;border-radius:16px;padding:5px 9px;color:#ccc;">☁ Cloud à vérifier</span>
-  <button id="s06PreviewToggle" type="button" aria-controls="s06PreviewPanel" aria-expanded="false" title="Maquette visuelle seulement — aucune donnée modifiée">⏱ Aperçu S06</button>
 </div>
 
   </div>
-
-  <!-- S06-F04b : aperçu visuel sans lecture, ecriture ou temporisateur. -->
-  <aside id="s06PreviewPanel" role="region" aria-label="Aperçu de la minuterie S06" hidden>
-    <div class="s06-preview-heading"><span>⏱ MINUTERIE S06 — APERÇU</span><button id="s06PreviewClose" type="button" aria-label="Fermer l'aperçu">✕</button></div>
-    <div class="s06-preview-note"><strong>Simulation uniquement.</strong> Aucune minute enregistrée. Les commandes seront activées après validation du stockage sécurisé.</div>
-    <div style="margin-top:14px;color:#ffd400;font-size:13px">BT de démonstration</div>
-    <div style="margin-top:3px;font-weight:700">Véhicule et client affichés ici après intégration</div>
-    <div class="s06-preview-time">00:00:00</div>
-    <div class="s06-preview-actions"><button type="button" disabled>▶ Démarrer</button><button type="button" disabled>Terminer</button></div>
-  </aside>
-  <script>
-  // S06-F04b : aperçu autonome, sans accès au stockage ni aux données du garage.
-  (() => {
-    const toggle=document.getElementById('s06PreviewToggle');
-    const panel=document.getElementById('s06PreviewPanel');
-    const close=document.getElementById('s06PreviewClose');
-    if (!toggle || !panel || !close) return;
-    const show=open=>{panel.hidden=!open;toggle.setAttribute('aria-expanded',String(open));};
-    toggle.addEventListener('click',()=>show(panel.hidden));
-    close.addEventListener('click',()=>show(false));
-    document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&!panel.hidden)show(false);});
-  })();
-  </script>
 
   <!-- PAGES -->
   <div id="appPages">
