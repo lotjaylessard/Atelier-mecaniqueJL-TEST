@@ -85,7 +85,7 @@ function proposedWorkNote({quote,description,existingNotes=""}) {
   return Object.freeze({
     marker,
     noteEntry:detail,
-    nextNotes:existingNotes.trim()?existingNotes.replace(/\\s+$/,"")+"\n\n"+detail:detail
+    nextNotes:existingNotes.trim()?existingNotes.replace(/\s+$/,"")+"\n\n"+detail:detail
   });
 }
 // Ne change jamais une ligne de BT : une future RPC atomique devra confirmer.
