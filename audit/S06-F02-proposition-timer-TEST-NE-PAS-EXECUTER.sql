@@ -1,3 +1,5 @@
+-- OBSOLETE / REMPLACEE PAR audit/S06-F02-V2-BT-verification-NE-PAS-EXECUTER.sql
+-- NE PAS EXECUTER : la V1 ne verifie pas l'appartenance ni l'etat du BT cote serveur.
 -- S06-F02 — PROPOSITION UNIQUEMENT — NE PAS EXECUTER SANS AUDIT SUPABASE TEST.
 -- Nouvelle table isolee : ne change aucune table ni aucun JSON existant.
 -- Ne contient ni nom de client ni tarif, seulement identifiants et duree.
