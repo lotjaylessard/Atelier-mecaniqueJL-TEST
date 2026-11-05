@@ -28,7 +28,7 @@ const required=[
   [/GRANT EXECUTE ON FUNCTION public\.s06_timer_transition/,"RPC seulement compte connecte"],
   [/p_action NOT IN \('create','start','heartbeat','pause','recover'\)/,"actions limitees"],
   [/Le BT est immuable/,"BT non transferable"],
-  [/Aucun transfert de main d.oeuvre/,"pas de facturation"];
+  [/Aucun transfert de main d.oeuvre/,"pas de facturation"]];
 for(const [regex,label] of required)assert.match(sql,regex,label);
 assert.ok(!/\b(?:DELETE|TRUNCATE|DROP TABLE)\s+public\.garage_data\b/i.test(sql),"garage_data inchange");
 assert.ok(!/\b(?:ALTER TABLE|UPDATE|INSERT INTO)\s+public\.garage_data\b/i.test(sql),"pas de mutation garage_data");
