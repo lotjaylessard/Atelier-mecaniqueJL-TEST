@@ -23,6 +23,10 @@ button.primary{background:#ffd400;color:#111;font-weight:700}
 button:disabled{opacity:.5;cursor:not-allowed}
 .preview{white-space:pre-wrap;padding:12px;border:1px solid #666;background:#161616;border-radius:7px;margin-top:14px;overflow-wrap:anywhere}
 .error{color:#ff9b87;font-size:13px;min-height:20px}
+.server-receipt-example{background:#1a2735;border:1px solid #6698c5;border-radius:9px;padding:13px;margin-top:13px;color:#dcecfb}
+.server-receipt-example strong{color:#dcecfb}
+.server-receipt-example .example-title{font-size:14px;font-weight:700;color:#9bccff;margin-bottom:8px}
+.server-receipt-example p{margin:6px 0;font-size:13px}
 </style>
 </head>
 <body>
@@ -39,7 +43,15 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <input id="rate" type="number" min="0" step="0.01" value="90.00">
 <div class="summary"><span>Heures facturables</span><strong>1,50 h</strong><span>Taux horaire</span><strong id="shownRate">90,00 $/h</strong><span class="total">Main-d'œuvre à ajouter</span><strong class="total" id="total">135,00 $</strong></div>
 <p class="error" id="error" role="status"></p>
-<div id="result" hidden role="status" aria-live="polite" tabindex="-1"><h2 style="margin-top:20px">✅ Simulation confirmée — note proposée pour le BT</h2><div class="preview" id="note"></div><p class="demo">Aucune donnée enregistrée : aperçu uniquement.</p></div>
+<div id="result" hidden role="status" aria-live="polite" tabindex="-1"><h2 style="margin-top:20px">✅ Simulation confirmée — note proposée pour le BT</h2><div class="preview" id="note"></div><p class="demo">Aucune donnée enregistrée : aperçu uniquement.</p>
+<div class="server-receipt-example" aria-label="Exemple visuel du message final, non réel">
+  <div class="example-title">☁ Exemple du message APRÈS confirmation Supabase — simulation</div>
+  <strong>✅ Intervention enregistrée</strong>
+  <p id="receiptExampleLabor">Main-d’œuvre : 1,50 h — 135,00 $</p>
+  <p>Note technique ajoutée au BT.</p>
+  <p>Employé et date conservés.</p>
+  <p><em>Ce message ne sera affiché dans le vrai logiciel qu'après vérification du serveur.</em></p>
+</div></div>
 <div class="actions"><button id="cancel" type="button">Annuler</button><button id="confirm" class="primary" type="button">Afficher la note (simulation)</button></div>
 </section>
 </main>
@@ -82,6 +94,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
       "Temps confirmé : 1 h 30 min 00 s",
       "Main-d'œuvre : 1,50 h × "+formatNumber.format(rounded)+" $/h = "+formatter.format(Math.round(150*rounded)/100)
     ].join("\n");
+    document.getElementById("receiptExampleLabor").textContent="Main-d’œuvre : 1,50 h — "+formatter.format(Math.round(150*rounded)/100);
     result.hidden=false;
     result.scrollIntoView({behavior:"smooth",block:"center"});
     result.focus({preventScroll:true});
