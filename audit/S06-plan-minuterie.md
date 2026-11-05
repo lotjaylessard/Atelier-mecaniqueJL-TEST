@@ -13,7 +13,7 @@ Etat au 5 novembre 2026 : S06-F01 est une **bibliotheque pure et ses tests**; el
 
 ## Etapes de developpement
 S06-F01 : coeur purement local, tests sans donnees — termine.
-S06-F02 : concevoir stockage Supabase separe, authentification et RLS par utilisateur, contraintes d'unicite, idempotence et controle concurrent CAS/version; migration TEST d'abord. Aucun nouveau champ dans le JSON principal ne doit ecraser un autre appareil.
+S06-F02 : proposition de stockage Supabase separe, RLS par utilisateur, unicite active et CAS/version dans `audit/S06-F02-proposition-timer-TEST-NE-PAS-EXECUTER.sql` ; **code et tests statiques termines, migration PAS appliquee, validation Supabase bloquante**. Aucun nouveau champ dans le JSON principal ne doit ecraser un autre appareil.
 S06-F03 : moteur de persistance : action atomique demarrer, heartbeat, pause, reprise, reconciliation, gestion hors-ligne et conflit. Un etat local non synchronise ne doit PAS etre considere partage.
 S06-F04 : panneau global en entete, information du BT, compteur stable et controles accessibles.
 S06-F05 : transfert idempotent au BT : cle unique de session, validation avant ajout, verrouillage des BT payes/archives, gestion de tarif, temps reel vs facture. Aucun ajout a la facture sans action explicite.
@@ -26,3 +26,9 @@ S06-F06 : tests multi-ordinateur/conflits, fermeture normale et brutale, pertes 
 - Le coeur S06-F01 exprime les transitions, mais n'offre **aucune garantie de CAS, synchronisation ou reprise cross-device sans backend**.
 - Une seule session active par compte doit etre garantie par contrainte transactionnelle cote serveur, pas seulement en JavaScript.
 - Pas de recalcul retroactif d'une facture existante.
+
+## S06-F02 — etat de securite
+- SQL propose, non execute; pas d'autorisation implicite de migration.
+- Les fonctions RPC gardent la revision et l'identite; tout transfert au BT et tout changement facture restent hors de portee.
+- Avant l'application sur TEST : examiner permissions existantes, schema auth et types des BT; ajouter verification de possession et d'etat du BT pour toute future action de demarrage/transfert; valider deux comptes distincts et la fermeture brutale.
+- `posted` est reserve au futur mecanisme de transfert atomique; la RPC F02 ne peut pas le definir.
