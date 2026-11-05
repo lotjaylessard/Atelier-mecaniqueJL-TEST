@@ -57,6 +57,37 @@ function quoteLabor({snapshot,session,rate,description="Main-d'œuvre (minuterie
     proposedLine:Object.freeze(item)
   });
 }
+/**
+ * Une note unique est rattachee au BT, dans son champ wo.notes existant.
+ * Meme identifiant stable que la ligne de main-d'oeuvre pour eviter deux notes.
+ * Cette fonction ne modifie pas la fiche et n'ecrit aucune donnee.
+ */
+function proposedWorkNote({quote,description,existingNotes=""}) {
+  if(!quote||typeof quote.sessionId!=="string"||!quote.sessionId.trim()
+     ||!Number.isSafeInteger(quote.confirmedMs)||quote.confirmedMs<=0)
+    fail("quote","Proposition de temps absente");
+  if(typeof description!=="string"||!description.trim()||description.trim().length>2000)
+    fail("description","La description du travail est obligatoire (2000 caracteres maximum)");
+  if(typeof existingNotes!=="string")fail("notes","Notes du BT invalides");
+  const marker="[S06 minuterie : "+quote.sessionId+"]";
+  if(existingNotes.includes(marker))
+    fail("duplicate","Cette note de minuterie existe deja");
+  const totalSeconds=Math.floor(quote.confirmedMs/1000);
+  const hours=Math.floor(totalSeconds/3600);
+  const minutes=Math.floor(totalSeconds%3600/60);
+  const seconds=totalSeconds%60;
+  const detail=[
+    marker,
+    "Travail effectue : "+description.trim(),
+    "Temps confirme : "+hours+" h "+String(minutes).padStart(2,"0")+" min "+String(seconds).padStart(2,"0")+" s",
+    "Main-d'oeuvre : "+quote.hours.toFixed(2)+" h × "+quote.hourlyRate.toFixed(2)+" $/h = "+quote.total.toFixed(2)+" $"
+  ].join("\n");
+  return Object.freeze({
+    marker,
+    noteEntry:detail,
+    nextNotes:existingNotes.trim()?existingNotes.replace(/\\s+$/,"")+"\n\n"+detail:detail
+  });
+}
 // Ne change jamais une ligne de BT : une future RPC atomique devra confirmer.
 function pauseAction() {
   return Object.freeze({action:"pause",postsLabor:false,requiresConfirmation:false});
@@ -69,4 +100,4 @@ function finishAction(quote,confirmed) {
     sessionId:quote.sessionId,workOrderId:quote.workOrderId,
     expectedConfirmedMs:quote.confirmedMs,proposedLine:quote.proposedLine});
 }
-module.exports={quoteLabor,pauseAction,finishAction,S06PostingError};
+module.exports={quoteLabor,pauseAction,finishAction,proposedWorkNote,S06PostingError};
