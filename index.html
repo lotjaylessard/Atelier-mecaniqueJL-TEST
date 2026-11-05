@@ -993,10 +993,29 @@ button.link:hover{
     .module-search-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
     .module-search-toolbar input[type="search"]{flex:1 1 320px;min-width:200px}
     .module-search-toolbar select{flex:0 1 220px;min-width:160px}
-    .module-sort-button{color:var(--accent);background:transparent;border:1px solid transparent;border-radius:6px;font:inherit;font-weight:700;cursor:pointer;padding:5px 7px;white-space:nowrap}
-    .module-sort-button:hover,.module-sort-button:focus-visible{border-color:var(--accent);outline-offset:2px}
+    .module-sort-button{color:var(--accent);background:transparent;border:1px solid var(--accent);border-radius:6px;font:inherit;font-weight:600;cursor:pointer;padding:4px 6px;white-space:nowrap}
+    .module-sort-button:hover,.module-sort-button:focus-visible{background:rgba(255,212,0,.12);border-color:var(--accent);outline-offset:2px}
     .module-sort-arrow{font-size:.8em;opacity:.8}
     .module-result-count{font-size:.82rem;color:var(--muted);margin-bottom:8px}
+    /* S05-UI-01 : style maitre Bons de travail pour les modules de liste. */
+    #page-workorders .module-search-toolbar,
+    #page-invoice-list .module-search-toolbar,
+    #page-clients .module-search-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+    #page-workorders .module-search-toolbar input,
+    #page-invoice-list .module-search-toolbar input,
+    #page-clients .module-search-toolbar input{
+      background:#111;color:#fff;border:1px solid var(--border);border-radius:5px;
+      padding:6px;flex:1 1 320px;min-width:200px;margin-top:0
+    }
+    #page-workorders .module-search-toolbar select,
+    #page-invoice-list .module-search-toolbar select,
+    #page-clients .module-search-toolbar select{
+      background:#111;color:#fff;border:1px solid var(--border);border-radius:5px;
+      padding:6px;margin-top:0
+    }
+    #page-invoice-list .module-sort-button,
+    #page-clients .module-sort-button{font-size:inherit}
+    #page-workorders .module-result-count{margin-top:2px}
     @media(max-width:700px){.module-search-toolbar input[type="search"],.module-search-toolbar select{flex-basis:100%;width:100%}}
 </style>
 
@@ -1155,7 +1174,7 @@ button.link:hover{
     <div class="page" id="page-workorders">
        <h2>Bons de travail</h2>
       <div class="card" id="woListCard">
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+        <div class="module-search-toolbar">
           <button id="btnNewWorkOrder">➕ Nouveau bon de travail</button>
 
          <input id="woSearch"
@@ -1169,6 +1188,7 @@ button.link:hover{
 </select>
         </div>
 
+        <div id="woResultCount" class="module-result-count" role="status" aria-live="polite"></div>
         <table id="woTable">
           <thead>
             <tr>
@@ -1230,8 +1250,8 @@ button.link:hover{
       <h2>Gestion des clients</h2>
       <div class="card">
         <div class="module-search-toolbar">
+          <button id="btnAddClient" type="button">➕ Ajouter client</button>
           <input id="clientSearch" type="search" aria-label="Rechercher un client" placeholder="🔎 Rechercher : nom, téléphone, courriel, adresse, véhicule, VIN, plaque..." />
-          <button id="btnAddClient" type="button">Ajouter client</button>
         </div>
         <div id="clientResultCount" class="module-result-count" role="status" aria-live="polite"></div>
         <table id="clientsTable">
@@ -6659,6 +6679,8 @@ function renderWorkOrders(){
   if (!tbody) return;
 
   if (!WORKORDERS.length){
+    const counter = $("woResultCount");
+    if(counter) counter.textContent = "0 bon de travail affiché";
     tbody.innerHTML = `
       <tr>
         <td colspan="9" class="muted">Aucun bon de travail pour le moment.</td>
@@ -6697,6 +6719,8 @@ const isPaid = invoice && invoice.status === "paid";
     return !(invoice && invoice.status === "paid");
   });
   const sorted = sortWorkOrderRows(visible);
+  const counter = $("woResultCount");
+  if(counter) counter.textContent = sorted.length + " bon" + (sorted.length !== 1 ? "s" : "") + " de travail affiché" + (sorted.length !== 1 ? "s" : "");
   renderWorkOrderSortHeaders(table);
   sorted
   .forEach(wo => {
