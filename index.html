@@ -1000,21 +1000,25 @@ button.link:hover{
     /* S05-UI-01 : style maitre Bons de travail pour les modules de liste. */
     #page-workorders .module-search-toolbar,
     #page-invoice-list .module-search-toolbar,
-    #page-clients .module-search-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+    #page-clients .module-search-toolbar,
+    #page-vehicles .module-search-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
     #page-workorders .module-search-toolbar input,
     #page-invoice-list .module-search-toolbar input,
-    #page-clients .module-search-toolbar input{
+    #page-clients .module-search-toolbar input,
+    #page-vehicles .module-search-toolbar input{
       background:#111;color:#fff;border:1px solid var(--border);border-radius:5px;
       padding:6px;flex:1 1 320px;min-width:200px;margin-top:0
     }
     #page-workorders .module-search-toolbar select,
     #page-invoice-list .module-search-toolbar select,
-    #page-clients .module-search-toolbar select{
+    #page-clients .module-search-toolbar select,
+    #page-vehicles .module-search-toolbar select{
       background:#111;color:#fff;border:1px solid var(--border);border-radius:5px;
       padding:6px;margin-top:0
     }
     #page-invoice-list .module-sort-button,
-    #page-clients .module-sort-button{font-size:inherit}
+    #page-clients .module-sort-button,
+    #page-vehicles .module-sort-button{font-size:inherit}
     #page-workorders .module-result-count{margin-top:2px}
     @media(max-width:700px){.module-search-toolbar input[type="search"],.module-search-toolbar select{flex-basis:100%;width:100%}}
 </style>
@@ -1273,25 +1277,22 @@ button.link:hover{
     <div class="page" id="page-vehicles">
       <h2>Véhicules</h2>
       <div class="card">
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-          <input id="vehicleSearch" type="text" placeholder="Rechercher un véhicule..." style="flex:1;min-width:200px;" />
-          <button id="btnAddVehicle" type="button">Ajouter véhicule</button>
+        <div class="module-search-toolbar">
+          <button id="btnAddVehicle" type="button">➕ Ajouter véhicule</button>
+          <input id="vehicleSearch" type="search" aria-label="Rechercher un véhicule" placeholder="🔎 Rechercher : client, année, marque, modèle, plaque, VIN, KM..." />
         </div>
-      </div>
-      <div class="card">
+        <div id="vehicleResultCount" class="module-result-count" role="status" aria-live="polite"></div>
         <table id="vehiclesTable">
-          <thead>
-  <tr>
-    <th><button id="sortVehClient" class="ghost">Client ⬍</button></th>
-    <th><button id="sortVehYear" class="ghost">Année ⬍</button></th>
-    <th><button id="sortVehMake" class="ghost">Marque ⬍</button></th>
-    <th><button id="sortVehModel" class="ghost">Modèle ⬍</button></th>
-    <th>Plaque</th>
-    <th>VIN</th>
-    <th>KM</th>
-    <th>Actions</th>
-  </tr>
-</thead>
+          <thead><tr>
+            <th data-module-sort="client" aria-sort="none"><button type="button" id="sortVehClient" class="module-sort-button" data-vehicle-sort="client">Client <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th data-module-sort="year" aria-sort="none"><button type="button" id="sortVehYear" class="module-sort-button" data-vehicle-sort="year">Année <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th data-module-sort="make" aria-sort="none"><button type="button" id="sortVehMake" class="module-sort-button" data-vehicle-sort="make">Marque <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th data-module-sort="model" aria-sort="none"><button type="button" id="sortVehModel" class="module-sort-button" data-vehicle-sort="model">Modèle <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th data-module-sort="plate" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="plate">Plaque <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th data-module-sort="vin" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="vin">VIN <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th data-module-sort="km" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="km">KM <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+            <th>Actions</th>
+          </tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -9081,113 +9082,59 @@ if (btnNewClient) {
 }
 
 
-function renderVehiclesPage(){
-  const tbody = document.querySelector('#vehiclesTable tbody');
-  
-  if(!tbody) return;
-  tbody.innerHTML='';
-
-  const q = ($("vehicleSearch")?.value || "").toLowerCase();
-
-
-
-  // 1️⃣ Aplatir les véhicules
-const vehiclesFlat = [];
-
-CLIENTS.forEach(c => {
-  (c.vehicles || []).forEach(v => {
-    vehiclesFlat.push({
-  clientId: c.id,
-  vehicleId: v.id,
-
-  clientLastName: c.lastName || "",
-  clientFirstName: c.firstName || "",
-  clientNameDisplay: `${c.lastName || ""}${c.firstName ? ", " + c.firstName : ""}`.trim(),
-
-  year: Number(v.year || 0),
-  make: v.make || "",
-  model: v.model || "",
-  plate: v.plate || "",
-  vin: v.vin || "",
-  km: v.km || ""
-    });
-  });
-});
-
-// 2️⃣ Trier
-vehiclesFlat.sort((a, b) => {
-  let va = "";
-  let vb = "";
-
-  switch (VEHICLES_SORT.key) {
-    case "client":
-  va = a.clientLastName;
-  vb = b.clientLastName;
-  break;
-    case "make":
-      va = a.make;
-      vb = b.make;
-      break;
-    case "model":
-      va = a.model;
-      vb = b.model;
-      break;
-    case "year":
-      va = a.year;
-      vb = b.year;
-      break;
+/* S05-F04 : recherche et tri en lecture seule des vehicules. */
+function vehicleSortValue(v,key){
+  if(key==="year") return Number(v.year) || 0;
+  if(key==="km"){
+    const n=Number(String(v.km??"").replace(/[\s\u00a0]/g,"").replace(",","."));
+    return Number.isFinite(n)?n:null;
   }
-
-  if (typeof va === "number") {
-    return (va - vb) * VEHICLES_SORT.dir;
-  }
-
-  return va.localeCompare(vb, "fr", { sensitivity: "base" }) * VEHICLES_SORT.dir;
-});
-
-// 3️⃣ Afficher
-vehiclesFlat.forEach(v => {
-
-  // 🔍 Filtre recherche
-  if (q) {
-    const hay = `
-      ${v.clientNameDisplay}
-      ${v.year}
-      ${v.make}
-      ${v.model}
-      ${v.plate}
-      ${v.vin}
-      ${v.km}
-    `.toLowerCase();
-
-    if (!hay.includes(q)) return;
-  }
-
-  const tr = document.createElement("tr");
-  tr.innerHTML = `
-    <td>
-      <button class="link"
-        onclick="openClientFromVehicles('${v.clientId}')">
-        ${v.clientNameDisplay}
-      </button>
-    </td>
-    <td>${v.year || ""}</td>
-    <td>${v.make}</td>
-    <td>${v.model}</td>
-    <td>${v.plate}</td>
-    <td>${v.vin}</td>
-    <td>${v.km}</td>
-    <td>
-  <button class="ghost"
-  onclick="openVehicleModal('${v.clientId}','${v.vehicleId}')">
-  Fiche
-</button>
-</td>
-  `;
-  tbody.appendChild(tr);
-});
+  return String(v[key]??"");
 }
-
+function renderVehiclesPage(){
+  const table=$("vehiclesTable"),tbody=table?.querySelector("tbody");
+  if(!tbody)return;
+  const query=$("vehicleSearch")?.value||"";
+  const vehicles=[];
+  CLIENTS.forEach(c=>{
+    (Array.isArray(c.vehicles)?c.vehicles:[]).forEach(v=>vehicles.push({
+      clientId:c.id,vehicleId:v.id,
+      client:c.lastName||c.firstName
+        ? `${c.lastName||""}${c.firstName?", "+c.firstName:""}`.replace(/^, /,"")
+        : (c.name||""),
+      customerName:c.name||"",
+      year:Number(v.year||0),make:v.make||"",model:v.model||"",
+      plate:v.plate||"",vin:v.vin||"",km:v.km??""
+    }));
+  });
+  const filtered=vehicles.filter(v=>moduleMatchesSearch(
+    [v.client,v.customerName,v.year,v.make,v.model,v.plate,v.vin,v.km],query
+  ));
+  const direction=VEHICLES_SORT.dir===-1?"desc":"asc";
+  const sorted=moduleSortRows(filtered,VEHICLES_SORT.key,direction,vehicleSortValue);
+  moduleRenderSortHeaders(table,VEHICLES_SORT.key,direction);
+  const count=$("vehicleResultCount");
+  if(count)count.textContent=sorted.length+" véhicule"+(sorted.length!==1?"s":"")+" affiché"+(sorted.length!==1?"s":"");
+  tbody.innerHTML="";
+  if(!sorted.length){
+    tbody.innerHTML='<tr><td colspan="8" class="muted" style="text-align:center;padding:20px;">Aucun véhicule ne correspond à la recherche.</td></tr>';
+    return;
+  }
+  sorted.forEach(v=>{
+    const tr=document.createElement("tr"),owner=document.createElement("td");
+    const ownerButton=document.createElement("button");
+    ownerButton.type="button";ownerButton.className="link";ownerButton.textContent=v.client;
+    ownerButton.onclick=()=>openClientFromVehicles(v.clientId);
+    owner.appendChild(ownerButton);tr.appendChild(owner);
+    for(const val of [v.year||"",v.make,v.model,v.plate,v.vin,v.km]){
+      const td=document.createElement("td");td.textContent=String(val);tr.appendChild(td);
+    }
+    const actions=document.createElement("td"),btn=document.createElement("button");
+    btn.type="button";btn.className="ghost";btn.textContent="Fiche";
+    btn.onclick=()=>openVehicleModal(v.clientId,v.vehicleId);
+    actions.appendChild(btn);tr.appendChild(actions);tbody.appendChild(tr);
+  });
+}
 
   function renderVehicles(){
   renderVehiclesPage();
@@ -9256,53 +9203,23 @@ function closeAddVehicleModal(){
 }
 
 
-  function updateVehicleSortLabels(){
-  const map = {
-    sortVehClient: "Client",
-    sortVehMake: "Marque",
-    sortVehModel: "Modèle",
-    sortVehYear: "Année"
-  };
-
-  Object.keys(map).forEach(id => {
-    const btn = $(id);
-    if (!btn) return;
-
-    let key = "";
-    if (id === "sortVehClient") key = "client";
-    if (id === "sortVehMake")   key = "make";
-    if (id === "sortVehModel")  key = "model";
-    if (id === "sortVehYear")   key = "year";
-
-    btn.textContent =
-      map[id] +
-      (VEHICLES_SORT.key === key
-        ? (VEHICLES_SORT.dir === 1 ? " ⬆️" : " ⬇️")
-        : " ⬍");
+function updateVehicleSortLabels(){
+  const table=$("vehiclesTable");
+  if(table)moduleRenderSortHeaders(table,VEHICLES_SORT.key,VEHICLES_SORT.dir===-1?"desc":"asc");
+}
+function bindVehicleSort(){
+  const table=$("vehiclesTable");
+  if(!table)return;
+  table.querySelectorAll("button[data-vehicle-sort]").forEach(btn=>{
+    btn.onclick=()=>{
+      const key=btn.dataset.vehicleSort;
+      if(!["client","year","make","model","plate","vin","km"].includes(key))return;
+      if(VEHICLES_SORT.key===key)VEHICLES_SORT.dir*=-1;
+      else{VEHICLES_SORT.key=key;VEHICLES_SORT.dir=1;}
+      renderVehiclesPage();
+    };
   });
 }
-
-  
-function bindVehicleSort(){
-  const bind = (id, key) => {
-    const btn = $(id);
-    if (!btn) return;
-
-    btn.onclick = () => {
-      if (VEHICLES_SORT.key === key) VEHICLES_SORT.dir *= -1;
-      else { VEHICLES_SORT.key = key; VEHICLES_SORT.dir = 1; }
-
-      renderVehiclesPage();
-      updateVehicleSortLabels();
-    };
-  };
-
-  bind("sortVehClient", "client");
-  bind("sortVehMake", "make");
-  bind("sortVehModel", "model");
-  bind("sortVehYear", "year");
-}
-
 
 /* S05-F03 : recherche et tri des clients avec composants communs */
 let CLIENT_SORT_KEY = "name";
