@@ -2424,22 +2424,6 @@ function normalizeInvoiceTaxes(inv){
 }
 
 
-/* ===================== RENDU LIVE DES TOTAUX FACTURE ===================== */
-function renderInvoiceTotals(inv, container){
-  if (!container) return;
-
-  const elSub = container.querySelector("#invSubTotal");
-  const elGST = container.querySelector("#invGST");
-  const elQST = container.querySelector("#invQST");
-  const elTot = container.querySelector("#invTotal");
-
-  if (elSub) elSub.textContent = money(inv.subTotal) + " $";
-  if (elGST) elGST.textContent = money(inv.gst) + " $";
-  if (elQST) elQST.textContent = money(inv.qst) + " $";
-  if (elTot) elTot.textContent = money(inv.total) + " $";
-}
-
-
 /* ===================== FACTURES – RENDU UNIQUE ===================== */
 function renderInvoiceSummary(inv){
   if (!inv) return '<div class="muted">Facture introuvable.</div>';
@@ -6233,11 +6217,6 @@ function backToWorkOrdersList(){
   if ($("woListCard")) $("woListCard").style.display = "block";
   if ($("woDetailCard")) $("woDetailCard").style.display = "none";
 }
-
-
-function bindWOTimerUI(){
-  // temporaire : évite le crash global
-}
   
   
   /* Rendu des lignes d’un WO */
@@ -8502,17 +8481,7 @@ function renderInvoiceList(){
               ? "status-partial"
               : "status-unpaid"
         }">
-          ${
-            inv.status === "paid"
-              ? (inv.paymentMethod === "cash"
-                  ? "Payée (Comptant)"
-                  : inv.paymentMethod === "transfer"
-                    ? "Payée (Virement)"
-                    : "Payée")
-              : inv.status === "partial"
-                ? "Partielle"
-                : "Impayée"
-          }
+                    ${invoiceStatusLabel(inv)}
         </span>
       </td>
       <td style="text-align:right;">
@@ -8568,17 +8537,7 @@ function updateInvoiceRow(inv){
         ? "status-partial"
         : "status-unpaid"
   }">
-    ${
-      inv.status === "paid"
-        ? (inv.paymentMethod === "cash"
-            ? "Payée (Comptant)"
-            : inv.paymentMethod === "transfer"
-              ? "Payée (Virement)"
-              : "Payée")
-        : inv.status === "partial"
-          ? "Partielle"
-          : "Impayée"
-    }
+        ${invoiceStatusLabel(inv)}
   </span>
 `.trim();
   }
@@ -11826,17 +11785,7 @@ ${inv.discount && inv.discount > 0 ? `
 ">
   <div class="muted">
     Statut :
-    <b>${
-      inv.status === "paid"
-        ? (inv.paymentMethod === "cash"
-            ? "Payée (Comptant)"
-            : inv.paymentMethod === "transfer"
-              ? "Payée (Virement)"
-              : "Payée")
-        : inv.status === "partial"
-          ? "Partielle"
-          : "Impayée"
-    }</b>
+        <b>${invoiceStatusLabel(inv)}</b>
   </div>
 
   <div class="no-print">
@@ -13179,6 +13128,33 @@ function invoicePaymentMethodLabel(method) {
   };
   return labels[method] || "Non spécifié";
 }
+
+
+/* S05-F02 : statut uniforme des factures */
+function invoiceStatusLabel(inv) {
+  if (inv.status === "partial") return "Partielle";
+  if (inv.status !== "paid") return "Impayée";
+
+  const payments = Array.isArray(inv.payments)
+    ? inv.payments
+    : [];
+
+  const methods = [...new Set(
+    payments.map(p => p.method || "unspecified")
+  )];
+
+  // Compatibilité avec les anciennes factures
+  if (methods.length === 0) {
+    methods.push(inv.paymentMethod || "unspecified");
+  }
+
+  if (methods.length > 1) {
+    return "Payée (Multiple)";
+  }
+
+  return `Payée (${invoicePaymentMethodLabel(methods[0])})`;
+}
+
 
 function markInvoicePartial(number, method){
   // S03-F01 : ne rien modifier avant la validation complète.
