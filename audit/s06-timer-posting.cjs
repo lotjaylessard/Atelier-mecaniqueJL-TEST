@@ -62,13 +62,21 @@ function quoteLabor({snapshot,session,rate,description="Main-d'œuvre (minuterie
  * Meme identifiant stable que la ligne de main-d'oeuvre pour eviter deux notes.
  * Cette fonction ne modifie pas la fiche et n'ecrit aucune donnee.
  */
-function proposedWorkNote({quote,description,existingNotes=""}) {
+function proposedWorkNote({quote,description,existingNotes="",actorId,actorName,confirmedAt}) {
   if(!quote||typeof quote.sessionId!=="string"||!quote.sessionId.trim()
      ||!Number.isSafeInteger(quote.confirmedMs)||quote.confirmedMs<=0)
     fail("quote","Proposition de temps absente");
   if(typeof description!=="string"||!description.trim()||description.trim().length>2000)
     fail("description","La description du travail est obligatoire (2000 caracteres maximum)");
   if(typeof existingNotes!=="string")fail("notes","Notes du BT invalides");
+  // L'identite doit provenir de la session authentifiee cote serveur,
+  // jamais d'un nom saisi librement dans le formulaire.
+  if(typeof actorId!=="string"||!actorId.trim()||
+     typeof actorName!=="string"||!actorName.trim()||actorName.trim().length>100)
+    fail("actor","Identite de l'employe absente ou invalide");
+  if(typeof confirmedAt!=="string"||!/^\\d{4}-\\d{2}-\\d{2}T/.test(confirmedAt)||
+     !Number.isFinite(Date.parse(confirmedAt)))
+    fail("date","Date de confirmation invalide");
   const marker="[S06 minuterie : "+quote.sessionId+"]";
   if(existingNotes.includes(marker))
     fail("duplicate","Cette note de minuterie existe deja");
@@ -78,6 +86,8 @@ function proposedWorkNote({quote,description,existingNotes=""}) {
   const seconds=totalSeconds%60;
   const detail=[
     marker,
+    "Intervention confirmee le : "+confirmedAt,
+    "Effectue par : "+actorName.trim()+" (compte : "+actorId.trim()+")",
     "Travail effectue : "+description.trim(),
     "Temps confirme : "+hours+" h "+String(minutes).padStart(2,"0")+" min "+String(seconds).padStart(2,"0")+" s",
     "Main-d'oeuvre : "+quote.hours.toFixed(2)+" h × "+quote.hourlyRate.toFixed(2)+" $/h = "+quote.total.toFixed(2)+" $"
