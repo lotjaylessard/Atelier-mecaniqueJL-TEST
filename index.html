@@ -1058,6 +1058,14 @@ button.link:hover{
 #s06SidebarTimer .s06-timer-controls{display:flex;gap:5px}
 #s06SidebarTimer .s06-timer-controls button{flex:1;min-width:0;font-size:11px;font-family:inherit;font-weight:600;border-radius:6px;padding:5px 2px;border:1px solid #666;background:#303030;color:#aaa;opacity:.75;cursor:not-allowed}
 #s06SidebarTimer .s06-timer-hint{color:#bbb;font-size:10px;line-height:1.25}
+#s06SidebarTimer[hidden]{display:none!important}
+#s06SidebarTimer[data-status="running"]{border-color:#55b76b}
+#s06SidebarTimer[data-status="running"] .s06-timer-status{color:#78df90}
+#s06SidebarTimer[data-status="paused"]{border-color:#e4bc00}
+#s06SidebarTimer[data-status="paused"] .s06-timer-status{color:#ffc875}
+#s06TimerWorkOrder{background:none;border:0;color:#ffd400;text-decoration:underline;text-underline-offset:2px;cursor:pointer;padding:0;text-align:left;font:inherit;font-size:11px;overflow-wrap:anywhere}
+#s06TimerWorkOrder:focus-visible{outline:2px solid #fff;outline-offset:2px}
+
 @media(max-height:730px){#sidebar{gap:4px;padding-top:8px}#sidebar > .navBtn{min-height:26px;padding:5px 8px}#s06SidebarTimer{gap:3px;padding:6px}}
 </style>
 
@@ -1077,19 +1085,15 @@ button.link:hover{
   </div>
 
   <!-- S06-F04c : panneau visuel permanent, aucune minuterie ni action reelle. -->
-  <section id="s06SidebarTimer" role="region" aria-label="Minuterie S06 — aperçu non actif">
-    <div class="s06-timer-head"><span class="s06-timer-label">⏱ Minuterie</span><span class="s06-timer-status">● Inactive</span></div>
+  <section id="s06SidebarTimer" role="region" aria-label="Suivi local de la minuterie du bon de travail" hidden>
+    <div class="s06-timer-head"><span class="s06-timer-label">⏱ Minuterie</span><span id="s06TimerStatus" class="s06-timer-status">● En cours</span></div>
     <div class="s06-timer-details">
-      <div><strong># BT :</strong> Aucun</div>
-      <div><strong>Véhicule :</strong> —</div>
-      <div class="s06-timer-description" title="Description du bon de travail"><strong>Description :</strong> —</div>
+      <div><strong># BT :</strong> <button id="s06TimerWorkOrder" type="button" title="Ouvrir ce bon de travail"></button></div>
+      <div><strong>Véhicule :</strong> <span id="s06TimerVehicle"></span></div>
+      <div class="s06-timer-description" id="s06TimerDescription" title="Description du bon de travail"><strong>Description :</strong> <span></span></div>
     </div>
-    <div class="s06-timer-time" aria-label="Temps enregistré : zéro">00:00:00</div>
-    <div class="s06-timer-controls">
-      <button type="button" disabled>▶ Démarrer</button>
-      <button type="button" disabled>⏸ Pause</button>
-    </div>
-    <div class="s06-timer-hint">Aperçu seulement — temps non enregistré.</div>
+    <div class="s06-timer-time" id="s06TimerTime" aria-live="off">00:00:00</div>
+    <div class="s06-timer-hint">Suivi local seulement — pas encore synchronisé entre appareils.</div>
   </section>
 
   <button class="navBtn" data-page="page-dashboard">📊 Dashboard</button>
@@ -13493,6 +13497,100 @@ if (window.garageSupabase) {
 }
 
   
+</script>
+
+<!-- S06-F04e : miroir visuel du minuteur EXISTANT; aucune commande sur le BT. -->
+<script>
+(() => {
+  "use strict";
+  const box=document.getElementById("s06SidebarTimer");
+  const status=document.getElementById("s06TimerStatus");
+  const number=document.getElementById("s06TimerWorkOrder");
+  const vehicle=document.getElementById("s06TimerVehicle");
+  const desc=document.querySelector("#s06TimerDescription span");
+  const time=document.getElementById("s06TimerTime");
+  if(!box||!status||!number||!vehicle||!desc||!time)return;
+  let activeId=null;
+  let activeMetadata=null;
+  const pad=x=>String(x).padStart(2,"0");
+  const formatted=ms=>{
+    const total=Math.floor(Math.max(0,ms)/1000);
+    return pad(Math.floor(total/3600))+":"+pad(Math.floor(total/60)%60)+":"+pad(total%60);
+  };
+  // Les deux implementations historiques du minuteur sont observees, jamais pilotees.
+  function state(){
+    try{
+      if(typeof WO_TIMER_INTERVAL!=="undefined" && WO_TIMER_INTERVAL &&
+         typeof WO_TIMER_START==="number")
+        return {running:true,ms:Math.max(0,Date.now()-WO_TIMER_START)};
+      if(typeof WO_TIMER_PAUSED!=="undefined" && WO_TIMER_PAUSED &&
+         typeof WO_TIMER_ELAPSED==="number")
+        return {running:false,paused:true,ms:WO_TIMER_ELAPSED};
+      if(typeof WO_TIMER!=="undefined" && WO_TIMER &&
+         WO_TIMER.running && Number.isFinite(WO_TIMER.startTime))
+        return {running:true,ms:Math.max(0,Date.now()-WO_TIMER.startTime+Number(WO_TIMER.elapsed||0))};
+      if(typeof WO_TIMER!=="undefined" && WO_TIMER &&
+         !WO_TIMER.running && Number(WO_TIMER.elapsed)>0)
+        return {running:false,paused:true,ms:WO_TIMER.elapsed};
+    }catch(_ignored){}
+    return null;
+  }
+  function metadata(id){
+    if(!id)return null;
+    try{
+      const wo=(typeof WORKORDERS!=="undefined"&&Array.isArray(WORKORDERS))
+        ? WORKORDERS.find(w=>w&&String(w.id)===String(id)):null;
+      if(!wo||wo.status!=="en_cours")return null;
+      return {id:String(wo.id),number:String(wo.number||"—"),
+        vehicle:String(wo.vehicleLabel||"—"),description:String(wo.description||"—")};
+    }catch(_ignored){return null;}
+  }
+  function refresh(){
+    const current=state();
+    if(!current){
+      activeId=null;activeMetadata=null;box.hidden=true;
+      return;
+    }
+    if(!activeId||!activeMetadata){
+      box.hidden=true;return;
+    }
+    const latest=metadata(activeId);
+    if(!latest){box.hidden=true;return;}
+    activeMetadata=latest;
+    box.hidden=false;
+    box.dataset.status=current.running?"running":"paused";
+    status.textContent=current.running?"● En cours":"● En pause";
+    number.textContent=latest.number;
+    vehicle.textContent=latest.vehicle;
+    desc.textContent=latest.description;
+    const descriptionWrapper=document.getElementById("s06TimerDescription");
+    if(descriptionWrapper)descriptionWrapper.title=latest.description;
+    time.textContent=formatted(current.ms);
+  }
+  document.addEventListener("click",event=>{
+    const target=event.target;
+    if(!(target instanceof Element))return;
+    const timerButton=target.closest("#woTimerBtn,#woTimerPauseBtn,#woTimerStopBtn");
+    if(!timerButton)return;
+    const chosenId=document.getElementById("woEditId")?.value;
+    const chosen=metadata(chosenId);
+    // Lecture APRES les gestionnaires historiques, sans les remplacer.
+    setTimeout(()=>{
+      if(timerButton.id==="woTimerBtn" && chosen && state()){
+        activeId=chosen.id;activeMetadata=chosen;
+      }
+      refresh();
+    },0);
+  });
+  number.addEventListener("click",()=>{
+    if(!activeId || !metadata(activeId))return;
+    if(typeof openWorkOrderFromDashboard==="function")
+      openWorkOrderFromDashboard(activeId);
+  });
+  // Rafraichit seulement le miroir visuel : ne demarre aucun chronometre.
+  setInterval(refresh,500);
+  refresh();
+})();
 </script>
 
 <!-- MODAL D'ÉDITION DE LIGNE -->
