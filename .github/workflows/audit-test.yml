@@ -53,3 +53,5 @@ jobs:
         run: node audit/test-s06-sql-v2.cjs
       - name: Proposition transfert S06-F05 (audit statique SQL non execute)
         run: node audit/test-s06-sql-posting.cjs
+      - name: Confirmation serveur S06-F05 apres relecture (simulation)
+        run: node audit/test-s06-confirmation-guard.cjs
