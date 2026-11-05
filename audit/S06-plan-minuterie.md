@@ -48,3 +48,11 @@ S06-F06 : tests multi-ordinateur/conflits, fermeture normale et brutale, pertes 
 - Supabase Free : sauvegardes automatiques non incluses. Les sauvegardes JSON et mecanismes de reprise deja construits sont a preserver, mais ne constituent pas un dump PostgreSQL ni une restauration eprouvee de cette migration.
 - Avant toute execution SQL, obtenir une sauvegarde/export effectivement recuperable sans exiger de changement d'abonnement et verifier la migration par une revue de syntaxe et de permissions. Toute mutation doit etre limitative et reversible.
 - Integrer le module nouveau progressivement; **index.html reste inchange tant que la couche serveur n'est pas confirmee**. Eviter de reutiliser les anciennes fonctions WO_TIMER_* sans audit exact des gestionnaires.
+
+## S06-F05 — Decision du 5 novembre : pause vs terminer et ajouter
+- Le bouton **Pause** conserve uniquement le temps mesure; n'ajoute jamais de ligne au BT.
+- **Terminer et ajouter au BT** ouvre un dialogue de confirmation montrant duree et taux horaire avant toute mutation.
+- Une unique ligne identifiee par `timerSessionId` est autorisee, avec verification de l'absence de facture (y compris impayee) et du statut en_cours.
+- Premiere couche preparee et testee : `audit/s06-timer-posting.cjs` calcule une proposition pure, sans ecrire quoi que ce soit; `audit/test-s06-posting.cjs` couvre les refus de doublon et les cas invalides.
+- **Pas encore branche au logiciel ni au Supabase** : le commit de la ligne et de l'etat de session devra etre atomique (une seule transaction CAS sur garage_data et timer). Ne pas reutiliser l'ancien Stop qui ajoute immediatement de la main-d'oeuvre.
+- Interface validee dans Chrome : panneau masque sans minuterie, affiche en cours, pause orange, lien vers BT; elle observe l'ancienne minuterie et ne constitue pas encore une persistance multi-appareil.
