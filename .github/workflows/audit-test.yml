@@ -37,3 +37,5 @@ jobs:
         run: node audit/test-s06-storage.cjs
       - name: Adaptateur S06-F03 (Supabase simule)
         run: node audit/test-s06-client.cjs
+      - name: Panneau global S06-F04 (maquette isolee)
+        run: node audit/test-s06-panel.cjs
