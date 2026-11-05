@@ -11,10 +11,18 @@ class S06TimerError extends Error {
 function ensureResponse(data,error){
   if(error)throw new S06TimerError(error.code==="40001"?"conflict":"remote",
     error.message||"Opération non confirmée");
-  if(!data || typeof data!=="object" || typeof data.id!=="string" ||
+  if(!data || typeof data!=="object" || Array.isArray(data) ||
+     typeof data.id!=="string" || !data.id.trim() ||
+     typeof data.user_id!=="string" || !data.user_id.trim() ||
+     typeof data.garage_id!=="string" || !data.garage_id.trim() ||
+     typeof data.work_order_id!=="string" || !data.work_order_id.trim() ||
      !Number.isSafeInteger(Number(data.revision)) || Number(data.revision)<0 ||
      !["paused","running","posted"].includes(data.status) ||
-     !Number.isSafeInteger(Number(data.confirmed_ms)) || Number(data.confirmed_ms)<0)
+     !Number.isSafeInteger(Number(data.confirmed_ms)) || Number(data.confirmed_ms)<0 ||
+     (data.status==="running" && typeof data.last_heartbeat_at!=="string") ||
+     (data.status==="paused" && data.last_heartbeat_at!=null) ||
+     (data.status==="posted" && (data.last_heartbeat_at!=null ||
+       typeof data.posted_labor_id!=="string" || !data.posted_labor_id.trim())))
     throw new S06TimerError("invalid","Réponse Supabase invalide");
   return {...data,revision:Number(data.revision),confirmed_ms:Number(data.confirmed_ms)};
 }
@@ -33,7 +41,7 @@ function createAdapter({client,uid,isOnline=()=>true}){
   };
   const read=async()=>withLock(async()=>{
     const {data,error:remoteError}=await client.from("garage_timer_sessions")
-      .select("id,user_id,work_order_id,status,confirmed_ms,last_heartbeat_at,revision,posted_labor_id,updated_at")
+      .select("id,user_id,garage_id,work_order_id,status,confirmed_ms,last_heartbeat_at,revision,posted_labor_id,updated_at")
       .eq("user_id",uid).order("updated_at",{ascending:false});
     if(remoteError)throw new S06TimerError("remote",remoteError.message||"Lecture impossible");
     if(!Array.isArray(data)||data.some(row=>row.user_id!==uid))
@@ -63,6 +71,10 @@ function createAdapter({client,uid,isOnline=()=>true}){
     const confirmed=ensureResponse(data,remoteError);
     if(confirmed.user_id!==uid)
       throw new S06TimerError("invalid","Compte de retour différent");
+    if(action==="create" && (confirmed.work_order_id!==workOrderId.trim() ||
+         confirmed.status!=="paused" || confirmed.revision!==0 ||
+         confirmed.confirmed_ms!==0))
+      throw new S06TimerError("invalid","Création distante incohérente");
     if(action==="create"){
       cache=[confirmed,...(cache||[])];
     }else{
