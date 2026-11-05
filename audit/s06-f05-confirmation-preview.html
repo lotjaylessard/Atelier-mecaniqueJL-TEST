@@ -32,6 +32,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <section class="panel">
 <h2>BT-DEMO-001 — Mazda Miata</h2>
 <div class="summary"><span>Temps confirmé</span><strong>1 h 30 min</strong></div>
+<div class="summary"><span>Employé (compte connecté)</span><strong>Employé TEST</strong><span>Date de confirmation</span><strong id="confirmationDate">—</strong></div>
 <label for="description">Description du travail effectué *</label>
 <textarea id="description" maxlength="2000" placeholder="Ex. : Remplacement des plaquettes avant, nettoyage et essai routier."></textarea>
 <label for="rate">Taux horaire ($/h)</label>
@@ -51,6 +52,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
   const total=document.getElementById("total");
   const shown=document.getElementById("shownRate");
   const result=document.getElementById("result");
+  const confirmedAt=new Date();
+  document.getElementById("confirmationDate").textContent=new Intl.DateTimeFormat("fr-CA",{dateStyle:"medium",timeStyle:"short",timeZone:"America/Toronto"}).format(confirmedAt);
   const formatter=new Intl.NumberFormat("fr-CA",{style:"currency",currency:"CAD"});
   const formatNumber=new Intl.NumberFormat("fr-CA",{minimumFractionDigits:2,maximumFractionDigits:2});
   function refresh(){
@@ -73,6 +76,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
     const rounded=Math.round(Number(rate.value)*100)/100;
     document.getElementById("note").textContent=[
       "[S06 minuterie : session fictive]",
+      "Date : "+document.getElementById("confirmationDate").textContent,
+      "Effectué par : Employé TEST (simulation)",
       "Travail effectué : "+work,
       "Temps confirmé : 1 h 30 min 00 s",
       "Main-d'œuvre : 1,50 h × "+formatNumber.format(rounded)+" $/h = "+formatter.format(Math.round(150*rounded)/100)
