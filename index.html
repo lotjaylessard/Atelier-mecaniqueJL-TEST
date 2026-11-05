@@ -1115,7 +1115,7 @@ button.link:hover{
     <div class="s06-preview-actions"><button type="button" disabled>▶ Démarrer</button><button type="button" disabled>Terminer</button></div>
   </aside>
   <script>
-  // S06-F04b : IIFE autonome, ne touche ni WO_TIMER_*, ni stockage local, ni Supabase.
+  // S06-F04b : aperçu autonome, sans accès au stockage ni aux données du garage.
   (() => {
     const toggle=document.getElementById('s06PreviewToggle');
     const panel=document.getElementById('s06PreviewPanel');
