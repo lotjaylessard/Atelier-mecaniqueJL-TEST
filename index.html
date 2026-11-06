@@ -13202,7 +13202,77 @@ clone.querySelectorAll("h3").forEach(h=>{
     </head>
     <body>
       ${clone.innerHTML}
-    </body>
+    <!-- S06-F03 read-only opt-in : OFF par defaut, aucun controle de minuterie. -->
+<script>
+(() => {
+  "use strict";
+  // TEST seulement. Il faut ajouter ?s06_readonly=1 manuellement a l'URL.
+  // Le mode est ephemere et ne change ni BT, ni facture, ni timer historique.
+  if(new URLSearchParams(window.location.search).get("s06_readonly")!=="1")return;
+  const panel=document.createElement("aside");
+  panel.id="s06ReadOnlyDiagnostic";
+  panel.style.cssText="position:fixed;right:16px;bottom:16px;width:min(340px,calc(100vw - 32px));max-height:50vh;overflow:auto;z-index:9999;background:#172637;color:#e6f1ff;border:1px solid #74a6dd;border-radius:10px;padding:12px;box-shadow:0 3px 16px #0008;font:13px system-ui,sans-serif";
+  const header=document.createElement("div");
+  header.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:10px";
+  const title=document.createElement("strong");
+  title.textContent="S06 — Diagnostic lecture seule";
+  const close=document.createElement("button");
+  close.type="button";close.textContent="Fermer";
+  close.style.cssText="padding:5px 8px;background:transparent;border:1px solid #74a6dd;border-radius:5px;color:inherit;cursor:pointer";
+  close.addEventListener("click",()=>panel.remove());
+  header.append(title,close);
+  const info=document.createElement("p");
+  info.textContent="Aucune action sur la minuterie ou les bons de travail.";
+  info.style.margin="8px 0";
+  const output=document.createElement("div");
+  output.setAttribute("role","status");
+  output.textContent="Lecture non lancée.";
+  const refresh=document.createElement("button");
+  refresh.type="button";refresh.textContent="Actualiser les sessions";
+  refresh.style.cssText="margin:8px 0;padding:6px 10px;background:#315b86;color:#fff;border:1px solid #74a6dd;border-radius:6px;cursor:pointer";
+  panel.append(header,info,refresh,output);
+  document.body.append(panel);
+  let busy=false;
+  async function readOnly(){
+    if(busy || !panel.isConnected)return;
+    busy=true;refresh.disabled=true;output.textContent="Lecture en cours…";
+    try{
+      const client=window.garageSupabase;
+      if(!client || typeof client.auth?.getUser!=="function" || typeof client.from!=="function")
+        throw new Error("Supabase non prêt : réessayer après connexion.");
+      const {data:auth,error:authError}=await client.auth.getUser();
+      if(authError || !auth?.user?.id)throw new Error("Compte connecté non confirmé.");
+      const {data, error}=await client.from("garage_timer_sessions")
+        .select("id,user_id,garage_id,work_order_id,status,confirmed_ms,revision,updated_at")
+        .eq("user_id",auth.user.id)
+        .order("updated_at",{ascending:false})
+        .limit(15);
+      if(error)throw new Error("Lecture Supabase refusée : "+error.message);
+      if(!Array.isArray(data)||data.some(row=>row.user_id!==auth.user.id))
+        throw new Error("Réponse incohérente : aucun résultat affiché.");
+      // Afficher uniquement un compte et le nombre de sessions, sans HTML issu du cloud.
+      output.replaceChildren();
+      const count=document.createElement("p");
+      count.textContent=data.length+" session(s) visibles pour ce compte.";
+      output.append(count);
+      for(const row of data){
+        const line=document.createElement("p");
+        line.style.cssText="padding:6px;border-top:1px solid #49617c;overflow-wrap:anywhere";
+        line.textContent="BT "+String(row.work_order_id||"—").slice(0,100)+
+          " • "+String(row.status||"—").slice(0,20)+
+          " • "+String(Math.floor(Math.max(0,Number(row.confirmed_ms)||0)/1000))+" s confirmées";
+        output.append(line);
+      }
+    }catch(error){
+      if(panel.isConnected)output.textContent=error?.message||"Lecture impossible.";
+    }finally{busy=false;if(panel.isConnected)refresh.disabled=false;}
+  }
+  refresh.addEventListener("click",readOnly);
+  // Lecture sur demande seulement : aucun polling, heartbeat ni RPC.
+})();
+</script>
+
+</body>
     </html>
   `);
 
@@ -13594,76 +13664,6 @@ if (window.garageSupabase) {
   // Rafraichit seulement le miroir visuel : ne demarre aucun chronometre.
   setInterval(refresh,500);
   refresh();
-})();
-</script>
-
-<!-- S06-F03 read-only opt-in : OFF par defaut, aucun controle de minuterie. -->
-<script>
-(() => {
-  "use strict";
-  // TEST seulement. Il faut ajouter ?s06_readonly=1 manuellement a l'URL.
-  // Le mode est ephemere et ne change ni BT, ni facture, ni timer historique.
-  if(new URLSearchParams(window.location.search).get("s06_readonly")!=="1")return;
-  const panel=document.createElement("aside");
-  panel.id="s06ReadOnlyDiagnostic";
-  panel.style.cssText="position:fixed;right:16px;bottom:16px;width:min(340px,calc(100vw - 32px));max-height:50vh;overflow:auto;z-index:9999;background:#172637;color:#e6f1ff;border:1px solid #74a6dd;border-radius:10px;padding:12px;box-shadow:0 3px 16px #0008;font:13px system-ui,sans-serif";
-  const header=document.createElement("div");
-  header.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:10px";
-  const title=document.createElement("strong");
-  title.textContent="S06 — Diagnostic lecture seule";
-  const close=document.createElement("button");
-  close.type="button";close.textContent="Fermer";
-  close.style.cssText="padding:5px 8px;background:transparent;border:1px solid #74a6dd;border-radius:5px;color:inherit;cursor:pointer";
-  close.addEventListener("click",()=>panel.remove());
-  header.append(title,close);
-  const info=document.createElement("p");
-  info.textContent="Aucune action sur la minuterie ou les bons de travail.";
-  info.style.margin="8px 0";
-  const output=document.createElement("div");
-  output.setAttribute("role","status");
-  output.textContent="Lecture non lancée.";
-  const refresh=document.createElement("button");
-  refresh.type="button";refresh.textContent="Actualiser les sessions";
-  refresh.style.cssText="margin:8px 0;padding:6px 10px;background:#315b86;color:#fff;border:1px solid #74a6dd;border-radius:6px;cursor:pointer";
-  panel.append(header,info,refresh,output);
-  document.body.append(panel);
-  let busy=false;
-  async function readOnly(){
-    if(busy || !panel.isConnected)return;
-    busy=true;refresh.disabled=true;output.textContent="Lecture en cours…";
-    try{
-      const client=window.garageSupabase;
-      if(!client || typeof client.auth?.getUser!=="function" || typeof client.from!=="function")
-        throw new Error("Supabase non prêt : réessayer après connexion.");
-      const {data:auth,error:authError}=await client.auth.getUser();
-      if(authError || !auth?.user?.id)throw new Error("Compte connecté non confirmé.");
-      const {data, error}=await client.from("garage_timer_sessions")
-        .select("id,user_id,garage_id,work_order_id,status,confirmed_ms,revision,updated_at")
-        .eq("user_id",auth.user.id)
-        .order("updated_at",{ascending:false})
-        .limit(15);
-      if(error)throw new Error("Lecture Supabase refusée : "+error.message);
-      if(!Array.isArray(data)||data.some(row=>row.user_id!==auth.user.id))
-        throw new Error("Réponse incohérente : aucun résultat affiché.");
-      // Afficher uniquement un compte et le nombre de sessions, sans HTML issu du cloud.
-      output.replaceChildren();
-      const count=document.createElement("p");
-      count.textContent=data.length+" session(s) visibles pour ce compte.";
-      output.append(count);
-      for(const row of data){
-        const line=document.createElement("p");
-        line.style.cssText="padding:6px;border-top:1px solid #49617c;overflow-wrap:anywhere";
-        line.textContent="BT "+String(row.work_order_id||"—").slice(0,100)+
-          " • "+String(row.status||"—").slice(0,20)+
-          " • "+String(Math.floor(Math.max(0,Number(row.confirmed_ms)||0)/1000))+" s confirmées";
-        output.append(line);
-      }
-    }catch(error){
-      if(panel.isConnected)output.textContent=error?.message||"Lecture impossible.";
-    }finally{busy=false;if(panel.isConnected)refresh.disabled=false;}
-  }
-  refresh.addEventListener("click",readOnly);
-  // Lecture sur demande seulement : aucun polling, heartbeat ni RPC.
 })();
 </script>
 
