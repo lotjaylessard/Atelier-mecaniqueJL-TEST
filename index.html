@@ -1949,7 +1949,7 @@ function money(n){
   // 🛠️ profit main-d'œuvre (100 %)
   const profitLabor = Array.isArray(wo.labor)
     ? wo.labor.reduce((sum, l) => {
-        return sum + (Number(l.hours || 0) * Number(l.rate || 0));
+        return sum + s06LaborLineAmount(l);
       }, 0)
     : 0;
 
@@ -2379,7 +2379,7 @@ function calcTotalsFromItems(items, inv){
   if (!Array.isArray(items)) items = [];
 
   const subTotal = items.reduce(
-    (sum, it) => sum + (Number(it.qty || 0) * Number(it.rate || 0)),
+    (sum, it) => sum + s06InvoiceItemAmount(it),
     0
   );
 
@@ -2443,11 +2443,26 @@ function invoicePaymentMismatch(inv){
   return null;
 }
 
+// S06 : total autoritaire calcule a partir de la duree exacte.
+function s06LaborLineAmount(line){
+  if(line?.timerSessionId && Number.isFinite(Number(line.confirmedMs)) &&
+     Number.isFinite(Number(line.total)))return Number(line.total);
+  return Number(line?.hours||0)*Number(line?.rate||0);
+}
+function s06InvoiceItemAmount(item){
+  if(item?.timerSessionId && Number.isFinite(Number(item.confirmedMs)) &&
+     Number.isFinite(Number(item.total)))return Number(item.total);
+  return Number(item?.qty||0)*Number(item?.rate||0);
+}
+function s06LaborHoursLabel(l){
+  const hours=Number(l?.hours||0);
+  return l?.timerSessionId && Number.isFinite(hours)?hours.toFixed(2):l.hours;
+}
 function recalcInvoice(inv){
   if (invoiceHasPaymentActivity(inv)) return; // Verrouiller le total historique.
 
   const baseSubTotal = (inv.items || []).reduce(
-    (sum, it) => sum + (Number(it.qty || 0) * Number(it.rate || 0)),
+    (sum, it) => sum + s06InvoiceItemAmount(it),
     0
   );
 
@@ -2558,9 +2573,9 @@ const isPaid =
           <tr>
             <td>${it.type}</td>
             <td>${it.desc}</td>
-            <td>${it.qty}</td>
+            <td>${it.timerSessionId ? Number(it.qty).toFixed(2) : it.qty}</td>
             <td>${money(it.rate)} $</td>
-            <td>${money(it.qty * it.rate)} $</td>
+            <td>${money(s06InvoiceItemAmount(it))} $</td>
           </tr>
         `).join('')}
       </tbody>
@@ -5367,7 +5382,7 @@ function persistActiveWO(wo){
   );
 
   const laborTotal = (wo.labor || []).reduce(
-    (s,l)=> s + Number(l.total || (l.hours * l.rate) || 0), 0
+    (s,l)=> s + (l.timerSessionId?s06LaborLineAmount(l):Number(l.total || (l.hours * l.rate) || 0)), 0
   );
 
   wo.estimateTotal = partsTotal + laborTotal;
@@ -5407,7 +5422,8 @@ function persistActiveWO(wo){
         type: "Main-d'œuvre",
         desc: l.description,
         qty: l.hours,
-        rate: l.rate
+        rate: l.rate,
+        ...(l.timerSessionId ? {timerSessionId:l.timerSessionId,confirmedMs:l.confirmedMs,total:s06LaborLineAmount(l)} : {})
       });
     });
 
@@ -6403,12 +6419,12 @@ if (manualLaborCancel){
 const lBody = $("woLaborTable").querySelector("tbody");
 lBody.innerHTML = wo.labor.map((l,i)=>{
 
-  const total = l.hours * l.rate;   // 💰 total = profit (100%)
+  const total = s06LaborLineAmount(l);   // S06 : total exact en cents
 
   return `
     <tr>
       <td>${l.description}</td>
-      <td>${l.hours}</td>
+      <td>${s06LaborHoursLabel(l)}</td>
       <td>${money(l.rate)} $</td>
       <td>${money(total)} $</td>
 
@@ -6427,7 +6443,7 @@ lBody.innerHTML = wo.labor.map((l,i)=>{
 
   // === NOUVEAU : total pièces et total main-d'œuvre ===
   const totalParts = wo.parts.reduce((s,p)=> s + (p.qty * p.rate), 0);
-  const totalLabor = wo.labor.reduce((s,l)=> s + (l.hours * l.rate), 0);
+  const totalLabor = wo.labor.reduce((s,l)=> s + s06LaborLineAmount(l), 0);
 
   // Affichage séparé
   if ($("woPartsTotal")) $("woPartsTotal").innerText = money(totalParts) + " $";
@@ -6451,7 +6467,7 @@ const profitParts = wo.parts.reduce((sum, p) => {
 
 // profit main-d'œuvre (100 %)
 const profitLabor = wo.labor.reduce((sum, l) => {
-  return sum + (Number(l.hours || 0) * Number(l.rate || 0));
+  return sum + s06LaborLineAmount(l);
 }, 0);
 
 // profit global
@@ -7005,12 +7021,13 @@ const invoice = {
     desc: l.description,
     qty: Number(l.hours),
     rate: Number(l.rate),
-    total: Number(l.hours) * Number(l.rate)
+    total: s06LaborLineAmount(l),
+    ...(l.timerSessionId ? {timerSessionId:l.timerSessionId,confirmedMs:l.confirmedMs} : {})
   });
 });
 // 💰 TOTAUX
 invoice.subTotal = invoice.items.reduce(
-  (s,it)=> s + (it.qty * it.rate), 0
+  (s,it)=> s + s06InvoiceItemAmount(it), 0
 );
 
 // S04 audit final : reutiliser le calcul fiscal central de la facture.
@@ -12923,12 +12940,13 @@ function woConvertToInvoice(wo) {
       type: "Main-d'œuvre",
       desc: l.description,
       qty: l.hours,
-      rate: l.rate
+      rate: l.rate,
+      ...(l.timerSessionId ? {timerSessionId:l.timerSessionId,confirmedMs:l.confirmedMs,total:s06LaborLineAmount(l)} : {})
     });
   });
 
   // === TOTAUX ===
-  invoice.subTotal = invoice.items.reduce((s,it)=>s + it.qty * it.rate, 0);
+  invoice.subTotal = invoice.items.reduce((s,it)=>s + s06InvoiceItemAmount(it), 0);
   invoice.gst = invoice.subTotal * (SETTINGS.gst / 100);
   invoice.qst = (invoice.subTotal + invoice.gst) * (SETTINGS.qst / 100);
   invoice.total = invoice.subTotal + invoice.gst + invoice.qst;
