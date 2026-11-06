@@ -457,6 +457,11 @@ function runLifecycleScenario() {
    alert(msg){logs.alerts.push(msg);}
  };
  vm.createContext(ctx);
+ // S06 : importer le vrai calcul BT dans ce contexte de test isolé.
+ const amountStart=html.indexOf('function s06LaborLineAmount(line){');
+ const amountEnd=html.indexOf('function s06InvoiceItemAmount(item){',amountStart);
+ assert.ok(amountStart>0&&amountEnd>amountStart,'S06 helper de main-d\'oeuvre introuvable');
+ vm.runInContext(html.slice(amountStart,amountEnd),ctx);
  vm.runInContext(lifecycleCode,ctx);
  ctx.finishWorkOrder(wo.id);
  assert.equal(wo.status,'termine','La cloture doit changer le statut');
