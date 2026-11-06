@@ -19,6 +19,16 @@ assert.match(src,/garageSnapshotsEquivalent\(captureLocalGarageSnapshot\(\),CLOU
 assert.match(src,/\.status!=="posted"/);
 assert.match(src,/wo\.notes\.split\(marker\).length!==2/);
 assert.match(src,/location\.reload\(\)/);
+assert.match(src,/id="s06SavedStatus"/,"Etat sauvegarde visible");
+assert.match(src,/function confirmSaved\(row,source\)/,"Confirmation conditionnée à une session valide");
+assert.match(src,/if\(!validRow\(row\)\)throw Error/,"Réponse validée");
+assert.match(src,/confirmSaved\(app\.session,"read"\)/,"Lecture distante confirmée");
+assert.match(src,/confirmSaved\(data,"write"\)/,"Transition RPC confirmée");
+assert.match(src,/savedStatus\("warning","⚠ Hors ligne/,"Alerte hors-ligne");
+assert.match(src,/savedStatus\("warning","⚠ Synchronisation non confirmée/,"Alerte erreur et conflit");
+assert.match(src,/format\(row\.confirmed_ms\)\+" confirmé"/,"Seul le temps serveur est confirmé");
+assert.doesNotMatch(src,/Date\.now\(\)\s*-\s*app\.session/,"Ne pas prétendre confirmer un temps local");
+
 assert.match(src,/session=mine.find\(x=>x.status==="running"\)\|\|mine\[0\]/);
 for(const p of [/\.insert\(/,/\.update\(/,/\.upsert\(/,/\.delete\(/,/\.labor\.push\(/,/saveWorkOrders\(/,/persistActiveWO\(/,/localStorage\.setItem/])
  assert.doesNotMatch(src,p,"Aucune modification BT directe");
