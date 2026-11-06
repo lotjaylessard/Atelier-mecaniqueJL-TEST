@@ -18,18 +18,35 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
 #s06WoPilot button:disabled{opacity:.45;cursor:default}
 #s06WoPilot .s06secondary{background:#315c85;color:#fff}
 #s06WoPilot .s06message{grid-column:1/-1;white-space:pre-wrap;font-size:11px;line-height:1.3;color:#c9daed;margin:2px 0 0}
+#s06WoPilot .s06saved{grid-column:1/-1;font-size:11px;line-height:1.2;margin:1px 0;color:#9ac5ef}
+#s06WoPilot .s06saved[data-state="confirmed"]{color:#83d6aa}
+#s06WoPilot .s06saved[data-state="warning"]{color:#ffc28b}
 #s06WoPilot label{display:block;margin:6px 0 3px;font-weight:600}
 #s06WoPilot input,#s06WoPilot textarea{box-sizing:border-box;width:100%;padding:7px;background:#101e2e;color:white;border:1px solid #80bbff;border-radius:5px}
 #s06WoPilot textarea{min-height:70px}
 #s06WoPilot .s06finish{grid-column:1/-1;padding-top:8px;border-top:1px solid #617e9d}
 @media(max-width:560px){#s06WoPilot{grid-template-columns:1fr}#s06WoPilot .s06clock{grid-column:1;text-align:left}}`;
   document.head.append(style);
-  const app={user:null,garage:null,woId:null,session:null,rows:[],panel:null,busy:false,beat:null,ownRunning:null};
+  const app={user:null,garage:null,woId:null,session:null,rows:[],panel:null,busy:false,beat:null,ownRunning:null,lastVerified:null};
   const qs=id=>app.panel?.querySelector("#"+id);
   const format=ms=>{const n=Math.max(0,Math.floor(Number(ms)||0)/1000);
     return [Math.floor(n/3600),Math.floor(n/60)%60,n%60].map(x=>String(x).padStart(2,"0")).join(":");};
   const money=n=>new Intl.NumberFormat("fr-CA",{style:"currency",currency:"CAD"}).format(n);
   const setMsg=s=>{if(qs("s06Msg"))qs("s06Msg").textContent=s;};
+  // Afficher exclusivement le temps CONFIRMÉ, jamais le temps extrapolé pendant une panne.
+  function savedStatus(kind,detail=""){
+    const el=qs("s06SavedStatus");
+    if(!el)return;
+    el.dataset.state=kind;
+    el.textContent=detail;
+  }
+  function confirmSaved(row,source){
+    if(!validRow(row))throw Error("Impossible de confirmer le temps distant.");
+    app.lastVerified={id:row.id,revision:Number(row.revision),ms:Number(row.confirmed_ms)};
+    const clock=new Intl.DateTimeFormat("fr-CA",{hour:"2-digit",minute:"2-digit",second:"2-digit",timeZone:"America/Toronto"}).format(new Date());
+    savedStatus("confirmed","✓ Enregistré dans Supabase à "+clock+
+      " · "+format(row.confirmed_ms)+" confirmé"+(source==="read"?" (relecture)":""));
+  }
   function stopBeat(){if(app.beat!==null){clearInterval(app.beat);app.beat=null;}app.ownRunning=null;}
   function validRow(r){return r&&r.user_id===app.user&&r.garage_id===app.garage&&
     typeof r.id==="string"&&Number.isSafeInteger(Number(r.revision))&&
@@ -86,6 +103,8 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     const mine=data.filter(x=>x.work_order_id===app.woId&&x.status!=="posted");
     app.session=mine.find(x=>x.status==="running")||mine[0]||null;
     paint();
+    if(app.session)confirmSaved(app.session,"read");
+    else {app.lastVerified=null;savedStatus("idle","Aucune session enregistrée pour ce BT.");}
   }
   async function rpc(action,existing,woId=null){
     const c=await client();
@@ -100,17 +119,21 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       throw Error("Accusé de réception serveur incohérent. Recharge la page.");
     app.rows=app.rows.filter(x=>x.id!==data.id).concat(data);
     if(data.work_order_id===app.woId)app.session=data;
-    paint();return data;
+    paint();confirmSaved(data,"write");return data;
   }
   function beats(){
     stopBeat();
     if(app.session?.status!=="running")return;
     app.ownRunning=app.session.id;
     app.beat=setInterval(()=>{
-      if(app.busy||!navigator.onLine)return;
+      if(app.busy)return;
+      if(!navigator.onLine){
+        savedStatus("warning","⚠ Hors ligne — temps depuis le dernier enregistrement non confirmé.");
+        stopBeat();return;
+      }
       guarded(async()=>{
         if(app.session?.status==="running"&&app.ownRunning===app.session.id){
-          await rpc("heartbeat",app.session);setMsg("Temps confirmé par Supabase.");
+          await rpc("heartbeat",app.session);setMsg("Minuterie en cours.");
         }
       },true);
     },10000);
@@ -121,6 +144,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     try{await fn();}
     catch(e){
       stopBeat();
+      savedStatus("warning","⚠ Synchronisation non confirmée : vérifier la session avant de reprendre.");
       setMsg("Action non confirmée : "+(e?.message||e)+
         "\nAucune nouvelle main-d'œuvre locale. Recharge la page avant de réessayer.");
     }finally{app.busy=false;paint();}
@@ -220,7 +244,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     if(!ctx){if(app.panel){app.panel.remove();app.panel=null;app.woId=null;stopBeat();}return;}
     if(app.panel?.isConnected&&app.woId===ctx.id)return;
     if(app.panel)app.panel.remove();
-    stopBeat();app.session=null;app.rows=[];app.woId=ctx.id;
+    stopBeat();app.session=null;app.rows=[];app.lastVerified=null;app.woId=ctx.id;
     const el=document.createElement("section");el.id="s06WoPilot";
     el.innerHTML=`<div class="s06head"><strong>⏱ Minuterie du BT — TEST</strong><span id="s06State">● Prête</span></div>
       <div id="s06Clock" class="s06clock">00:00:00</div>
@@ -234,6 +258,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       <label for="s06Rate">Taux horaire ($/h)</label><input id="s06Rate" type="number" min="0" max="100000" step="0.01">
       <p id="s06Quote"></p><button type="button" id="s06Confirm">Confirmer l'ajout au BT</button>
       <button type="button" class="s06secondary" id="s06Cancel">Annuler</button></div>
+      <p id="s06SavedStatus" class="s06saved" data-state="idle" role="status" aria-live="polite">Vérification Supabase en attente…</p>
       <p id="s06Msg" class="s06message">Chargement de la session Supabase…</p>`;
     ctx.anchor.parentElement.parentElement.insertAdjacentElement("afterend",el);
     app.panel=el;
