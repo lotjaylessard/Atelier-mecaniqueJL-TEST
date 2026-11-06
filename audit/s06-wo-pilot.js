@@ -27,13 +27,13 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
 #s06WoPilot .s06finish{grid-column:1/-1;padding-top:8px;border-top:1px solid #617e9d}
 @media(max-width:560px){#s06WoPilot{grid-template-columns:1fr}#s06WoPilot .s06clock{grid-column:1;text-align:left}}`;
   document.head.append(style);
-  const app={user:null,garage:null,woId:null,session:null,rows:[],panel:null,busy:false,beat:null,ownRunning:null,lastVerified:null};
+  const app={user:null,garage:null,woId:null,session:null,rows:[],panel:null,busy:false,beat:null,displayTick:null,displayAnchor:null,ownRunning:null,lastVerified:null};
   const qs=id=>app.panel?.querySelector("#"+id);
-  const format=ms=>{const n=Math.max(0,Math.floor(Number(ms)||0)/1000);
+  const format=ms=>{const n=Math.floor(Math.max(0,Number(ms)||0)/1000);
     return [Math.floor(n/3600),Math.floor(n/60)%60,n%60].map(x=>String(x).padStart(2,"0")).join(":");};
   const money=n=>new Intl.NumberFormat("fr-CA",{style:"currency",currency:"CAD"}).format(n);
   const setMsg=s=>{if(qs("s06Msg"))qs("s06Msg").textContent=s;};
-  // Afficher exclusivement le temps CONFIRMÉ, jamais le temps extrapolé pendant une panne.
+  // Le compteur est animé localement; le libellé de sauvegarde cite UNIQUEMENT le temps serveur.
   function savedStatus(kind,detail=""){
     const el=qs("s06SavedStatus");
     if(!el)return;
@@ -47,7 +47,29 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     savedStatus("confirmed","✓ Enregistré dans Supabase à "+clock+
       " · "+format(row.confirmed_ms)+" confirmé"+(source==="read"?" (relecture)":""));
   }
-  function stopBeat(){if(app.beat!==null){clearInterval(app.beat);app.beat=null;}app.ownRunning=null;}
+  function stopBeat(){
+    if(app.beat!==null){clearInterval(app.beat);app.beat=null;}
+    if(app.displayTick!==null){clearInterval(app.displayTick);app.displayTick=null;}
+    app.displayAnchor=null;app.ownRunning=null;
+    paint();
+  }
+  function liveTime(){
+    const r=app.session;
+    if(!r)return 0;
+    // Maximum de 20 secondes affichées sans accusé serveur; ne jamais les
+    // présenter comme du temps sauvegardé ni les conserver après une erreur.
+    if(r.status!=="running"||app.ownRunning!==r.id||!app.displayAnchor||
+       !navigator.onLine)return Number(r.confirmed_ms)||0;
+    const elapsed=Math.max(0,Date.now()-app.displayAnchor.at);
+    return app.displayAnchor.ms+Math.min(20000,elapsed);
+  }
+  function startDisplay(){
+    if(app.displayTick!==null)clearInterval(app.displayTick);
+    if(app.session?.status!=="running"||app.ownRunning!==app.session.id)return;
+    app.displayAnchor={at:Date.now(),ms:Number(app.session.confirmed_ms)};
+    app.displayTick=setInterval(paint,250);
+    paint();
+  }
   function validRow(r){return r&&r.user_id===app.user&&r.garage_id===app.garage&&
     typeof r.id==="string"&&Number.isSafeInteger(Number(r.revision))&&
     Number.isSafeInteger(Number(r.confirmed_ms))&&
@@ -67,7 +89,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
   function paint(){
     if(!app.panel)return;
     const r=app.session;
-    qs("s06Clock").textContent=format(r?.confirmed_ms||0);
+    qs("s06Clock").textContent=format(liveTime());
     qs("s06State").textContent=r?.status==="running"?"● En cours":r?.status==="paused"?"● En pause":"● Prête";
     const another=app.rows.some(x=>x.status==="running"&&x.work_order_id!==app.woId);
     qs("s06Start").disabled=app.busy||!!another||r?.status==="running"||r?.status==="posted";
@@ -119,12 +141,15 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       throw Error("Accusé de réception serveur incohérent. Recharge la page.");
     app.rows=app.rows.filter(x=>x.id!==data.id).concat(data);
     if(data.work_order_id===app.woId)app.session=data;
+    if(action==="heartbeat"&&app.ownRunning===data.id&&data.status==="running")
+      app.displayAnchor={at:Date.now(),ms:Number(data.confirmed_ms)};
     paint();confirmSaved(data,"write");return data;
   }
   function beats(){
     stopBeat();
     if(app.session?.status!=="running")return;
     app.ownRunning=app.session.id;
+    startDisplay();
     app.beat=setInterval(()=>{
       if(app.busy)return;
       if(!navigator.onLine){
