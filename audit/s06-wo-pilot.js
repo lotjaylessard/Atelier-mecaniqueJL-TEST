@@ -209,9 +209,15 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
   function quote(){
     if(!app.panel||!app.session)return;
     const raw=qs("s06Rate").value,rate=Number(raw);
-    const hrs=Math.round(Number(app.session.confirmed_ms)/36000)/100;
-    qs("s06Quote").textContent=raw!==""&&Number.isFinite(rate)&&rate>=0?
-      format(app.session.confirmed_ms)+" = "+hrs.toFixed(2)+" h × "+money(rate)+"/h = "+money(Math.round(hrs*rate*100)/100):
+    const confirmedMs=Number(app.session.confirmed_ms);
+    const hrs=confirmedMs/3600000;
+    // Calcul en cents a partir des millisecondes exactes.
+    // BigInt evite de perdre un demi-cent lors des arrondissements successifs.
+    const cents=raw!==""&&Number.isFinite(rate)&&rate>=0&&rate<=100000?
+      (BigInt(Math.round(confirmedMs))*BigInt(Math.round(rate*100))+1800000n)/3600000n:null;
+    qs("s06Quote").textContent=cents!==null?
+      format(confirmedMs)+" = "+hrs.toFixed(2)+" h affichées (durée exacte facturée) × "+
+      money(rate)+"/h = "+money(Number(cents)/100):
       "Taux horaire invalide";
   }
   function showFinish(){
