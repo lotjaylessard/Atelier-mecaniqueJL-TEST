@@ -53,7 +53,7 @@ border:1px solid #80bbff;border-radius:9px}
     const another=app.rows.some(x=>x.status==="running"&&x.work_order_id!==app.woId);
     qs("s06Start").disabled=app.busy||!!another||r?.status==="running"||r?.status==="posted";
     qs("s06Pause").disabled=app.busy||r?.status!=="running"||app.ownRunning!==r.id;
-    qs("s06End").disabled=app.busy||!!another||!r||r.status==="posted"||
+    qs("s06End").disabled=app.busy||!!another||!r||r.status!=="paused"||
       Number(r.confirmed_ms)<18000;
     qs("s06Recover").hidden=!(r?.status==="running"&&app.ownRunning!==r.id);
     qs("s06Recover").disabled=app.busy;
