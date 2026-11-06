@@ -20,6 +20,13 @@ assert.match(src,/\.status!=="posted"/);
 assert.match(src,/wo\.notes\.split\(marker\).length!==2/);
 assert.match(src,/location\.reload\(\)/);
 assert.match(src,/id="s06SavedStatus"/,"Etat sauvegarde visible");
+assert.match(src,/const n=Math.floor\(Math.max\(0,Number\(ms\)\|\|0\)\/1000\)/,"Affichage secondes entières sans millisecondes");
+assert.match(src,/app.displayTick=setInterval\(paint,250\)/,"Horloge visuelle réactualisée quatre fois par seconde");
+assert.match(src,/Math.min\(20000,elapsed\)/,"Interpolation plafonnée sans réponse serveur");
+assert.match(src,/r.status!=="running"\|\|app.ownRunning!==r.id/,"Aucune extrapolation après pause");
+assert.match(src,/app.displayAnchor=null;app.ownRunning=null/,"Interpolation annulée à la pause ou en cas d'erreur");
+assert.match(src,/action==="heartbeat"&&app.ownRunning===data.id/,"Recalage seulement après confirmation heartbeat");
+
 assert.match(src,/function confirmSaved\(row,source\)/,"Confirmation conditionnée à une session valide");
 assert.match(src,/if\(!validRow\(row\)\)throw Error/,"Réponse validée");
 assert.match(src,/confirmSaved\(app\.session,"read"\)/,"Lecture distante confirmée");
