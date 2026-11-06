@@ -1,0 +1,22 @@
+"use strict";
+const fs=require("node:fs");
+const assert=require("node:assert/strict");
+const html=fs.readFileSync("index.html","utf8");
+const start=html.indexOf("<!-- S06-F03 read-only opt-in");
+const end=html.indexOf("<!-- MODAL D'ÉDITION DE LIGNE -->",start);
+assert.ok(start>0&&end>start,"Script diagnostic S06 avant les modaux");
+const script=html.slice(start,end);
+assert.match(script,/s06_readonly/);
+assert.match(script,/get\("s06_readonly"\)!=="1"\)return/,"Désactivé par défaut");
+assert.match(script,/client\.auth\.getUser\(\)/);
+assert.match(script,/\.from\("garage_timer_sessions"\)/);
+assert.match(script,/\.select\("id,user_id,garage_id,work_order_id,status,confirmed_ms,revision,updated_at"\)/);
+assert.match(script,/\.eq\("user_id",auth\.user\.id\)/);
+assert.match(script,/\.limit\(15\)/);
+assert.match(script,/refresh\.addEventListener\("click",readOnly\)/);
+assert.match(script,/textContent=/,"Aucun HTML serveur injecté");
+for(const bad of [/\.rpc\(/,/\.insert\(/,/\.update\(/,/\.delete\(/,/\.upsert\(/,/localStorage/,/sessionStorage/,/\.setItem\(/,/WO_TIMER_INTERVAL\s*=/,/startWOTimer\(/,/stopWOTimer\(/,/\.labor\.push\(/,/saveWorkOrders\(/,/persistActiveWO\(/,/setInterval\(/])
+  assert.doesNotMatch(script,bad,"Lecture seule sans minuteur/mutation");
+assert.equal((html.match(/id="s06SidebarTimer"/g)||[]).length,1,"Ancien miroir conservé");
+assert.match(html,/id="woTimerBtn"/,"Ancien minuteur conservé");
+console.log("S06-F03 : lecture Supabase sur demande et explicitement activee, sans ecriture ni modification des BT.");
