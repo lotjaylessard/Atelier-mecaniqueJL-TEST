@@ -459,7 +459,7 @@ function runLifecycleScenario() {
  vm.createContext(ctx);
  // S06 : importer le vrai calcul BT dans ce contexte de test isolé.
  const amountStart=html.indexOf('function s06LaborLineAmount(line){');
- const amountEnd=html.indexOf('function s06InvoiceItemAmount(item){',amountStart);
+ const amountEnd=html.indexOf('function recalcInvoice(inv){',amountStart);
  assert.ok(amountStart>0&&amountEnd>amountStart,'S06 helper de main-d\'oeuvre introuvable');
  vm.runInContext(html.slice(amountStart,amountEnd),ctx);
  vm.runInContext(lifecycleCode,ctx);
