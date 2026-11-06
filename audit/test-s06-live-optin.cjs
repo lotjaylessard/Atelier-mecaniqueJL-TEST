@@ -24,7 +24,7 @@ assert.match(src,/if\(!navigator\.onLine\)/);
 for(const forbidden of [/\.insert\(/,/\.update\(/,/\.delete\(/,/\.upsert\(/,/localStorage/,/sessionStorage/,/\.setItem\(/,/WO_TIMER_INTERVAL\s*=/,/startWOTimer\(/,/stopWOTimer\(/,/\.labor\.push\(/,/saveWorkOrders\(/,/persistActiveWO\(/,/s06_timer_post_labor/])
  assert.doesNotMatch(src,forbidden,"No legacy BT or invoice mutation");
 const context={
-  location:{search:""},window:{},document:new Proxy({}, {get(){throw Error("The module must not access DOM when not enabled");}}),
+  location:{search:""},URLSearchParams,window:{},document:new Proxy({}, {get(){throw Error("The module must not access DOM when not enabled");}}),
 };
 vm.runInNewContext(src,context);
 console.log("S06-F03b : opt-in OFF, syntaxe valide, actions RPC explicites et BT historique inchange.");
