@@ -143,7 +143,9 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     if(data.work_order_id===app.woId)app.session=data;
     if(action==="heartbeat"&&app.ownRunning===data.id&&data.status==="running")
       app.displayAnchor={at:Date.now(),ms:Number(data.confirmed_ms)};
-    paint();confirmSaved(data,"write");return data;
+    paint();confirmSaved(data,"write");
+    window.dispatchEvent(new Event("s06-timer-updated"));
+    return data;
   }
   function beats(){
     stopBeat();
@@ -258,6 +260,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       Number(lines[0].total)!==Number(ack.total))
       throw Error("Écriture probablement effectuée, mais lecture incohérente. Recharge le BT; ne répète pas la confirmation.");
     stopBeat();
+    window.dispatchEvent(new Event("s06-timer-updated"));
     qs("s06FinishForm").hidden=true;
     setMsg("✅ Intervention enregistrée : "+money(Number(ack.total))+
       ".\nNote technique ajoutée au BT. Employé et date conservés.\nRechargement du BT...");
