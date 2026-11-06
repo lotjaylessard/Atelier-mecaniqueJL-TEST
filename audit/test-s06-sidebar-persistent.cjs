@@ -1,0 +1,26 @@
+"use strict";
+const fs=require("node:fs"),vm=require("node:vm"),assert=require("node:assert/strict");
+const html=fs.readFileSync("index.html","utf8");
+const sidebar=fs.readFileSync("audit/s06-sidebar-persistent.js","utf8");
+const pilot=fs.readFileSync("audit/s06-wo-pilot.js","utf8");
+new vm.Script(sidebar,{filename:"s06-sidebar-persistent.js"});
+assert.equal((html.match(/src="audit\/s06-sidebar-persistent\.js"/g)||[]).length,1,"Un seul bridge sidebar");
+assert.match(sidebar,/get\("s06_wo_pilot"\)!=="1"\)return/,"Bridge OFF hors pilote");
+assert.match(sidebar,/\.from\("garage_timer_sessions"\)/,"Sessions lues depuis Supabase");
+assert.match(sidebar,/\.eq\("user_id",uid\)/,"Compte filtre");
+assert.match(sidebar,/r\.garage_id===garage/,"Garage filtre");
+assert.match(sidebar,/Number\(r\.confirmed_ms\)>0/,"Pas de vieille session jamais demarree");
+assert.match(sidebar,/current=rows\.find\(r=>r\.status==="running"\)\|\|rows\[0\]/,"Priorite minuterie active");
+assert.match(sidebar,/setInterval\(paint,250\)/,"Affichage seconde en continu");
+assert.match(sidebar,/setInterval\(refresh,8000\)/,"Relecture cloud automatique");
+assert.match(sidebar,/\.s06-timer-hint/,"Info verification");
+assert.match(sidebar,/number\.addEventListener\("click"/,"Numero de BT cliquable");
+assert.match(sidebar,/openWorkOrderFromDashboard\(meta\.id\)/,"Retour au BT");
+assert.match(pilot,/window\.dispatchEvent\(new Event\("s06-timer-updated"\)\)/,"Rafraichissement apres RPC");
+assert.match(sidebar,/window\.addEventListener\("s06-timer-updated",refresh\)/,"Reception evenement");
+assert.match(pilot,/if\(!ctx\)\{if\(app\.panel\)\{app\.panel\.remove\(\);app\.panel=null;\}return;\}/,"Navigation preserve heartbeat");
+assert.match(pilot,/if\(app\.session\?\.status==="running"&&app\.ownRunning===app\.session\.id\)return/,"Ne pas changer BT quand minuterie active");
+for(const bad of [/\.rpc\(/,/\.insert\(/,/\.update\(/,/\.upsert\(/,/\.delete\(/,/\.labor\.push\(/,/saveWorkOrders\(/,/localStorage/,/sessionStorage/,/scheduleCloudSync\(/])
+  assert.doesNotMatch(sidebar,bad,"Bridge ne doit faire aucune ecriture");
+vm.runInNewContext(sidebar,{location:{search:""},URLSearchParams,window:{},document:new Proxy({}, {get(){throw Error("Bridge must stay inactive without opt-in");}})});
+console.log("S06-F07 : sidebar Supabase, preservation legacy, mise a jour realtime et navigation BT : OK.");
