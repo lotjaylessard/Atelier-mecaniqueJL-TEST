@@ -1,0 +1,24 @@
+"use strict";
+const fs=require("node:fs"), vm=require("node:vm"),assert=require("node:assert/strict");
+const html=fs.readFileSync("index.html","utf8");
+const src=fs.readFileSync("audit/s06-wo-pilot.js","utf8");
+new vm.Script(src,{filename:"s06-wo-pilot.js"});
+assert.equal((html.match(/src="audit\/s06-wo-pilot\.js"/g)||[]).length,1);
+assert.match(src,/get\("s06_wo_pilot"\)!=="1"\)return/);
+assert.match(src,/s06-wo-pilot #woTimerBtn/);
+assert.match(src,/woTimerStopBtn/);
+assert.match(src,/\.from\("garage_timer_sessions"\)/);
+assert.match(src,/\.rpc\("s06_timer_transition"/);
+assert.match(src,/\.rpc\("s06_timer_post_labor"/);
+assert.match(src,/p_expected_garage_version:Number\(latest.version\)/);
+assert.match(src,/CLOUD_DATA_READY=false/);
+assert.match(src,/garageSnapshotsEquivalent\(captureLocalGarageSnapshot\(\),CLOUD_LAST_CONFIRMED_SNAPSHOT\)/);
+assert.match(src,/\.status!=="posted"/);
+assert.match(src,/wo\.notes\.split\(marker\).length!==2/);
+assert.match(src,/location\.reload\(\)/);
+assert.match(src,/session=mine.find\(x=>x.status==="running"\)\|\|mine\[0\]/);
+for(const p of [/\.insert\(/,/\.update\(/,/\.upsert\(/,/\.delete\(/,/\.labor\.push\(/,/saveWorkOrders\(/,/persistActiveWO\(/,/localStorage\.setItem/])
+ assert.doesNotMatch(src,p,"Aucune modification BT directe");
+const context={location:{search:""},URLSearchParams,window:{},document:new Proxy({}, {get(){throw Error("interdit hors mode TEST");}})};
+vm.runInNewContext(src,context);
+console.log("S06 F06 : syntaxe pilote BT, inactive par defaut, CAS, atomicite RPC, controle cloud et bouton terminer.");
