@@ -3,7 +3,7 @@ const fs=require("node:fs");
 const assert=require("node:assert/strict");
 const html=fs.readFileSync("index.html","utf8");
 const start=html.indexOf("<!-- S06-F03 read-only opt-in");
-const end=html.indexOf("<!-- MODAL D'ÉDITION DE LIGNE -->",start);
+const end=html.indexOf("</body>",start);
 assert.ok(start>0&&end>start,"Script diagnostic S06 isole avant la fermeture du document");
 const script=html.slice(start,end);
 assert.match(script,/s06_readonly/);
