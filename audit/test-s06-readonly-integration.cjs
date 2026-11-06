@@ -4,7 +4,7 @@ const assert=require("node:assert/strict");
 const html=fs.readFileSync("index.html","utf8");
 const start=html.indexOf("<!-- S06-F03 read-only opt-in");
 const end=html.indexOf("<!-- MODAL D'ÉDITION DE LIGNE -->",start);
-assert.ok(start>0&&end>start,"Script diagnostic S06 avant les modaux");
+assert.ok(start>0&&end>start,"Script diagnostic S06 isole avant la fermeture du document");
 const script=html.slice(start,end);
 assert.match(script,/s06_readonly/);
 assert.match(script,/get\("s06_readonly"\)!=="1"\)return/,"Désactivé par défaut");
