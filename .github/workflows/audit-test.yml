@@ -43,6 +43,8 @@ jobs:
         run: node audit/test-s06-preview-integration.cjs
       - name: Diagnostic S06-F03 lecture seule optionnel
         run: node audit/test-s06-readonly-integration.cjs
+      - name: Minuterie persistante S06-F03b opt-in (aucun BT modifie)
+        run: node audit/test-s06-live-optin.cjs
       - name: Validation BT S06 (simulations)
         run: node audit/test-s06-eligibility.cjs
       - name: Confirmation main oeuvre S06-F05 (simulations)
