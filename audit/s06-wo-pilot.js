@@ -269,10 +269,17 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
   }
   function mount(){
     const ctx=context();
-    if(!ctx){if(app.panel){app.panel.remove();app.panel=null;app.woId=null;stopBeat();}return;}
+    // Navigation dans le garage : ne JAMAIS interrompre les confirmations
+    // serveur d'une minuterie active simplement parce que le BT est masqué.
+    if(!ctx){if(app.panel){app.panel.remove();app.panel=null;}return;}
     if(app.panel?.isConnected&&app.woId===ctx.id)return;
-    if(app.panel)app.panel.remove();
-    stopBeat();app.session=null;app.rows=[];app.lastVerified=null;app.woId=ctx.id;
+    if(app.panel){app.panel.remove();app.panel=null;}
+    if(app.woId!==ctx.id){
+      // Tant qu'un autre BT tourne, le pilote garde cette session intacte;
+      // on peut y retourner via son numéro dans le menu latéral.
+      if(app.session?.status==="running"&&app.ownRunning===app.session.id)return;
+      stopBeat();app.session=null;app.rows=[];app.lastVerified=null;app.woId=ctx.id;
+    }
     const el=document.createElement("section");el.id="s06WoPilot";
     el.innerHTML=`<div class="s06head"><strong>⏱ Minuterie du BT — TEST</strong><span id="s06State">● Prête</span></div>
       <div id="s06Clock" class="s06clock">00:00:00</div>
