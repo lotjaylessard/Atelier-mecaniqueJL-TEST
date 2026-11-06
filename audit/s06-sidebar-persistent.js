@@ -51,9 +51,11 @@
   async function refresh(){
     if(busy)return;
     if(!navigator.onLine){
-      if(current){receivedAt=Date.now();current={...current,status:"paused"};
-        status.textContent="⚠ Hors ligne";}
-      paint();return;
+      if(current){
+        receivedAt=Date.now();current={...current,status:"paused"};
+        paint();status.textContent="⚠ Hors ligne";
+      }else hide();
+      return;
     }
     let ready=false;
     try{ready=typeof CLOUD_DATA_READY!=="undefined"&&CLOUD_DATA_READY&&
