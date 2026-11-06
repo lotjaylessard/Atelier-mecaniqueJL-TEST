@@ -8,19 +8,21 @@
   const style=document.createElement("style");
   style.textContent=`.s06-wo-pilot #woTimerBtn,.s06-wo-pilot #woTimerPauseBtn,
 .s06-wo-pilot #woTimerStopBtn,.s06-wo-pilot #woTimerDisplay{display:none!important}
-#s06WoPilot{margin:10px 0;padding:14px;background:#172638;color:#eaf4ff;
-border:1px solid #80bbff;border-radius:9px}
-#s06WoPilot .s06head{display:flex;justify-content:space-between;gap:10px;align-items:center}
-#s06WoPilot .s06clock{font-size:27px;font-weight:750;color:#ffd400;font-variant-numeric:tabular-nums}
-#s06WoPilot .s06buttons{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
-#s06WoPilot button{padding:8px 12px;border-radius:5px;background:#ffd400;color:#151515;border:0;font-weight:700;cursor:pointer}
+#s06WoPilot{margin:6px 0;padding:8px 10px;background:#172638;color:#eaf4ff;
+border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;align-items:center}
+#s06WoPilot .s06head{display:flex;justify-content:flex-start;flex-wrap:wrap;gap:4px 12px;align-items:center;min-width:0;font-size:13px}
+#s06WoPilot .s06head span{font-size:11px}
+#s06WoPilot .s06clock{font-size:27px;font-weight:750;color:#ffd400;font-variant-numeric:tabular-nums;line-height:1.15;text-align:right;white-space:nowrap}
+#s06WoPilot .s06buttons{grid-column:1/-1;display:flex;gap:5px;flex-wrap:wrap;margin:3px 0}
+#s06WoPilot button{padding:6px 10px;border-radius:5px;background:#ffd400;color:#151515;border:0;font-weight:700;font-size:12px;cursor:pointer}
 #s06WoPilot button:disabled{opacity:.45;cursor:default}
 #s06WoPilot .s06secondary{background:#315c85;color:#fff}
-#s06WoPilot .s06message{white-space:pre-wrap;font-size:12px;color:#c9daed}
-#s06WoPilot label{display:block;margin:9px 0 4px;font-weight:600}
-#s06WoPilot input,#s06WoPilot textarea{box-sizing:border-box;width:100%;padding:9px;background:#101e2e;color:white;border:1px solid #80bbff;border-radius:5px}
-#s06WoPilot textarea{min-height:78px}
-#s06WoPilot .s06finish{padding-top:12px;border-top:1px solid #617e9d}`;
+#s06WoPilot .s06message{grid-column:1/-1;white-space:pre-wrap;font-size:11px;line-height:1.3;color:#c9daed;margin:2px 0 0}
+#s06WoPilot label{display:block;margin:6px 0 3px;font-weight:600}
+#s06WoPilot input,#s06WoPilot textarea{box-sizing:border-box;width:100%;padding:7px;background:#101e2e;color:white;border:1px solid #80bbff;border-radius:5px}
+#s06WoPilot textarea{min-height:70px}
+#s06WoPilot .s06finish{grid-column:1/-1;padding-top:8px;border-top:1px solid #617e9d}
+@media(max-width:560px){#s06WoPilot{grid-template-columns:1fr}#s06WoPilot .s06clock{grid-column:1;text-align:left}}`;
   document.head.append(style);
   const app={user:null,garage:null,woId:null,session:null,rows:[],panel:null,busy:false,beat:null,ownRunning:null};
   const qs=id=>app.panel?.querySelector("#"+id);
