@@ -47,6 +47,8 @@ jobs:
         run: node audit/test-s06-live-optin.cjs
       - name: S06-F06 minuterie simple dans BT et transfert atomique
         run: node audit/test-s06-wo-pilot.cjs
+      - name: S06-F08 calcul exact secondes / montant et facture
+        run: node audit/test-s06-exact-billing.cjs
       - name: S06-F07 panneau Menu relie au timer persistant
         run: node audit/test-s06-sidebar-persistent.cjs
       - name: Validation BT S06 (simulations)
