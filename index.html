@@ -1337,22 +1337,31 @@ button.link:hover{
       <div class="card">
         <div class="module-search-toolbar">
           <button id="btnAddVehicle" type="button">➕ Ajouter véhicule</button>
-          <input id="vehicleSearch" type="search" aria-label="Rechercher un véhicule" placeholder="🔎 Rechercher : client, année, marque, modèle, plaque, VIN, KM..." />
+          <input id="vehicleSearch" type="search" aria-label="Rechercher un véhicule" placeholder="🔎 Rechercher dans toutes les caractéristiques du véhicule..." />
         </div>
         <div id="vehicleResultCount" class="module-result-count" role="status" aria-live="polite"></div>
-        <table id="vehiclesTable">
-          <thead><tr>
-            <th data-module-sort="client" aria-sort="none"><button type="button" id="sortVehClient" class="module-sort-button" data-vehicle-sort="client">Client <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
-            <th data-module-sort="year" aria-sort="none"><button type="button" id="sortVehYear" class="module-sort-button" data-vehicle-sort="year">Année <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
-            <th data-module-sort="make" aria-sort="none"><button type="button" id="sortVehMake" class="module-sort-button" data-vehicle-sort="make">Marque <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
-            <th data-module-sort="model" aria-sort="none"><button type="button" id="sortVehModel" class="module-sort-button" data-vehicle-sort="model">Modèle <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
-            <th data-module-sort="plate" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="plate">Plaque <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
-            <th data-module-sort="vin" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="vin">VIN <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
-            <th data-module-sort="km" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="km">KM <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
-            <th>Actions</th>
-          </tr></thead>
-          <tbody></tbody>
-        </table>
+        <div class="s07-vehicle-scroll" role="region" aria-label="Tableau des véhicules, défilement horizontal" tabindex="0" style="overflow-x:auto;max-width:100%;border-radius:6px;">
+          <table id="vehiclesTable" style="min-width:1750px;width:100%;table-layout:auto;">
+            <thead><tr>
+              <th data-module-sort="client" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="client">Client <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="year" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="year">Année <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="make" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="make">Marque <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="model" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="model">Modèle <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="trim" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="trim">Sous-modèle <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="engine" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="engine">Moteur <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="drivetrain" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="drivetrain">Motricité <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="km" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="km">KM <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="color" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="color">Couleur <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="transmission" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="transmission">Transmission <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="fuel" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="fuel">Carburant <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="tireSize" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="tireSize">Pneus <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="plate" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="plate">Plaque <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="vin" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="vin">VIN <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th>Actions</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -9254,7 +9263,7 @@ function renderVehiclesPage(){
   if(count)count.textContent=sorted.length+" véhicule"+(sorted.length!==1?"s":"")+" affiché"+(sorted.length!==1?"s":"");
   tbody.innerHTML="";
   if(!sorted.length){
-    tbody.innerHTML='<tr><td colspan="8" class="muted" style="text-align:center;padding:20px;">Aucun véhicule ne correspond à la recherche.</td></tr>';
+    tbody.innerHTML='<tr><td colspan="15" class="muted" style="text-align:center;padding:20px;">Aucun véhicule ne correspond à la recherche.</td></tr>';
     return;
   }
   sorted.forEach(v=>{
@@ -9263,22 +9272,13 @@ function renderVehiclesPage(){
     ownerButton.type="button";ownerButton.className="link";ownerButton.textContent=v.client;
     ownerButton.onclick=()=>openClientFromVehicles(v.clientId);
     owner.appendChild(ownerButton);tr.appendChild(owner);
-    for(const val of [v.year||"",v.make]){
-      const td=document.createElement("td");td.textContent=String(val);tr.appendChild(td);
-    }
-    const modelCell=document.createElement("td");
-    const modelName=document.createElement("strong");
-    modelName.textContent=[v.model,v.trim].filter(Boolean).join(" ");
-    modelCell.appendChild(modelName);
-    const details=[v.color,v.engine,v.drivetrain].filter(Boolean).join(" · ");
-    if(details){
-      const small=document.createElement("div");small.className="muted";
-      small.style.fontSize="12px";small.style.overflowWrap="anywhere";
-      small.textContent=details;modelCell.appendChild(small);
-    }
-    tr.appendChild(modelCell);
-    for(const val of [v.plate,v.vin,v.km]){
-      const td=document.createElement("td");td.textContent=String(val);tr.appendChild(td);
+    for(const key of ["year","make","model","trim","engine","drivetrain",
+      "km","color","transmission","fuel","tireSize","plate","vin"]){
+      const td=document.createElement("td");
+      td.textContent=String(v[key]??"") || "—";
+      td.style.whiteSpace="nowrap";
+      if(key==="vin")td.style.maxWidth="220px";
+      tr.appendChild(td);
     }
     const actions=document.createElement("td"),btn=document.createElement("button");
     btn.type="button";btn.className="ghost";btn.textContent="Fiche";
@@ -9364,7 +9364,8 @@ function bindVehicleSort(){
   table.querySelectorAll("button[data-vehicle-sort]").forEach(btn=>{
     btn.onclick=()=>{
       const key=btn.dataset.vehicleSort;
-      if(!["client","year","make","model","plate","vin","km"].includes(key))return;
+      if(!["client","year","make","model","trim","engine","drivetrain","km",
+        "color","transmission","fuel","tireSize","plate","vin"].includes(key))return;
       if(VEHICLES_SORT.key===key)VEHICLES_SORT.dir*=-1;
       else{VEHICLES_SORT.key=key;VEHICLES_SORT.dir=1;}
       renderVehiclesPage();
