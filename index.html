@@ -1817,40 +1817,48 @@ button.link:hover{
     </div>
   </div>
 
-<!-- MODAL AJOUT VÉHICULE -->
+<!-- MODAL AJOUT VÉHICULE — S07-F13 : même fiche complète que la modification -->
 <div id="addVehicleModal" class="modal-backdrop" style="display:none;">
-  <div class="modal-panel" style="max-width:520px;">
+  <div class="modal-panel" style="width:min(760px,96vw);max-width:760px;max-height:90vh;overflow-y:auto;">
     <h2>Ajouter un véhicule</h2>
-
-    <label>Client</label>
+    <label for="vehClientSelect">Client</label>
     <select id="vehClientSelect"></select>
-
-    <label>Année</label>
-    <input id="vehYear" type="number">
-
-    <label>Marque</label>
-    <input id="vehMake" type="text">
-
-    <label>Modèle</label>
-    <input id="vehModel" type="text">
-
-    <label>Plaque</label>
-    <input id="vehPlate">
-
-    <label>VIN</label>
-    <input id="vehVin">
-
-    <label>Kilométrage</label>
-    <input id="vehKm" type="number">
-
-    <div class="modal-actions">
+    <div class="s07-add-vehicle-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:10px 14px;margin-top:12px;">
+      <label>Année<input id="vehYear" type="number" min="1886" placeholder="Ex. 2018"></label>
+      <label>Marque<input id="vehMake" type="text"></label>
+      <label>Modèle<input id="vehModel" type="text"></label>
+      <label>Sous-modèle<input id="vehTrim" type="text"></label>
+      <label>Couleur<input id="vehColor" type="text"></label>
+      <label>Moteur<input id="vehEngine" type="text"></label>
+      <label>Plaque<input id="vehPlate" type="text"></label>
+      <label>VIN / NIV<input id="vehVin" type="text"></label>
+      <label>Kilométrage<input id="vehKm" type="number" min="0" step="1"></label>
+      <label>Pneus<input id="vehTireSize" type="text" placeholder="Ex. 225/65R17"></label>
+      <label>Transmission<select id="vehTransmission">
+        <option value="">—</option><option value="Automatique">Automatique</option><option value="Manuelle">Manuelle</option><option value="CVT">CVT</option><option value="Autre">Autre</option>
+      </select></label>
+      <label>Motricité<select id="vehDrivetrain">
+        <option value="">—</option><option value="FWD">FWD</option><option value="RWD">RWD</option><option value="AWD">AWD</option><option value="4X4">4X4</option><option value="Autre">Autre</option>
+      </select></label>
+      <label>Carburant<select id="vehFuel">
+        <option value="">—</option><option value="Essence">Essence</option><option value="Diesel">Diesel</option><option value="Hybride">Hybride</option><option value="Électrique">Électrique</option><option value="Autre">Autre</option>
+      </select></label>
+    </div>
+    <label for="vehNotes" style="display:block;margin-top:12px;">Notes véhicule</label>
+    <textarea id="vehNotes" rows="3" style="width:100%;box-sizing:border-box;"></textarea>
+    <div class="modal-actions" style="margin-top:12px;">
       <button class="ghost" onclick="closeAddVehicleModal()">Annuler</button>
       <button class="primary" onclick="saveNewVehicle()">💾 Enregistrer</button>
     </div>
   </div>
 </div>
 
-  
+<style>
+#addVehicleModal .s07-add-vehicle-grid label{display:block;min-width:0;font-size:13px}
+#addVehicleModal .s07-add-vehicle-grid input,
+#addVehicleModal .s07-add-vehicle-grid select{display:block;width:100%;box-sizing:border-box;margin-top:4px}
+</style>
+
 <script>
 
   
@@ -9439,7 +9447,15 @@ function closeAddVehicleModal(){
     model: $("vehModel").value.trim(),
     plate: $("vehPlate").value.trim(),
     vin: $("vehVin").value.trim(),
-    km: kmInput ? Number(kmInput) : ""
+    km: kmInput ? Number(kmInput) : "",
+    trim: $("vehTrim").value.trim(),
+    color: $("vehColor").value.trim(),
+    engine: $("vehEngine").value.trim(),
+    tireSize: $("vehTireSize").value.trim(),
+    transmission: $("vehTransmission").value,
+    drivetrain: $("vehDrivetrain").value,
+    fuel: $("vehFuel").value,
+    notes: $("vehNotes").value.trim()
   };
 
   if (!vehicle.make || !vehicle.model){
