@@ -9439,12 +9439,12 @@ function saveNewVehicle(){
   // La saisie reste intacte si la validation échoue.
   const yearInput=field("vehYear").value.trim();
   const kmInput=field("vehKm").value.trim();
-  if(yearInput && (!/^\\d{4}$/.test(yearInput)||Number(yearInput)<1886)){
+  if(yearInput && (!/^\d{4}$/.test(yearInput)||Number(yearInput)<1886)){
     alert("Année invalide : indique une année à quatre chiffres (1886 ou plus).");
     field("vehYear").focus();
     return;
   }
-  if(kmInput && (!/^\\d+$/.test(kmInput)||!Number.isSafeInteger(Number(kmInput)))){
+  if(kmInput && (!/^\d+$/.test(kmInput)||!Number.isSafeInteger(Number(kmInput)))){
     alert("Kilométrage invalide : indique un nombre entier positif ou zéro.");
     field("vehKm").focus();
     return;
