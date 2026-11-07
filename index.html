@@ -10419,6 +10419,7 @@ function s07SortServicesBy(key){
   renderServicesList();
 }
 
+(function(){const style=document.createElement("style");style.textContent="\n/* S07-F09d : tableau Services sans barre horizontale, boutons compacts. */\n#servicesList .s07-service-actions button{font-size:12px;padding:7px 8px;white-space:nowrap;}\n#servicesList .s07-service-grid > *{min-width:0;}\n#servicesList .s07-service-grid .module-sort-button{max-width:100%;font-size:13px;padding:5px 6px;}\n@media(max-width:1150px){\n #servicesList .s07-service-grid{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,.65fr) minmax(0,.55fr) minmax(0,.7fr) minmax(0,.7fr) minmax(180px,1.2fr)!important;gap:5px!important;font-size:12px!important;}\n #servicesList .s07-service-actions button{padding:5px 6px;font-size:11px;}\n}\n";document.head.appendChild(style);})();
 function renderServicesList(){
   const list=$("servicesList");
   if(!list)return;
@@ -10443,14 +10444,14 @@ function renderServicesList(){
     if(["hours","rate"].includes(key))return isFixed(s)?null:Number(s[key]||0);
     return String(s[key]||"");
   });
-  const gridStyle="display:grid;grid-template-columns:minmax(165px,1.6fr) minmax(155px,1.6fr) minmax(125px,1.1fr) 85px 75px 95px 105px minmax(305px,auto);gap:12px;align-items:center;min-width:1320px;";
+  const gridStyle="display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1.4fr) minmax(0,1fr) minmax(0,.65fr) minmax(0,.6fr) minmax(0,.8fr) minmax(0,.85fr) minmax(250px,1.85fr);gap:8px;align-items:center;width:100%;box-sizing:border-box;";
   const header=(key,label,align="left")=>{
     const active=S07_SERVICE_SORT_KEY===key;
     const arrow=active?(S07_SERVICE_SORT_DIRECTION==="asc"?"▲":"▼"):"↕";
     return `<button type="button" class="module-sort-button" data-s07-service-sort="${key}" aria-label="Trier par ${label}" style="justify-self:${align==="right"?"end":"start"};white-space:nowrap;">${label} <span aria-hidden="true">${arrow}</span></button>`;
   };
-  list.style.overflowX="auto";
-  list.innerHTML=`<div style="${gridStyle}padding:10px 8px;background:#333;border-radius:6px;font-weight:700;color:var(--accent);">
+  list.style.overflowX="visible";
+  list.innerHTML=`<div class="s07-service-grid" style="${gridStyle}padding:10px 8px;background:#333;border-radius:6px;font-weight:700;color:var(--accent);">
     ${header("name","Nom")}${header("desc","Description")}${header("category","Catégorie")}
     ${header("type","Type")}${header("hours","Heures","right")}${header("rate","Taux","right")}
     ${header("price","Prix","right")}<span style="text-align:right">Actions</span>
@@ -10458,15 +10459,15 @@ function renderServicesList(){
   sorted.forEach(s=>{
     const id=escapeHTML(String(s.id));
     const fixed=isFixed(s);
-    list.innerHTML+=`<div style="${gridStyle}padding:10px 8px;border-bottom:1px solid var(--border);font-size:14px;">
+    list.innerHTML+=`<div class="s07-service-grid" style="${gridStyle}padding:10px 8px;border-bottom:1px solid var(--border);font-size:14px;">
       <strong style="color:var(--accent);overflow-wrap:anywhere">${escapeHTML(s.name||"")}</strong>
       <span style="overflow-wrap:anywhere">${escapeHTML(s.desc||"—")}</span>
-      <span>${escapeHTML(s.category||"—")}</span>
+      <span style="min-width:0;overflow-wrap:anywhere">${escapeHTML(s.category||"—")}</span>
       <span>${fixed?"Forfait":"Horaire"}</span>
       <span style="text-align:right;white-space:nowrap">${fixed?"—":Number(s.hours||0)}</span>
       <span style="text-align:right;white-space:nowrap">${fixed?"—":money(s.rate)+" $"}</span>
       <span style="text-align:right;white-space:nowrap">${money(amount(s))} $</span>
-      <div style="display:flex;justify-content:flex-end;gap:6px;align-items:center;white-space:nowrap;">
+      <div class="s07-service-actions" style="display:flex;justify-content:flex-end;gap:4px;align-items:center;flex-wrap:wrap;min-width:0;">
         <button class="ghost" onclick="editService('${id}')">Modifier</button>
         <button class="ghost danger" onclick="deleteService('${id}')">Supprimer</button>
         <button onclick="addServiceToCurrentWO('${id}')">+ Bon de travail</button>
