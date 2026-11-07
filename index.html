@@ -9627,40 +9627,31 @@ loadInvoices?.();
     });
   }
       return `
-    <div style="border:1px solid var(--border); border-radius:10px; padding:12px; background:#111; margin-bottom:12px;">
-      <div class="muted">Client</div>
-      <div style="font-weight:700; font-size:1.05rem;">
-        ${clientName || client.name || ""}
+    <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px;">
+      <div class="muted" style="font-size:12px">CLIENT</div>
+      <strong>${escapeHTML(clientName || client.name || '')}</strong>
+      <h3 style="color:var(--accent);margin:12px 0 8px">🚗 ${escapeHTML([vehicle.year,vehicle.make,vehicle.model,vehicle.trim].filter(Boolean).join(' '))}</h3>
+      <div id="s07VehicleDetailsForm" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:9px 12px;">
+        <label style="min-width:0;font-size:13px">Année<input data-s07-vehicle="year" type="number" min="0" value="${escapeHTML(String(vehicle.year??''))}" style="width:100%;margin-top:4px;box-sizing:border-box"></label>
+        <label style="min-width:0;font-size:13px">Marque<input data-s07-vehicle="make" type="text" value="${escapeHTML(String(vehicle.make??''))}" style="width:100%;margin-top:4px;box-sizing:border-box"></label>
+        <label style="min-width:0;font-size:13px">Modèle<input data-s07-vehicle="model" type="text" value="${escapeHTML(String(vehicle.model??''))}" style="width:100%;margin-top:4px;box-sizing:border-box"></label>
+        <label style="min-width:0;font-size:13px">Sous-modèle<input data-s07-vehicle="trim" type="text" value="${escapeHTML(String(vehicle.trim??''))}" style="width:100%;margin-top:4px;box-sizing:border-box"></label>
+        <label style="min-width:0;font-size:13px">Couleur<input data-s07-vehicle="color" type="text" value="${escapeHTML(String(vehicle.color??''))}" style="width:100%;margin-top:4px;box-sizing:border-box"></label>
+        <label style="min-width:0;font-size:13px">Moteur<input data-s07-vehicle="engine" type="text" value="${escapeHTML(String(vehicle.engine??''))}" style="width:100%;margin-top:4px;box-sizing:border-box"></label>
+        <label style="min-width:0;font-size:13px">Plaque<input data-s07-vehicle="plate" type="text" value="${escapeHTML(String(vehicle.plate??''))}" style="width:100%;margin-top:4px;box-sizing:border-box"></label>
+        <label style="min-width:0;font-size:13px">VIN / NIV<input data-s07-vehicle="vin" type="text" value="${escapeHTML(String(vehicle.vin??''))}" style="width:100%;margin-top:4px;box-sizing:border-box"></label>
+        <label style="min-width:0;font-size:13px">Kilométrage<input data-s07-vehicle="km" type="number" min="0" value="${escapeHTML(String(vehicle.km??''))}" style="width:100%;margin-top:4px;box-sizing:border-box"></label>
+        <label style="min-width:0;font-size:13px">Pneus<input data-s07-vehicle="tireSize" type="text" value="${escapeHTML(String(vehicle.tireSize??''))}" style="width:100%;margin-top:4px;box-sizing:border-box"></label>
+        <label style="min-width:0;font-size:13px">Transmission<select data-s07-vehicle="transmission" style="width:100%;margin-top:4px"><option value="">—</option><option value="Automatique" ${vehicle.transmission==="Automatique"?'selected':''}>Automatique</option><option value="Manuelle" ${vehicle.transmission==="Manuelle"?'selected':''}>Manuelle</option><option value="CVT" ${vehicle.transmission==="CVT"?'selected':''}>CVT</option><option value="Autre" ${vehicle.transmission==="Autre"?'selected':''}>Autre</option></select></label>
+        <label style="min-width:0;font-size:13px">Motricité<select data-s07-vehicle="drivetrain" style="width:100%;margin-top:4px"><option value="">—</option><option value="FWD" ${vehicle.drivetrain==="FWD"?'selected':''}>FWD</option><option value="RWD" ${vehicle.drivetrain==="RWD"?'selected':''}>RWD</option><option value="AWD" ${vehicle.drivetrain==="AWD"?'selected':''}>AWD</option><option value="4X4" ${vehicle.drivetrain==="4X4"?'selected':''}>4X4</option><option value="Autre" ${vehicle.drivetrain==="Autre"?'selected':''}>Autre</option></select></label>
+        <label style="min-width:0;font-size:13px">Carburant<select data-s07-vehicle="fuel" style="width:100%;margin-top:4px"><option value="">—</option><option value="Essence" ${vehicle.fuel==="Essence"?'selected':''}>Essence</option><option value="Diesel" ${vehicle.fuel==="Diesel"?'selected':''}>Diesel</option><option value="Hybride" ${vehicle.fuel==="Hybride"?'selected':''}>Hybride</option><option value="Électrique" ${vehicle.fuel==="Électrique"?'selected':''}>Électrique</option><option value="Autre" ${vehicle.fuel==="Autre"?'selected':''}>Autre</option></select></label>
       </div>
-
-      <div style="margin-top:10px;" class="muted">Véhicule</div>
-      <div style="font-weight:700;">${vehicleLabel}</div>
-
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-top:10px;">
-
-  <div>
-    <div class="muted">Plaque</div>
-    <input id="vehEditPlate" value="${escapeHTML(vehicle.plate || "")}">
-  </div>
-
-  <div>
-    <div class="muted">VIN</div>
-    <input id="vehEditVin" value="${escapeHTML(vehicle.vin || "")}">
-  </div>
-
-  <div>
-    <div class="muted">KM</div>
-    <input id="vehEditKm" type="number" value="${vehicle.km || ""}">
-  </div>
-
-</div>
-
-<div style="text-align:right; margin-top:12px;">
-  <button class="ghost"
-    onclick="saveVehicleInfo('${client.id}','${vehicle.id}')">
-    💾 Enregistrer
-  </button>
-</div>
+      <label style="font-size:13px;display:block;margin-top:10px">Notes véhicule
+        <textarea data-s07-vehicle="notes" rows="2" style="width:100%;box-sizing:border-box;margin-top:4px">${escapeHTML(String(vehicle.notes||''))}</textarea>
+      </label>
+      <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+        <button type="button" class="ghost" onclick="s07SaveVehicleDetails(${JSON.stringify(String(client.id))},${JSON.stringify(String(vehicle.id))})">💾 Enregistrer le véhicule</button>
+      </div>
     </div>
 
     <div class="card" style="margin-bottom:12px;">
@@ -9702,46 +9693,36 @@ loadInvoices?.();
 }
 
 
-  function saveVehicleInfo(clientId, vehicleId){
-
-  const plate = document.getElementById("vehEditPlate").value.trim();
-  const vin   = document.getElementById("vehEditVin").value.trim();
-  const km    = Number(document.getElementById("vehEditKm").value || 0);
-
-  if (!plate || !vin){
-    alert("Plaque et VIN sont obligatoires.");
-    return;
+// S07-F05 : formulaire propre à la fiche véhicule, sans collisions d'IDs.
+function s07SaveVehicleDetails(clientId,vehicleId){
+  const form=document.getElementById("s07VehicleDetailsForm");
+  const modal=document.getElementById("vehicleModalContent");
+  if(!form||!modal)return;
+  const fields={};
+  const names=["year","make","model","trim","color","engine","plate","vin","km",
+    "tireSize","transmission","drivetrain","fuel","notes"];
+  for(const name of names){
+    const input=modal.querySelector('[data-s07-vehicle="'+name+'"]');
+    if(!input)return alert("Champ introuvable : "+name);
+    fields[name]=input.value.trim();
   }
-
-  CLIENTS = loadArrayFromStorage(STORAGE.clients);
-
-  const client = CLIENTS.find(c => String(c.id) === String(clientId));
-  if (!client) return alert("Client introuvable.");
-
-  const veh = client.vehicles.find(v => String(v.id) === String(vehicleId));
-  if (!veh) return alert("Véhicule introuvable.");
-
-  // ✏️ mise à jour
-  veh.plate = plate;
-  veh.vin   = vin;
-  veh.km    = km;
-
-  // 💾 sauvegarde
-  localStorage.setItem(STORAGE.clients, JSON.stringify(CLIENTS));
-  scheduleCloudSync();
-
-  // 🔁 refresh UI sans reload
-  renderClientsTable();
+  if(!fields.make||!fields.model)return alert("Marque et modèle requis.");
+  if(fields.year && (!/^\\d{4}$/.test(fields.year)||Number(fields.year)<1886))
+    return alert("Année invalide.");
+  if(fields.km && (!/^\\d+$/.test(fields.km)||!Number.isSafeInteger(Number(fields.km))))
+    return alert("Kilométrage invalide.");
+  const client=CLIENTS.find(x=>String(x.id)===String(clientId));
+  const vehicle=client?.vehicles?.find(x=>String(x.id)===String(vehicleId));
+  if(!vehicle)return alert("Véhicule introuvable. Aucun changement effectué.");
+  // Ne modifier que les champs connus : identifiant et relations historiques préservés.
+  Object.assign(vehicle,fields,{year:fields.year?Number(fields.year):"",
+    km:fields.km?Number(fields.km):""});
+  saveClients();
   renderVehiclesPage();
-  loadWorkOrders();
-  renderInvoiceList();
-
-  // 🔁 re-render du modal
-  document.getElementById("vehicleModalContent").innerHTML =
-    renderVehicleModalContent(client, veh);
+  renderClientsTable();
+  modal.innerHTML=renderVehicleModalContent(client,vehicle);
 }
 
-    
 /* Ouvrir un BT depuis la fiche véhicule */
 function openWorkOrderFromVehicleModal(woId){
   closeVehicleModal();
