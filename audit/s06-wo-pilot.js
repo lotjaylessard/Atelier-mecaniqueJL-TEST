@@ -28,6 +28,41 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
 @media(max-width:560px){#s06WoPilot{grid-template-columns:1fr}#s06WoPilot .s06clock{grid-column:1;text-align:left}}`;
   document.head.append(style);
   const app={user:null,garage:null,woId:null,session:null,rows:[],panel:null,busy:false,beat:null,displayTick:null,displayAnchor:null,ownRunning:null,lastVerified:null};
+  // S06 : après un POST validé, conserver le rechargement de sécurité
+  // et rouvrir uniquement le BT du même garage et du même compte.
+  const restoreKey="s06-posted-return-v1";
+  function restoreAfterReload(){
+    let saved;
+    try{saved=JSON.parse(sessionStorage.getItem(restoreKey)||"null");}catch(_){return;}
+    if(!saved||!saved.woId||!saved.garage||!saved.user)return;
+    if(Date.now()-Number(saved.at)>120000){
+      try{sessionStorage.removeItem(restoreKey);}catch(_){}
+      return;
+    }
+    const started=Date.now();
+    const check=setInterval(()=>{
+      if(Date.now()-started>20000){clearInterval(check);return;}
+      try{
+        if(typeof CLOUD_DATA_READY==="undefined"||!CLOUD_DATA_READY||
+           typeof WORKORDERS==="undefined"||typeof ACTIVE_GARAGE_ID==="undefined"||
+           typeof SUPABASE_USER==="undefined"||!SUPABASE_USER?.id)return;
+        if(String(ACTIVE_GARAGE_ID)!==saved.garage||
+           String(SUPABASE_USER.id)!==saved.user){
+          clearInterval(check);sessionStorage.removeItem(restoreKey);return;
+        }
+        const wo=WORKORDERS.find(w=>String(w?.id)===saved.woId);
+        if(!wo){clearInterval(check);sessionStorage.removeItem(restoreKey);return;}
+        if(typeof showPage!=="function"||typeof openWorkOrderDetail!=="function")return;
+        clearInterval(check);
+        sessionStorage.removeItem(restoreKey);
+        showPage("page-workorders");
+        // Reprendre l'objet chargé depuis Supabase, pas le snapshot pré-POST.
+        const refreshed=WORKORDERS.find(w=>String(w?.id)===saved.woId);
+        if(refreshed)openWorkOrderDetail(refreshed);
+      }catch(_){clearInterval(check);}
+    },250);
+  }
+  restoreAfterReload();
   const qs=id=>app.panel?.querySelector("#"+id);
   const format=ms=>{const n=Math.floor(Math.max(0,Number(ms)||0)/1000);
     return [Math.floor(n/3600),Math.floor(n/60)%60,n%60].map(x=>String(x).padStart(2,"0")).join(":");};
@@ -271,6 +306,10 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     setMsg("✅ Intervention enregistrée : "+money(Number(ack.total))+
       ".\nNote technique ajoutée au BT. Employé et date conservés.\nRechargement du BT...");
     // Relecture complète pour remplacer le vieux snapshot local, jamais d'autosave avec la version précédente.
+    // Marqueur d'interface seulement : ne contient aucune donnée client ni montant.
+    try{sessionStorage.setItem(restoreKey,JSON.stringify({
+      woId:String(app.woId),garage:String(app.garage),user:String(app.user),at:Date.now()
+    }));}catch(_){}
     location.reload();
   }
   function mount(){
