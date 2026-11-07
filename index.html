@@ -9746,12 +9746,27 @@ function renderClientModal(id){
           <div style="flex:1;min-width:80px;"><label>Année</label><input id="vehYear" /></div>
           <div style="flex:1;min-width:120px;"><label>Marque</label><input id="vehMake" /></div>
           <div style="flex:1;min-width:120px;"><label>Modèle</label><input id="vehModel" /></div>
+          <div style="flex:1;min-width:120px;"><label>Sous-modèle</label><input id="vehTrim" /></div>
+        </div>
+        <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:120px;"><label>Couleur</label><input id="vehColor" /></div>
+          <div style="flex:1;min-width:150px;"><label>Moteur</label><input id="vehEngine" placeholder="Ex. 2.0 L Turbo" /></div>
+          <div style="flex:1;min-width:130px;"><label>Transmission</label><select id="vehTransmission"><option value="">—</option><option>Automatique</option><option>Manuelle</option><option>CVT</option><option>Autre</option></select></div>
+          <div style="flex:1;min-width:100px;"><label>Motricité</label><select id="vehDrivetrain"><option value="">—</option><option>FWD</option><option>RWD</option><option>AWD</option><option>4X4</option><option>Autre</option></select></div>
         </div>
         <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">
           <div style="flex:1;min-width:120px;"><label>Plaque</label><input id="vehPlate" /></div>
           <div style="flex:1;min-width:150px;"><label>VIN</label><input id="vehVin" /></div>
           <div style="flex:1;min-width:80px;"><label>KM</label><input id="vehKm" type="number" /></div>
         </div>
+        <details style="margin-top:10px;border:1px solid var(--border);border-radius:7px;padding:8px;">
+          <summary style="cursor:pointer;font-weight:600;">Autres informations (facultatif)</summary>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+            <div style="flex:1;min-width:140px;"><label>Carburant</label><select id="vehFuel"><option value="">—</option><option>Essence</option><option>Diesel</option><option>Hybride</option><option>Électrique</option><option>Autre</option></select></div>
+            <div style="flex:1;min-width:140px;"><label>Cylindrée</label><input id="vehDisplacement" placeholder="Ex. 2.0 L" /></div>
+            <div style="flex:1;min-width:160px;"><label>Dimension des pneus</label><input id="vehTireSize" placeholder="Ex. 215/65R17" /></div>
+          </div>
+        </details>
         <label style="margin-top:6px;">Notes véhicule</label>
         <textarea id="vehNotes"></textarea>
         <button id="clientAddVehicleBtn" style="margin-top:6px;">Ajouter véhicule</button>
@@ -9780,8 +9795,9 @@ function renderClientModal(id){
     wrap.innerHTML=client.vehicles.map((v,idx)=>`
       <div style="border:1px solid var(--border);border-radius:6px;padding:6px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">
         <div>
-          <div><strong>${v.year||''} ${v.make||''} ${v.model||''}</strong></div>
-          <div class="small">Plaque: ${v.plate||''} | VIN: ${v.vin||''} | KM: ${v.km||''}</div>
+          <div><strong>${escapeHTML([v.year,v.make,v.model,v.trim].filter(Boolean).join(' '))}</strong></div>
+          <div class="small">${escapeHTML([v.color,v.engine,v.transmission,v.drivetrain].filter(Boolean).join(' · '))}</div>
+          <div class="small">Plaque: ${escapeHTML(v.plate||'')} | VIN: ${escapeHTML(v.vin||'')} | KM: ${escapeHTML(String(v.km||''))}</div>
           <div class="small">${v.notes||''}</div>
         </div>
         <div style="display:flex; gap:8px;">
@@ -9812,6 +9828,14 @@ function renderClientModal(id){
     $('vehYear').value  = v.year  || '';
     $('vehMake').value  = v.make  || '';
     $('vehModel').value = v.model || '';
+    $('vehTrim').value = v.trim || '';
+    $('vehColor').value = v.color || '';
+    $('vehEngine').value = v.engine || '';
+    $('vehTransmission').value = v.transmission || '';
+    $('vehDrivetrain').value = v.drivetrain || '';
+    $('vehFuel').value = v.fuel || '';
+    $('vehDisplacement').value = v.displacement || '';
+    $('vehTireSize').value = v.tireSize || '';
     $('vehPlate').value = v.plate || '';
     $('vehVin').value   = v.vin   || '';
     $('vehKm').value    = v.km    || '';
@@ -9885,6 +9909,14 @@ const name = `${firstName} ${lastName}`.trim();
         make,
         model,
         year,
+        trim:$('vehTrim').value.trim(),
+        color:$('vehColor').value.trim(),
+        engine:$('vehEngine').value.trim(),
+        transmission:$('vehTransmission').value,
+        drivetrain:$('vehDrivetrain').value,
+        fuel:$('vehFuel').value,
+        displacement:$('vehDisplacement').value.trim(),
+        tireSize:$('vehTireSize').value.trim(),
         plate:$('vehPlate').value.trim(),
         vin:$('vehVin').value.trim(),
         km:$('vehKm').value.trim(),
@@ -9896,7 +9928,8 @@ if (vehEditIndex !== null && client.vehicles[vehEditIndex]) {
   // ✏️ MODIFICATION
   client.vehicles[vehEditIndex] = {
     ...client.vehicles[vehEditIndex],
-    ...v
+    ...v,
+    id:client.vehicles[vehEditIndex].id
   };
   vehEditIndex = null;
   $('clientAddVehicleBtn').textContent = '➕ Ajouter véhicule';
@@ -9911,6 +9944,7 @@ if (vehEditIndex !== null && client.vehicles[vehEditIndex]) {
       
       $('vehMake').value='';
       $('vehModel').value='';
+      ['vehTrim','vehColor','vehEngine','vehTransmission','vehDrivetrain','vehFuel','vehDisplacement','vehTireSize'].forEach(id=>{$(id).value='';});
       $('vehYear').value='';
       $('vehPlate').value='';
       $('vehVin').value='';
