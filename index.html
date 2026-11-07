@@ -6016,6 +6016,37 @@ function saveWorkOrders(){
 }
   
 
+// S07-F02 : les nouveaux BT conservent leur propre fiche véhicule.
+function s07VehicleSnapshot(vehicle){
+  const fields=['year','make','model','trim','color','engine','transmission','drivetrain',
+    'fuel','tireSize','plate','vin'];
+  const result={};
+  for(const field of fields)result[field]=String(vehicle?.[field]??'').trim();
+  return result;
+}
+function s07VehicleHeader(wo){
+  // Ne pas présenter des données actuelles comme un historique : les anciens
+  // BT sans instantané sont explicitement étiquetés « fiche actuelle ».
+  const client=CLIENTS.find(c=>String(c.id)===String(wo.clientId));
+  const current=client?.vehicles?.find(v=>String(v.id)===String(wo.vehicleId));
+  const v=wo.vehicleSnapshot || (current ? s07VehicleSnapshot(current) : null);
+  if(!v)return '';
+  const details=[
+    ['Sous-modèle',v.trim],['Couleur',v.color],['Moteur',v.engine],
+    ['Transmission',v.transmission],['Motricité',v.drivetrain],
+    ['Carburant',v.fuel],['Pneus',v.tireSize],
+    ['Plaque',v.plate],['VIN / NIV',v.vin]
+  ].filter(([,value])=>String(value??'').trim());
+  if(!details.length)return '';
+  const cells=details.map(([label,value])=>
+    '<div style="min-width:0"><div class="muted" style="font-size:12px">'+escapeHTML(label)+
+    '</div><strong style="overflow-wrap:anywhere">'+escapeHTML(String(value))+'</strong></div>').join('');
+  return '<section aria-label="Informations du véhicule" style="border:1px solid var(--border);border-radius:8px;padding:12px;margin:10px 0 12px">'+
+    '<div style="font-weight:700;margin-bottom:8px">🚗 '+escapeHTML([v.year,v.make,v.model,v.trim].filter(Boolean).join(' '))+'</div>'+
+    (!wo.vehicleSnapshot?'<div class="muted" style="font-size:12px;margin-bottom:8px">Fiche véhicule actuelle — ancien BT sans instantané</div>':'')+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">'+cells+'</div></section>';
+}
+
   function saveNewWorkOrder() {
   const clientId = $("woClientSelect")?.value;
   const vehicleId = $("woVehicleSelect")?.value;
@@ -6047,6 +6078,7 @@ const wo = {
     clientName: client.name,
     vehicleId,
     vehicleLabel: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+    vehicleSnapshot: s07VehicleSnapshot(vehicle),
     vehicleKm: woValidKm(vehicleKm),
     description,
     notes: "",          // 📝 notes techniques
@@ -7573,6 +7605,7 @@ const statusLabel =
       <span class="status-badge status-${wo.status}">${statusLabel}</span>
     </div>
     ${woContactHtml(wo)}
+    ${s07VehicleHeader(wo)}
     <label for="woKmInput" style="display:block;font-weight:bold;">Kilométrage</label>
     <div style="display:flex;gap:8px;align-items:center;margin:6px 0 12px;">
       <input id="woKmInput" type="number" min="0" value="${woKmDisplay.value ?? ""}" placeholder="KM non renseigné"
