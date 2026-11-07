@@ -124,6 +124,10 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
   function paint(){
     if(!app.panel)return;
     const r=app.session;
+    // Identité de session visible pour le miroir lecture seule du menu.
+    // Une session différente ne doit jamais être affichée comme synchronisée.
+    if(r?.id)app.panel.dataset.sessionId=String(r.id);
+    else delete app.panel.dataset.sessionId;
     qs("s06Clock").textContent=format(liveTime());
     qs("s06State").textContent=r?.status==="running"?"● En cours":r?.status==="paused"?"● En pause":"● Prête";
     const another=app.rows.some(x=>x.status==="running"&&x.work_order_id!==app.woId);
