@@ -1435,10 +1435,6 @@ button.link:hover{
     <option value="Moteur">Moteur</option>
     <option value="Divers">Divers</option>
   </select>
-  <select id="serviceSort" aria-label="Trier les services">
-    <option value="name">Nom</option><option value="category">Catégorie</option><option value="price">Prix</option>
-  </select>
-  <button id="serviceSortDirection" type="button" class="ghost">Nom ↑</button>
 </div>
 <div id="serviceResultCount" class="module-result-count" role="status" aria-live="polite"></div>
 <div id="servicesList"></div>
@@ -10409,62 +10405,78 @@ function deleteService(id){
 }
 
 
-  function renderServicesList(){
-  const list = $("servicesList");
-  if (!list) return;
-
-  const search = $("serviceSearchInput")?.value || "";
-  const category = $("serviceCategoryFilter")?.value || "";
-
-  list.innerHTML = "";
-
-  const filtered = SERVICES.filter(s => {
-    const matchText = moduleMatchesSearch([s.name,s.desc,s.category],search);
-
-    const matchCategory =
-      !category || s.category === category;
-
-    return matchText && matchCategory;
-  });
-
-  const counter=$("serviceResultCount");
-  if(counter)counter.textContent=filtered.length+" service"+(filtered.length!==1?"s":"")+" affiché"+(filtered.length!==1?"s":"");
-  if (filtered.length === 0){
-    list.innerHTML = `<div class="muted">Aucun service trouvé.</div>`;
-    return;
+// S07-F09c : colonnes et tris indépendants des valeurs enregistrées.
+let S07_SERVICE_SORT_KEY="name";
+let S07_SERVICE_SORT_DIRECTION="asc";
+function s07SortServicesBy(key){
+  if(!["name","desc","category","type","hours","rate","price"].includes(key))return;
+  if(S07_SERVICE_SORT_KEY===key)
+    S07_SERVICE_SORT_DIRECTION=S07_SERVICE_SORT_DIRECTION==="asc"?"desc":"asc";
+  else{
+    S07_SERVICE_SORT_KEY=key;
+    S07_SERVICE_SORT_DIRECTION="asc";
   }
-
-  const sorted = moduleSortRows(filtered, $("serviceSort")?.value || "name", S05_SERVICE_DIRECTION, (item,key) =>
-    key === "price" ? (Number(item.priceFixed)>0 ? Number(item.priceFixed) : Number(item.hours||0)*Number(item.rate||0)) : String(item[key]||"")
-  );
-  sorted.forEach(s => {
-    list.innerHTML += `
-      <div class="service-row">
-        <div class="srv-name">
-          <strong>${escapeHTML(s.name)}</strong>
-          <div class="srv-desc">${escapeHTML(s.desc || "")}</div>
-        </div>
-
-        <div class="srv-cat">${escapeHTML(s.category)}</div>
-
-        <div class="srv-price">
-          ${
-            s.priceFixed > 0
-              ? `Forfait : ${money(s.priceFixed)} $`
-              : `${s.hours} h x ${money(s.rate)} $ / h`
-          }
-        </div>
-
-        <div class="srv-actions">
-          <button class="ghost" onclick="editService('${s.id}')">Modifier</button>
-          <button class="ghost danger" onclick="deleteService('${s.id}')">Supprimer</button>
-          <button onclick="addServiceToCurrentWO('${s.id}')">+ Bon de travail</button>
-        </div>
-      </div>
-    `;
-  });
+  renderServicesList();
 }
 
+function renderServicesList(){
+  const list=$("servicesList");
+  if(!list)return;
+  const search=$("serviceSearchInput")?.value||"";
+  const category=$("serviceCategoryFilter")?.value||"";
+  const filtered=SERVICES.filter(s=>
+    moduleMatchesSearch([s.name,s.desc,s.category],search) &&
+    (!category||s.category===category)
+  );
+  const counter=$("serviceResultCount");
+  if(counter)counter.textContent=filtered.length+" service"+(filtered.length!==1?"s":"")+" affiché"+(filtered.length!==1?"s":"");
+  list.innerHTML="";
+  if(!filtered.length){
+    list.innerHTML='<div class="muted">Aucun service trouvé.</div>';
+    return;
+  }
+  const isFixed=s=>Number(s.priceFixed)>0;
+  const amount=s=>isFixed(s)?Number(s.priceFixed):Number(s.hours||0)*Number(s.rate||0);
+  const sorted=moduleSortRows(filtered,S07_SERVICE_SORT_KEY,S07_SERVICE_SORT_DIRECTION,(s,key)=>{
+    if(key==="type")return isFixed(s)?"Forfait":"Horaire";
+    if(key==="price")return amount(s);
+    if(["hours","rate"].includes(key))return isFixed(s)?null:Number(s[key]||0);
+    return String(s[key]||"");
+  });
+  const gridStyle="display:grid;grid-template-columns:minmax(165px,1.6fr) minmax(155px,1.6fr) minmax(125px,1.1fr) 85px 75px 95px 105px minmax(305px,auto);gap:12px;align-items:center;min-width:1320px;";
+  const header=(key,label,align="left")=>{
+    const active=S07_SERVICE_SORT_KEY===key;
+    const arrow=active?(S07_SERVICE_SORT_DIRECTION==="asc"?"▲":"▼"):"↕";
+    return `<button type="button" class="module-sort-button" data-s07-service-sort="${key}" aria-label="Trier par ${label}" style="justify-self:${align==="right"?"end":"start"};white-space:nowrap;">${label} <span aria-hidden="true">${arrow}</span></button>`;
+  };
+  list.style.overflowX="auto";
+  list.innerHTML=`<div style="${gridStyle}padding:10px 8px;background:#333;border-radius:6px;font-weight:700;color:var(--accent);">
+    ${header("name","Nom")}${header("desc","Description")}${header("category","Catégorie")}
+    ${header("type","Type")}${header("hours","Heures","right")}${header("rate","Taux","right")}
+    ${header("price","Prix","right")}<span style="text-align:right">Actions</span>
+  </div>`;
+  sorted.forEach(s=>{
+    const id=escapeHTML(String(s.id));
+    const fixed=isFixed(s);
+    list.innerHTML+=`<div style="${gridStyle}padding:10px 8px;border-bottom:1px solid var(--border);font-size:14px;">
+      <strong style="color:var(--accent);overflow-wrap:anywhere">${escapeHTML(s.name||"")}</strong>
+      <span style="overflow-wrap:anywhere">${escapeHTML(s.desc||"—")}</span>
+      <span>${escapeHTML(s.category||"—")}</span>
+      <span>${fixed?"Forfait":"Horaire"}</span>
+      <span style="text-align:right;white-space:nowrap">${fixed?"—":Number(s.hours||0)}</span>
+      <span style="text-align:right;white-space:nowrap">${fixed?"—":money(s.rate)+" $"}</span>
+      <span style="text-align:right;white-space:nowrap">${money(amount(s))} $</span>
+      <div style="display:flex;justify-content:flex-end;gap:6px;align-items:center;white-space:nowrap;">
+        <button class="ghost" onclick="editService('${id}')">Modifier</button>
+        <button class="ghost danger" onclick="deleteService('${id}')">Supprimer</button>
+        <button onclick="addServiceToCurrentWO('${id}')">+ Bon de travail</button>
+      </div>
+    </div>`;
+  });
+  list.querySelectorAll("[data-s07-service-sort]").forEach(btn=>{
+    btn.addEventListener("click",()=>s07SortServicesBy(btn.dataset.s07ServiceSort));
+  });
+}
 
 // S07-F09b : tri du catalogue Pièces par en-tête, sans modifier les données.
 let S07_PART_SORT_KEY="name";
@@ -10602,7 +10614,6 @@ function setupCatalogSort(selectId,buttonId,type,render){
   update();
 }
 document.addEventListener("DOMContentLoaded", () => {
-  setupCatalogSort("serviceSort","serviceSortDirection","service",renderServicesList);
 
   if ($("partInvSearch")){
   $("partInvSearch").addEventListener("input", renderPartsList);
