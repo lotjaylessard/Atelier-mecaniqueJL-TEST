@@ -1067,6 +1067,45 @@ button.link:hover{
 #s06TimerWorkOrder:focus-visible{outline:2px solid #fff;outline-offset:2px}
 
 @media(max-height:730px){#sidebar{gap:4px;padding-top:8px}#sidebar > .navBtn{min-height:26px;padding:5px 8px}#s06SidebarTimer{gap:3px;padding:6px}}
+
+/* S07 — alignement horizontal des actions Services, comme dans Pieces.
+   Correctif d'affichage seulement, sans modifier les actions JS. */
+#page-services .srv-actions,
+#page-services .service-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  min-width: 0;
+}
+#page-services .srv-actions > button,
+#page-services .service-actions > button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  width: auto;
+  margin: 0;
+}
+#page-services .service-row {
+  grid-template-columns: minmax(135px,2fr) minmax(105px,1fr) minmax(150px,1.25fr) minmax(370px,2.5fr);
+}
+/* Support du tableau trie par colonne visible en TEST. */
+#page-services .s05-catalog table th:last-child,
+#page-services .s05-catalog table td:last-child {
+  min-width: 370px;
+  text-align: right;
+  white-space: nowrap;
+}
+#page-services .s05-catalog table td:last-child button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  white-space: nowrap;
+  margin: 0 0 0 6px;
+}
+
 </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
