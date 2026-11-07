@@ -1080,6 +1080,19 @@ button.link:hover{
 #vehiclesTable td .s07-vin-copy{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #vehiclesTable td:last-child,#vehiclesTable th:last-child{text-align:center;white-space:nowrap}
 #vehiclesTable td:last-child .ghost{font-size:13px;padding:7px 9px;white-space:nowrap}
+
+/* S08-F01 — Liste des soumissions; aucun accès aux données métier existantes. */
+#page-quotes .s08-quotes-card{min-width:0}
+#page-quotes .module-search-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#page-quotes .module-search-toolbar input{flex:1 1 280px;min-width:175px;margin:0;padding:8px;background:#111;color:#fff;border:1px solid var(--border)}
+#page-quotes .module-search-toolbar select{flex:0 1 210px;min-width:155px;margin:0;padding:8px;background:#111;color:#fff;border:1px solid var(--border)}
+#page-quotes #s08NewQuote:disabled{opacity:.55;cursor:not-allowed}
+#page-quotes .s08-quotes-table{max-width:100%;overflow-x:auto}
+#page-quotes #s08QuotesTable{width:100%;border-collapse:collapse}
+#page-quotes #s08QuotesTable th{background:#333;color:var(--accent);font-size:13px;text-align:left;white-space:nowrap;padding:12px 8px}
+#page-quotes #s08QuotesTable td{padding:16px 8px}
+#page-quotes .s08-quote-empty{text-align:center}
+
 </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1110,6 +1123,7 @@ button.link:hover{
   </section>
 
   <button class="navBtn" data-page="page-dashboard">📊 Dashboard</button>
+  <button class="navBtn" data-page="page-quotes">📝 Soumissions</button>
   <button class="navBtn" data-page="page-workorders">📋 Work Order</button>
   <button class="navBtn" data-page="page-invoice-list">🧾 Factures</button>
   <button class="navBtn" data-page="page-clients">👤 Clients</button>
@@ -1246,6 +1260,33 @@ button.link:hover{
 
 
         <!-- WORK ORDERS -->
+    <!-- S08-F01 : module Soumissions indépendant, squelette sans écriture de données. -->
+    <div class="page" id="page-quotes">
+      <h2>Soumissions</h2>
+      <div class="card s08-quotes-card">
+        <div class="module-search-toolbar">
+          <button id="s08NewQuote" type="button" disabled title="Disponible après intégration de l'enregistrement indépendant">➕ Nouvelle soumission</button>
+          <input id="s08QuoteSearch" type="search" placeholder="🔎 Rechercher : # SO, client, véhicule, description..." aria-label="Rechercher une soumission">
+          <select id="s08QuoteStatus" aria-label="Filtrer les soumissions par statut">
+            <option value="">Tous les statuts</option>
+            <option value="draft">Brouillon</option>
+            <option value="sent">Envoyée</option>
+            <option value="approved">Approuvée</option>
+            <option value="declined">Refusée</option>
+            <option value="expired">Expirée</option>
+          </select>
+        </div>
+        <div class="module-result-count" id="s08QuoteCount" role="status" aria-live="polite">0 soumission affichée</div>
+        <div class="s08-quotes-table" role="region" aria-label="Liste des soumissions">
+          <table id="s08QuotesTable">
+            <thead><tr><th># SO</th><th>Date</th><th>Client</th><th>Véhicule</th><th>Description</th><th>Montant estimé</th><th>Statut</th><th>Actions</th></tr></thead>
+            <tbody><tr><td colspan="8" class="muted s08-quote-empty">Aucune soumission. Création et enregistrement disponibles à la prochaine étape.</td></tr></tbody>
+          </table>
+        </div>
+        <p class="muted" style="font-size:12px;margin:12px 0 0">S08-F01 : structure en préparation. Aucune soumission, aucun bon de travail et aucune facture ne sont créés depuis cette page pour l'instant. Le montant estimé sera affiché sans taxes.</p>
+      </div>
+    </div>
+
     <div class="page" id="page-workorders">
        <h2>Bons de travail</h2>
       <div class="card" id="woListCard">
