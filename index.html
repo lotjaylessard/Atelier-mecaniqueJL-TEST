@@ -1485,6 +1485,7 @@ button.link:hover{
         <input id="partInvPrice" type="number" step="0.01" />
 
         <button id="partInvAddBtn" type="button" style="margin-top:8px;">Ajouter dans l’inventaire</button>
+        <div id="s07PartSaveStatus" role="status" aria-live="polite" style="min-height:16px;font-size:12px;margin-top:6px;color:var(--muted)"></div>
       </div>
 
       <div class="card s05-catalog"><div class="module-search-toolbar">
@@ -2721,44 +2722,60 @@ function showPage(id){
   PARTS = loadArrayFromStorage(STORAGE.parts);
   renderPartsList();
 
+  // S07-F08b : confirmations du catalogue Pièces (sans modification des prix ni stocks).
   if ($("partInvAddBtn")){
-    $("partInvAddBtn").onclick = () => {
-
-      const data = {
-  id: EDITING_PART_ID || Date.now(),
-  name: $("partInvName").value.trim(),
-  number: $("partInvNumber").value.trim(),
-  category: $("partInvCategory").value,
-  qty: Number($("partInvQty").value || 0),
-  cost: Number($("partInvCost").value || 0),
-  price: Number($("partInvPrice").value || 0)
-};
-
-      if (!data.name){
-        alert("Nom de la pièce requis.");
+    const button=$("partInvAddBtn");
+    const status=$("s07PartSaveStatus");
+    const show=(message,color)=>{
+      if(status){status.textContent=message;status.style.color=color||"var(--muted)";}
+    };
+    for(const id of ["partInvName","partInvNumber","partInvCategory","partInvQty","partInvCost","partInvPrice"]){
+      $(id)?.addEventListener("input",()=>{
+        if(button.textContent.includes("✓ Enregistré")){
+          button.textContent=EDITING_PART_ID?"💾 Modifier la pièce":"Ajouter dans l’inventaire";
+        }
+        show("Modifications non enregistrées.");
+      });
+    }
+    button.onclick=()=>{
+      const data={
+        id: EDITING_PART_ID || Date.now(),
+        name: $("partInvName").value.trim(),
+        number: $("partInvNumber").value.trim(),
+        category: $("partInvCategory").value,
+        qty: Number($("partInvQty").value || 0),
+        cost: Number($("partInvCost").value || 0),
+        price: Number($("partInvPrice").value || 0)
+      };
+      if(!data.name){show("Nom de la pièce requis.","#ff8080");return;}
+      if(!Number.isFinite(data.qty)||data.qty<0||
+         !Number.isFinite(data.cost)||data.cost<0||
+         !Number.isFinite(data.price)||data.price<0){
+        show("Stock et prix doivent être des valeurs positives ou zéro.","#ff8080");return;
+      }
+      const previous=PARTS.slice();
+      const editing=EDITING_PART_ID;
+      if(editing){
+        PARTS=PARTS.map(p=>String(p.id)===String(editing)?data:p);
+      }else PARTS.push(data);
+      show("Enregistrement en cours…");
+      try{
+        saveParts();
+        const stored=loadArrayFromStorage(STORAGE.parts)
+          .find(p=>String(p.id)===String(data.id));
+        if(!stored || Object.keys(data).some(key=>String(stored[key]??"")!==String(data[key]??"")))
+          throw new Error("Vérification locale de la pièce échouée.");
+      }catch(error){
+        PARTS=previous;
+        show("Sauvegarde locale non confirmée. Réessaie avant de quitter.","#ff8080");
+        console.error("[S07-F08] Enregistrement de la pièce non confirmé",error);
         return;
       }
-
-      if (EDITING_PART_ID){
-        PARTS = PARTS.map(p =>
-          String(p.id) === String(EDITING_PART_ID) ? data : p
-        );
-      } else {
-        PARTS.push(data);
-      }
-
-      localStorage.setItem(STORAGE.parts, JSON.stringify(PARTS));
-      scheduleCloudSync();
-
-      EDITING_PART_ID = null;
-      $("partInvAddBtn").textContent = "Ajouter dans l’inventaire";
-
-      $("partInvName").value = "";
-      $("partInvNumber").value = "";
-      $("partInvQty").value = 1;
-      $("partInvCost").value = "";
-      $("partInvPrice").value = "";
-
+      EDITING_PART_ID=null;
+      for(const id of ["partInvName","partInvNumber","partInvCost","partInvPrice"])$(id).value="";
+      $("partInvQty").value=1;
+      button.textContent="✓ Enregistré localement";
+      show("✓ Pièce enregistrée localement. Vérifier « Synchronisé » avant d'actualiser.","#61d99a");
       renderPartsList();
     };
   }
