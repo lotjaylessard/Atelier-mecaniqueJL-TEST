@@ -1068,68 +1068,6 @@ button.link:hover{
 
 @media(max-height:730px){#sidebar{gap:4px;padding-top:8px}#sidebar > .navBtn{min-height:26px;padding:5px 8px}#s06SidebarTimer{gap:3px;padding:6px}}
 
-/* S07 — alignement horizontal des actions Services, comme dans Pieces.
-   Correctif d'affichage seulement, sans modifier les actions JS. */
-#page-services .srv-actions,
-#page-services .service-actions {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 7px;
-  min-width: 0;
-}
-#page-services .srv-actions > button,
-#page-services .service-actions > button {
-  flex: 0 0 auto;
-  white-space: nowrap;
-  width: auto;
-  margin: 0;
-}
-#page-services .service-row {
-  grid-template-columns: minmax(135px,2fr) minmax(105px,1fr) minmax(150px,1.25fr) minmax(370px,2.5fr);
-}
-/* Support du tableau trie par colonne visible en TEST. */
-#page-services .s05-catalog table th:last-child,
-#page-services .s05-catalog table td:last-child {
-  min-width: 370px;
-  text-align: right;
-  white-space: nowrap;
-}
-#page-services .s05-catalog table td:last-child button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  vertical-align: middle;
-  white-space: nowrap;
-  margin: 0 0 0 6px;
-}
-
-
-/* S07-FIX-UI-02 : colonne Actions Services sur une seule ligne. */
-#page-services #servicesList table { width:100%; }
-#page-services #servicesList th:last-child,
-#page-services #servicesList td:last-child {
-  min-width:350px !important;
-  width:350px !important;
-  white-space:nowrap !important;
-  text-align:right !important;
-}
-#page-services #servicesList .s07-service-actions-inline {
-  display:flex !important;
-  flex-flow:row nowrap !important;
-  justify-content:flex-end !important;
-  align-items:center !important;
-  gap:6px !important;
-  width:100%;
-}
-#page-services #servicesList .s07-service-actions-inline > button {
-  flex:0 0 auto !important;
-  white-space:nowrap !important;
-  width:auto !important;
-  margin:0 !important;
-}
 </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -14144,35 +14082,6 @@ if (window.garageSupabase) {
 <!-- S06-F07: afficheur Supabase sous Menu pour le pilote seulement -->
 <script src="audit/s06-sidebar-persistent.js" defer></script>
 
-<!-- S07-FIX-UI-02 : normaliser l'affichage des boutons du tableau Services.
-     Déplace les boutons existants sans remplacer leurs écouteurs de clic. -->
-<script>
-(() => {
-  "use strict";
-  function alignServiceActions(){
-    const list=document.getElementById("servicesList");
-    if(!list)return;
-    for(const tr of list.querySelectorAll("table tbody tr")){
-      const td=tr.lastElementChild;
-      if(!td || td.tagName!=="TD" || td.querySelector(".s07-service-actions-inline"))continue;
-      const buttons=[...td.querySelectorAll("button")];
-      if(buttons.length!==3)continue;
-      const line=document.createElement("div");
-      line.className="s07-service-actions-inline";
-      for(const button of buttons)line.appendChild(button);
-      td.replaceChildren(line);
-    }
-  }
-  function init(){
-    const list=document.getElementById("servicesList");
-    if(!list)return;
-    alignServiceActions();
-    const observer=new MutationObserver(alignServiceActions);
-    observer.observe(list,{childList:true,subtree:true});
-  }
-  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});
-  else init();
-})();
-</script>
+
 </body>
 </html>
