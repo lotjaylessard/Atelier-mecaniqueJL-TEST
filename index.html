@@ -1506,12 +1506,6 @@ button.link:hover{
         <option value="Pneus">Pneus</option>
         <option value="Divers">Divers</option>
       </select>
-      <select id="partSort" aria-label="Trier les pièces">
-        <option value="name">Nom</option><option value="number">Numéro</option>
-        <option value="category">Catégorie</option><option value="qty">Stock</option>
-        <option value="cost">Coût</option><option value="price">Prix</option>
-      </select>
-      <button id="partSortDirection" type="button" class="ghost">Nom ↑</button>
       </div>
       <div id="partResultCount" class="module-result-count" role="status" aria-live="polite"></div>
       <div id="partsInventoryList"></div>
@@ -10472,6 +10466,20 @@ function deleteService(id){
 }
 
 
+// S07-F09b : tri du catalogue Pièces par en-tête, sans modifier les données.
+let S07_PART_SORT_KEY="name";
+let S07_PART_SORT_DIRECTION="asc";
+function s07SortPartsBy(key){
+  const allowed=["name","number","category","qty","cost","price","margin"];
+  if(!allowed.includes(key))return;
+  if(S07_PART_SORT_KEY===key){
+    S07_PART_SORT_DIRECTION=S07_PART_SORT_DIRECTION==="asc"?"desc":"asc";
+  }else{
+    S07_PART_SORT_KEY=key;
+    S07_PART_SORT_DIRECTION="asc";
+  }
+  renderPartsList();
+}
 function renderPartsList(){
   const list = $("partsInventoryList");
   if (!list) return;
@@ -10494,18 +10502,23 @@ function renderPartsList(){
     return;
   }
 
-  const sorted = moduleSortRows(filtered, $("partSort")?.value || "name", S05_PART_DIRECTION, (item,key) =>
+  const sorted = moduleSortRows(filtered, S07_PART_SORT_KEY, S07_PART_SORT_DIRECTION, (item,key) =>
+    key==="margin" ? (Number(item.price)>0 ? (Number(item.price)-Number(item.cost||0))/Number(item.price)*100 : 0) :
     ["qty","cost","price"].includes(key) ? Number(item[key])||0 : String(item[key]||"")
   );
   // S07-F09a : mêmes colonnes et dimensions pour toutes les pièces.
   // Ne modifier que le rendu : recherche, tri, stock et actions restent intacts.
   const colStyle="display:grid;grid-template-columns: minmax(185px,2fr) minmax(110px,1.1fr) minmax(115px,1.1fr) 75px 100px 100px 85px minmax(305px,auto);gap:12px;align-items:center;min-width:1180px;";
   list.style.overflowX="auto";
+  const header=(key,label,align="left")=>{
+    const active=S07_PART_SORT_KEY===key;
+    const arrow=active?(S07_PART_SORT_DIRECTION==="asc"?"▲":"▼"):"↕";
+    return `<button type="button" class="module-sort-button" data-part-header-sort="${key}" aria-label="Trier par ${label}" style="justify-self:${align==="right"?"end":"start"};white-space:nowrap;">${label} <span aria-hidden="true">${arrow}</span></button>`;
+  };
   list.innerHTML=`<div style="${colStyle}padding:10px 8px;background:#333;border-radius:6px;font-weight:700;color:var(--accent);">
-    <span>Nom</span><span>No pièce</span><span>Catégorie</span>
-    <span style="text-align:right">Stock</span>
-    <span style="text-align:right">Coût</span><span style="text-align:right">Prix</span>
-    <span style="text-align:right">Marge</span><span style="text-align:right">Actions</span>
+    ${header("name","Nom")}${header("number","No pièce")}${header("category","Catégorie")}
+    ${header("qty","Stock","right")}${header("cost","Coût","right")}${header("price","Prix","right")}
+    ${header("margin","Marge","right")}<span style="text-align:right">Actions</span>
   </div>`;
   sorted.forEach(p=>{
     const id=escapeHTML(String(p.id));
@@ -10524,6 +10537,9 @@ function renderPartsList(){
           <button onclick="addPartToCurrentWO('${id}')">+ Bon de travail</button>
         </div>
       </div>`;
+  });
+  list.querySelectorAll("[data-part-header-sort]").forEach(button=>{
+    button.addEventListener("click",()=>s07SortPartsBy(button.dataset.partHeaderSort));
   });
 }
 
@@ -10587,7 +10603,6 @@ function setupCatalogSort(selectId,buttonId,type,render){
 }
 document.addEventListener("DOMContentLoaded", () => {
   setupCatalogSort("serviceSort","serviceSortDirection","service",renderServicesList);
-  setupCatalogSort("partSort","partSortDirection","part",renderPartsList);
 
   if ($("partInvSearch")){
   $("partInvSearch").addEventListener("input", renderPartsList);
