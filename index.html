@@ -9418,14 +9418,28 @@ function closeAddVehicleModal(){
     return;
   }
 
+  // S07-F12 : mêmes contrôles d'année et de KM que la fiche véhicule.
+  // La saisie reste intacte si la validation échoue.
+  const yearInput=$("vehYear").value.trim();
+  const kmInput=$("vehKm").value.trim();
+  if(yearInput && (!/^\\d{4}$/.test(yearInput)||Number(yearInput)<1886)){
+    alert("Année invalide : indique une année à quatre chiffres (1886 ou plus).");
+    $("vehYear").focus();
+    return;
+  }
+  if(kmInput && (!/^\\d+$/.test(kmInput)||!Number.isSafeInteger(Number(kmInput)))){
+    alert("Kilométrage invalide : indique un nombre entier positif ou zéro.");
+    $("vehKm").focus();
+    return;
+  }
   const vehicle = {
     id: Date.now(),
-    year: Number($("vehYear").value) || "",
+    year: yearInput ? Number(yearInput) : "",
     make: $("vehMake").value.trim(),
     model: $("vehModel").value.trim(),
     plate: $("vehPlate").value.trim(),
     vin: $("vehVin").value.trim(),
-    km: $("vehKm").value.trim()
+    km: kmInput ? Number(kmInput) : ""
   };
 
   if (!vehicle.make || !vehicle.model){
