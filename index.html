@@ -9707,9 +9707,9 @@ function s07SaveVehicleDetails(clientId,vehicleId){
     fields[name]=input.value.trim();
   }
   if(!fields.make||!fields.model)return alert("Marque et modèle requis.");
-  if(fields.year && (!/^\\d{4}$/.test(fields.year)||Number(fields.year)<1886))
+  if(fields.year && (!/^\d{4}$/.test(fields.year)||Number(fields.year)<1886))
     return alert("Année invalide.");
-  if(fields.km && (!/^\\d+$/.test(fields.km)||!Number.isSafeInteger(Number(fields.km))))
+  if(fields.km && (!/^\d+$/.test(fields.km)||!Number.isSafeInteger(Number(fields.km))))
     return alert("Kilométrage invalide.");
   const client=CLIENTS.find(x=>String(x.id)===String(clientId));
   const vehicle=client?.vehicles?.find(x=>String(x.id)===String(vehicleId));
