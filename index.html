@@ -6017,6 +6017,13 @@ function saveWorkOrders(){
   
 
 // S07-F02 : les nouveaux BT conservent leur propre fiche véhicule.
+// Presentation uniquement : aucun effet sur les donnees du BT.
+(function(){
+  const style=document.createElement('style');
+  style.textContent="\n/* S07-F02d : en-tete BT lisible, champs véhicule fixes et adaptatifs. */\n.s07-wo-header-grid{display:grid;grid-template-columns:minmax(240px,1fr) minmax(0,1.8fr);gap:10px;align-items:stretch}\n.s07-client-details{display:grid;gap:9px;margin-top:10px;font-size:13px}\n.s07-client-details .muted{font-size:12px}\n.s07-wo-specs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 14px;margin-top:10px;border-top:1px solid var(--border);padding-top:10px}\n.s07-wo-spec{min-width:0}\n@media(max-width:1050px){.s07-wo-specs{grid-template-columns:repeat(3,minmax(0,1fr))}}\n@media(max-width:720px){.s07-wo-header-grid{grid-template-columns:1fr}.s07-wo-specs{grid-template-columns:repeat(2,minmax(0,1fr))}}\n";
+  document.head.appendChild(style);
+})();
+
 function s07VehicleSnapshot(vehicle){
   const fields=['year','make','model','trim','color','engine','transmission','drivetrain',
     'fuel','tireSize','plate','vin'];
@@ -6034,12 +6041,11 @@ function s07VehicleHeader(wo){
     ['Sous-modèle',v.trim],['Couleur',v.color],['Moteur',v.engine],
     ['Transmission',v.transmission],['Motricité',v.drivetrain],
     ['Carburant',v.fuel],['Pneus',v.tireSize]
-  ].filter(([,value])=>String(value??'').trim());
-  if(!fields.length)return '';
-  return (!wo.vehicleSnapshot?'<div class="muted" style="font-size:11px;margin-top:5px">Informations de la fiche véhicule actuelle — ancien BT</div>':'')+
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));column-gap:16px;row-gap:8px;margin-top:9px">'+
-    fields.map(([label,value])=>'<div style="min-width:0"><div class="muted" style="font-size:12px">'+escapeHTML(label)+
-      '</div><strong style="font-size:14px;overflow-wrap:anywhere">'+escapeHTML(String(value))+'</strong></div>').join('')+
+  ];
+  return (!wo.vehicleSnapshot?'<div class="muted" style="font-size:11px;margin-top:7px">Caractéristiques actuelles de la fiche véhicule (ancien BT)</div>':'')+
+    '<div class="s07-wo-specs">'+
+    fields.map(([label,value])=>'<div class="s07-wo-spec"><div class="muted" style="font-size:12px">'+escapeHTML(label)+
+      '</div><strong style="font-size:14px;overflow-wrap:anywhere">'+escapeHTML(String(value||'—'))+'</strong></div>').join('')+
     '</div>';
 }
 
@@ -6671,19 +6677,25 @@ function woDisplayKm(wo){
 function woContactHtml(wo){
   const {client,vehicle}=woContactInfo(wo);
   const phone=String(client?.phone||'').trim();
+  const email=String(client?.email||'').trim();
+  const address=String(client?.address||'').trim();
   const phoneDigits=phone.replace(/[^+0-9]/g,'');
   const vin=String(wo.vehicleSnapshot?.vin||vehicle?.vin||'').trim();
   const plate=String(wo.vehicleSnapshot?.plate||vehicle?.plate||'').trim();
   const v=wo.vehicleSnapshot || (vehicle?s07VehicleSnapshot(vehicle):null);
   const vehicleTitle=[v?.year,v?.make,v?.model].filter(Boolean).join(' ')||wo.vehicleLabel||'Non renseigné';
   return `
-    <div class="wo-contact-grid" style="display:grid;grid-template-columns:minmax(190px,1fr) minmax(0,2fr);gap:10px;margin:10px 0 12px;">
+    <div class="wo-contact-grid s07-wo-header-grid" style="margin:10px 0 12px;">
       <div style="padding:12px;border:1px solid var(--border);border-radius:8px;min-width:0;">
         <div class="muted" style="font-size:12px">👤 CLIENT</div>
         <strong style="overflow-wrap:anywhere">${escapeHTML(wo.clientName||'Non renseigné')}</strong>
-        <div style="font-size:13px;margin-top:7px">Téléphone : ${phone
-          ? `<a href="tel:${escapeHTML(phoneDigits)}">${escapeHTML(phone)}</a>`
-          : '<span class="muted">Non renseigné</span>'}</div>
+        <div class="s07-client-details">
+          <div><span class="muted">Téléphone</span><div>${phone
+            ? `<a href="tel:${escapeHTML(phoneDigits)}">${escapeHTML(phone)}</a>`
+            : '<span class="muted">Non renseigné</span>'}</div></div>
+          ${email? `<div><span class="muted">Courriel</span><div style="overflow-wrap:anywhere"><a href="mailto:${escapeHTML(email)}">${escapeHTML(email)}</a></div></div>` : ''}
+          ${address? `<div><span class="muted">Adresse</span><div style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHTML(address)}</div></div>` : ''}
+        </div>
       </div>
       <div style="padding:12px;border:1px solid var(--border);border-radius:8px;min-width:0;">
         <div class="muted" style="font-size:12px">🚗 VÉHICULE</div>
