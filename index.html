@@ -9654,7 +9654,7 @@ loadInvoices?.();
         <textarea data-s07-vehicle="notes" rows="2" style="width:100%;box-sizing:border-box;margin-top:4px">${escapeHTML(String(vehicle.notes||''))}</textarea>
       </label>
       <div style="display:flex;justify-content:flex-end;margin-top:10px;">
-        <button type="button" class="ghost" id="s07VehicleSaveButton" onclick="s07SaveVehicleDetails(${JSON.stringify(String(client.id))},${JSON.stringify(String(vehicle.id))})">💾 Enregistrer le véhicule</button>
+        <button type="button" class="ghost" id="s07VehicleSaveButton" data-client-id="${escapeHTML(String(client.id))}" data-vehicle-id="${escapeHTML(String(vehicle.id))}" onclick="s07SaveVehicleDetails(this)">💾 Enregistrer le véhicule</button>
       </div>
       <div id="s07VehicleSaveStatus" role="status" aria-live="polite" style="text-align:right;font-size:12px;margin-top:5px;color:var(--muted)">Les modifications doivent être enregistrées avant de fermer.</div>
     </div>
@@ -9701,7 +9701,10 @@ loadInvoices?.();
 
 
 // S07-F05 : formulaire propre à la fiche véhicule, sans collisions d'IDs.
-function s07SaveVehicleDetails(clientId,vehicleId){
+function s07SaveVehicleDetails(button){
+  const clientId=button?.dataset?.clientId;
+  const vehicleId=button?.dataset?.vehicleId;
+  if(!clientId||!vehicleId){console.error("[S07-F05] Identifiants du véhicule absents");return;}
   const modal=document.getElementById("vehicleModalContent");
   if(!modal?.querySelector("#s07VehicleDetailsForm"))return;
   const status=modal.querySelector("#s07VehicleSaveStatus");
