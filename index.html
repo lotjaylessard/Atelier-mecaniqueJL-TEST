@@ -7791,6 +7791,7 @@ const statusLabel =
               <button id="woFinishClosedEditBtn" class="ghost" style="display:none;" onclick="endClosedWOEdit('${wo.id}')">✓ Fin des modifications</button>`
            : ""}`
       : `<button id="woSaveBtn">💾 Enregistrer</button>
+         <span id="s07WoSaveStatus" role="status" aria-live="polite" style="font-size:12px;flex-basis:100%;text-align:right;color:var(--muted)"></span>
          <button class="ghost" onclick="finishWorkOrder(${wo.id})">✅ Terminé</button>
          <button class="danger" onclick="deleteWorkOrder(${wo.id})">🗑 Supprimer</button>`}
   </div>
@@ -8199,6 +8200,14 @@ function initWorkOrderSaveButton(){
   const btn = $("woSaveBtn");
   if (!btn) return;
 
+  const showStatus=(message,color)=>{
+    const node=$("s07WoSaveStatus");
+    if(node){node.textContent=message;if(color)node.style.color=color;}
+  };
+  $("woDescriptionEdit")?.addEventListener("input",()=>{
+    btn.textContent="💾 Enregistrer";
+    showStatus("Modifications non enregistrées.","var(--muted)");
+  });
   btn.onclick = () => {
 
     const editId = $("woEditId")?.value;
@@ -8207,7 +8216,7 @@ function initWorkOrderSaveButton(){
     // ================= MODE MODIFICATION =================
     if (isEditing){
       const wo = WORKORDERS.find(w => String(w.id) === String(editId));
-      if (!wo) return alert("Erreur : bon de travail introuvable.");
+      if (!wo){showStatus("Bon de travail introuvable.","#ff8080");return;}
 
       // TEST #25 : enregistrer la description dans le gestionnaire réellement actif.
       // initWorkOrderSaveButton() remplace le onclick défini dans le détail du BT.
@@ -8215,7 +8224,7 @@ function initWorkOrderSaveButton(){
         String(inv.workOrderNumber) === String(wo.number)
       );
       if (linkedInvoice?.status === "paid") {
-        alert("Ce bon de travail est verrouillé : facture payée.");
+        showStatus("Modification impossible : facture payée.","#ff8080");
         return;
       }
       const descriptionInput = $("woDescriptionEdit");
@@ -8252,7 +8261,7 @@ function initWorkOrderSaveButton(){
           !CLOUD_SYNC_DIRTY && !CLOUD_SYNC_PENDING &&
           !CLOUD_SYNC_IN_PROGRESS && !CLOUD_SYNC_FAILED) {
         console.log("[TEST #303] BT inchange : aucune sauvegarde cloud programmee.");
-        alert("Aucune modification à enregistrer.");
+        showStatus("Aucune modification à enregistrer.","var(--muted)");
         return;
       }
       if (descriptionInput) {
@@ -8275,14 +8284,26 @@ wo.estimateProfit = totalProfit;
 
 if ($("woProfitTotal")) $("woProfitTotal").innerText = money(totalProfit) + " $";
 
-      // 💾 Sauvegarde
-      saveWorkOrders();
+      // 💾 Sauvegarde locale avec contrôle de lecture.
+      showStatus("Enregistrement en cours…","var(--muted)");
+      try{
+        saveWorkOrders();
+        const stored=loadArrayFromStorage(STORAGE.workorders);
+        const persisted=stored.find(item=>String(item.id)===String(wo.id));
+        if(!persisted || String(persisted.description||"")!==String(wo.description||""))
+          throw new Error("Vérification locale BT échouée");
+      }catch(err){
+        console.error("[S07-F06] Sauvegarde du BT non confirmée",err);
+        showStatus("Sauvegarde locale non confirmée; ne ferme pas le BT.","#ff8080");
+        return;
+      }
 
       // 🔄 RAFRAÎCHISSEMENT IMMÉDIAT
       woRenderLines(wo);      // ⬅️ MET À JOUR LES TOTAUX VISIBLES
       renderWorkOrders();     // ⬅️ MET À JOUR LA LISTE
 
-      alert("Bon de travail mis à jour !");
+      btn.textContent="✓ Enregistré localement";
+      showStatus("✓ Enregistré localement. Vérifier « Synchronisé » avant d'actualiser.","#61d99a");
       return;
     }
 
