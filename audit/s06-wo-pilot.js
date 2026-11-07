@@ -52,13 +52,17 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
         }
         const wo=WORKORDERS.find(w=>String(w?.id)===saved.woId);
         if(!wo){clearInterval(check);sessionStorage.removeItem(restoreKey);return;}
-        if(typeof showPage!=="function"||typeof openWorkOrderDetail!=="function")return;
+        if(typeof showPage!=="function")return;
+        // Passer par l'ouverture normale du tableau (interface S04 actuelle),
+        // pas l'ancien openWorkOrderDetail qui affiche d'autres boutons.
+        showPage("page-workorders");
+        const row=Array.from(document.querySelectorAll("#woTable tr[data-id]"))
+          .find(tr=>tr.dataset.id===saved.woId);
+        const openButton=row?.querySelector('button[data-action="open"]');
+        if(!openButton){clearInterval(check);return;}
         clearInterval(check);
         sessionStorage.removeItem(restoreKey);
-        showPage("page-workorders");
-        // Reprendre l'objet chargé depuis Supabase, pas le snapshot pré-POST.
-        const refreshed=WORKORDERS.find(w=>String(w?.id)===saved.woId);
-        if(refreshed)openWorkOrderDetail(refreshed);
+        openButton.click();
       }catch(_){clearInterval(check);}
     },250);
   }
