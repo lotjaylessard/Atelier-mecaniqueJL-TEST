@@ -9566,7 +9566,7 @@ loadInvoices?.();
 
   let woRows = "";
   if (!wos.length){
-    woRows = `<tr><td colspan="5" class="muted">Aucun bon de travail pour ce véhicule.</td></tr>`;
+    woRows = `<tr><td colspan="6" class="muted">Aucun bon de travail pour ce véhicule.</td></tr>`;
   } else {
     wos.forEach(wo => {
       const statusLabel =
@@ -9577,7 +9577,8 @@ loadInvoices?.();
       woRows += `
         <tr>
           <td>${wo.number || ""}</td>
-          <td>${wo.date || ""}</td>
+          <td>${escapeHTML(String(wo.date||""))}</td>
+          <td style="min-width:190px;overflow-wrap:anywhere">${escapeHTML(String(wo.description||"Description non renseignée"))}</td>
           <td><span class="status-badge status-${wo.status}">${statusLabel}</span></td>
           <td style="text-align:right;">${money(wo.estimateTotal || 0)} $</td>
           <td style="text-align:right;">
@@ -9605,7 +9606,7 @@ loadInvoices?.();
 
   let invRows = "";
   if (!invs.length){
-    invRows = `<tr><td colspan="5" class="muted">Aucune facture pour ce véhicule.</td></tr>`;
+    invRows = `<tr><td colspan="6" class="muted">Aucune facture pour ce véhicule.</td></tr>`;
   } else {
     invs.forEach(inv => {
       const statusLabel =
@@ -9613,11 +9614,14 @@ loadInvoices?.();
         inv.status === "unpaid" ? "Non payée" :
         (inv.status || "");
 
+      const linkedWo=wos.find(wo=>String(wo.number)===String(inv.workOrderNumber||inv.referenceWO||""));
+      const description=String(linkedWo?.description||inv.job||"").trim()||"Description non renseignée";
       invRows += `
         <tr>
-          <td>${inv.number || ""}</td>
-          <td>${inv.date || ""}</td>
-          <td>${statusLabel}</td>
+          <td>${escapeHTML(String(inv.number||""))}</td>
+          <td>${escapeHTML(String(inv.date||""))}</td>
+          <td style="min-width:190px;overflow-wrap:anywhere">${escapeHTML(description)}</td>
+          <td>${escapeHTML(String(statusLabel))}</td>
           <td style="text-align:right;">${money(inv.total || 0)} $</td>
           <td style="text-align:right;">
             <button class="ghost" onclick="openInvoiceFromVehicleModal('${inv.number}')">Ouvrir</button>
@@ -9661,6 +9665,7 @@ loadInvoices?.();
           <tr>
             <th># BT</th>
             <th>Date</th>
+            <th>Description</th>
             <th>Statut</th>
             <th style="text-align:right;">Total</th>
             <th></th>
@@ -9679,6 +9684,7 @@ loadInvoices?.();
           <tr>
             <th># Facture</th>
             <th>Date</th>
+            <th>Description</th>
             <th>Statut</th>
             <th style="text-align:right;">Total</th>
             <th></th>
