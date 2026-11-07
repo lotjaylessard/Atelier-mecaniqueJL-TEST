@@ -56,7 +56,7 @@
       document.getElementById("page-workorders")?.style.display!=="none"&&
       document.getElementById("woDetailCard")?.style.display!=="none";
     time.textContent=sameSession&&pilotClock&&
-      /^\\d{2,}:\\d{2}:\\d{2}$/.test(pilotClock.textContent.trim())?
+      /^\d{2,}:\d{2}:\d{2}$/.test(pilotClock.textContent.trim())?
       pilotClock.textContent.trim():
       formatted(Number(current.confirmed_ms)+extra);
   }
