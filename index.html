@@ -6025,23 +6025,22 @@ function s07VehicleSnapshot(vehicle){
   return result;
 }
 function s07VehicleHeader(wo){
-  // Afficher les renseignements supplementaires dans la fiche véhicule existante.
-  // Les anciens BT sans instantané affichent clairement les valeurs actuelles.
-  const client=CLIENTS.find(c=>String(c.id)===String(wo.clientId));
-  const current=client?.vehicles?.find(v=>String(v.id)===String(wo.vehicleId));
-  const v=wo.vehicleSnapshot || (current ? s07VehicleSnapshot(current) : null);
+  // Toutes les caractéristiques sont visibles, sans ouverture supplémentaire.
+  // Une fiche historique avec instantané ne prend pas les valeurs du véhicule actuel.
+  const {vehicle}=woContactInfo(wo);
+  const v=wo.vehicleSnapshot || (vehicle ? s07VehicleSnapshot(vehicle) : null);
   if(!v)return '';
-  const details=[
+  const fields=[
     ['Sous-modèle',v.trim],['Couleur',v.color],['Moteur',v.engine],
     ['Transmission',v.transmission],['Motricité',v.drivetrain],
     ['Carburant',v.fuel],['Pneus',v.tireSize]
   ].filter(([,value])=>String(value??'').trim());
-  if(!details.length)return '';
-  const cells=details.map(([label,value])=>
-    '<div style="min-width:0"><div class="muted" style="font-size:12px">'+escapeHTML(label)+
-    '</div><strong style="overflow-wrap:anywhere">'+escapeHTML(String(value))+'</strong></div>').join('');
-  return (!wo.vehicleSnapshot?'<div class="muted" style="font-size:11px;margin-top:8px">Informations actuelles de la fiche véhicule (ancien BT)</div>':'')+
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:10px;border-top:1px solid var(--border);padding-top:10px">'+cells+'</div>';
+  if(!fields.length)return '';
+  return (!wo.vehicleSnapshot?'<div class="muted" style="font-size:11px;margin-top:5px">Informations de la fiche véhicule actuelle — ancien BT</div>':'')+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));column-gap:16px;row-gap:8px;margin-top:9px">'+
+    fields.map(([label,value])=>'<div style="min-width:0"><div class="muted" style="font-size:12px">'+escapeHTML(label)+
+      '</div><strong style="font-size:14px;overflow-wrap:anywhere">'+escapeHTML(String(value))+'</strong></div>').join('')+
+    '</div>';
 }
 
   function saveNewWorkOrder() {
@@ -6670,26 +6669,30 @@ function woDisplayKm(wo){
 }
 
 function woContactHtml(wo){
-  const {client, vehicle} = woContactInfo(wo);
-  const phone = String(client?.phone || "").trim();
-  const vin = String(wo.vehicleSnapshot?.vin || vehicle?.vin || "").trim();
-  const plate = String(wo.vehicleSnapshot?.plate || vehicle?.plate || "").trim();
-  const phoneDigits = phone.replace(/[^+0-9]/g, "");
+  const {client,vehicle}=woContactInfo(wo);
+  const phone=String(client?.phone||'').trim();
+  const phoneDigits=phone.replace(/[^+0-9]/g,'');
+  const vin=String(wo.vehicleSnapshot?.vin||vehicle?.vin||'').trim();
+  const plate=String(wo.vehicleSnapshot?.plate||vehicle?.plate||'').trim();
+  const v=wo.vehicleSnapshot || (vehicle?s07VehicleSnapshot(vehicle):null);
+  const vehicleTitle=[v?.year,v?.make,v?.model].filter(Boolean).join(' ')||wo.vehicleLabel||'Non renseigné';
   return `
-    <div class="wo-contact-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:12px 0;">
+    <div class="wo-contact-grid" style="display:grid;grid-template-columns:minmax(190px,1fr) minmax(0,2fr);gap:10px;margin:10px 0 12px;">
       <div style="padding:12px;border:1px solid var(--border);border-radius:8px;min-width:0;">
-        <div class="muted">👤 Client</div>
-        <strong>${escapeHTML(wo.clientName || "Non renseigné")}</strong>
-        <div style="margin-top:8px;">Téléphone : ${phone
+        <div class="muted" style="font-size:12px">👤 CLIENT</div>
+        <strong style="overflow-wrap:anywhere">${escapeHTML(wo.clientName||'Non renseigné')}</strong>
+        <div style="font-size:13px;margin-top:7px">Téléphone : ${phone
           ? `<a href="tel:${escapeHTML(phoneDigits)}">${escapeHTML(phone)}</a>`
           : '<span class="muted">Non renseigné</span>'}</div>
       </div>
       <div style="padding:12px;border:1px solid var(--border);border-radius:8px;min-width:0;">
-        <div class="muted">🚗 Véhicule</div>
-        <strong>${escapeHTML(wo.vehicleLabel || "Non renseigné")}</strong>
-        <div style="margin-top:8px;overflow-wrap:anywhere;">VIN : <span class="wo-vin-text">${escapeHTML(vin || "Non renseigné")}</span>
-          ${vin ? '<button class="ghost" type="button" onclick="copyWorkOrderVIN(this)" style="padding:4px 8px;margin-left:6px;">📋 Copier</button>' : ''}</div>
-        <div>Plaque : ${escapeHTML(plate || "Non renseignée")}</div>
+        <div class="muted" style="font-size:12px">🚗 VÉHICULE</div>
+        <strong style="overflow-wrap:anywhere">${escapeHTML(vehicleTitle)}</strong>
+        <div style="display:flex;flex-wrap:wrap;gap:5px 16px;margin-top:7px;font-size:13px">
+          <span>Plaque : <strong>${escapeHTML(plate||'Non renseignée')}</strong></span>
+          <span style="overflow-wrap:anywhere">VIN / NIV : <strong class="wo-vin-text">${escapeHTML(vin||'Non renseigné')}</strong>
+            ${vin?'<button class="ghost" type="button" onclick="copyWorkOrderVIN(this)" style="padding:3px 7px;margin-left:4px;font-size:12px;">📋 Copier</button>':''}</span>
+        </div>
         ${s07VehicleHeader(wo)}
       </div>
     </div>`;
