@@ -2573,7 +2573,7 @@ const isPaid =
           <tr>
             <td>${it.type}</td>
             <td>${it.desc}</td>
-            <td>${it.timerSessionId ? Number(it.qty).toFixed(2) + ' h (' + formatDuration(Number(it.confirmedMs)) + ' exactes)' : it.qty}</td>
+            <td>${it.timerSessionId ? Number(it.qty).toFixed(2) + ' h' : it.qty}</td>
             <td>${money(it.rate)} $</td>
             <td>${money(s06InvoiceItemAmount(it))} $</td>
           </tr>
@@ -11656,7 +11656,7 @@ if (clientObj && Array.isArray(clientObj.vehicles)){
         <td>${it.desc || ""}</td>
         <td style="text-align:right;">${Number(it.qty).toFixed(2)}</td>
         <td style="text-align:right;">${money(it.rate)} $</td>
-        <td style="text-align:right;">${money((it.qty||0)*(it.rate||0))} $</td>
+        <td style="text-align:right;">${money(s06InvoiceItemAmount(it))} $</td>
       </tr>
     `;
   });
@@ -11681,7 +11681,7 @@ content.innerHTML = `
     </div>
     <div style="text-align:right;">
       <div style="font-weight:bold;">${SETTINGS.garageName || ""}</div>
-      <div class="muted">Bon de travail : ${inv.referenceWO || "-"}</div>
+      <div class="muted">Bon de travail : ${escapeHTML(String(inv.workOrderNumber || inv.referenceWO || "-"))}</div>
     </div>
   </div>
 
