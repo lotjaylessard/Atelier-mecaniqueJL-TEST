@@ -9656,6 +9656,7 @@ loadInvoices?.();
       <div style="display:flex;justify-content:flex-end;margin-top:10px;">
         <button type="button" class="ghost" onclick="s07SaveVehicleDetails(${JSON.stringify(String(client.id))},${JSON.stringify(String(vehicle.id))})">💾 Enregistrer le véhicule</button>
       </div>
+      <div id="s07VehicleSaveStatus" role="status" aria-live="polite" style="text-align:right;font-size:12px;margin-top:5px;color:var(--muted)">Les modifications doivent être enregistrées avant de fermer.</div>
     </div>
 
     <div class="card" style="margin-bottom:12px;">
@@ -9701,34 +9702,60 @@ loadInvoices?.();
 
 // S07-F05 : formulaire propre à la fiche véhicule, sans collisions d'IDs.
 function s07SaveVehicleDetails(clientId,vehicleId){
-  const form=document.getElementById("s07VehicleDetailsForm");
   const modal=document.getElementById("vehicleModalContent");
-  if(!form||!modal)return;
+  if(!modal?.querySelector("#s07VehicleDetailsForm"))return;
+  const status=modal.querySelector("#s07VehicleSaveStatus");
+  const show=(message,color)=>{
+    if(status){status.textContent=message;if(color)status.style.color=color;}
+  };
   const fields={};
   const names=["year","make","model","trim","color","engine","plate","vin","km",
     "tireSize","transmission","drivetrain","fuel","notes"];
   for(const name of names){
     const input=modal.querySelector('[data-s07-vehicle="'+name+'"]');
-    if(!input)return alert("Champ introuvable : "+name);
+    if(!input){show("Erreur : champ "+name+" introuvable.","#ff8080");return;}
     fields[name]=input.value.trim();
   }
-  if(!fields.make||!fields.model)return alert("Marque et modèle requis.");
-  if(fields.year && (!/^\d{4}$/.test(fields.year)||Number(fields.year)<1886))
-    return alert("Année invalide.");
-  if(fields.km && (!/^\d+$/.test(fields.km)||!Number.isSafeInteger(Number(fields.km))))
-    return alert("Kilométrage invalide.");
+  if(!fields.make||!fields.model){show("Marque et modèle requis.","#ff8080");return;}
+  if(fields.year && (!/^\d{4}$/.test(fields.year)||Number(fields.year)<1886)){
+    show("Année invalide.","#ff8080");return;
+  }
+  if(fields.km && (!/^\d+$/.test(fields.km)||!Number.isSafeInteger(Number(fields.km)))){
+    show("Kilométrage invalide.","#ff8080");return;
+  }
   const client=CLIENTS.find(x=>String(x.id)===String(clientId));
   const vehicle=client?.vehicles?.find(x=>String(x.id)===String(vehicleId));
-  if(!vehicle)return alert("Véhicule introuvable. Aucun changement effectué.");
-  // Ne modifier que les champs connus : identifiant et relations historiques préservés.
+  if(!vehicle){show("Véhicule introuvable. Aucune sauvegarde.","#ff8080");return;}
+  show("Enregistrement en cours…","var(--muted)");
+  // Enregistrement prudent : ne pas changer l'ID ni les relations historiques.
+  const previous={...vehicle};
   Object.assign(vehicle,fields,{year:fields.year?Number(fields.year):"",
     km:fields.km?Number(fields.km):""});
-  saveClients();
+  try{
+    saveClients();
+    // Lecture de vérification depuis le support réellement écrit.
+    const stored=loadArrayFromStorage(STORAGE.clients);
+    const persisted=stored.find(x=>String(x.id)===String(clientId))
+      ?.vehicles?.find(x=>String(x.id)===String(vehicleId));
+    if(!persisted || names.some(name=>String(persisted[name]??"")!==String(vehicle[name]??""))){
+      throw new Error("Vérification de sauvegarde locale échouée.");
+    }
+  }catch(err){
+    Object.assign(vehicle,previous);
+    show("Échec d'enregistrement local. Ne ferme pas la fiche; réessaie.","#ff8080");
+    console.error("[S07-F05] Sauvegarde véhicule non confirmée",err);
+    return;
+  }
   renderVehiclesPage();
   renderClientsTable();
+  // La synchro Supabase est asynchrone : ne pas annoncer un succès cloud ici.
   modal.innerHTML=renderVehicleModalContent(client,vehicle);
+  const confirmation=modal.querySelector("#s07VehicleSaveStatus");
+  if(confirmation){
+    confirmation.textContent="✓ Enregistré localement. Vérifie « Synchronisé » en haut avant d'actualiser.";
+    confirmation.style.color="#61d99a";
+  }
 }
-
 /* Ouvrir un BT depuis la fiche véhicule */
 function openWorkOrderFromVehicleModal(woId){
   closeVehicleModal();
