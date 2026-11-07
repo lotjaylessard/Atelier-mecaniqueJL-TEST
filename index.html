@@ -10497,43 +10497,33 @@ function renderPartsList(){
   const sorted = moduleSortRows(filtered, $("partSort")?.value || "name", S05_PART_DIRECTION, (item,key) =>
     ["qty","cost","price"].includes(key) ? Number(item[key])||0 : String(item[key]||"")
   );
+  // S07-F09a : mêmes colonnes et dimensions pour toutes les pièces.
+  // Ne modifier que le rendu : recherche, tri, stock et actions restent intacts.
+  const colStyle="display:grid;grid-template-columns: minmax(185px,2fr) minmax(110px,1.1fr) minmax(115px,1.1fr) 75px 100px 100px 85px minmax(305px,auto);gap:12px;align-items:center;min-width:1180px;";
+  list.style.overflowX="auto";
+  list.innerHTML=`<div style="${colStyle}padding:10px 8px;background:#333;border-radius:6px;font-weight:700;color:var(--accent);">
+    <span>Nom</span><span>No pièce</span><span>Catégorie</span>
+    <span style="text-align:right">Stock</span>
+    <span style="text-align:right">Coût</span><span style="text-align:right">Prix</span>
+    <span style="text-align:right">Marge</span><span style="text-align:right">Actions</span>
+  </div>`;
   sorted.forEach(p=>{
-
-    list.innerHTML += `
-      <div class="service-row">
-
-        <!-- COL 1 : NOM + DESC -->
-        <div>
-          <div class="srv-name">
-            <strong>${escapeHTML(p.name)}</strong>
-          </div>
-          <div class="srv-desc">
-            # Pièce : ${escapeHTML(p.number||"")}
-            • Stock : ${p.qty}
-            • Coût : ${money(p.cost)} $
-            • Marge : ${calcMargin(p.cost,p.price)}%
-          </div>
+    const id=escapeHTML(String(p.id));
+    list.innerHTML+=`
+      <div style="${colStyle}padding:10px 8px;border-bottom:1px solid var(--border);font-size:14px;">
+        <strong style="color:var(--accent);overflow-wrap:anywhere">${escapeHTML(p.name||"")}</strong>
+        <span style="overflow-wrap:anywhere">${escapeHTML(p.number||"—")}</span>
+        <span>${escapeHTML(p.category||"—")}</span>
+        <span style="text-align:right;white-space:nowrap">${Number(p.qty||0)}</span>
+        <span style="text-align:right;white-space:nowrap">${money(p.cost)} $</span>
+        <span style="text-align:right;white-space:nowrap">${money(p.price)} $</span>
+        <span style="text-align:right;white-space:nowrap">${calcMargin(p.cost,p.price)}%</span>
+        <div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;white-space:nowrap;">
+          <button class="ghost" onclick="editPart('${id}')">Modifier</button>
+          <button class="ghost danger" onclick="deletePart('${id}')">Supprimer</button>
+          <button onclick="addPartToCurrentWO('${id}')">+ Bon de travail</button>
         </div>
-
-        <!-- COL 2 : CAT -->
-        <div class="srv-cat">
-          ${escapeHTML(p.category)}
-        </div>
-
-        <!-- COL 3 : PRIX -->
-        <div class="srv-price">
-          ${money(p.price)} $
-        </div>
-
-        <!-- COL 4 : ACTIONS -->
-        <div class="srv-actions">
-          <button class="ghost" onclick="editPart('${p.id}')">Modifier</button>
-          <button class="ghost danger" onclick="deletePart('${p.id}')">Supprimer</button>
-          <button onclick="addPartToCurrentWO('${p.id}')">+ Bon de travail</button>
-        </div>
-
-      </div>
-    `;
+      </div>`;
   });
 }
 
