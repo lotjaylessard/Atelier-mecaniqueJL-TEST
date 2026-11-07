@@ -1068,6 +1068,18 @@ button.link:hover{
 
 @media(max-height:730px){#sidebar{gap:4px;padding-top:8px}#sidebar > .navBtn{min-height:26px;padding:5px 8px}#s06SidebarTimer{gap:3px;padding:6px}}
 
+
+/* S07-F16 : tableau Véhicules compact, bouton Fiche toujours à droite. */
+#page-vehicles .s07-vehicle-scroll{overflow-x:auto;max-width:100%}
+#vehiclesTable{width:100%!important;min-width:0!important;table-layout:fixed!important}
+#vehiclesTable th,#vehiclesTable td{min-width:0!important;box-sizing:border-box;padding:9px 5px;vertical-align:middle}
+#vehiclesTable th .module-sort-button{max-width:100%;font-size:12px;padding:5px 4px;overflow:hidden;text-overflow:ellipsis}
+#vehiclesTable td{overflow:hidden;text-overflow:ellipsis}
+#vehiclesTable td.s07-sticky-col-1{white-space:normal!important;overflow-wrap:anywhere;line-height:1.25}
+#vehiclesTable td.s07-sticky-col-2{white-space:nowrap!important}
+#vehiclesTable td .s07-vin-copy{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#vehiclesTable td:last-child,#vehiclesTable th:last-child{text-align:center;white-space:nowrap}
+#vehiclesTable td:last-child .ghost{font-size:13px;padding:7px 9px;white-space:nowrap}
 </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1342,7 +1354,8 @@ button.link:hover{
         </div>
         <div id="vehicleResultCount" class="module-result-count" role="status" aria-live="polite"></div>
         <div class="s07-vehicle-scroll" role="region" aria-label="Tableau des véhicules, défilement horizontal" tabindex="0" style="overflow-x:auto;max-width:100%;border-radius:6px;">
-          <table id="vehiclesTable" style="min-width:1750px;width:100%;table-layout:auto;">
+          <table id="vehiclesTable" style="width:100%;min-width:0;table-layout:fixed;">
+            <colgroup><col style="width:19%"><col style="width:15%"><col style="width:7%"><col style="width:9%"><col style="width:12%"><col style="width:11%"><col style="width:8%"><col style="width:11%"><col style="width:8%"></colgroup>
             <thead><tr>
               <th data-module-sort="client" aria-sort="none" class="s07-sticky-col-1"><button type="button" class="module-sort-button" data-vehicle-sort="client">Client <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
               <th data-module-sort="vin" aria-sort="none" class="s07-sticky-col-2"><button type="button" class="module-sort-button" data-vehicle-sort="vin">VIN / NIV <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
@@ -1351,14 +1364,8 @@ button.link:hover{
               <th data-module-sort="model" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="model">Modèle <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
               <th data-module-sort="trim" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="trim">Sous-modèle <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
               <th data-module-sort="km" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="km">KM <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
-              <th data-module-sort="color" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="color">Couleur <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
-              <th data-module-sort="engine" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="engine">Moteur <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
-              <th data-module-sort="transmission" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="transmission">Transmission <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
-              <th data-module-sort="drivetrain" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="drivetrain">Motricité <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
-              <th data-module-sort="fuel" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="fuel">Carburant <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
               <th data-module-sort="plate" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="plate">Plaque <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
-              <th data-module-sort="tireSize" aria-sort="none"><button type="button" class="module-sort-button" data-vehicle-sort="tireSize">Pneus <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
-              <th>Actions</th>
+              <th>Fiche</th>
             </tr></thead>
             <tbody></tbody>
           </table>
@@ -9281,7 +9288,7 @@ if (btnNewClient) {
 
 (function(){
   const style=document.createElement("style");
-  style.textContent="\n/* S07-F04d : les colonnes defilent toutes ensemble, sans zone figee. */\n#vehiclesTable td.s07-sticky-col-1{white-space:normal;overflow-wrap:anywhere;min-width:200px}\n#vehiclesTable td.s07-sticky-col-2{min-width:190px;white-space:nowrap}\n.s07-vin-copy{\n  display:inline-block;padding:3px 4px;background:transparent;border:0;\n  color:var(--accent);cursor:pointer;font:inherit;text-align:left;\n  white-space:nowrap;max-width:100%;\n}\n.s07-vin-copy:hover,.s07-vin-copy:focus-visible{text-decoration:underline;outline-offset:2px}\n";
+  style.textContent="\n/* S07-F04d : les colonnes defilent toutes ensemble, sans zone figee. */\n#vehiclesTable td.s07-sticky-col-1{white-space:normal;overflow-wrap:anywhere;min-width:0}\n#vehiclesTable td.s07-sticky-col-2{min-width:0;white-space:nowrap}\n.s07-vin-copy{\n  display:inline-block;padding:3px 4px;background:transparent;border:0;\n  color:var(--accent);cursor:pointer;font:inherit;text-align:left;\n  white-space:nowrap;max-width:100%;\n}\n.s07-vin-copy:hover,.s07-vin-copy:focus-visible{text-decoration:underline;outline-offset:2px}\n";
   document.head.appendChild(style);
 })();
 
@@ -9343,7 +9350,7 @@ function renderVehiclesPage(){
   if(count)count.textContent=sorted.length+" véhicule"+(sorted.length!==1?"s":"")+" affiché"+(sorted.length!==1?"s":"");
   tbody.innerHTML="";
   if(!sorted.length){
-    tbody.innerHTML='<tr><td colspan="15" class="muted" style="text-align:center;padding:20px;">Aucun véhicule ne correspond à la recherche.</td></tr>';
+    tbody.innerHTML='<tr><td colspan="9" class="muted" style="text-align:center;padding:20px;">Aucun véhicule ne correspond à la recherche.</td></tr>';
     return;
   }
   sorted.forEach(v=>{
@@ -9369,8 +9376,7 @@ function renderVehiclesPage(){
       vinCell.textContent="—";
     }
     tr.appendChild(vinCell);
-    for(const key of ["year","make","model","trim","km","color","engine",
-      "transmission","drivetrain","fuel","plate","tireSize"]){
+    for(const key of ["year","make","model","trim","km","plate"]){
       const td=document.createElement("td");
       td.textContent=String(v[key]??"") || "—";
       td.style.whiteSpace="nowrap";
