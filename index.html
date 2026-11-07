@@ -9908,16 +9908,16 @@ function renderClientModal(id){
         const total=Number(inv.total);
         const safeTotal=Number.isFinite(total)?total:0;
         return `
-          <div style="border-bottom:1px solid var(--border);padding:10px 2px;">
-            <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline;">
-              <strong>#${escapeHTML(String(inv.number||'—'))}</strong>
-              <span class="muted">${escapeHTML(String(inv.date||'Date non renseignée'))}</span>
+          <div style="border-bottom:1px solid var(--border);padding:7px 2px;">
+            <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 12px;margin-bottom:5px;">
+              <strong style="font-size:14px">#${escapeHTML(String(inv.number||'—'))}</strong>
+              <span class="muted" style="font-size:12px">${escapeHTML(String(inv.date||'Date non renseignée'))}</span>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px 14px;margin-top:6px;">
-              <div><span class="muted">Véhicule</span><div><strong>${escapeHTML(vehicle)}</strong></div></div>
-              <div><span class="muted">Problème / travaux</span><div style="overflow-wrap:anywhere">${escapeHTML(description)}</div></div>
+            <div style="display:grid;grid-template-columns:minmax(140px,1.1fr) minmax(180px,1.8fr) minmax(75px,auto);align-items:start;gap:6px 12px;">
+              <div style="min-width:0"><div class="muted" style="font-size:11px">Véhicule</div><strong style="font-size:13px;overflow-wrap:anywhere">${escapeHTML(vehicle)}</strong></div>
+              <div style="min-width:0"><div class="muted" style="font-size:11px">Problème / travaux</div><div title="${escapeHTML(description)}" style="font-size:13px;overflow-wrap:anywhere">${escapeHTML(description)}</div></div>
+              <div style="text-align:right;white-space:nowrap"><div class="muted" style="font-size:11px">Total</div><strong style="font-size:13px">${money(safeTotal)} $</strong></div>
             </div>
-            <div style="margin-top:6px;text-align:right"><span class="muted">Total : </span><strong>${money(safeTotal)} $</strong></div>
           </div>`;
       }).join('');
     }
