@@ -9226,7 +9226,7 @@ if (btnNewClient) {
 
 (function(){
   const style=document.createElement("style");
-  style.textContent="\n/* S07-F04c : colonnes Client et VIN fixes pendant le défilement horizontal. */\n#vehiclesTable th.s07-sticky-col-1,#vehiclesTable td.s07-sticky-col-1{\n  position:sticky;left:0;z-index:3;min-width:230px;width:230px;max-width:230px;\n  background:#272727;box-sizing:border-box;\n}\n#vehiclesTable th.s07-sticky-col-2,#vehiclesTable td.s07-sticky-col-2{\n  position:sticky;left:230px;z-index:3;min-width:210px;width:210px;max-width:210px;\n  background:#272727;box-sizing:border-box;box-shadow:2px 0 0 var(--border);\n}\n#vehiclesTable th.s07-sticky-col-1,#vehiclesTable th.s07-sticky-col-2{z-index:4;background:#333}\n#vehiclesTable td.s07-sticky-col-1{white-space:normal;overflow-wrap:anywhere}\n.s07-vin-copy{\n  display:inline-block;padding:3px 4px;background:transparent;border:0;\n  color:var(--accent);cursor:pointer;font:inherit;text-align:left;\n  white-space:nowrap;max-width:100%;\n}\n.s07-vin-copy:hover,.s07-vin-copy:focus-visible{text-decoration:underline;outline-offset:2px}\n";
+  style.textContent="\n/* S07-F04d : les colonnes defilent toutes ensemble, sans zone figee. */\n#vehiclesTable td.s07-sticky-col-1{white-space:normal;overflow-wrap:anywhere;min-width:200px}\n#vehiclesTable td.s07-sticky-col-2{min-width:190px;white-space:nowrap}\n.s07-vin-copy{\n  display:inline-block;padding:3px 4px;background:transparent;border:0;\n  color:var(--accent);cursor:pointer;font:inherit;text-align:left;\n  white-space:nowrap;max-width:100%;\n}\n.s07-vin-copy:hover,.s07-vin-copy:focus-visible{text-decoration:underline;outline-offset:2px}\n";
   document.head.appendChild(style);
 })();
 
