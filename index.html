@@ -9412,7 +9412,16 @@ function closeAddVehicleModal(){
 }
 
 
-  function saveNewVehicle(){
+  function idsMissingVehicleAddFields(modal){
+  return ["vehYear","vehKm","vehMake","vehModel","vehPlate","vehVin","vehTrim","vehColor","vehEngine","vehTireSize","vehTransmission","vehDrivetrain","vehFuel","vehNotes"].some(id=>!modal.querySelector('[id="'+id+'"]'));
+}
+
+function saveNewVehicle(){
+  // S07-F14 : lire uniquement le formulaire actif (les IDs existent aussi dans la fiche Client).
+  const modal=document.getElementById('addVehicleModal');
+  const field=id=>modal?.querySelector('[id="'+id+'"]');
+  if(!modal || idsMissingVehicleAddFields(modal)){alert('Formulaire véhicule incomplet. Aucun enregistrement.');return;}
+
 
   const clientId = $("vehClientSelect").value;
   if (!clientId){
@@ -9428,34 +9437,34 @@ function closeAddVehicleModal(){
 
   // S07-F12 : mêmes contrôles d'année et de KM que la fiche véhicule.
   // La saisie reste intacte si la validation échoue.
-  const yearInput=$("vehYear").value.trim();
-  const kmInput=$("vehKm").value.trim();
+  const yearInput=field("vehYear").value.trim();
+  const kmInput=field("vehKm").value.trim();
   if(yearInput && (!/^\\d{4}$/.test(yearInput)||Number(yearInput)<1886)){
     alert("Année invalide : indique une année à quatre chiffres (1886 ou plus).");
-    $("vehYear").focus();
+    field("vehYear").focus();
     return;
   }
   if(kmInput && (!/^\\d+$/.test(kmInput)||!Number.isSafeInteger(Number(kmInput)))){
     alert("Kilométrage invalide : indique un nombre entier positif ou zéro.");
-    $("vehKm").focus();
+    field("vehKm").focus();
     return;
   }
   const vehicle = {
     id: Date.now(),
     year: yearInput ? Number(yearInput) : "",
-    make: $("vehMake").value.trim(),
-    model: $("vehModel").value.trim(),
-    plate: $("vehPlate").value.trim(),
-    vin: $("vehVin").value.trim(),
+    make: field("vehMake").value.trim(),
+    model: field("vehModel").value.trim(),
+    plate: field("vehPlate").value.trim(),
+    vin: field("vehVin").value.trim(),
     km: kmInput ? Number(kmInput) : "",
-    trim: $("vehTrim").value.trim(),
-    color: $("vehColor").value.trim(),
-    engine: $("vehEngine").value.trim(),
-    tireSize: $("vehTireSize").value.trim(),
-    transmission: $("vehTransmission").value,
-    drivetrain: $("vehDrivetrain").value,
-    fuel: $("vehFuel").value,
-    notes: $("vehNotes").value.trim()
+    trim: field("vehTrim").value.trim(),
+    color: field("vehColor").value.trim(),
+    engine: field("vehEngine").value.trim(),
+    tireSize: field("vehTireSize").value.trim(),
+    transmission: field("vehTransmission").value,
+    drivetrain: field("vehDrivetrain").value,
+    fuel: field("vehFuel").value,
+    notes: field("vehNotes").value.trim()
   };
 
   if (!vehicle.make || !vehicle.model){
