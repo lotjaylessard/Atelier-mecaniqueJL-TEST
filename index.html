@@ -1106,6 +1106,30 @@ button.link:hover{
   margin: 0 0 0 6px;
 }
 
+
+/* S07-FIX-UI-02 : colonne Actions Services sur une seule ligne. */
+#page-services #servicesList table { width:100%; }
+#page-services #servicesList th:last-child,
+#page-services #servicesList td:last-child {
+  min-width:350px !important;
+  width:350px !important;
+  white-space:nowrap !important;
+  text-align:right !important;
+}
+#page-services #servicesList .s07-service-actions-inline {
+  display:flex !important;
+  flex-flow:row nowrap !important;
+  justify-content:flex-end !important;
+  align-items:center !important;
+  gap:6px !important;
+  width:100%;
+}
+#page-services #servicesList .s07-service-actions-inline > button {
+  flex:0 0 auto !important;
+  white-space:nowrap !important;
+  width:auto !important;
+  margin:0 !important;
+}
 </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -14119,5 +14143,36 @@ if (window.garageSupabase) {
 <script src="audit/s06-wo-pilot.js" defer></script>
 <!-- S06-F07: afficheur Supabase sous Menu pour le pilote seulement -->
 <script src="audit/s06-sidebar-persistent.js" defer></script>
+
+<!-- S07-FIX-UI-02 : normaliser l'affichage des boutons du tableau Services.
+     Déplace les boutons existants sans remplacer leurs écouteurs de clic. -->
+<script>
+(() => {
+  "use strict";
+  function alignServiceActions(){
+    const list=document.getElementById("servicesList");
+    if(!list)return;
+    for(const tr of list.querySelectorAll("table tbody tr")){
+      const td=tr.lastElementChild;
+      if(!td || td.tagName!=="TD" || td.querySelector(".s07-service-actions-inline"))continue;
+      const buttons=[...td.querySelectorAll("button")];
+      if(buttons.length!==3)continue;
+      const line=document.createElement("div");
+      line.className="s07-service-actions-inline";
+      for(const button of buttons)line.appendChild(button);
+      td.replaceChildren(line);
+    }
+  }
+  function init(){
+    const list=document.getElementById("servicesList");
+    if(!list)return;
+    alignServiceActions();
+    const observer=new MutationObserver(alignServiceActions);
+    observer.observe(list,{childList:true,subtree:true});
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});
+  else init();
+})();
+</script>
 </body>
 </html>
