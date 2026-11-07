@@ -9237,11 +9237,15 @@ function renderVehiclesPage(){
         : (c.name||""),
       customerName:c.name||"",
       year:Number(v.year||0),make:v.make||"",model:v.model||"",
+      trim:v.trim||"",color:v.color||"",engine:v.engine||"",
+      transmission:v.transmission||"",drivetrain:v.drivetrain||"",
+      fuel:v.fuel||"",tireSize:v.tireSize||"",
       plate:v.plate||"",vin:v.vin||"",km:v.km??""
     }));
   });
   const filtered=vehicles.filter(v=>moduleMatchesSearch(
-    [v.client,v.customerName,v.year,v.make,v.model,v.plate,v.vin,v.km],query
+    [v.client,v.customerName,v.year,v.make,v.model,v.trim,v.color,v.engine,
+      v.transmission,v.drivetrain,v.fuel,v.tireSize,v.plate,v.vin,v.km],query
   ));
   const direction=VEHICLES_SORT.dir===-1?"desc":"asc";
   const sorted=moduleSortRows(filtered,VEHICLES_SORT.key,direction,vehicleSortValue);
@@ -9259,7 +9263,21 @@ function renderVehiclesPage(){
     ownerButton.type="button";ownerButton.className="link";ownerButton.textContent=v.client;
     ownerButton.onclick=()=>openClientFromVehicles(v.clientId);
     owner.appendChild(ownerButton);tr.appendChild(owner);
-    for(const val of [v.year||"",v.make,v.model,v.plate,v.vin,v.km]){
+    for(const val of [v.year||"",v.make]){
+      const td=document.createElement("td");td.textContent=String(val);tr.appendChild(td);
+    }
+    const modelCell=document.createElement("td");
+    const modelName=document.createElement("strong");
+    modelName.textContent=[v.model,v.trim].filter(Boolean).join(" ");
+    modelCell.appendChild(modelName);
+    const details=[v.color,v.engine,v.drivetrain].filter(Boolean).join(" · ");
+    if(details){
+      const small=document.createElement("div");small.className="muted";
+      small.style.fontSize="12px";small.style.overflowWrap="anywhere";
+      small.textContent=details;modelCell.appendChild(small);
+    }
+    tr.appendChild(modelCell);
+    for(const val of [v.plate,v.vin,v.km]){
       const td=document.createElement("td");td.textContent=String(val);tr.appendChild(td);
     }
     const actions=document.createElement("td"),btn=document.createElement("button");
