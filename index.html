@@ -6042,8 +6042,9 @@ function s07VehicleHeader(wo){
     ['Transmission',v.transmission],['Motricité',v.drivetrain],
     ['Carburant',v.fuel],['Pneus',v.tireSize]
   ];
-  return (!wo.vehicleSnapshot?'<div class="muted" style="font-size:11px;margin-top:7px">Caractéristiques actuelles de la fiche véhicule (ancien BT)</div>':'')+
-    '<div class="s07-wo-specs">'+
+  // Provenance conservee par vehicleSnapshot, sans encombrer l'interface.
+  return '<div class="s07-wo-specs"'+
+    (!wo.vehicleSnapshot?' title="Informations issues de la fiche véhicule actuelle"':'')+'>'+
     fields.map(([label,value])=>'<div class="s07-wo-spec"><div class="muted" style="font-size:12px">'+escapeHTML(label)+
       '</div><strong style="font-size:14px;overflow-wrap:anywhere">'+escapeHTML(String(value||'—'))+'</strong></div>').join('')+
     '</div>';
