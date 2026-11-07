@@ -9986,7 +9986,13 @@ function renderClientModal(id){
     `).join('');
     wrap.querySelectorAll('button[data-role="del-veh"]').forEach(btn=>{
       btn.addEventListener('click',()=>{
+        // S07-F11 : confirmation explicite avant suppression d'un véhicule.
         const idx=Number(btn.dataset.index);
+        const vehicle=client.vehicles?.[idx];
+        if(!vehicle)return;
+        const vehicleLabel=[vehicle.year,vehicle.make,vehicle.model,vehicle.plate]
+          .filter(Boolean).join(" ")||"ce véhicule";
+        if(!confirm("Supprimer définitivement le véhicule « "+vehicleLabel+" » de ce client ?"))return;
         client.vehicles.splice(idx,1);
         saveClients();
         renderVehiclesList();
