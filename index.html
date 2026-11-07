@@ -9763,7 +9763,6 @@ function renderClientModal(id){
           <summary style="cursor:pointer;font-weight:600;">Autres informations (facultatif)</summary>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
             <div style="flex:1;min-width:140px;"><label>Carburant</label><select id="vehFuel"><option value="">—</option><option>Essence</option><option>Diesel</option><option>Hybride</option><option>Électrique</option><option>Autre</option></select></div>
-            <div style="flex:1;min-width:140px;"><label>Cylindrée</label><input id="vehDisplacement" placeholder="Ex. 2.0 L" /></div>
             <div style="flex:1;min-width:160px;"><label>Dimension des pneus</label><input id="vehTireSize" placeholder="Ex. 215/65R17" /></div>
           </div>
         </details>
@@ -9834,7 +9833,6 @@ function renderClientModal(id){
     $('vehTransmission').value = v.transmission || '';
     $('vehDrivetrain').value = v.drivetrain || '';
     $('vehFuel').value = v.fuel || '';
-    $('vehDisplacement').value = v.displacement || '';
     $('vehTireSize').value = v.tireSize || '';
     $('vehPlate').value = v.plate || '';
     $('vehVin').value   = v.vin   || '';
@@ -9915,7 +9913,6 @@ const name = `${firstName} ${lastName}`.trim();
         transmission:$('vehTransmission').value,
         drivetrain:$('vehDrivetrain').value,
         fuel:$('vehFuel').value,
-        displacement:$('vehDisplacement').value.trim(),
         tireSize:$('vehTireSize').value.trim(),
         plate:$('vehPlate').value.trim(),
         vin:$('vehVin').value.trim(),
@@ -9944,7 +9941,7 @@ if (vehEditIndex !== null && client.vehicles[vehEditIndex]) {
       
       $('vehMake').value='';
       $('vehModel').value='';
-      ['vehTrim','vehColor','vehEngine','vehTransmission','vehDrivetrain','vehFuel','vehDisplacement','vehTireSize'].forEach(id=>{$(id).value='';});
+      ['vehTrim','vehColor','vehEngine','vehTransmission','vehDrivetrain','vehFuel','vehTireSize'].forEach(id=>{$(id).value='';});
       $('vehYear').value='';
       $('vehPlate').value='';
       $('vehVin').value='';
