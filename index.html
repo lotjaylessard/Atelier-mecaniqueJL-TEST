@@ -9654,7 +9654,7 @@ loadInvoices?.();
         <textarea data-s07-vehicle="notes" rows="2" style="width:100%;box-sizing:border-box;margin-top:4px">${escapeHTML(String(vehicle.notes||''))}</textarea>
       </label>
       <div style="display:flex;justify-content:flex-end;margin-top:10px;">
-        <button type="button" class="ghost" onclick="s07SaveVehicleDetails(${JSON.stringify(String(client.id))},${JSON.stringify(String(vehicle.id))})">💾 Enregistrer le véhicule</button>
+        <button type="button" class="ghost" id="s07VehicleSaveButton" onclick="s07SaveVehicleDetails(${JSON.stringify(String(client.id))},${JSON.stringify(String(vehicle.id))})">💾 Enregistrer le véhicule</button>
       </div>
       <div id="s07VehicleSaveStatus" role="status" aria-live="polite" style="text-align:right;font-size:12px;margin-top:5px;color:var(--muted)">Les modifications doivent être enregistrées avant de fermer.</div>
     </div>
@@ -9705,6 +9705,7 @@ function s07SaveVehicleDetails(clientId,vehicleId){
   const modal=document.getElementById("vehicleModalContent");
   if(!modal?.querySelector("#s07VehicleDetailsForm"))return;
   const status=modal.querySelector("#s07VehicleSaveStatus");
+  const saveButton=modal.querySelector("#s07VehicleSaveButton");
   const show=(message,color)=>{
     if(status){status.textContent=message;if(color)status.style.color=color;}
   };
@@ -9746,15 +9747,21 @@ function s07SaveVehicleDetails(clientId,vehicleId){
     console.error("[S07-F05] Sauvegarde véhicule non confirmée",err);
     return;
   }
-  renderVehiclesPage();
-  renderClientsTable();
-  // La synchro Supabase est asynchrone : ne pas annoncer un succès cloud ici.
-  modal.innerHTML=renderVehicleModalContent(client,vehicle);
-  const confirmation=modal.querySelector("#s07VehicleSaveStatus");
-  if(confirmation){
-    confirmation.textContent="✓ Enregistré localement. Vérifie « Synchronisé » en haut avant d'actualiser.";
-    confirmation.style.color="#61d99a";
+  // Conserver le formulaire et son statut visibles plutôt que de le recréer.
+  // La confirmation ne doit pas disparaître durant le rafraîchissement de la liste.
+  show("✓ Enregistré localement. Synchronisation Supabase en attente de confirmation.", "#61d99a");
+  if(saveButton){
+    saveButton.textContent="✓ Enregistré localement";
+    saveButton.style.borderColor="#61d99a";
   }
+  try{
+    renderVehiclesPage();
+    renderClientsTable();
+  }catch(err){
+    console.error("[S07-F05] Rafraîchissement de l'affichage impossible",err);
+  }
+  // La synchronisation Supabase est asynchrone : seul l'indicateur global
+  // « Synchronisé » confirme la transmission. Ne pas l'affirmer ici.
 }
 /* Ouvrir un BT depuis la fiche véhicule */
 function openWorkOrderFromVehicleModal(woId){
