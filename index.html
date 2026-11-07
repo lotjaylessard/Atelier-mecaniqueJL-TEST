@@ -6025,8 +6025,8 @@ function s07VehicleSnapshot(vehicle){
   return result;
 }
 function s07VehicleHeader(wo){
-  // Ne pas présenter des données actuelles comme un historique : les anciens
-  // BT sans instantané sont explicitement étiquetés « fiche actuelle ».
+  // Afficher les renseignements supplementaires dans la fiche véhicule existante.
+  // Les anciens BT sans instantané affichent clairement les valeurs actuelles.
   const client=CLIENTS.find(c=>String(c.id)===String(wo.clientId));
   const current=client?.vehicles?.find(v=>String(v.id)===String(wo.vehicleId));
   const v=wo.vehicleSnapshot || (current ? s07VehicleSnapshot(current) : null);
@@ -6034,17 +6034,14 @@ function s07VehicleHeader(wo){
   const details=[
     ['Sous-modèle',v.trim],['Couleur',v.color],['Moteur',v.engine],
     ['Transmission',v.transmission],['Motricité',v.drivetrain],
-    ['Carburant',v.fuel],['Pneus',v.tireSize],
-    ['Plaque',v.plate],['VIN / NIV',v.vin]
+    ['Carburant',v.fuel],['Pneus',v.tireSize]
   ].filter(([,value])=>String(value??'').trim());
   if(!details.length)return '';
   const cells=details.map(([label,value])=>
     '<div style="min-width:0"><div class="muted" style="font-size:12px">'+escapeHTML(label)+
     '</div><strong style="overflow-wrap:anywhere">'+escapeHTML(String(value))+'</strong></div>').join('');
-  return '<section aria-label="Informations du véhicule" style="border:1px solid var(--border);border-radius:8px;padding:12px;margin:10px 0 12px">'+
-    '<div style="font-weight:700;margin-bottom:8px">🚗 '+escapeHTML([v.year,v.make,v.model,v.trim].filter(Boolean).join(' '))+'</div>'+
-    (!wo.vehicleSnapshot?'<div class="muted" style="font-size:12px;margin-bottom:8px">Fiche véhicule actuelle — ancien BT sans instantané</div>':'')+
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">'+cells+'</div></section>';
+  return (!wo.vehicleSnapshot?'<div class="muted" style="font-size:11px;margin-top:8px">Informations actuelles de la fiche véhicule (ancien BT)</div>':'')+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:10px;border-top:1px solid var(--border);padding-top:10px">'+cells+'</div>';
 }
 
   function saveNewWorkOrder() {
@@ -6675,8 +6672,8 @@ function woDisplayKm(wo){
 function woContactHtml(wo){
   const {client, vehicle} = woContactInfo(wo);
   const phone = String(client?.phone || "").trim();
-  const vin = String(vehicle?.vin || "").trim();
-  const plate = String(vehicle?.plate || "").trim();
+  const vin = String(wo.vehicleSnapshot?.vin || vehicle?.vin || "").trim();
+  const plate = String(wo.vehicleSnapshot?.plate || vehicle?.plate || "").trim();
   const phoneDigits = phone.replace(/[^+0-9]/g, "");
   return `
     <div class="wo-contact-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:12px 0;">
@@ -6693,6 +6690,7 @@ function woContactHtml(wo){
         <div style="margin-top:8px;overflow-wrap:anywhere;">VIN : <span class="wo-vin-text">${escapeHTML(vin || "Non renseigné")}</span>
           ${vin ? '<button class="ghost" type="button" onclick="copyWorkOrderVIN(this)" style="padding:4px 8px;margin-left:6px;">📋 Copier</button>' : ''}</div>
         <div>Plaque : ${escapeHTML(plate || "Non renseignée")}</div>
+        ${s07VehicleHeader(wo)}
       </div>
     </div>`;
 }
@@ -7605,7 +7603,6 @@ const statusLabel =
       <span class="status-badge status-${wo.status}">${statusLabel}</span>
     </div>
     ${woContactHtml(wo)}
-    ${s07VehicleHeader(wo)}
     <label for="woKmInput" style="display:block;font-weight:bold;">Kilométrage</label>
     <div style="display:flex;gap:8px;align-items:center;margin:6px 0 12px;">
       <input id="woKmInput" type="number" min="0" value="${woKmDisplay.value ?? ""}" placeholder="KM non renseigné"
