@@ -10482,7 +10482,7 @@ function s07SortServicesBy(key){
   renderServicesList();
 }
 
-(function(){const style=document.createElement("style");style.textContent="\n/* S07-F09d : tableau Services sans barre horizontale, boutons compacts. */\n#servicesList .s07-service-actions button{font-size:12px;padding:7px 8px;white-space:nowrap;}\n#servicesList .s07-service-grid > *{min-width:0;}\n#servicesList .s07-service-grid .module-sort-button{max-width:100%;font-size:13px;padding:5px 6px;}\n@media(max-width:1150px){\n #servicesList .s07-service-grid{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,.65fr) minmax(0,.55fr) minmax(0,.7fr) minmax(0,.7fr) minmax(180px,1.2fr)!important;gap:5px!important;font-size:12px!important;}\n #servicesList .s07-service-actions button{padding:5px 6px;font-size:11px;}\n}\n";document.head.appendChild(style);})();
+(function(){const style=document.createElement("style");style.textContent="\n/* S07-F09d : tableau Services sans barre horizontale, boutons compacts. */\n#servicesList .s07-service-actions button{font-size:12px;padding:7px 8px;white-space:nowrap;}\n#servicesList .s07-service-grid > *{min-width:0;}\n#servicesList .s07-service-grid .module-sort-button{max-width:100%;font-size:13px;padding:5px 6px;}\n@media(max-width:1150px){\n #servicesList .s07-service-grid{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,.65fr) minmax(0,.55fr) minmax(0,.7fr) minmax(0,.7fr) minmax(350px,2.35fr)!important;gap:5px!important;font-size:12px!important;}\n #servicesList .s07-service-actions button{padding:5px 6px;font-size:11px;}\n}\n";document.head.appendChild(style);})();
 function renderServicesList(){
   const list=$("servicesList");
   if(!list)return;
@@ -10507,7 +10507,7 @@ function renderServicesList(){
     if(["hours","rate"].includes(key))return isFixed(s)?null:Number(s[key]||0);
     return String(s[key]||"");
   });
-  const gridStyle="display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1.4fr) minmax(0,1fr) minmax(0,.65fr) minmax(0,.6fr) minmax(0,.8fr) minmax(0,.85fr) minmax(250px,1.85fr);gap:8px;align-items:center;width:100%;box-sizing:border-box;";
+  const gridStyle="display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1.4fr) minmax(0,1fr) minmax(0,.65fr) minmax(0,.6fr) minmax(0,.8fr) minmax(0,.85fr) minmax(350px,2.35fr);gap:8px;align-items:center;width:100%;box-sizing:border-box;";
   const header=(key,label,align="left")=>{
     const active=S07_SERVICE_SORT_KEY===key;
     const arrow=active?(S07_SERVICE_SORT_DIRECTION==="asc"?"▲":"▼"):"↕";
@@ -10530,7 +10530,7 @@ function renderServicesList(){
       <span style="text-align:right;white-space:nowrap">${fixed?"—":Number(s.hours||0)}</span>
       <span style="text-align:right;white-space:nowrap">${fixed?"—":money(s.rate)+" $"}</span>
       <span style="text-align:right;white-space:nowrap">${money(amount(s))} $</span>
-      <div class="s07-service-actions" style="display:flex;justify-content:flex-end;gap:4px;align-items:center;flex-wrap:wrap;min-width:0;">
+      <div class="s07-service-actions" style="display:flex;justify-content:flex-end;gap:4px;align-items:center;flex-wrap:nowrap;min-width:0;white-space:nowrap;">
         <button class="ghost" onclick="editService('${id}')">Modifier</button>
         <button class="ghost danger" onclick="deleteService('${id}')">Supprimer</button>
         <button onclick="addServiceToCurrentWO('${id}')">+ Bon de travail</button>
