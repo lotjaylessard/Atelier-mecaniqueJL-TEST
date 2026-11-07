@@ -1067,6 +1067,50 @@ button.link:hover{
 #s06TimerWorkOrder:focus-visible{outline:2px solid #fff;outline-offset:2px}
 
 @media(max-height:730px){#sidebar{gap:4px;padding-top:8px}#sidebar > .navBtn{min-height:26px;padding:5px 8px}#s06SidebarTimer{gap:3px;padding:6px}}
+
+/* S06 — Actions des services alignees horizontalement comme les pieces.
+   Purement visuel : les gestionnaires de clic restent inchanges. */
+#page-services .srv-actions,
+#page-services .service-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  min-width: 0;
+}
+#page-services .srv-actions > button,
+#page-services .service-actions > button {
+  flex: 0 0 auto;
+  width: auto;
+  white-space: nowrap;
+  margin: 0;
+}
+#page-services .service-row {
+  grid-template-columns: minmax(160px, 2fr) minmax(115px, 1fr) minmax(145px, 1.3fr) minmax(365px, 2.5fr);
+}
+/* Compatibilite avec la version TEST en tableau (tri par colonne). */
+#page-services .s05-catalog table th:last-child,
+#page-services .s05-catalog table td:last-child {
+  width: 385px;
+  min-width: 385px;
+  text-align: right;
+  white-space: nowrap;
+}
+#page-services .s05-catalog table td:last-child .srv-actions,
+#page-services .s05-catalog table td:last-child .service-actions {
+  justify-content: flex-end;
+}
+#page-services .s05-catalog table td:last-child button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  white-space: nowrap;
+  margin: 0 0 0 6px;
+}
+
 </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
