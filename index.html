@@ -9908,8 +9908,9 @@ function renderClientModal(id){
 
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
         ${isNew ? '' : '<button id="clientDeleteBtn" class="ghost">Supprimer client</button>'}
-        <button id="clientSaveBtn">💾 Enregistrer</button>
+        <button id="clientSaveBtn" type="button">💾 Enregistrer</button>
       </div>
+      <div id="s07ClientSaveStatus" role="status" aria-live="polite" style="text-align:right;font-size:12px;color:var(--muted)">Les changements doivent être enregistrés avant de fermer.</div>
     </div>
   `;
 
@@ -10008,35 +10009,64 @@ function renderClientModal(id){
   }
 
   if($('clientSaveBtn')){
-    $('clientSaveBtn').addEventListener('click',()=>{
-      const firstName = $('clientFormFirstName').value.trim();
-const lastName  = $('clientFormLastName').value.trim();
-
-if (!firstName && !lastName){
-  alert('Le prénom ou le nom est requis');
-  return;
-}
-
-const name = `${firstName} ${lastName}`.trim();
-
-      if(!name){alert('Le prénom ou le nom du client est requis.');return;}
-      client.firstName = firstName;
-      client.lastName  = lastName;
-      client.name      = name; // compatibilité
-      client.phone=$('clientFormPhone').value.trim();
-      client.email=$('clientFormEmail').value.trim();
-      client.address=$('clientFormAddress').value.trim();
-      client.notes=$('clientFormNotes').value.trim();
-      
+    const button=$('clientSaveBtn');
+    const status=$('s07ClientSaveStatus');
+    const show=(message,color)=>{
+      if(status){status.textContent=message;if(color)status.style.color=color;}
+    };
+    // Après une modification, ne pas laisser affiché un ancien succès.
+    for(const field of ['clientFormFirstName','clientFormLastName','clientFormPhone',
+      'clientFormEmail','clientFormAddress','clientFormNotes']){
+      $(field)?.addEventListener('input',()=>{
+        button.textContent='💾 Enregistrer';
+        show('Modifications non enregistrées.','var(--muted)');
+      });
+    }
+    button.addEventListener('click',()=>{
+      const firstName=$('clientFormFirstName').value.trim();
+      const lastName=$('clientFormLastName').value.trim();
+      if(!firstName && !lastName){
+        show('Le prénom ou le nom est requis.','#ff8080');return;
+      }
+      const name=`${firstName} ${lastName}`.trim();
+      const fields={
+        firstName,lastName,name,
+        phone:$('clientFormPhone').value.trim(),
+        email:$('clientFormEmail').value.trim(),
+        address:$('clientFormAddress').value.trim(),
+        notes:$('clientFormNotes').value.trim()
+      };
+      const oldClient={...client};
       const idx=CLIENTS.findIndex(c=>String(c.id)===String(client.id));
-      if(idx===-1) CLIENTS.push(client);
+      show('Enregistrement en cours…','var(--muted)');
+      Object.assign(client,fields);
+      if(idx===-1)CLIENTS.push(client);
       else CLIENTS[idx]=client;
-      saveClients();
-      
-      document.dispatchEvent(new CustomEvent("client:created", {detail: client}));
-      refreshInvoiceClientSelect();
-      renderClientsTable();
-      closeClientModal();
+      try{
+        saveClients();
+        const stored=loadArrayFromStorage(STORAGE.clients);
+        const persisted=stored.find(c=>String(c.id)===String(client.id));
+        if(!persisted || Object.keys(fields).some(k=>String(persisted[k]??'')!==String(fields[k]??'')))
+          throw new Error('Vérification locale client échouée');
+      }catch(error){
+        Object.assign(client,oldClient);
+        if(idx===-1)CLIENTS=CLIENTS.filter(c=>String(c.id)!==String(client.id));
+        else CLIENTS[idx]=client;
+        show("Échec de l'enregistrement local. Réessaie avant de fermer.",'#ff8080');
+        console.error('[S07-F06] Enregistrement client non confirmé',error);
+        return;
+      }
+      // L'indicateur général « Synchronisé » confirme le cloud séparément.
+      show('✓ Enregistré localement. Vérifier « Synchronisé » avant de rafraîchir.','#61d99a');
+      button.textContent='✓ Enregistré localement';
+      if(idx===-1)document.dispatchEvent(new CustomEvent('client:created',{detail:client}));
+      try{
+        refreshInvoiceClientSelect();
+        renderClientsTable();
+      }catch(err){
+        console.error('[S07-F06] Rafraîchissement après sauvegarde client',err);
+      }
+      // Garder la fiche ouverte pour que la confirmation reste visible.
     });
   }
   if($('clientAddVehicleBtn')){
