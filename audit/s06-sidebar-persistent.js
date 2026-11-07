@@ -46,7 +46,19 @@
     if(wrapper)wrapper.title=meta.description;
     const extra=current.status==="running"&&navigator.onLine?
       Math.min(20000,Math.max(0,Date.now()-receivedAt)):0;
-    time.textContent=formatted(Number(current.confirmed_ms)+extra);
+    // Quand le BT actif est ouvert, recopier son affichage indicatif.
+    // La session doit correspondre : aucune copie depuis un autre BT.
+    const pilot=document.getElementById("s06WoPilot");
+    const pilotClock=pilot?.querySelector("#s06Clock");
+    const activeWo=document.getElementById("woEditId")?.value;
+    const sameSession=pilot?.dataset.sessionId===String(current.id)&&
+      String(activeWo)===String(current.work_order_id)&&
+      document.getElementById("page-workorders")?.style.display!=="none"&&
+      document.getElementById("woDetailCard")?.style.display!=="none";
+    time.textContent=sameSession&&pilotClock&&
+      /^\\d{2,}:\\d{2}:\\d{2}$/.test(pilotClock.textContent.trim())?
+      pilotClock.textContent.trim():
+      formatted(Number(current.confirmed_ms)+extra);
   }
   async function refresh(){
     if(busy)return;
