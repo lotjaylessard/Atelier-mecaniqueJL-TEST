@@ -9923,7 +9923,8 @@ function renderClientModal(id){
         </details>
         <label style="margin-top:6px;">Notes véhicule</label>
         <textarea id="vehNotes"></textarea>
-        <button id="clientAddVehicleBtn" style="margin-top:6px;">Ajouter véhicule</button>
+        <button id="clientAddVehicleBtn" type="button" style="margin-top:6px;">Ajouter véhicule</button>
+        <div id="s07ClientVehicleSaveStatus" role="status" aria-live="polite" style="font-size:12px;margin-top:6px;color:var(--muted)"></div>
       </div>
 
       <div>
@@ -10095,19 +10096,40 @@ function renderClientModal(id){
     });
   }
   if($('clientAddVehicleBtn')){
-    $('clientAddVehicleBtn').addEventListener('click',()=>{
+    const vehicleButton=$('clientAddVehicleBtn');
+    const vehicleStatus=$('s07ClientVehicleSaveStatus');
+    const showVehicleStatus=(message,color)=>{
+      if(vehicleStatus){vehicleStatus.textContent=message;if(color)vehicleStatus.style.color=color;}
+    };
+    for(const field of ['vehYear','vehMake','vehModel','vehTrim','vehColor',
+      'vehEngine','vehTransmission','vehDrivetrain','vehFuel','vehTireSize',
+      'vehPlate','vehVin','vehKm','vehNotes']){
+      const el=$(field);
+      if(!el)continue;
+      const reset=()=>{
+        showVehicleStatus('Modifications du véhicule non enregistrées.','var(--muted)');
+        if(vehicleButton.textContent.includes('✓ Enregistré'))
+          vehicleButton.textContent=vehEditIndex!==null?'💾 Enregistrer véhicule':'Ajouter véhicule';
+      };
+      el.addEventListener('input',reset);
+      el.addEventListener('change',reset);
+    }
+    vehicleButton.addEventListener('click',()=>{
       const make=$('vehMake').value.trim();
       const model=$('vehModel').value.trim();
       const year=$('vehYear').value.trim();
       if(!make && !model){
-        alert('Au moins marque ou modèle requis pour le véhicule.');
+        showVehicleStatus('Marque ou modèle requis.','#ff8080');
+        return;
+      }
+      // La fiche client doit exister avant la création d'un véhicule persistant.
+      if(!CLIENTS.some(c=>String(c.id)===String(client.id))){
+        showVehicleStatus('Enregistre d’abord le nouveau client, puis ajoute le véhicule.','#ff8080');
         return;
       }
       const v={
         id:Date.now(),
-        make,
-        model,
-        year,
+        make,model,year,
         trim:$('vehTrim').value.trim(),
         color:$('vehColor').value.trim(),
         engine:$('vehEngine').value.trim(),
@@ -10120,39 +10142,42 @@ function renderClientModal(id){
         km:$('vehKm').value.trim(),
         notes:$('vehNotes').value.trim()
       };
-      if(!Array.isArray(client.vehicles)) client.vehicles=[];
-
-if (vehEditIndex !== null && client.vehicles[vehEditIndex]) {
-  // ✏️ MODIFICATION
-  client.vehicles[vehEditIndex] = {
-    ...client.vehicles[vehEditIndex],
-    ...v,
-    id:client.vehicles[vehEditIndex].id
-  };
-  vehEditIndex = null;
-  $('clientAddVehicleBtn').textContent = '➕ Ajouter véhicule';
-} else {
-  // ➕ AJOUT
-  client.vehicles.push(v);
-}
-
-    saveClients();
-    renderVehiclesList();
-
-      
-      $('vehMake').value='';
-      $('vehModel').value='';
-      ['vehTrim','vehColor','vehEngine','vehTransmission','vehDrivetrain','vehFuel','vehTireSize'].forEach(id=>{$(id).value='';});
-      $('vehYear').value='';
-      $('vehPlate').value='';
-      $('vehVin').value='';
-      $('vehKm').value='';
-      $('vehNotes').value='';
+      if(!Array.isArray(client.vehicles))client.vehicles=[];
+      const originalVehicles=client.vehicles.slice();
+      const index=vehEditIndex!==null && client.vehicles[vehEditIndex] ? vehEditIndex : -1;
+      const existingId=index>=0?client.vehicles[index].id:null;
+      if(index>=0)client.vehicles[index]={...client.vehicles[index],...v,id:existingId};
+      else client.vehicles.push(v);
+      const targetId=index>=0?existingId:v.id;
+      showVehicleStatus('Enregistrement en cours…','var(--muted)');
+      try{
+        saveClients();
+        const persisted=loadArrayFromStorage(STORAGE.clients)
+          .find(c=>String(c.id)===String(client.id))?.vehicles
+          ?.find(item=>String(item.id)===String(targetId));
+        if(!persisted || Object.keys(v).filter(k=>k!=='id')
+          .some(k=>String(persisted[k]??'')!==String(v[k]??''))){
+          throw new Error('Vérification locale du véhicule échouée');
+        }
+      }catch(error){
+        client.vehicles=originalVehicles;
+        showVehicleStatus('Sauvegarde locale non confirmée. Ne ferme pas la fiche.','#ff8080');
+        console.error('[S07-F06] Erreur sauvegarde véhicule depuis client',error);
+        return;
+      }
+      vehEditIndex=null;
       renderVehiclesList();
+      for(const field of ['vehMake','vehModel','vehTrim','vehColor','vehEngine',
+        'vehTransmission','vehDrivetrain','vehFuel','vehTireSize','vehYear',
+        'vehPlate','vehVin','vehKm','vehNotes']){
+        if($(field))$(field).value='';
+      }
+      vehicleButton.textContent='✓ Enregistré localement';
+      showVehicleStatus('✓ Véhicule enregistré localement. Vérifier « Synchronisé » avant de rafraîchir.','#61d99a');
+      try{renderVehiclesPage();}catch(error){console.error('[S07-F06] Rafraîchissement véhicules',error);}
     });
   }
 
-    
   if($('clientDeleteBtn') && !isNew){
     $('clientDeleteBtn').addEventListener('click',()=>{
       if(!confirm('Supprimer ce client ?')) return;
