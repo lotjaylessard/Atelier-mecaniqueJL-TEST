@@ -9892,18 +9892,34 @@ function renderClientModal(id){
   }
   renderVehiclesList();
 
+  // S07-F03 : historique client enrichi en lecture seule. Ne jamais changer
+  // les factures historiques lorsqu'une fiche véhicule ou un BT évolue.
   const histWrap=$('clientHistory');
   if(histWrap){
     if(clientInvoices.length===0){
       histWrap.innerHTML='<div class="muted">Aucune facture associée pour ce client pour le moment.</div>';
     }else{
-      histWrap.innerHTML=clientInvoices.map(inv=>`
-        <div style="border-bottom:1px solid var(--border);padding:4px 0;">
-          <div><strong>#${inv.number}</strong> - ${inv.date}</div>
-          <div class="small">${inv.job||''}</div>
-          <div class="small">Total: ${money(inv.total||0)} $</div>
-        </div>
-      `).join('');
+      histWrap.innerHTML=clientInvoices.map(inv=>{
+        const linked=WORKORDERS.find(wo=>String(wo.number)===String(inv.workOrderNumber||inv.referenceWO||''));
+        const vehicle=String(inv.vehicle||'').trim()||
+          String(linked?.vehicleLabel||'').trim()||'Véhicule non renseigné';
+        const description=String(linked?.description||'').trim()||
+          String(inv.job||'').trim()||'Description non renseignée';
+        const total=Number(inv.total);
+        const safeTotal=Number.isFinite(total)?total:0;
+        return `
+          <div style="border-bottom:1px solid var(--border);padding:10px 2px;">
+            <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline;">
+              <strong>#${escapeHTML(String(inv.number||'—'))}</strong>
+              <span class="muted">${escapeHTML(String(inv.date||'Date non renseignée'))}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px 14px;margin-top:6px;">
+              <div><span class="muted">Véhicule</span><div><strong>${escapeHTML(vehicle)}</strong></div></div>
+              <div><span class="muted">Problème / travaux</span><div style="overflow-wrap:anywhere">${escapeHTML(description)}</div></div>
+            </div>
+            <div style="margin-top:6px;text-align:right"><span class="muted">Total : </span><strong>${money(safeTotal)} $</strong></div>
+          </div>`;
+      }).join('');
     }
   }
 
