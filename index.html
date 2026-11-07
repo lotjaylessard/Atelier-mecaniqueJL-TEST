@@ -1093,6 +1093,21 @@ button.link:hover{
 #page-quotes #s08QuotesTable td{padding:16px 8px}
 #page-quotes .s08-quote-empty{text-align:center}
 
+
+/* S08-F02a — formulaire temporaire, indépendance complète. */
+#page-quotes #s08QuoteEditor[hidden]{display:none}
+#page-quotes .s08-editor-heading{display:flex;align-items:start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#page-quotes .s08-field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 14px}
+#page-quotes .s08-field-grid label,#page-quotes .s08-line-add label{min-width:0}
+#page-quotes .s08-line-add{display:grid;grid-template-columns:130px minmax(180px,1fr) 135px 140px auto;gap:10px;align-items:end}
+#page-quotes .s08-line-add input,#page-quotes .s08-line-add select{box-sizing:border-box;width:100%}
+#page-quotes .s08-line-add button{margin-bottom:0;white-space:nowrap}
+#page-quotes .s08-editor-lines{overflow-x:auto;max-width:100%}
+#page-quotes .s08-editor-lines table{min-width:600px}
+#page-quotes .s08-total{text-align:right;margin-top:14px;font-size:17px;color:var(--accent)}
+#page-quotes .s08-editor-buttons{display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+@media(max-width:1000px){#page-quotes .s08-line-add{grid-template-columns:repeat(2,minmax(0,1fr))}#page-quotes .s08-line-add label:nth-child(2){grid-column:span 2}#page-quotes .s08-line-add button{grid-column:span 2}}
+
 </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1265,7 +1280,7 @@ button.link:hover{
       <h2>Soumissions</h2>
       <div class="card s08-quotes-card">
         <div class="module-search-toolbar">
-          <button id="s08NewQuote" type="button" disabled title="Disponible après intégration de l'enregistrement indépendant">➕ Nouvelle soumission</button>
+          <button id="s08NewQuote" type="button" title="Préparer une soumission temporaire (non enregistrée)">➕ Nouvelle soumission</button>
           <input id="s08QuoteSearch" type="search" placeholder="🔎 Rechercher : # SO, client, véhicule, description..." aria-label="Rechercher une soumission">
           <select id="s08QuoteStatus" aria-label="Filtrer les soumissions par statut">
             <option value="">Tous les statuts</option>
@@ -1284,6 +1299,41 @@ button.link:hover{
           </table>
         </div>
         <p class="muted" style="font-size:12px;margin:12px 0 0">S08-F01 : structure en préparation. Aucune soumission, aucun bon de travail et aucune facture ne sont créés depuis cette page pour l'instant. Le montant estimé sera affiché sans taxes.</p>
+      </div>
+
+      <div class="card" id="s08QuoteEditor" hidden>
+        <div class="s08-editor-heading">
+          <div><h3>Nouvelle soumission — brouillon temporaire</h3><p class="muted">Aucun numéro SO attribué avant la sauvegarde. Aucune incidence sur les clients, les véhicules, les pièces ou les BT.</p></div>
+          <button id="s08CancelQuote" type="button" class="ghost">Fermer le brouillon</button>
+        </div>
+        <div class="s08-field-grid">
+          <label>Nom du client<input id="s08ClientName" type="text" autocomplete="off" placeholder="Nom du client"></label>
+          <label>Téléphone<input id="s08ClientPhone" type="tel" placeholder="Téléphone (facultatif)"></label>
+          <label>Courriel<input id="s08ClientEmail" type="email" placeholder="Courriel (facultatif)"></label>
+          <label>Véhicule<input id="s08VehicleLabel" type="text" placeholder="Année, marque, modèle"></label>
+        </div>
+        <label style="display:block;margin-top:10px">Travaux proposés<textarea id="s08QuoteDescription" rows="2" placeholder="Description des travaux"></textarea></label>
+        <h3 style="margin-top:16px">Pièces et main-d’œuvre</h3>
+        <div class="s08-line-add">
+          <label>Type<select id="s08LineType"><option value="part">Pièce</option><option value="labor">Main-d’œuvre / Service</option><option value="other">Autre</option></select></label>
+          <label>Description<input id="s08LineDescription" type="text" placeholder="Pièce ou travail à effectuer"></label>
+          <label>Quantité / heures<input id="s08LineQty" type="number" step="0.01" min="0.01" value="1"></label>
+          <label>Prix unitaire ($)<input id="s08LinePrice" type="number" step="0.01" min="0" value="0"></label>
+          <button id="s08AddLine" type="button">+ Ajouter la ligne</button>
+        </div>
+        <p id="s08LineError" role="status" aria-live="polite" class="muted"></p>
+        <div class="s08-editor-lines">
+          <table><thead><tr><th>Type</th><th>Description</th><th>Quantité</th><th>Prix unitaire</th><th>Montant</th><th>Action</th></tr></thead>
+            <tbody id="s08DraftLines"><tr><td colspan="6" class="muted">Aucune ligne ajoutée.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="s08-total"><strong>Total estimé (avant taxes) : <span id="s08DraftTotal">0,00 $</span></strong></div>
+        <p class="muted" style="margin:6px 0 0">Les taxes ne sont pas détaillées dans la soumission. L’enregistrement, l’impression et l’approbation seront activés uniquement après les prochaines étapes sécurisées.</p>
+        <div class="s08-editor-buttons">
+          <button type="button" disabled title="Disponible après intégration du stockage indépendant">💾 Enregistrer la soumission</button>
+          <button type="button" disabled title="Disponible à la phase PDF">🖨️ Imprimer / PDF</button>
+          <button type="button" disabled title="Disponible après validation de la conversion SO vers BT">✓ Approuver et créer BT</button>
+        </div>
       </div>
     </div>
 
@@ -14175,5 +14225,76 @@ if (window.garageSupabase) {
 <script src="audit/s06-sidebar-persistent.js" defer></script>
 
 
+
+<!-- S08-F02a : brouillon éphémère en mémoire; aucune écriture dans le garage. -->
+<script>
+(() => {
+  "use strict";
+  const editor=document.getElementById("s08QuoteEditor");
+  const start=document.getElementById("s08NewQuote");
+  const cancel=document.getElementById("s08CancelQuote");
+  const add=document.getElementById("s08AddLine");
+  const tbody=document.getElementById("s08DraftLines");
+  const total=document.getElementById("s08DraftTotal");
+  const error=document.getElementById("s08LineError");
+  if(!editor||!start||!cancel||!add||!tbody||!total)return;
+  let lines=[];
+  const get=id=>document.getElementById(id);
+  const fmt=n=>n.toLocaleString("fr-CA",{minimumFractionDigits:2,maximumFractionDigits:2})+" $";
+  const moneyCents=value=>Math.round(value*100);
+  function render(){
+    tbody.replaceChildren();
+    if(!lines.length){
+      const tr=document.createElement("tr"),td=document.createElement("td");
+      td.colSpan=6;td.className="muted";td.textContent="Aucune ligne ajoutée.";
+      tr.append(td);tbody.append(tr);
+    }
+    for(const [index,line] of lines.entries()){
+      const row=document.createElement("tr");
+      for(const val of [line.type==="part"?"Pièce":line.type==="labor"?"Main-d’œuvre":"Autre",line.description,String(line.qty),fmt(line.priceCents/100),fmt(line.amountCents/100)]){
+        const cell=document.createElement("td");cell.textContent=val;row.append(cell);
+      }
+      const cell=document.createElement("td"),button=document.createElement("button");
+      button.type="button";button.className="ghost danger";button.textContent="Retirer";
+      button.addEventListener("click",()=>{lines.splice(index,1);render()});
+      cell.append(button);row.append(cell);tbody.append(row);
+    }
+    total.textContent=fmt(lines.reduce((sum,line)=>sum+line.amountCents,0)/100);
+  }
+  start.addEventListener("click",()=>{
+    if(!editor.hidden)return;
+    editor.hidden=false;
+    start.textContent="Brouillon ouvert";
+    start.disabled=true;
+    get("s08ClientName")?.focus();
+  });
+  cancel.addEventListener("click",()=>{
+    if(lines.length || [ "s08ClientName","s08ClientPhone","s08ClientEmail","s08VehicleLabel","s08QuoteDescription"].some(id=>get(id)?.value.trim())){
+      if(!confirm("Fermer et perdre ce brouillon non enregistré ?"))return;
+    }
+    lines=[];render();
+    editor.querySelectorAll("input,textarea").forEach(el=>el.value="");
+    get("s08LineQty").value="1";get("s08LinePrice").value="0";
+    error.textContent="";
+    editor.hidden=true;start.disabled=false;start.textContent="➕ Nouvelle soumission";
+  });
+  add.addEventListener("click",()=>{
+    const description=get("s08LineDescription").value.trim();
+    const qty=Number(get("s08LineQty").value);
+    const price=Number(get("s08LinePrice").value);
+    const priceCents=moneyCents(price),amountCents=Math.round(qty*priceCents);
+    if(!description || !Number.isFinite(qty)||qty<=0||!Number.isFinite(price)||
+      price<0||!Number.isSafeInteger(priceCents)||!Number.isSafeInteger(amountCents)||
+      priceCents<0||amountCents<0){
+      error.textContent="Indique une description, une quantité positive et un prix valide.";
+      return;
+    }
+    lines.push({type:get("s08LineType").value,description,qty,priceCents,amountCents});
+    get("s08LineDescription").value="";get("s08LineQty").value="1";get("s08LinePrice").value="0";
+    error.textContent="";render();get("s08LineDescription").focus();
+  });
+  render();
+})();
+</script>
 </body>
 </html>
