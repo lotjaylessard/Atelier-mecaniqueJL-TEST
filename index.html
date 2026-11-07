@@ -1404,7 +1404,8 @@ button.link:hover{
         <label>Taux horaire ($ / h)</label>
         <input id="srvRate" type="number" step="0.01" placeholder="Ex: 95" />
 
-        <button id="srvAddBtn" style="margin-top:10px;">Ajouter le service</button>
+        <button id="srvAddBtn" type="button" style="margin-top:10px;">Ajouter le service</button>
+        <div id="s07ServiceSaveStatus" role="status" aria-live="polite" style="min-height:16px;font-size:12px;margin-top:6px;color:var(--muted)"></div>
       </div>
 
       <h3>Services enregistrés</h3>
@@ -2768,46 +2769,59 @@ function showPage(id){
   SERVICES = loadArrayFromStorage(STORAGE.services);
   renderServicesList();
 
-  // 🔥 brancher le bouton Ajouter / Modifier ICI
+  // S07-F08 : gestionnaire actif du bouton services avec confirmation locale.
   if ($("srvAddBtn")){
-    $("srvAddBtn").onclick = () => {
-
-      const data = {
-        id: EDITING_SERVICE_ID || Date.now(),
-        name: $("srvName").value.trim(),
-        category: $("srvCategory").value,
-        desc: $("srvDesc").value.trim(),
-        priceFixed: Number($("srvPriceFixed").value || 0),
-        hours: Number($("srvHours").value || 0),
-        rate: Number($("srvRate").value || 0)
+    const button=$("srvAddBtn");
+    const status=$("s07ServiceSaveStatus");
+    const feedback=(message,color)=>{
+      if(status){status.textContent=message;status.style.color=color||"var(--muted)";}
+    };
+    // La modification d'un champ annule seulement la confirmation visuelle.
+    for(const id of ["srvName","srvCategory","srvDesc","srvPriceFixed","srvHours","srvRate"]){
+      $(id)?.addEventListener("input",()=>{
+        if(button.textContent.includes("✓ Enregistré")){
+          button.textContent=EDITING_SERVICE_ID?"💾 Modifier le service":"Ajouter le service";
+        }
+        feedback("Modifications non enregistrées.");
+      },{once:false});
+    }
+    button.onclick=()=>{
+      const data={
+        id:EDITING_SERVICE_ID||Date.now(),
+        name:$("srvName").value.trim(),
+        category:$("srvCategory").value,
+        desc:$("srvDesc").value.trim(),
+        priceFixed:Number($("srvPriceFixed").value||0),
+        hours:Number($("srvHours").value||0),
+        rate:Number($("srvRate").value||0)
       };
-
-      if (!data.name){
-        alert("Nom du service requis.");
+      if(!data.name){feedback("Nom du service requis.","#ff8080");return;}
+      const before=SERVICES.slice();
+      const editId=EDITING_SERVICE_ID;
+      if(editId){
+        SERVICES=SERVICES.map(s=>String(s.id)===String(editId)?data:s);
+      }else SERVICES.push(data);
+      feedback("Enregistrement en cours…");
+      try{
+        saveServices();
+        const persisted=loadArrayFromStorage(STORAGE.services)
+          .find(s=>String(s.id)===String(data.id));
+        if(!persisted||Object.keys(data).some(k=>String(persisted[k]??"")!==String(data[k]??"")))
+          throw new Error("Vérification locale du service échouée.");
+      }catch(error){
+        SERVICES=before;
+        feedback("Enregistrement non confirmé. Réessaie avant de quitter.","#ff8080");
+        console.error("[S07-F08] Sauvegarde service",error);
         return;
       }
-
-      if (EDITING_SERVICE_ID){
-        SERVICES = SERVICES.map(s =>
-          String(s.id) === String(EDITING_SERVICE_ID) ? data : s
-        );
-      } else {
-        SERVICES.push(data);
-      }
-
-      localStorage.setItem(STORAGE.services, JSON.stringify(SERVICES));
-      scheduleCloudSync();
-
-      // reset UI
-      EDITING_SERVICE_ID = null;
-      $("srvAddBtn").textContent = "Ajouter le service";
-
-      $("srvName").value = "";
-      $("srvDesc").value = "";
-      $("srvPriceFixed").value = "";
-      $("srvHours").value = "";
-      $("srvRate").value = "";
-
+      EDITING_SERVICE_ID=null;
+      $("srvName").value="";
+      $("srvDesc").value="";
+      $("srvPriceFixed").value="";
+      $("srvHours").value="";
+      $("srvRate").value="";
+      button.textContent="✓ Enregistré localement";
+      feedback("✓ Service enregistré localement. Vérifier « Synchronisé » avant d'actualiser.","#61d99a");
       renderServicesList();
     };
   }
