@@ -6863,7 +6863,7 @@ const isPaid = invoice && invoice.status === "paid";
           ${statusLabel}
         </span>
       </td>
-      <td>${money(wo.estimateTotal || 0)} $</td>
+      <td>${money((wo.parts || []).reduce((sum,part)=>sum+Number(part.qty||0)*Number(part.rate||0),0) + (wo.labor || []).reduce((sum,line)=>sum+s06LaborLineAmount(line),0))} $</td>
       <td>
   <button class="ghost" data-action="open">Ouvrir</button>
 
