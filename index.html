@@ -12206,9 +12206,37 @@ ${inv.discount && inv.discount > 0 ? `
 
   </div>
 </div>
+<div id="s07InvoiceAutosaveStatus" role="status" aria-live="polite" style="font-size:12px;text-align:right;min-height:16px;margin-top:6px;color:var(--muted)"></div>
 `;
 
   
+  // S07-F07 : confirmation de sauvegarde des seuls changements taxes/escompte.
+  // L'état Supabase reste confirmé uniquement par l'indicateur global.
+  const s07InvoiceStatus=(message,color)=>{
+    const node=content.querySelector("#s07InvoiceAutosaveStatus");
+    if(node){node.textContent=message;if(color)node.style.color=color;}
+  };
+  const s07SaveInvoiceSettings=()=>{
+    s07InvoiceStatus("Enregistrement en cours…","var(--muted)");
+    try{
+      saveInvoices();
+      const stored=loadArrayFromStorage(STORAGE.invoices)
+        .find(x=>String(x.number)===String(inv.number));
+      if(!stored ||
+         String(stored.applyGST)!==String(inv.applyGST) ||
+         String(stored.applyQST)!==String(inv.applyQST) ||
+         Number(stored.discountValue||0)!==Number(inv.discountValue||0) ||
+         String(stored.discountType||"amount")!==String(inv.discountType||"amount"))
+        throw new Error("La vérification locale de la facture a échoué.");
+      s07InvoiceStatus("✓ Enregistré localement. Vérifier « Synchronisé » avant d'actualiser.","#61d99a");
+      return true;
+    }catch(error){
+      console.error("[S07-F07] Sauvegarde des paramètres de facture non confirmée",error);
+      s07InvoiceStatus("Sauvegarde locale non confirmée. Ne ferme pas la facture.","#ff8080");
+      return false;
+    }
+  };
+
   // ===================== TAXES PAR FACTURE (UI LIVE) =====================
 setTimeout(() => {
   const gstBox = $("invApplyGST");
@@ -12250,7 +12278,7 @@ if (financialLocked){
     if (qstBox) inv.applyQST = !!qstBox.checked;
 
     recalcInvoice(inv);
-    saveInvoices();
+    if(!s07SaveInvoiceSettings())return;
 
     // ✅ update visuel immédiat
     renderInvoiceTotals(inv, content);
@@ -12270,7 +12298,7 @@ if (discountInput && discountType){
     inv.discountType  = discountType.value;
 
     recalcInvoice(inv);
-    saveInvoices();
+    if(!s07SaveInvoiceSettings())return;
     renderInvoiceTotals(inv, content);
     renderInvoiceDiscount(inv, content);
 
