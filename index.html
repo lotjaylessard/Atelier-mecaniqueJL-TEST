@@ -7782,18 +7782,22 @@ const statusLabel =
 </div>
 
 
-  <!-- ACTIONS S04-F14 : correction volontaire avant paiement, jamais seconde cloture -->
-  <div class="card" style="display:flex;justify-content:flex-end;gap:10px;align-items:center;flex-wrap:wrap;">
+  <!-- ACTIONS S07-F06c : boutons alignés, confirmation sur sa propre ligne. -->
+  <div class="card" style="display:flex;flex-direction:column;gap:8px;align-items:stretch;">
     ${woReadOnly
-      ? `<span id="woClosedEditStatus" class="muted">🔒 Travaux terminés — modification contrôlée.</span>
-         ${woCanStartClosedEdit(wo)
-           ? `<button id="woEditClosedBtn" class="ghost" onclick="beginClosedWOEdit('${wo.id}')">✏️ Modifier le BT</button>
-              <button id="woFinishClosedEditBtn" class="ghost" style="display:none;" onclick="endClosedWOEdit('${wo.id}')">✓ Fin des modifications</button>`
-           : ""}`
-      : `<button id="woSaveBtn">💾 Enregistrer</button>
-         <span id="s07WoSaveStatus" role="status" aria-live="polite" style="font-size:12px;flex-basis:100%;text-align:right;color:var(--muted)"></span>
-         <button class="ghost" onclick="finishWorkOrder(${wo.id})">✅ Terminé</button>
-         <button class="danger" onclick="deleteWorkOrder(${wo.id})">🗑 Supprimer</button>`}
+      ? `<div style="display:flex;justify-content:flex-end;gap:10px;align-items:center;flex-wrap:wrap;">
+           <span id="woClosedEditStatus" class="muted">🔒 Travaux terminés — modification contrôlée.</span>
+           ${woCanStartClosedEdit(wo)
+             ? `<button id="woEditClosedBtn" class="ghost" onclick="beginClosedWOEdit('${wo.id}')">✏️ Modifier le BT</button>
+                <button id="woFinishClosedEditBtn" class="ghost" style="display:none;" onclick="endClosedWOEdit('${wo.id}')">✓ Fin des modifications</button>`
+             : ""}
+         </div>`
+      : `<div style="display:flex;justify-content:flex-end;gap:10px;align-items:center;flex-wrap:wrap;">
+           <button id="woSaveBtn">💾 Enregistrer</button>
+           <button class="ghost" onclick="finishWorkOrder(${wo.id})">✅ Terminé</button>
+           <button class="danger" onclick="deleteWorkOrder(${wo.id})">🗑 Supprimer</button>
+         </div>
+         <div id="s07WoSaveStatus" role="status" aria-live="polite" style="font-size:12px;min-height:16px;text-align:right;color:var(--muted)"></div>`}
   </div>
 `;
 
