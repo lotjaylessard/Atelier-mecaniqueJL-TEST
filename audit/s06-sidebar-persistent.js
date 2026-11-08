@@ -37,14 +37,18 @@
     const meta=metadata(current.work_order_id);
     if(!meta){box.hidden=true;return;}
     box.hidden=false;
-    box.dataset.status=current.status;
-    status.textContent=current.status==="running"?"● En cours":"● En pause";
+    const heartbeatAt=Date.parse(current.last_heartbeat_at||"");
+    const stale=current.status==="running"&&Number.isFinite(heartbeatAt)&&
+      Date.now()-heartbeatAt>20000;
+    box.dataset.status=stale?"paused":current.status;
+    status.textContent=stale?"⚠ À récupérer":
+      current.status==="running"?"● En cours":"● En pause";
     number.textContent=meta.number;
     vehicle.textContent=meta.vehicle;
     desc.textContent=meta.description;
     const wrapper=document.getElementById("s06TimerDescription");
     if(wrapper)wrapper.title=meta.description;
-    const extra=current.status==="running"&&navigator.onLine?
+    const extra=current.status==="running"&&!stale&&navigator.onLine?
       Math.min(20000,Math.max(0,Date.now()-receivedAt)):0;
     // Quand le BT actif est ouvert, recopier son affichage indicatif.
     // La session doit correspondre : aucune copie depuis un autre BT.
@@ -82,7 +86,7 @@
       if(uid&&uid!==auth.user.id){hide();throw Error("Compte changé");}
       uid=auth.user.id;garage=ACTIVE_GARAGE_ID;
       const {data,error}=await client.from("garage_timer_sessions")
-        .select("id,user_id,garage_id,work_order_id,status,confirmed_ms,revision,updated_at")
+        .select("id,user_id,garage_id,work_order_id,status,confirmed_ms,last_heartbeat_at,revision,updated_at")
         .eq("user_id",uid).order("updated_at",{ascending:false}).limit(100);
       if(error||!Array.isArray(data)||data.some(r=>r.user_id!==uid))
         throw Error("Lecture Supabase invalide");
