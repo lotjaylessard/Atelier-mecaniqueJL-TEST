@@ -302,10 +302,57 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     stopBeat();setMsg("Pause confirmée. Durée conservée sur Supabase.");
   }
   async function recover(){
-    if(!app.session||app.session.status!=="running")throw Error("Aucune minuterie à récupérer.");
-    const res=await rpc("recover",app.session);
-    if(res.status!=="paused")throw Error("Récupération non confirmée.");
-    stopBeat();setMsg("Session récupérée. Le temps non confirmé n'a pas été ajouté.");
+    await read(); // Etat et révision relus avant tout changement.
+    const session=app.session;
+    if(!session||session.status!=="running")throw Error("Aucune minuterie à récupérer.");
+    const stamp=Date.parse(session.last_heartbeat_at||"");
+    if(!Number.isFinite(stamp))throw Error("Dernière confirmation inconnue.");
+    const availableSeconds=Math.floor((Date.now()-stamp)/1000);
+    if(availableSeconds<60)throw Error("Attends 60 secondes après la dernière confirmation serveur.");
+    const raw=prompt(
+      "Période interrompue : environ "+format(availableSeconds*1000)+
+      ".\\nCombien de MINUTES as-tu réellement travaillées pendant cette période ?"+
+      "\\nEntre 0 pour récupérer sans ajouter de temps. Annuler ne change rien.","0");
+    if(raw===null)return;
+    const str=raw.trim().replace(",",".");
+    if(!/^(?:\\d+)(?:\\.\\d{1,2})?$/.test(str))
+      throw Error("Entre un nombre de minutes valide (ex. 1,5).");
+    const seconds=Math.round(Number(str)*60);
+    if(!Number.isSafeInteger(seconds)||seconds<0||seconds>28800||
+       seconds>availableSeconds)
+      throw Error("La durée doit être positive et ne pas dépasser l'interruption ni 8 heures.");
+    if(!confirm(seconds>0?
+      "Confirmer l'ajout MANUEL de "+format(seconds*1000)+
+      " à la session du BT ? Cette opération est définitive et tracée sur Supabase.":
+      "Récupérer en pause SANS ajouter les minutes interrompues ?"))return;
+    let res;
+    if(seconds===0){
+      res=await rpc("recover",session);
+    }else{
+      const c=await client();
+      const {data,error}=await c.rpc("s06_timer_recover_with_adjustment",{
+        p_session_id:session.id,p_expected_revision:Number(session.revision),
+        p_extra_seconds:seconds
+      });
+      if(error)throw Error(error.message||"Récupération serveur non confirmée.");
+      if(!validRow(data)||data.id!==session.id||data.status!=="paused"||
+         Number(data.revision)!==Number(session.revision)+1||
+         Number(data.confirmed_ms)!==Number(session.confirmed_ms)+seconds*1000)
+        throw Error("Confirmation ambiguë : recharge puis relis la session, ne répète pas l'ajout.");
+      res=data;
+      app.rows=app.rows.filter(x=>x.id!==res.id).concat(res);
+      app.session=res;
+      confirmSaved(res,"write");
+      window.dispatchEvent(new Event("s06-timer-updated"));
+    }
+    if(res.status!=="paused")throw Error("La session n'est pas en pause.");
+    interruptedReason="";
+    stopBeat();paint();
+    await read();
+    setMsg(seconds>0?
+      "✓ Session récupérée. "+format(seconds*1000)+
+      " ajoutées manuellement et enregistrées dans Supabase. Aucun BT facturé avant « Terminer ».":
+      "Session récupérée en pause, sans ajouter le temps interrompu.");
   }
   function safeToPost(){
     try{return CLOUD_DATA_READY&&!CLOUD_SYNC_FAILED&&!CLOUD_SYNC_IN_PROGRESS&&
