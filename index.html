@@ -1115,6 +1115,12 @@ button.link:hover{
 #s08QuoteViewer .s08-link-grid select{width:100%;box-sizing:border-box}
 #s08QuoteViewer #s08LinkAssessment{white-space:pre-wrap}
 @media(max-width:650px){#s08QuoteViewer .s08-link-grid{grid-template-columns:1fr}}
+#s08QuoteViewer .s08-converted-bt{display:block;margin:8px 0 15px;padding:11px 14px;border:1px solid #4f995a;border-radius:8px;color:#8ce09c;font-weight:700}
+#s08QuoteViewer .s08-converted-bt[hidden]{display:none}
+#s08QuoteViewer .s08-diagnostic-tools{border:1px solid #444;border-radius:7px;padding:7px 10px;max-width:100%;font-size:13px}
+#s08QuoteViewer .s08-diagnostic-tools summary{cursor:pointer;color:#c6c6c6}
+#s08QuoteViewer .s08-diagnostic-tools>div{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+#s08QuoteViewer .s08-diagnostic-tools[open]{width:100%}
 /* S08-F04 : fiche de consultation sans écriture, superposée à la page. */
 #s08QuoteViewer[hidden]{display:none}
 #s08QuoteViewer{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.75);padding:18px}
@@ -1339,7 +1345,7 @@ button.link:hover{
             <tbody><tr><td colspan="8" class="muted s08-quote-empty">Aucune soumission. Création et enregistrement disponibles à la prochaine étape.</td></tr></tbody>
           </table>
         </div>
-        <p class="muted" style="font-size:12px;margin:12px 0 0">S08-F03 : les soumissions sont stockées dans une table séparée. Aucune facture ni BT ne sera créé ici; les taxes ne sont pas affichées.</p>
+        <p class="muted" style="font-size:12px;margin:12px 0 0">Les soumissions sont conservées séparément des bons de travail. Une soumission approuvée reste consultable et conserve le numéro du BT créé.</p>
       </div>
 
       <div class="card" id="s08QuoteEditor" hidden>
@@ -1400,6 +1406,7 @@ button.link:hover{
             </div>
           </div>
           <p id="s08ViewMeta" class="muted"></p>
+          <p id="s08ConvertedBT" class="s08-converted-bt" hidden></p>
           <p id="s08PreflightResult" class="muted" role="status" aria-live="polite" hidden></p>
           <section id="s08LinkPanel" class="s08-link-panel" hidden aria-label="Préparation des liens client véhicule">
             <h3>Préparation SO → BT</h3>
@@ -1413,8 +1420,13 @@ button.link:hover{
             <div class="s08-link-save">
               <button type="button" id="s08SaveLink" disabled>💾 Enregistrer la liaison SO</button>
               <button type="button" class="ghost" id="s08PreviewBT" disabled>👁 Aperçu du futur BT</button>
-              <button type="button" class="ghost" id="s08ServerDryRun" disabled>🛡 Tester la conversion (sans créer)</button>
-              <button type="button" class="ghost" id="s08CheckSync" disabled>☁️ Vérifier la synchronisation</button>
+              <details id="s08DiagnosticTools" class="s08-diagnostic-tools">
+                <summary>Outils de vérification avancés</summary>
+                <div>
+                  <button type="button" class="ghost" id="s08ServerDryRun" disabled>🛡 Tester la conversion (sans créer)</button>
+                  <button type="button" class="ghost" id="s08CheckSync" disabled>☁️ Vérifier la synchronisation</button>
+                </div>
+              </details>
               <button type="button" id="s08ConvertBT" disabled>✓ Approuver et créer BT</button>
               <span id="s08LinkSaveStatus" role="status" aria-live="polite" class="muted"></span>
             </div>
@@ -14945,6 +14957,7 @@ if (window.garageSupabase) {
     }
     const copy=viewer.querySelector(".s08-viewer-panel").cloneNode(true);
     copy.querySelector(".s08-viewer-controls")?.remove();
+    copy.querySelector("#s08ConvertedBT")?.remove();
     copy.querySelector("#s08LinkPanel")?.remove();
     copy.querySelector("#s08PreflightResult")?.remove();
     copy.querySelectorAll(".muted").forEach(el=>el.style.color="#555");
@@ -14996,6 +15009,15 @@ if (window.garageSupabase) {
     const value=(id,text)=>{get(id).textContent=String(text??"—")||"—";};
     value("s08ViewTitle","Soumission "+q.quote_number);
     value("s08ViewMeta",String(q.created_at||"").slice(0,10)+" · "+(labels[q.status]||q.status));
+    // Une SO déjà convertie est en lecture seule : ne pas proposer une nouvelle approbation.
+    const converted=q.status==="converted";
+    get("s08Preflight").hidden=converted;
+    get("s08DiagnosticTools").open=false;
+    const btInfo=get("s08ConvertedBT");
+    btInfo.hidden=!converted;
+    btInfo.textContent=converted
+      ? "✓ Convertie en bon de travail : "+String(q.converted_bt_id||"numéro à vérifier")
+      : "";
     value("s08ViewClient",d.clientName);
     value("s08ViewPhone",d.clientPhone);
     value("s08ViewEmail",d.clientEmail);
@@ -15048,7 +15070,7 @@ if (window.garageSupabase) {
       const {data:auth,error:authError}=await sb.auth.getUser();
       if(authError||!auth?.user?.id)throw Error("Session expirée.");
       const {data,error:readError}=await sb.from("garage_quotes")
-        .select("id,quote_number,status,content,created_at,version")
+        .select("id,quote_number,status,content,created_at,version,converted_bt_id")
         .eq("garage_id",garageId).eq("user_id",auth.user.id)
         .order("created_at",{ascending:false}).limit(200);
       if(readError)throw readError;
