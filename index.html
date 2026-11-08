@@ -1413,11 +1413,13 @@ button.link:hover{
             <div class="s08-link-save">
               <button type="button" id="s08SaveLink" disabled>💾 Enregistrer la liaison SO</button>
               <button type="button" class="ghost" id="s08PreviewBT" disabled>👁 Aperçu du futur BT</button>
+              <button type="button" class="ghost" id="s08ServerDryRun" disabled>🛡 Tester la conversion (sans créer)</button>
               <span id="s08LinkSaveStatus" role="status" aria-live="polite" class="muted"></span>
             </div>
             <div id="s08BTPreview" class="s08-bt-preview" hidden>
               <h3>Aperçu du futur bon de travail — aucune création</h3>
               <p id="s08BTPreviewNumber" class="muted"></p>
+              <p id="s08ServerDryRunStatus" class="muted" role="status" aria-live="polite"></p>
               <div id="s08BTPreviewIdentity"></div>
               <p id="s08BTPreviewDescription"></p>
               <div class="s08-viewer-table"><table>
@@ -14560,7 +14562,9 @@ if (window.garageSupabase) {
     const btn=get("s08PreviewBT");
     if(!btn)return;
     btn.disabled=!previewLinkReady();
+    get("s08ServerDryRun").disabled=!previewLinkReady();
     get("s08BTPreview").hidden=true;
+    get("s08ServerDryRunStatus").textContent="";
   }
   get("s08PreviewBT")?.addEventListener("click",()=>{
     try{if(typeof loadClients==="function")loadClients();}catch(e){console.warn(e);}
@@ -14587,6 +14591,42 @@ if (window.garageSupabase) {
     }
     get("s08BTPreviewTotal").textContent=fmtQuote(cents);
     get("s08BTPreview").hidden=false;
+  });
+  // S08-F06g : RPC serveur en mode TEST exclusivement. Aucune écriture.
+  let dryRunBusy=false;
+  get("s08ServerDryRun")?.addEventListener("click",async()=>{
+    if(dryRunBusy||!previewLinkReady()||!selectedQuote)return;
+    dryRunBusy=true;
+    const button=get("s08ServerDryRun"),out=get("s08ServerDryRunStatus");
+    button.disabled=true;
+    get("s08BTPreview").hidden=false;
+    out.textContent="Vérification serveur en cours (aucune création)…";
+    try{
+      const {sb,garageId}=context();
+      const {data:auth,error:authError}=await sb.auth.getUser();
+      if(authError||!auth?.user?.id)throw Error("Connexion expirée.");
+      const {data:garage,error:garageError}=await sb.from("garage_data")
+        .select("version").eq("garage_id",garageId).single();
+      if(garageError||!Number.isSafeInteger(garage?.version))throw Error("Version du garage indisponible.");
+      const {data:result,error}=await sb.rpc("s08_convert_quote_to_workorder",{
+        p_quote_id:selectedQuote.id,
+        p_expected_quote_version:selectedQuote.version,
+        p_expected_garage_version:garage.version,
+        p_dry_run:true
+      });
+      if(error)throw error;
+      if(!result||result.dryRun!==true||result.quoteNumber!==selectedQuote.quote_number)
+        throw Error("Réponse de vérification invalide.");
+      out.textContent="✓ Test serveur réussi : "+result.candidateWorkOrderNumber+
+        " (numéro indicatif seulement). Aucun BT créé, SO inchangée.";
+    }catch(err){
+      console.warn("[S08-F06g] Test serveur bloqué",err);
+      out.textContent="Test serveur refusé : "+String(err?.message||err)+
+        ". Aucune conversion effectuée.";
+    }finally{
+      dryRunBusy=false;
+      button.disabled=!previewLinkReady();
+    }
   });
   function updateLinkAssessment(){
     if(!selectedQuote||!assessment)return;
