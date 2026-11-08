@@ -1094,6 +1094,12 @@ button.link:hover{
 #page-quotes .s08-quote-empty{text-align:center}
 
 
+/* S08-F02b : sélection de catalogues en lecture seule. */
+#page-quotes .s08-catalog-pickers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;margin:10px 0 16px}
+#page-quotes .s08-catalog-pickers label{min-width:0;font-size:14px}
+#page-quotes .s08-catalog-pickers select{width:100%;box-sizing:border-box}
+#page-quotes .s08-catalog-pickers p{grid-column:1/-1;margin:0}
+@media(max-width:690px){#page-quotes .s08-catalog-pickers{grid-template-columns:minmax(0,1fr)}}
 /* S08-F02a — formulaire temporaire, indépendance complète. */
 #page-quotes #s08QuoteEditor[hidden]{display:none}
 #page-quotes .s08-editor-heading{display:flex;align-items:start;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -1314,6 +1320,15 @@ button.link:hover{
         </div>
         <label style="display:block;margin-top:10px">Travaux proposés<textarea id="s08QuoteDescription" rows="2" placeholder="Description des travaux"></textarea></label>
         <h3 style="margin-top:16px">Pièces et main-d’œuvre</h3>
+        <div class="s08-catalog-pickers">
+          <label>Pièce existante
+            <select id="s08CatalogPart" aria-label="Choisir une pièce enregistrée"><option value="">— Sélectionner une pièce —</option></select>
+          </label>
+          <label>Service existant
+            <select id="s08CatalogService" aria-label="Choisir un service enregistré"><option value="">— Sélectionner un service —</option></select>
+          </label>
+          <p class="muted">Le choix préremplit les champs ci-dessous. Clique ensuite sur « Ajouter la ligne ». Les catalogues et le stock restent inchangés.</p>
+        </div>
         <div class="s08-line-add">
           <label>Type<select id="s08LineType"><option value="part">Pièce</option><option value="labor">Main-d’œuvre / Service</option><option value="other">Autre</option></select></label>
           <label>Description<input id="s08LineDescription" type="text" placeholder="Pièce ou travail à effectuer"></label>
@@ -14242,6 +14257,56 @@ if (window.garageSupabase) {
   const get=id=>document.getElementById(id);
   const fmt=n=>n.toLocaleString("fr-CA",{minimumFractionDigits:2,maximumFractionDigits:2})+" $";
   const moneyCents=value=>Math.round(value*100);
+  // S08-F02b : lecture seule depuis les mêmes catalogues que les modules Pièces et Services.
+  // Aucune réservation, consommation de stock, sauvegarde ni synchronisation de soumission.
+  function loadCatalog(kind){
+    try{
+      if(typeof STORAGE==="undefined" || typeof loadArrayFromStorage!=="function")return [];
+      const key=kind==="part"?STORAGE.parts:STORAGE.services;
+      if(!key)return [];
+      const data=loadArrayFromStorage(key);
+      return Array.isArray(data)?data:[];
+    }catch(e){console.warn("[S08] Catalogue temporairement indisponible",e);return [];}
+  }
+  let catalogParts=[],catalogServices=[];
+  function populateCatalogs(){
+    catalogParts=loadCatalog("part");
+    catalogServices=loadCatalog("service");
+    const setup=(id,data,label)=>{
+      const select=get(id);if(!select)return;
+      select.replaceChildren(new Option("— Sélectionner "+label+" —",""));
+      data.forEach((entry,i)=>{
+        if(!entry||!String(entry.name||"").trim())return;
+        select.add(new Option(String(entry.name)+(entry.number?" (#"+String(entry.number)+")":""),String(i)));
+      });
+    };
+    setup("s08CatalogPart",catalogParts,"une pièce");
+    setup("s08CatalogService",catalogServices,"un service");
+  }
+  function prefill(kind){
+    const select=get(kind==="part"?"s08CatalogPart":"s08CatalogService");
+    if(!select||select.value==="")return;
+    const index=Number(select.value);
+    const entry=(kind==="part"?catalogParts:catalogServices)[index];
+    if(!entry)return;
+    const fixed=Number(entry.priceFixed);
+    const hourly=kind==="service" && !(fixed>0);
+    const qty=hourly?Number(entry.hours):1;
+    const price=kind==="part"?Number(entry.price):hourly?Number(entry.rate):fixed;
+    if(!Number.isFinite(price)||price<0||!Number.isFinite(qty)||qty<=0){
+      error.textContent="Ce catalogue ne contient pas une quantité et un prix valides : renseigne-les manuellement.";
+      return;
+    }
+    get("s08LineType").value=kind==="part"?"part":"labor";
+    get("s08LineDescription").value=String(entry.name||"")+(entry.desc?" — "+String(entry.desc):"");
+    get("s08LineQty").value=String(qty);
+    get("s08LinePrice").value=String(price);
+    error.textContent="Champs préremplis depuis le catalogue. Vérifie les prix, puis ajoute la ligne.";
+    get(kind==="part"?"s08CatalogService":"s08CatalogPart").value="";
+  }
+  get("s08CatalogPart")?.addEventListener("change",()=>prefill("part"));
+  get("s08CatalogService")?.addEventListener("change",()=>prefill("service"));
+
   function render(){
     tbody.replaceChildren();
     if(!lines.length){
@@ -14264,6 +14329,7 @@ if (window.garageSupabase) {
   start.addEventListener("click",()=>{
     if(!editor.hidden)return;
     editor.hidden=false;
+    populateCatalogs();
     start.textContent="Brouillon ouvert";
     start.disabled=true;
     get("s08ClientName")?.focus();
@@ -14275,6 +14341,7 @@ if (window.garageSupabase) {
     lines=[];render();
     editor.querySelectorAll("input,textarea").forEach(el=>el.value="");
     get("s08LineQty").value="1";get("s08LinePrice").value="0";
+    get("s08CatalogPart").value="";get("s08CatalogService").value="";
     error.textContent="";
     editor.hidden=true;start.disabled=false;start.textContent="➕ Nouvelle soumission";
   });
