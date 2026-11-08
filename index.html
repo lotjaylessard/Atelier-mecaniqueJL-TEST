@@ -14641,7 +14641,8 @@ if (window.garageSupabase) {
     if(syncCheckBusy||!previewLinkReady())return;
     const button=get("s08CheckSync"),output=get("s08CheckSyncStatus");
     syncCheckBusy=true;button.disabled=true;
-    get("s08BTPreview").hidden=false;
+    // S08-F06h1 : afficher le contenu déjà validé avant le contrôle de synchro.
+    get("s08PreviewBT").click();
     output.textContent="Vérification de l'état local et Supabase TEST…";
     try{
       const {sb,garageId}=context();
