@@ -14578,6 +14578,34 @@ if (window.garageSupabase) {
     vehicleSelect.replaceChildren(new Option("— Choisir un véhicule —",""));
     vehicleSelect.disabled=true;
   }
+  // S08-F06e : restaurer les IDs déjà sauvegardés, puis revérifier les données
+  // du client et du véhicule actuellement enregistrées. Rien n'est validé
+  // automatiquement en cas de désaccord avec le texte de la SO.
+  function restoreSavedQuoteLink(){
+    const d=selectedQuote?.content||{};
+    const linkedClient=String(d.linkedClientId??"");
+    const linkedVehicle=String(d.linkedVehicleId??"");
+    if(!linkedClient&&!linkedVehicle)return;
+    const client=currentClients().find(c=>String(c.id)===linkedClient);
+    if(!client){
+      get("s08LinkSaveStatus").textContent="⚠ Liaison SO enregistrée, mais client introuvable. Vérifie la fiche avant tout nouveau lien.";
+      return;
+    }
+    clientSelect.value=linkedClient;
+    vehicleSelect.replaceChildren(new Option("— Choisir un véhicule —",""));
+    for(const v of Array.isArray(client.vehicles)?client.vehicles:[]){
+      if(v.id==null)continue;
+      vehicleSelect.add(new Option([v.year,v.make,v.model,v.plate].filter(Boolean).join(" · "),String(v.id)));
+    }
+    vehicleSelect.disabled=false;
+    const vehicle=client.vehicles?.find(v=>String(v.id)===linkedVehicle);
+    if(!vehicle){
+      get("s08LinkSaveStatus").textContent="⚠ Liaison SO enregistrée, mais véhicule introuvable chez ce client.";
+      return;
+    }
+    vehicleSelect.value=linkedVehicle;
+    get("s08LinkSaveStatus").textContent="Liaison retrouvée depuis Supabase TEST. Revérifie les fiches avant la conversion.";
+  }
   clientSelect.addEventListener("change",()=>{
     const client=currentClients().find(c=>String(c.id)===clientSelect.value);
     vehicleSelect.replaceChildren(new Option("— Choisir un véhicule —",""));
@@ -14609,6 +14637,7 @@ if (window.garageSupabase) {
     populateClients();
     get("s08ConfirmLinkDifferences").checked=false;
     get("s08LinkSaveStatus").textContent="";
+    restoreSavedQuoteLink();
     linkPanel.hidden=false;
     get("s08PreflightResult").textContent="Vérification manuelle obligatoire avant conversion : sélectionne le client et son véhicule dans les listes ci-dessous.";
     get("s08PreflightResult").hidden=false;
