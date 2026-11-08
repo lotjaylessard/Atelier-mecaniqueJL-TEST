@@ -1414,12 +1414,14 @@ button.link:hover{
               <button type="button" id="s08SaveLink" disabled>💾 Enregistrer la liaison SO</button>
               <button type="button" class="ghost" id="s08PreviewBT" disabled>👁 Aperçu du futur BT</button>
               <button type="button" class="ghost" id="s08ServerDryRun" disabled>🛡 Tester la conversion (sans créer)</button>
+              <button type="button" class="ghost" id="s08CheckSync" disabled>☁️ Vérifier la synchronisation</button>
               <span id="s08LinkSaveStatus" role="status" aria-live="polite" class="muted"></span>
             </div>
             <div id="s08BTPreview" class="s08-bt-preview" hidden>
               <h3>Aperçu du futur bon de travail — aucune création</h3>
               <p id="s08BTPreviewNumber" class="muted"></p>
               <p id="s08ServerDryRunStatus" class="muted" role="status" aria-live="polite"></p>
+              <p id="s08CheckSyncStatus" class="muted" role="status" aria-live="polite"></p>
               <div id="s08BTPreviewIdentity"></div>
               <p id="s08BTPreviewDescription"></p>
               <div class="s08-viewer-table"><table>
@@ -14563,8 +14565,10 @@ if (window.garageSupabase) {
     if(!btn)return;
     btn.disabled=!previewLinkReady();
     get("s08ServerDryRun").disabled=!previewLinkReady();
+    get("s08CheckSync").disabled=!previewLinkReady();
     get("s08BTPreview").hidden=true;
     get("s08ServerDryRunStatus").textContent="";
+    get("s08CheckSyncStatus").textContent="";
   }
   get("s08PreviewBT")?.addEventListener("click",()=>{
     try{if(typeof loadClients==="function")loadClients();}catch(e){console.warn(e);}
@@ -14627,6 +14631,59 @@ if (window.garageSupabase) {
         ". Aucune conversion effectuée.";
     }finally{
       dryRunBusy=false;
+      button.disabled=!previewLinkReady();
+    }
+  });
+  // S08-F06h : verification en lecture seule avant future transaction.
+  // Ne jamais utiliser le simple badge "Synchronisé" comme preuve suffisante.
+  let syncCheckBusy=false;
+  get("s08CheckSync")?.addEventListener("click",async()=>{
+    if(syncCheckBusy||!previewLinkReady())return;
+    const button=get("s08CheckSync"),output=get("s08CheckSyncStatus");
+    syncCheckBusy=true;button.disabled=true;
+    get("s08BTPreview").hidden=false;
+    output.textContent="Vérification de l'état local et Supabase TEST…";
+    try{
+      const {sb,garageId}=context();
+      if(typeof hasUnconfirmedCloudChanges!=="function"||
+         typeof captureLocalGarageSnapshot!=="function"||
+         typeof garageSnapshotsEquivalent!=="function"||
+         typeof CLOUD_DATA_VERSION==="undefined"||
+         !Number.isSafeInteger(CLOUD_DATA_VERSION)||
+         typeof CLOUD_LAST_CONFIRMED_SNAPSHOT==="undefined"||
+         CLOUD_LAST_CONFIRMED_SNAPSHOT===null)
+        throw Error("État local de synchronisation non vérifiable.");
+      if(hasUnconfirmedCloudChanges())throw Error("Des modifications locales ne sont pas encore synchronisées.");
+      if(!garageSnapshotsEquivalent(captureLocalGarageSnapshot(),CLOUD_LAST_CONFIRMED_SNAPSHOT))
+        throw Error("Les données locales diffèrent du dernier état confirmé. Ne pas convertir.");
+      const {data:auth,error:authError}=await sb.auth.getUser();
+      if(authError||!auth?.user?.id)throw Error("Session expirée.");
+      const {data:garage,error}=await sb.from("garage_data")
+        .select("version").eq("garage_id",garageId).single();
+      if(error||!Number.isSafeInteger(garage?.version))
+        throw Error("Version serveur du garage indisponible.");
+      if(garage.version!==CLOUD_DATA_VERSION)
+        throw Error("Le garage a changé sur le serveur : actualise les données avant conversion.");
+      const {data:q,error:qError}=await sb.from("garage_quotes")
+        .select("id,version,status,content").eq("id",selectedQuote.id)
+        .eq("garage_id",garageId).eq("user_id",auth.user.id).single();
+      if(qError||!q||q.version!==selectedQuote.version||
+         !["draft","sent"].includes(q.status)||
+         String(q.content?.linkedClientId)!==String(selectedQuote.content?.linkedClientId)||
+         String(q.content?.linkedVehicleId)!==String(selectedQuote.content?.linkedVehicleId))
+        throw Error("La soumission a été modifiée ailleurs. Rouvre-la.");
+      if(hasUnconfirmedCloudChanges()||
+         !garageSnapshotsEquivalent(captureLocalGarageSnapshot(),CLOUD_LAST_CONFIRMED_SNAPSHOT))
+        throw Error("Modification locale détectée pendant le contrôle.");
+      output.textContent="✓ Synchronisation vérifiée : version garage "+
+        garage.version+", version SO "+q.version+
+        ". Aucun BT créé. Ce contrôle devra être refait lors de l'approbation.";
+    }catch(err){
+      console.warn("[S08-F06h] Contrôle synchro interrompu",err);
+      output.textContent="⚠ Vérification bloquée : "+String(err?.message||err)+
+        ". Aucun BT créé.";
+    }finally{
+      syncCheckBusy=false;
       button.disabled=!previewLinkReady();
     }
   });
