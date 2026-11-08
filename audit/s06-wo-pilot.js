@@ -193,10 +193,19 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
   // Pilot S06 : detection d'une veille du navigateur. Ne jamais envoyer
   // automatiquement un heartbeat retardé ni prétendre avoir confirmé ce temps.
   let lastWakeCheck=0;
+  let interruptedReason="";
   function warnInterrupted(reason){
+    interruptedReason=reason;
     stopBeat();
     savedStatus("warning","⚠ "+reason+" — période non confirmée, non facturée.");
     setMsg("Le serveur doit être relu. Après 60 s sans confirmation, utilise Récupérer, puis Reprendre. Le temps interrompu exige une validation distincte.");
+  }
+  async function recheckInterrupted(){
+    await read();
+    if(interruptedReason){
+      savedStatus("warning","⚠ "+interruptedReason+" — période non confirmée, non facturée.");
+      setMsg("État relu dans Supabase. Ne reprends pas sans vérifier la période interrompue; le temps non confirmé n'est pas encore récupérable automatiquement.");
+    }
   }
   function beats(){
     stopBeat();
@@ -210,7 +219,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       lastWakeCheck=now;
       if(gap>20000){
         warnInterrupted("Veille ou interruption détectée ("+Math.round(gap/1000)+" s)");
-        guarded(read);
+        guarded(recheckInterrupted);
         return;
       }
       if(!navigator.onLine){
@@ -228,7 +237,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     if(document.visibilityState!=="visible"||!app.session)return;
     if(app.ownRunning===app.session.id&&lastWakeCheck&&Date.now()-lastWakeCheck>20000){
       warnInterrupted("Retour après mise en veille");
-      guarded(read);
+      guarded(recheckInterrupted);
     }else if(!app.ownRunning){
       guarded(read);
     }
@@ -248,6 +257,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     }finally{app.busy=false;paint();}
   }
   async function start(){
+    interruptedReason="";
     await read();
     if(app.rows.some(x=>x.status==="running"))throw Error("Une minuterie est déjà en cours; récupère-la après 60 s si elle a été interrompue.");
     if(!app.session){
