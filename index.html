@@ -1095,6 +1095,8 @@ button.link:hover{
 
 
 #s08QuoteViewer .s08-viewer-controls{display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+#s08QuoteViewer .s08-link-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+#s08QuoteViewer .s08-link-actions button{white-space:nowrap}
 /* S08-F06b : liens explicites de consultation pour la future conversion. */
 #s08QuoteViewer .s08-link-panel{border:1px solid #454545;border-radius:8px;padding:14px;margin:12px 0}
 #s08QuoteViewer .s08-link-panel[hidden]{display:none}
@@ -1397,7 +1399,11 @@ button.link:hover{
               <label>Véhicule de ce client<select id="s08LinkedVehicle" disabled><option value="">— Choisir un véhicule —</option></select></label>
             </div>
             <p class="muted" id="s08LinkAssessment" role="status" aria-live="polite"></p>
-            <p class="muted">Si une fiche manque, crée-la d'abord normalement dans Clients ou Véhicules, puis reviens vérifier ici.</p>
+            <p class="muted">Si une fiche manque, crée-la ou complète-la dans le module approprié, puis reviens à cette soumission.</p>
+            <div class="s08-link-actions">
+              <button type="button" class="ghost" id="s08GoClients">👤 Ouvrir Clients</button>
+              <button type="button" class="ghost" id="s08GoVehicles">🚗 Ouvrir Véhicules</button>
+            </div>
           </section>
 
           <div class="s08-viewer-details">
@@ -14511,6 +14517,15 @@ if (window.garageSupabase) {
     updateLinkAssessment();
   });
   vehicleSelect.addEventListener("change",updateLinkAssessment);
+  // S08-F06c : navigation vers les vrais formulaires existants.
+  // Aucun client, véhicule, BT ni changement de statut n'est créé ici.
+  for(const [buttonId,pageId] of [["s08GoClients","page-clients"],["s08GoVehicles","page-vehicles"]]){
+    get(buttonId)?.addEventListener("click",()=>{
+      closeViewer();
+      if(typeof showPage==="function")showPage(pageId);
+    });
+  }
+
   get("s08Preflight")?.addEventListener("click",()=>{
     if(!selectedQuote)return;
     // Les objets CLIENTS peuvent être réhydratés après connexion.
