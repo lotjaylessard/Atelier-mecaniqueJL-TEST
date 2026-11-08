@@ -14438,9 +14438,9 @@ if (window.garageSupabase) {
     if(!selectedQuote||!box)return;
     const d=selectedQuote.content||{};
     const clientName=String(d.clientName||"").trim();
-    const phone=String(d.clientPhone||"").replace(/\\D/g,"");
+    const phone=String(d.clientPhone||"").replace(/\D/g,"");
     const normalized=value=>String(value||"").trim().normalize("NFD")
-      .replace(/[\\u0300-\\u036f]/g,"").toLocaleLowerCase("fr").replace(/\\s+/g," ");
+      .replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("fr").replace(/\s+/g," ");
     const rows=typeof CLIENTS!=="undefined"&&Array.isArray(CLIENTS)?CLIENTS:[];
     const candidates=rows.filter(c=>
       normalized(c.name)===normalized(clientName)||
