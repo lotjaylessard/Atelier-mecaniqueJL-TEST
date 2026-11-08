@@ -5100,6 +5100,66 @@ let WO_TIMER_INTERVAL = null;
 let WO_TIMER_START = null;
 let WO_TIMER_ELAPSED = 0; // temps accumulé en ms
 let WO_TIMER_PAUSED = false;
+/* TEST S06 : sauvegarde de secours du minuteur historique.
+   Un rechargement restaure le temps en PAUSE, sans le facturer.
+   Sauvegarde locale par garage/compte, distincte du pilote Supabase. */
+const WO_TIMER_BACKUP_KEY="garage-wo-legacy-timer-backup-v1";
+let WO_TIMER_BACKUP_WO_ID=null;
+let WO_TIMER_RESTORED=false;
+function woTimerBackupContext(){
+  try{
+    if(!SUPABASE_USER?.id||!ACTIVE_GARAGE_ID||!CLOUD_DATA_READY)return null;
+    return {user:String(SUPABASE_USER.id),garage:String(ACTIVE_GARAGE_ID)};
+  }catch(_){return null;}
+}
+function woTimerBackupWrite(){
+  if(new URLSearchParams(location.search).get("s06_wo_pilot")==="1")return;
+  const ctx=woTimerBackupContext();
+  if(!ctx||!WO_TIMER_BACKUP_WO_ID)return;
+  const elapsed=WO_TIMER_INTERVAL&&Number.isFinite(WO_TIMER_START)
+    ?Math.max(0,Date.now()-WO_TIMER_START):WO_TIMER_ELAPSED;
+  if(!Number.isFinite(elapsed)||elapsed<=0)return;
+  try{localStorage.setItem(WO_TIMER_BACKUP_KEY,JSON.stringify({
+    ...ctx,woId:WO_TIMER_BACKUP_WO_ID,elapsedMs:Math.floor(elapsed),
+    savedAt:Date.now(),status:WO_TIMER_INTERVAL?"running":"paused"
+  }));}catch(e){console.warn("[S06] Sauvegarde minuteur indisponible",e);}
+}
+function woTimerBackupClear(){
+  try{
+    const ctx=woTimerBackupContext();
+    const saved=JSON.parse(localStorage.getItem(WO_TIMER_BACKUP_KEY)||"null");
+    if(ctx&&saved?.user===ctx.user&&saved?.garage===ctx.garage)
+      localStorage.removeItem(WO_TIMER_BACKUP_KEY);
+  }catch(_){}
+  WO_TIMER_BACKUP_WO_ID=null;
+}
+function woTimerBackupRestore(){
+  if(WO_TIMER_RESTORED||new URLSearchParams(location.search).get("s06_wo_pilot")==="1")return;
+  const ctx=woTimerBackupContext();if(!ctx)return;
+  let saved;
+  try{saved=JSON.parse(localStorage.getItem(WO_TIMER_BACKUP_KEY)||"null");}
+  catch(_){return;}
+  if(!saved||saved.user!==ctx.user||saved.garage!==ctx.garage)return;
+  // Ne jamais recuperer du temps d'un autre compte, d'un autre BT ou
+  // d'un BT deja termine/facture.
+  const wo=Array.isArray(WORKORDERS)?WORKORDERS.find(x=>String(x.id)===String(saved.woId)):null;
+  if(!wo||wo.status!=="en_cours"||
+    (Array.isArray(INVOICES)&&INVOICES.some(i=>String(i.workOrderNumber)===String(wo.number))))return;
+  const elapsed=Number(saved.elapsedMs);
+  if(!Number.isSafeInteger(elapsed)||elapsed<=0||elapsed>86400000*30)return;
+  if(WO_TIMER_INTERVAL)return;
+  WO_TIMER_ELAPSED=elapsed;
+  WO_TIMER_START=null;
+  WO_TIMER_PAUSED=true;
+  WO_TIMER_BACKUP_WO_ID=String(wo.id);
+  WO_TIMER_RESTORED=true;
+  // Supprimer l'état "running" persistant après relance : aucun
+  // temps après le dernier checkpoint ne s'ajoute sans confirmation.
+  woTimerBackupWrite();
+}
+window.addEventListener("pagehide",woTimerBackupWrite);
+setInterval(woTimerBackupWrite,1000);
+
 let WORKORDERS = [];
 let items = [];
 let CLIENTS = [];
@@ -5793,8 +5853,16 @@ function persistActiveWO(wo){
   function startWOTimer(){
   if (WO_TIMER_INTERVAL) return;
 
+  woTimerBackupRestore();
+  const woId=document.getElementById("woEditId")?.value;
+  if(!woId)return;
+  if(WO_TIMER_BACKUP_WO_ID && String(WO_TIMER_BACKUP_WO_ID)!==String(woId)){
+    alert("Une minuterie est déjà en pause sur un autre BT. Ouvre ce BT pour la reprendre.");return;
+  }
+  WO_TIMER_BACKUP_WO_ID=String(woId);
   WO_TIMER_START = Date.now() - WO_TIMER_ELAPSED;
   WO_TIMER_PAUSED = false;
+  woTimerBackupWrite();
 
   // 🔁 Bascule boutons
   const startBtn = document.getElementById("woTimerBtn");
@@ -5822,6 +5890,7 @@ function persistActiveWO(wo){
 
   WO_TIMER_ELAPSED = Date.now() - WO_TIMER_START;
   WO_TIMER_PAUSED = true;
+  woTimerBackupWrite();
 
   console.log("WO TIMER PAUSED", WO_TIMER_ELAPSED);
 }
@@ -5880,6 +5949,7 @@ function persistActiveWO(wo){
 
     WO_TIMER_ELAPSED = 0;
 WO_TIMER_PAUSED = false;
+woTimerBackupClear();
 
 }
 
@@ -5889,6 +5959,14 @@ WO_TIMER_PAUSED = false;
   const stopBtn  = document.getElementById("woTimerStopBtn");
 
   if (!startBtn || !stopBtn) return;
+  woTimerBackupRestore();
+  const currentWoId=document.getElementById("woEditId")?.value;
+  const ownTimer=!WO_TIMER_BACKUP_WO_ID||String(WO_TIMER_BACKUP_WO_ID)===String(currentWoId);
+  const display=document.getElementById("woTimerDisplay");
+  if(display&&ownTimer&&WO_TIMER_PAUSED)
+    display.textContent="⏱ "+formatDuration(WO_TIMER_ELAPSED)+" (en pause, restauré)";
+  startBtn.textContent=ownTimer&&WO_TIMER_PAUSED?"▶️ Reprendre":"▶️ Démarrer";
+  startBtn.disabled=!ownTimer;
 
   const pauseBtn = document.getElementById("woTimerPauseBtn");
 
