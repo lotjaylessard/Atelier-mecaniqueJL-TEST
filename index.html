@@ -8081,16 +8081,32 @@ if (btnAddClient){
   // Charger véhicules
   cSel.onchange = () => {
     const vSel = $("woVehicleSelect");
-    vSel.innerHTML = `<option value="">Sélectionner</option>`;
-
+    if(!vSel)return;
+    vSel.replaceChildren(new Option("Sélectionner",""));
     const client = CLIENTS.find(c => String(c.id) === String(cSel.value));
-    if (!client || !client.vehicles) return;
-
+    if (!client || !Array.isArray(client.vehicles))return;
     client.vehicles.forEach(v => {
-  const label = `${v.year} ${v.make} ${v.model}`;
-  vSel.innerHTML += `<option value="${v.id}">${label}</option>`;
-});
+      const label=[v.year,v.make,v.model,v.trim,v.engine].filter(Boolean).join(" ");
+      vSel.add(new Option(label,String(v.id)));
+    });
   };
+  // S07 : garder le nouveau BT ouvert et actualiser son véhicule dès la sauvegarde
+  // dans la fiche client, sans forcer un changement de client ni du texte du BT.
+  const handleNewVehicleForWO=event=>{
+    if(!cSel.isConnected){
+      document.removeEventListener("client:vehicle-saved",handleNewVehicleForWO);
+      return;
+    }
+    const detail=event.detail;
+    if(!detail||String(cSel.value)!==String(detail.clientId))return;
+    const vSel=$("woVehicleSelect");
+    const current=vSel?.value||"";
+    cSel.onchange();
+    if(!vSel)return;
+    const target=String(detail.vehicleId);
+    vSel.value=[...vSel.options].some(option=>option.value===target)?target:current;
+  };
+  document.addEventListener("client:vehicle-saved",handleNewVehicleForWO);
           
   $("btnSaveWO").onclick = saveNewWorkOrder;
           
@@ -10742,6 +10758,9 @@ function renderClientModal(id){
       }
       vehicleButton.textContent='✓ Enregistré localement';
       showVehicleStatus('✓ Véhicule enregistré localement. Vérifier « Synchronisé » avant de rafraîchir.','#61d99a');
+      document.dispatchEvent(new CustomEvent("client:vehicle-saved",{
+        detail:{clientId:String(client.id),vehicleId:String(targetId)}
+      }));
       try{renderVehiclesPage();}catch(error){console.error('[S07-F06] Rafraîchissement véhicules',error);}
     });
   }
