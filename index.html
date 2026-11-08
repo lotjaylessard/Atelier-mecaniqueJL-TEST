@@ -1094,6 +1094,7 @@ button.link:hover{
 #page-quotes .s08-quote-empty{text-align:center}
 
 
+#s08QuoteViewer .s08-viewer-controls{display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end}
 /* S08-F04 : fiche de consultation sans écriture, superposée à la page. */
 #s08QuoteViewer[hidden]{display:none}
 #s08QuoteViewer{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.75);padding:18px}
@@ -1372,7 +1373,10 @@ button.link:hover{
         <div class="s08-viewer-panel">
           <div class="s08-viewer-head">
             <h2 id="s08ViewTitle">Soumission</h2>
-            <button type="button" class="ghost" id="s08ViewClose">Fermer</button>
+            <div class="s08-viewer-controls">
+              <button type="button" class="primary" id="s08ViewPrint">🖨️ Imprimer / PDF</button>
+              <button type="button" class="ghost" id="s08ViewClose">Fermer</button>
+            </div>
           </div>
           <p id="s08ViewMeta" class="muted"></p>
           <div class="s08-viewer-details">
@@ -14420,10 +14424,52 @@ if (window.garageSupabase) {
   // exclusivement via textContent, jamais comme HTML.
   const viewer=get("s08QuoteViewer"),viewClose=get("s08ViewClose");
   let returnFocus=null;
+  let selectedQuote=null;
   function closeViewer(){
     viewer.hidden=true;
     returnFocus?.focus?.();
   }
+  // S08-F05 : impression d'une soumission ENREGISTRÉE seulement.
+  // Le document est construit depuis la fiche en lecture seule dont les valeurs
+  // ont été placées avec textContent : aucun HTML provenant du client n'est exécuté.
+  get("s08ViewPrint")?.addEventListener("click",()=>{
+    if(!selectedQuote||viewer.hidden)return;
+    if(!/^SO-\d{4,}$/.test(String(selectedQuote.quote_number||""))){
+      alert("Numéro de soumission invalide. Impression annulée.");return;
+    }
+    const popup=window.open("","_blank");
+    if(!popup){
+      alert("Le navigateur a bloqué la fenêtre d'impression. Autorise les fenêtres surgissantes pour ce site TEST.");
+      return;
+    }
+    const copy=viewer.querySelector(".s08-viewer-panel").cloneNode(true);
+    copy.querySelector(".s08-viewer-controls")?.remove();
+    copy.querySelectorAll(".muted").forEach(el=>el.style.color="#555");
+    copy.querySelector(".s08-viewer-head")?.insertAdjacentHTML("afterbegin",
+      '<div class="s08-print-brand">Garage-Atelier Mécanique J.L</div>');
+    const noScripts=copy.outerHTML;
+    popup.document.open();
+    popup.document.write('<!doctype html><html lang="fr"><head><meta charset="utf-8">'+
+      '<title>'+selectedQuote.quote_number+' - Soumission</title>'+
+      '<style>@page{size:letter;margin:17mm 14mm}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;background:white;color:#151515;margin:0;font-size:12px}'+
+      '.s08-viewer-panel{width:100%;max-width:none;padding:0;border:0;background:white}'+
+      '.s08-print-brand{font-size:16px;font-weight:700;color:#111;margin-bottom:14px}'+
+      'h2{font-size:23px;margin:0 0 8px;color:#111}h3{font-size:15px;margin:22px 0 9px;color:#111}'+
+      '.s08-viewer-details{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:13px;border:1px solid #aaa;border-radius:5px;margin:18px 0}'+
+      '.s08-viewer-details div span,.s08-viewer-details div strong{display:block;overflow-wrap:anywhere}'+
+      '.s08-viewer-details div span{font-size:10px;color:#555}.s08-viewer-details div strong{font-size:12px;margin-top:4px}'+
+      '.s08-view-description{white-space:pre-wrap;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse}'+
+      'th,td{text-align:left;border-bottom:1px solid #ccc;padding:9px 6px;font-size:11px}th{background:#eee}'+
+      'th:nth-child(n+3),td:nth-child(n+3){text-align:right}tr{break-inside:avoid}'+
+      '.s08-view-total{text-align:right;font-size:18px;font-weight:700;margin:22px 0 7px}'+
+      '.muted{color:#555;font-size:11px}button{display:none}'+
+      '</style></head><body>'+noScripts+'</body></html>');
+    popup.document.close();
+    popup.focus();
+    popup.addEventListener("load",()=>{popup.focus();popup.print();},{once:true});
+    // Certains navigateurs ne déclenchent pas load après document.write.
+    if(popup.document.readyState==="complete")popup.print();
+  });
   viewClose.addEventListener("click",closeViewer);
   viewer.addEventListener("click",event=>{if(event.target===viewer)closeViewer();});
   document.addEventListener("keydown",event=>{
@@ -14431,6 +14477,7 @@ if (window.garageSupabase) {
   });
   function viewQuote(q,trigger){
     if(!q||!viewer)return;
+    selectedQuote=q;
     const d=q.content||{},labels={draft:"Brouillon",sent:"Envoyée",approved:"Approuvée",declined:"Refusée",expired:"Expirée",converted:"Convertie"};
     const value=(id,text)=>{get(id).textContent=String(text??"—")||"—";};
     value("s08ViewTitle","Soumission "+q.quote_number);
