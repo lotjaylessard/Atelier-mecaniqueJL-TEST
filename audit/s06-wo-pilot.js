@@ -184,7 +184,8 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     const r=app.session;
     const isInterrupted=r?.status==="running"&&
       (!!interruptedReason||pendingGap(r)!==null)&&app.ownRunning!==r.id;
-    app.panel.classList.toggle("s06-await-start",!r&&!app.busy);
+    app.panel.classList.toggle("s06-await-start",
+      (!r||(r.status==="paused"&&Number(r.confirmed_ms)===0))&&!app.busy);
     app.panel.classList.toggle("s06-interrupted",!!isInterrupted&&!app.panel.classList.contains("s06-confirming"));
     // Identité de session visible pour le miroir lecture seule du menu.
     // Une session différente ne doit jamais être affichée comme synchronisée.
