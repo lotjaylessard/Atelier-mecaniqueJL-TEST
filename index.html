@@ -6747,6 +6747,19 @@ function woRenderLines(wo) {
   </tr>
 `;
   }).join("");
+  // Edition directe des cellules des pièces (BT), si modifications autorisées.
+  if(woCanEditFinancials(wo))pBody.querySelectorAll("tr").forEach((row,i)=>{
+    [0,1,2,3].forEach(column=>{
+      const cell=row.cells[column];if(!cell)return;
+      cell.style.cursor="pointer";cell.tabIndex=0;cell.title="Cliquer pour modifier";
+      cell.addEventListener("click",()=>woInlineEditLine(wo.id,"part",i,column));
+      cell.addEventListener("keydown",event=>{
+        if(event.key==="Enter"||event.key===" "){
+          event.preventDefault();woInlineEditLine(wo.id,"part",i,column);
+        }
+      });
+    });
+  });
 
 
   // ===== SERVICE MANUEL (BON DE TRAVAIL) =====
@@ -6828,6 +6841,21 @@ lBody.innerHTML = wo.labor.map((l,i)=>{
     </tr>
   `;
 }).join("");
+  // Les entrées chronométrées gardent le circuit de validation du minuteur.
+  if(woCanEditFinancials(wo))lBody.querySelectorAll("tr").forEach((row,i)=>{
+    const entry=wo.labor[i];
+    if(entry?.timerSessionId)return;
+    [0,1,2].forEach(column=>{
+      const cell=row.cells[column];if(!cell)return;
+      cell.style.cursor="pointer";cell.tabIndex=0;cell.title="Cliquer pour modifier";
+      cell.addEventListener("click",()=>woInlineEditLine(wo.id,"labor",i,column));
+      cell.addEventListener("keydown",event=>{
+        if(event.key==="Enter"||event.key===" "){
+          event.preventDefault();woInlineEditLine(wo.id,"labor",i,column);
+        }
+      });
+    });
+  });
 
   // === NOUVEAU : total pièces et total main-d'œuvre ===
   const totalParts = wo.parts.reduce((s,p)=> s + (p.qty * p.rate), 0);
@@ -6906,6 +6934,81 @@ function updateTimerDisplay() {
   timerDisplay.innerText = "⏱ " + formatTime(current);
 }
 
+// S08/S04 TEST : saisie sur la ligne du BT, sans fenêtre supplémentaire.
+// Préserve toutes les barrières financières existantes et l'ancien
+// éditeur pour les lignes issues du minuteur.
+let woInlineEditing=false;
+function woInlineEditLine(woId,type,index,focusColumn=0){
+  if(woInlineEditing)return;
+  const wo=getActiveWOById(woId);
+  if(!wo || !woRequireFinancialEdit(wo))return;
+  const isPart=type==="part";
+  const collection=isPart?wo.parts:wo.labor;
+  const line=collection?.[index];
+  if(!line)return;
+  if(!isPart && line.timerSessionId){
+    woEditLine(woId,type,index);return;
+  }
+  const table=$(isPart?"woPartsTable":"woLaborTable");
+  const row=table?.querySelector("tbody")?.rows[index];
+  if(!row)return;
+  const snapshot={...line};
+  woInlineEditing=true;
+  const spec=isPart?[
+    ["name","text",line.name],
+    ["qty","number",line.qty],
+    ["cost","number",line.cost||0],
+    ["rate","number",line.rate]
+  ]:[
+    ["description","text",line.description],
+    ["hours","number",line.hours],
+    ["rate","number",line.rate]
+  ];
+  const controls=spec.map(([key,type,value],j)=>{
+    const input=document.createElement("input");
+    input.type=type;input.value=String(value??"");
+    input.setAttribute("aria-label",key);
+    if(type==="number"){input.step=key==="qty"||key==="hours"?"any":"0.01";input.min=key==="qty"||key==="hours"?"0.01":"0";}
+    input.style.cssText="width:100%;min-width:65px;box-sizing:border-box;padding:6px";
+    row.cells[j].replaceChildren(input);
+    return input;
+  });
+  const actions=row.cells[row.cells.length-1];
+  const ok=document.createElement("button"),cancel=document.createElement("button");
+  ok.type="button";ok.textContent="✓";ok.title="Confirmer";
+  cancel.type="button";cancel.textContent="Annuler";cancel.className="ghost";
+  actions.replaceChildren(ok,cancel);
+  function finishCancel(){woInlineEditing=false;woRenderLines(wo);}
+  function confirm(){
+    if(!woCanEditFinancials(wo)){alert("Ce BT n'est plus modifiable.");finishCancel();return;}
+    const name=controls[0].value.trim(),qtyText=controls[1].value;
+    const qty=Number(qtyText),cost=isPart?Number(controls[2].value):0;
+    const rate=Number(controls[isPart?3:2].value);
+    if(!name || !qtyText || !Number.isFinite(qty) || qty<=0 ||
+      !Number.isFinite(cost)||cost<0||!Number.isFinite(rate)||rate<0 ||
+      (isPart && !controls[2].value)||!controls[isPart?3:2].value){
+      alert("Vérifie la description, la quantité/heures, le coût et le prix.");return;
+    }
+    // Toujours contrôler les valeurs avant l'écriture. Pas de changement aux lignes minuteur.
+    if(isPart)Object.assign(line,{name,qty,cost,rate,total:Math.round(qty*rate*100)/100});
+    else Object.assign(line,{description:name,hours:qty,rate,total:Math.round(qty*rate*100)/100});
+    const result=persistActiveWO(wo);
+    if(result===false){
+      Object.keys(line).forEach(k=>{if(!(k in snapshot))delete line[k];});
+      Object.assign(line,snapshot);
+      woInlineEditing=false;woRenderLines(wo);return;
+    }
+    woInlineEditing=false;
+    woRenderLines(wo);
+  }
+  ok.addEventListener("click",confirm);
+  cancel.addEventListener("click",finishCancel);
+  controls.forEach(control=>control.addEventListener("keydown",event=>{
+    if(event.key==="Enter"){event.preventDefault();confirm();}
+    if(event.key==="Escape"){event.preventDefault();finishCancel();}
+  }));
+  controls[Math.min(focusColumn,controls.length-1)].focus();
+}
 function woEditLine(woId, type, index) {
   const wo = getActiveWOById(woId);
   if (!wo || !woRequireFinancialEdit(wo)) return;
