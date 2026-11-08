@@ -1097,6 +1097,11 @@ button.link:hover{
 #s08QuoteViewer .s08-viewer-controls{display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end}
 #s08QuoteViewer .s08-link-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
 #s08QuoteViewer .s08-link-actions button{white-space:nowrap}
+#s08QuoteViewer .s08-link-confirm{display:flex;gap:9px;align-items:flex-start;margin:12px 0;font-size:13px;line-height:1.5}
+#s08QuoteViewer .s08-link-confirm input{width:auto;flex:0 0 auto;margin-top:4px}
+#s08QuoteViewer .s08-link-save{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+#s08QuoteViewer .s08-link-save button:disabled{opacity:.5}
+#s08QuoteViewer .s08-link-save span{overflow-wrap:anywhere}
 /* S08-F06b : liens explicites de consultation pour la future conversion. */
 #s08QuoteViewer .s08-link-panel{border:1px solid #454545;border-radius:8px;padding:14px;margin:12px 0}
 #s08QuoteViewer .s08-link-panel[hidden]{display:none}
@@ -1399,6 +1404,11 @@ button.link:hover{
               <label>Véhicule de ce client<select id="s08LinkedVehicle" disabled><option value="">— Choisir un véhicule —</option></select></label>
             </div>
             <p class="muted" id="s08LinkAssessment" role="status" aria-live="polite"></p>
+            <label class="s08-link-confirm"><input type="checkbox" id="s08ConfirmLinkDifferences"> Je confirme personnellement que le client et le véhicule sélectionnés correspondent bien à cette soumission, même si les libellés diffèrent.</label>
+            <div class="s08-link-save">
+              <button type="button" id="s08SaveLink" disabled>💾 Enregistrer la liaison SO</button>
+              <span id="s08LinkSaveStatus" role="status" aria-live="polite" class="muted"></span>
+            </div>
             <p class="muted">Si une fiche manque, crée-la ou complète-la dans le module approprié, puis reviens à cette soumission.</p>
             <div class="s08-link-actions">
               <button type="button" class="ghost" id="s08GoClients">👤 Ouvrir Clients</button>
@@ -14466,37 +14476,99 @@ if (window.garageSupabase) {
   function clientTitle(c){
     return String(c.name||[c.firstName,c.lastName].filter(Boolean).join(" ")||"Client sans nom");
   }
-  function updateLinkAssessment(){
-    if(!selectedQuote||!assessment)return;
-    const d=selectedQuote.content||{};
-    const messages=[];
+  let linkSaving=false;
+  function inspectSelectedLink(){
+    const d=selectedQuote?.content||{}, blockers=[],differences=[];
     const client=currentClients().find(c=>String(c.id)===clientSelect.value);
     const vehicle=client?.vehicles?.find(v=>String(v.id)===vehicleSelect.value);
-    if(!client){messages.push("Sélectionne une fiche client existante.");}
-    else{
-      if(!clientTitle(client).trim())messages.push("Nom client manquant.");
-      const phone=String(client.phone||"").replace(/\D/g,"");
-      if(phone.length<10)messages.push("Téléphone client à compléter dans sa fiche.");
+    if(!client)blockers.push("Sélectionne une fiche client existante.");
+    else {
+      if(!String(clientTitle(client)||"").trim())blockers.push("Nom client manquant.");
+      if(String(client.phone||"").replace(/\D/g,"").length<10)
+        blockers.push("Téléphone client à compléter dans sa fiche.");
       if(normalizeText(clientTitle(client))!==normalizeText(d.clientName||""))
-        messages.push("Nom du client différent de la SO : confirme l'identité avant la conversion.");
+        differences.push("Nom du client différent de la SO.");
     }
-    if(!vehicle){messages.push("Sélectionne un véhicule enregistré appartenant à ce client.");}
-    else{
-      if(!/^\d{4}$/.test(String(vehicle.year||""))||Number(vehicle.year)<1886)messages.push("Année véhicule invalide.");
-      if(!String(vehicle.make||"").trim()||!String(vehicle.model||"").trim())messages.push("Marque ou modèle manquant.");
+    if(!vehicle)blockers.push("Sélectionne un véhicule appartenant à ce client.");
+    else {
+      if(!/^\d{4}$/.test(String(vehicle.year??""))||Number(vehicle.year)<1886)
+        blockers.push("Année véhicule invalide.");
+      if(!String(vehicle.make||"").trim()||!String(vehicle.model||"").trim())
+        blockers.push("Marque ou modèle manquant.");
       if(!String(vehicle.vin||"").trim()&&!String(vehicle.plate||"").trim())
-        messages.push("Le véhicule doit avoir une plaque ou un NIV enregistré.");
-      const km=String(vehicle.km??"").trim();
-      if(!/^\d+$/.test(km))messages.push("Kilométrage à compléter dans la fiche véhicule.");
+        blockers.push("Plaque ou NIV manquant.");
+      if(!/^\d+$/.test(String(vehicle.km??"").trim()))
+        blockers.push("Kilométrage à compléter dans la fiche véhicule.");
       const summary=[vehicle.year,vehicle.make,vehicle.model].filter(Boolean).join(" ");
       if(normalizeText(d.vehicleLabel||"")!==normalizeText(summary))
-        messages.push("Véhicule différent du libellé de la SO : vérifier explicitement qu'il s'agit du bon véhicule.");
+        differences.push("Véhicule différent du libellé de la SO.");
     }
-    if(!Array.isArray(d.lines)||!d.lines.length)messages.push("Soumission sans lignes.");
-    const ready=!!client&&!!vehicle&&!messages.length;
-    assessment.textContent=(ready?"✓ Fiches client et véhicule vérifiées pour la préparation.":"À compléter :\n• "+messages.join("\n• "))+
-      "\nAucun BT créé. La conversion restera désactivée jusqu'à son implémentation sécurisée.";
+    if(!Array.isArray(d.lines)||!d.lines.length)blockers.push("Aucune ligne enregistrée sur la SO.");
+    if(!selectedQuote?.id||!Number.isSafeInteger(Number(selectedQuote.version))||Number(selectedQuote.version)<0)
+      blockers.push("Version de la SO indisponible : recharge la page.");
+    if(selectedQuote?.status!=="draft"&&selectedQuote?.status!=="sent")
+      blockers.push("Liaison réservée aux soumissions Brouillon ou Envoyée.");
+    return {client,vehicle,blockers,differences};
   }
+  function updateLinkAssessment(){
+    if(!selectedQuote||!assessment)return;
+    const {blockers,differences}=inspectSelectedLink();
+    const confirmation=get("s08ConfirmLinkDifferences");
+    const save=get("s08SaveLink");
+    const lines=[
+      ...blockers.map(message=>"• "+message),
+      ...differences.map(message=>"⚠ "+message)
+    ];
+    const approved=blockers.length===0&&(differences.length===0||confirmation.checked);
+    save.disabled=linkSaving||!approved;
+    assessment.textContent=(lines.length?lines.join("\n"):
+      "✓ Fiches complètes et cohérentes.")+
+      "\nLiaison préparée seulement. Aucun BT n'est créé.";
+  }
+  get("s08ConfirmLinkDifferences")?.addEventListener("change",updateLinkAssessment);
+  async function saveQuoteLink(){
+    if(linkSaving||!selectedQuote)return;
+    // Relire les fiches pour ne pas sauvegarder un choix périmé.
+    try{if(typeof loadClients==="function")loadClients();}catch(e){console.warn(e);}
+    const {client,vehicle,blockers,differences}=inspectSelectedLink();
+    const acknowledged=get("s08ConfirmLinkDifferences").checked;
+    if(blockers.length||(differences.length&&!acknowledged)){
+      updateLinkAssessment();return;
+    }
+    if(!window.confirm("Lier "+selectedQuote.quote_number+" à "+clientTitle(client)+
+      " et au véhicule "+[vehicle.year,vehicle.make,vehicle.model,vehicle.plate].filter(Boolean).join(" ")+
+      " ? Aucune création de BT."))return;
+    linkSaving=true;updateLinkAssessment();
+    const status=get("s08LinkSaveStatus");
+    status.textContent="Enregistrement sécurisé en cours…";
+    try{
+      const {sb,garageId}=context();
+      const {data:auth,error:authError}=await sb.auth.getUser();
+      if(authError||!auth?.user?.id)throw Error("Session expirée.");
+      const version=Number(selectedQuote.version);
+      const currentContent=selectedQuote.content||{};
+      const content={...currentContent,linkedClientId:client.id,linkedVehicleId:vehicle.id,
+        linkConfirmedAt:new Date().toISOString(),linkAcknowledgedDifferences:acknowledged};
+      const {data:row,error}=await sb.from("garage_quotes")
+        .update({content,version:version+1})
+        .eq("id",selectedQuote.id).eq("garage_id",garageId)
+        .eq("user_id",auth.user.id).eq("version",version)
+        .in("status",["draft","sent"])
+        .select("id,garage_id,user_id,quote_number,status,content,version").maybeSingle();
+      if(error)throw error;
+      if(!row||row.id!==selectedQuote.id||row.version!==version+1||
+        String(row.content?.linkedClientId)!==String(client.id)||
+        String(row.content?.linkedVehicleId)!==String(vehicle.id))
+        throw Error("Conflit de version ou écriture non confirmée. Recharge la SO avant de réessayer.");
+      selectedQuote={...selectedQuote,...row};
+      status.textContent="✓ Liaison enregistrée sur Supabase TEST — aucun BT créé.";
+      await refreshQuotes();
+    }catch(err){
+      console.error("[S08-F06d] Liaison SO non confirmée",err);
+      status.textContent="Liaison non confirmée : "+String(err?.message||err);
+    }finally{linkSaving=false;updateLinkAssessment();}
+  }
+  get("s08SaveLink")?.addEventListener("click",saveQuoteLink);
   function populateClients(){
     clientSelect.replaceChildren(new Option("— Choisir un client —",""));
     for(const c of currentClients()){
@@ -14514,9 +14586,13 @@ if (window.garageSupabase) {
       vehicleSelect.add(new Option([v.year,v.make,v.model,v.plate].filter(Boolean).join(" · "),String(v.id)));
     }
     vehicleSelect.disabled=!client;
+    get("s08ConfirmLinkDifferences").checked=false;
     updateLinkAssessment();
   });
-  vehicleSelect.addEventListener("change",updateLinkAssessment);
+  vehicleSelect.addEventListener("change",()=>{
+    get("s08ConfirmLinkDifferences").checked=false;
+    updateLinkAssessment();
+  });
   // S08-F06c : navigation vers les vrais formulaires existants.
   // Aucun client, véhicule, BT ni changement de statut n'est créé ici.
   for(const [buttonId,pageId] of [["s08GoClients","page-clients"],["s08GoVehicles","page-vehicles"]]){
@@ -14531,6 +14607,8 @@ if (window.garageSupabase) {
     // Les objets CLIENTS peuvent être réhydratés après connexion.
     try{if(typeof loadClients==="function")loadClients();}catch(e){console.warn("[S08] Lecture clients indisponible",e);}
     populateClients();
+    get("s08ConfirmLinkDifferences").checked=false;
+    get("s08LinkSaveStatus").textContent="";
     linkPanel.hidden=false;
     get("s08PreflightResult").textContent="Vérification manuelle obligatoire avant conversion : sélectionne le client et son véhicule dans les listes ci-dessous.";
     get("s08PreflightResult").hidden=false;
@@ -14595,6 +14673,8 @@ if (window.garageSupabase) {
     get("s08PreflightResult").hidden=true;
     linkPanel.hidden=true;
     clientSelect.value="";vehicleSelect.value="";
+    get("s08ConfirmLinkDifferences").checked=false;
+    get("s08LinkSaveStatus").textContent="";
     const d=q.content||{},labels={draft:"Brouillon",sent:"Envoyée",approved:"Approuvée",declined:"Refusée",expired:"Expirée",converted:"Convertie"};
     const value=(id,text)=>{get(id).textContent=String(text??"—")||"—";};
     value("s08ViewTitle","Soumission "+q.quote_number);
@@ -14651,7 +14731,7 @@ if (window.garageSupabase) {
       const {data:auth,error:authError}=await sb.auth.getUser();
       if(authError||!auth?.user?.id)throw Error("Session expirée.");
       const {data,error:readError}=await sb.from("garage_quotes")
-        .select("id,quote_number,status,content,created_at")
+        .select("id,quote_number,status,content,created_at,version")
         .eq("garage_id",garageId).eq("user_id",auth.user.id)
         .order("created_at",{ascending:false}).limit(200);
       if(readError)throw readError;
