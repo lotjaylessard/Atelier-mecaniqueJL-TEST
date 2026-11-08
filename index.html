@@ -1358,7 +1358,7 @@ button.link:hover{
     <!-- S08-F01 : module Soumissions indépendant, squelette sans écriture de données. -->
     <div class="page" id="page-quotes">
       <h2>Soumissions</h2>
-      <div class="card s08-quotes-card">
+      <div class="card s08-quotes-card" id="s08QuotesListCard">
         <div class="module-search-toolbar">
           <button id="s08NewQuote" type="button" title="Préparer une soumission temporaire (non enregistrée)">➕ Nouvelle soumission</button>
           <input id="s08QuoteSearch" type="search" placeholder="🔎 Rechercher : # SO, client, véhicule, description..." aria-label="Rechercher une soumission">
@@ -14447,6 +14447,7 @@ if (window.garageSupabase) {
 (() => {
   "use strict";
   const editor=document.getElementById("s08QuoteEditor");
+  const quotesListCard=document.getElementById("s08QuotesListCard");
   const start=document.getElementById("s08NewQuote");
   const cancel=document.getElementById("s08CancelQuote");
   const add=document.getElementById("s08AddLine");
@@ -14492,6 +14493,7 @@ if (window.garageSupabase) {
   let selectedFastClientId="";
   const clientsForQuote=()=>typeof CLIENTS!=="undefined"&&Array.isArray(CLIENTS)?CLIENTS:[];
   const clientNameForQuote=c=>String(c.name||[c.firstName,c.lastName].filter(Boolean).join(" ")||"Client");
+  const vehicleDisplayForQuote=v=>[v.year,v.make,v.model,v.trim||v.submodel||v.subModel,v.engine].filter(value=>String(value??"").trim()).join(" ");
   const normalizeLookup=value=>String(value||"").normalize("NFD")
     .replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("fr");
   function closeClientResults(){
@@ -14526,7 +14528,7 @@ if (window.garageSupabase) {
     get("s08VehicleLabel").value="";
     vehicleChoice.replaceChildren(new Option("— Choisir un véhicule —",""));
     (Array.isArray(c.vehicles)?c.vehicles:[]).forEach(v=>{
-      const label=[v.year,v.make,v.model].filter(Boolean).join(" ");
+      const label=vehicleDisplayForQuote(v);
       vehicleChoice.add(new Option(label+(v.plate?" · "+v.plate:""),String(v.id)));
     });
     vehicleChoice.disabled=vehicleChoice.options.length<2;
@@ -14581,7 +14583,7 @@ if (window.garageSupabase) {
   vehicleChoice?.addEventListener("change",()=>{
     const c=clientsForQuote().find(c=>String(c.id)===selectedFastClientId);
     const v=c?.vehicles?.find(v=>String(v.id)===vehicleChoice.value);
-    get("s08VehicleLabel").value=v?[v.year,v.make,v.model].filter(Boolean).join(" "):"";
+    get("s08VehicleLabel").value=v?vehicleDisplayForQuote(v):"";
     updateClientSummary();
   });
   get("s08NewClient")?.addEventListener("click",()=>{
@@ -14645,11 +14647,12 @@ if (window.garageSupabase) {
   start.addEventListener("click",()=>{
     if(!editor.hidden)return;
     editor.hidden=false;
+    if(quotesListCard)quotesListCard.hidden=true;
     populateCatalogs();
     clientLookup.value="";closeClientResults();
     start.textContent="Brouillon ouvert";
     start.disabled=true;
-    get("s08ClientName")?.focus();
+    clientLookup?.focus();
   });
   cancel.addEventListener("click",()=>{
     if(lines.length || [ "s08ClientName","s08ClientPhone","s08ClientEmail","s08VehicleLabel","s08QuoteDescription"].some(id=>get(id)?.value.trim())){
@@ -14665,7 +14668,9 @@ if (window.garageSupabase) {
     vehicleChoice.replaceChildren(new Option("— Choisir un client —",""));
     vehicleChoice.disabled=true;
     error.textContent="";
-    editor.hidden=true;start.disabled=false;start.textContent="➕ Nouvelle soumission";
+    editor.hidden=true;
+    if(quotesListCard)quotesListCard.hidden=false;
+    start.disabled=false;start.textContent="➕ Nouvelle soumission";
   });
   add.addEventListener("click",()=>{
     const description=get("s08LineDescription").value.trim();
