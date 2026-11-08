@@ -1102,6 +1102,11 @@ button.link:hover{
 #s08QuoteViewer .s08-link-save{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
 #s08QuoteViewer .s08-link-save button:disabled{opacity:.5}
 #s08QuoteViewer .s08-link-save span{overflow-wrap:anywhere}
+#s08QuoteViewer .s08-bt-preview{margin:14px 0;border:1px solid #555;border-radius:9px;padding:14px;background:#1e1e1e}
+#s08QuoteViewer .s08-bt-preview[hidden]{display:none}
+#s08QuoteViewer #s08BTPreviewIdentity{margin:10px 0;overflow-wrap:anywhere;white-space:pre-wrap}
+#s08QuoteViewer #s08BTPreviewDescription{white-space:pre-wrap}
+#s08QuoteViewer #s08PreviewBT:disabled{opacity:.5}
 /* S08-F06b : liens explicites de consultation pour la future conversion. */
 #s08QuoteViewer .s08-link-panel{border:1px solid #454545;border-radius:8px;padding:14px;margin:12px 0}
 #s08QuoteViewer .s08-link-panel[hidden]{display:none}
@@ -1407,7 +1412,20 @@ button.link:hover{
             <label class="s08-link-confirm"><input type="checkbox" id="s08ConfirmLinkDifferences"> Je confirme personnellement que le client et le véhicule sélectionnés correspondent bien à cette soumission, même si les libellés diffèrent.</label>
             <div class="s08-link-save">
               <button type="button" id="s08SaveLink" disabled>💾 Enregistrer la liaison SO</button>
+              <button type="button" class="ghost" id="s08PreviewBT" disabled>👁 Aperçu du futur BT</button>
               <span id="s08LinkSaveStatus" role="status" aria-live="polite" class="muted"></span>
+            </div>
+            <div id="s08BTPreview" class="s08-bt-preview" hidden>
+              <h3>Aperçu du futur bon de travail — aucune création</h3>
+              <p id="s08BTPreviewNumber" class="muted"></p>
+              <div id="s08BTPreviewIdentity"></div>
+              <p id="s08BTPreviewDescription"></p>
+              <div class="s08-viewer-table"><table>
+                <thead><tr><th>Type</th><th>Description</th><th>Quantité</th><th>Prix unitaire</th><th>Montant</th></tr></thead>
+                <tbody id="s08BTPreviewLines"></tbody>
+              </table></div>
+              <p class="s08-view-total">Estimation transférable : <strong id="s08BTPreviewTotal"></strong></p>
+              <p class="muted">Aucun BT créé ni numéro réservé. Le numéro définitif sera attribué lors de la conversion sécurisée. Taxes et facture non générées.</p>
             </div>
             <p class="muted">Si une fiche manque, crée-la ou complète-la dans le module approprié, puis reviens à cette soumission.</p>
             <div class="s08-link-actions">
@@ -14510,6 +14528,66 @@ if (window.garageSupabase) {
       blockers.push("Liaison réservée aux soumissions Brouillon ou Envoyée.");
     return {client,vehicle,blockers,differences};
   }
+  // S08-F06f : aperçu uniquement. Réévalue les liens enregistrés avant de
+  // permettre un aperçu ; aucun numéro n'est réservé et aucune donnée n'est écrite.
+  function previewLinkReady(){
+    if(!selectedQuote||!["draft","sent"].includes(selectedQuote.status))return null;
+    const d=selectedQuote.content||{};
+    if(!d.linkedClientId||!d.linkedVehicleId||!d.linkConfirmedAt)return null;
+    const c=currentClients().find(c=>String(c.id)===String(d.linkedClientId));
+    const v=c?.vehicles?.find(v=>String(v.id)===String(d.linkedVehicleId));
+    if(!c||!v||!Array.isArray(d.lines)||!d.lines.length)return null;
+    if(String(c.phone||"").replace(/\D/g,"").length<10||
+       !/^\d{4}$/.test(String(v.year??""))||Number(v.year)<1886||
+       !String(v.make||"").trim()||!String(v.model||"").trim()||
+       (!String(v.vin||"").trim()&&!String(v.plate||"").trim())||
+       !/^\d+$/.test(String(v.km??"").trim()))return null;
+    const normalize=normalizeText;
+    const differs=normalize(clientTitle(c))!==normalize(d.clientName)||
+      normalize([v.year,v.make,v.model].join(" "))!==normalize(d.vehicleLabel);
+    if(differs&&!d.linkAcknowledgedDifferences)return null;
+    const cents=d.lines.reduce((sum,line)=>{
+      const qty=Number(line.qty),unit=Number(line.priceCents),amount=Number(line.amountCents);
+      if(!Number.isFinite(qty)||qty<=0||!Number.isSafeInteger(unit)||unit<0||
+         !Number.isSafeInteger(amount)||amount<0||Math.round(qty*unit)!==amount)
+        return NaN;
+      return sum+amount;
+    },0);
+    if(!Number.isSafeInteger(cents)||cents!==Number(d.totalCents))return null;
+    return {client:c,vehicle:v,content:d,cents};
+  }
+  function updatePreviewButton(){
+    const btn=get("s08PreviewBT");
+    if(!btn)return;
+    btn.disabled=!previewLinkReady();
+    get("s08BTPreview").hidden=true;
+  }
+  get("s08PreviewBT")?.addEventListener("click",()=>{
+    try{if(typeof loadClients==="function")loadClients();}catch(e){console.warn(e);}
+    const prepared=previewLinkReady();
+    if(!prepared){updatePreviewButton();return;}
+    const {client,vehicle,content,cents}=prepared;
+    get("s08BTPreviewNumber").textContent="SO source : "+selectedQuote.quote_number+
+      " | Numéro BT : attribué uniquement lors de la conversion.";
+    get("s08BTPreviewIdentity").textContent=
+      "Client : "+clientTitle(client)+"\nVéhicule : "+
+      [vehicle.year,vehicle.make,vehicle.model,vehicle.trim].filter(Boolean).join(" ")+
+      "\nPlaque : "+(vehicle.plate||"—")+" | NIV : "+(vehicle.vin||"—")+
+      " | KM : "+vehicle.km;
+    get("s08BTPreviewDescription").textContent=content.description||"Travaux proposés sans description générale";
+    const body=get("s08BTPreviewLines");body.replaceChildren();
+    for(const line of content.lines){
+      const tr=document.createElement("tr");
+      const label={part:"Pièce",labor:"Main-d’œuvre",other:"Autre"}[line.type]||"Autre";
+      for(const str of [label,line.description,String(line.qty),
+        fmtQuote(line.priceCents),fmtQuote(line.amountCents)]){
+        const td=document.createElement("td");td.textContent=str;tr.append(td);
+      }
+      body.append(tr);
+    }
+    get("s08BTPreviewTotal").textContent=fmtQuote(cents);
+    get("s08BTPreview").hidden=false;
+  });
   function updateLinkAssessment(){
     if(!selectedQuote||!assessment)return;
     const {blockers,differences}=inspectSelectedLink();
@@ -14521,6 +14599,7 @@ if (window.garageSupabase) {
     ];
     const approved=blockers.length===0&&(differences.length===0||confirmation.checked);
     save.disabled=linkSaving||!approved;
+    updatePreviewButton();
     assessment.textContent=(lines.length?lines.join("\n"):
       "✓ Fiches complètes et cohérentes.")+
       "\nLiaison préparée seulement. Aucun BT n'est créé.";
@@ -14561,6 +14640,7 @@ if (window.garageSupabase) {
         String(row.content?.linkedVehicleId)!==String(vehicle.id))
         throw Error("Conflit de version ou écriture non confirmée. Recharge la SO avant de réessayer.");
       selectedQuote={...selectedQuote,...row};
+      updatePreviewButton();
       status.textContent="✓ Liaison enregistrée sur Supabase TEST — aucun BT créé.";
       await refreshQuotes();
     }catch(err){
@@ -14639,6 +14719,7 @@ if (window.garageSupabase) {
     get("s08LinkSaveStatus").textContent="";
     restoreSavedQuoteLink();
     linkPanel.hidden=false;
+    updatePreviewButton();
     get("s08PreflightResult").textContent="Vérification manuelle obligatoire avant conversion : sélectionne le client et son véhicule dans les listes ci-dessous.";
     get("s08PreflightResult").hidden=false;
     updateLinkAssessment();
@@ -14701,6 +14782,7 @@ if (window.garageSupabase) {
     selectedQuote=q;
     get("s08PreflightResult").hidden=true;
     linkPanel.hidden=true;
+    get("s08BTPreview").hidden=true;
     clientSelect.value="";vehicleSelect.value="";
     get("s08ConfirmLinkDifferences").checked=false;
     get("s08LinkSaveStatus").textContent="";
