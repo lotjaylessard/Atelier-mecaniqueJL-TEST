@@ -1127,6 +1127,33 @@ button.link:hover{
 #s08QuoteViewer .s08-status-panel select{min-width:175px;max-width:100%;width:auto}
 #s08QuoteViewer .s08-status-panel button:disabled{opacity:.5;cursor:not-allowed}
 #s08QuoteViewer .s08-status-panel span{flex-basis:100%;overflow-wrap:anywhere}
+/* S08-F08 — interface rapide, statuts visibles, vérifications masquées mais conservées. */
+#page-quotes #s08QuotesTable{table-layout:auto;width:100%}
+#page-quotes #s08QuotesTable td{vertical-align:middle;border-bottom:1px solid #3a3a3a}
+#page-quotes #s08QuotesTable tbody tr:hover{background:#2c2c2c}
+#page-quotes #s08QuotesTable th:last-child,#page-quotes #s08QuotesTable td:last-child{text-align:right}
+#page-quotes #s08QuotesTable td:nth-child(6){font-weight:700;white-space:nowrap}
+.s08-status-pill{display:inline-flex;align-items:center;justify-content:center;padding:5px 11px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;border:1px solid transparent}
+.s08-status-pill[data-status="draft"]{color:#e9e9e9;background:#414141;border-color:#666}
+.s08-status-pill[data-status="sent"]{color:#9dd0ff;background:#21394d;border-color:#4b83ac}
+.s08-status-pill[data-status="converted"]{color:#96e5a4;background:#1e3a27;border-color:#4d9c5b}
+.s08-status-pill[data-status="declined"]{color:#ffaaaa;background:#492727;border-color:#b35656}
+.s08-status-pill[data-status="expired"]{color:#ffd28d;background:#493b20;border-color:#b18a40}
+.s08-status-pill[data-status="approved"]{color:#9ee6bb;background:#1f4137;border-color:#4da58b}
+#s08QuoteViewer .s08-view-subhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0 14px}
+#s08QuoteViewer .s08-view-subhead p{margin:0}
+#s08QuoteViewer .s08-viewer-panel{max-width:980px}
+#s08QuoteViewer .s08-viewer-head{align-items:center}
+#s08QuoteViewer .s08-viewer-controls{gap:8px}
+#s08QuoteViewer .s08-status-panel{padding:10px 0 14px;gap:10px}
+#s08QuoteViewer .s08-status-panel select{min-width:155px}
+#s08QuoteViewer .s08-link-panel{margin-top:12px;background:#232323}
+#s08QuoteViewer .s08-link-save{align-items:center}
+#s08QuoteViewer .s08-link-save button[hidden],#s08QuoteViewer .s08-diagnostic-tools[hidden]{display:none}
+#s08QuoteViewer button[hidden]{display:none}
+#s08QuoteViewer #s08QuickApprove{background:#f6c744;color:#111;border:1px solid #f6c744;font-weight:700}
+#s08QuoteViewer #s08QuickApprove:hover{filter:brightness(1.08)}
+@media(max-width:720px){#s08QuoteViewer .s08-viewer-head{align-items:flex-start;flex-direction:column}#s08QuoteViewer .s08-viewer-controls{width:100%;flex-wrap:wrap}}
 /* S08-F04 : fiche de consultation sans écriture, superposée à la page. */
 #s08QuoteViewer[hidden]{display:none}
 #s08QuoteViewer{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.75);padding:18px}
@@ -1339,7 +1366,7 @@ button.link:hover{
             <option value="">Tous les statuts</option>
             <option value="draft">Brouillon</option>
             <option value="sent">Envoyée</option>
-            <option value="approved">Approuvée</option>
+            <option value="converted">Convertie en BT</option>
             <option value="declined">Refusée</option>
             <option value="expired">Expirée</option>
           </select>
@@ -1406,28 +1433,29 @@ button.link:hover{
           <div class="s08-viewer-head">
             <h2 id="s08ViewTitle">Soumission</h2>
             <div class="s08-viewer-controls">
-              <button type="button" class="ghost" id="s08Preflight">Vérifier avant conversion</button>
+              <button type="button" id="s08QuickApprove">✓ Approuver → BT</button>
+              <button type="button" class="ghost" id="s08Preflight" hidden>Vérifier avant conversion</button>
               <button type="button" class="primary" id="s08ViewPrint">🖨️ Imprimer / PDF</button>
               <button type="button" class="ghost" id="s08ViewClose">Fermer</button>
             </div>
           </div>
-          <p id="s08ViewMeta" class="muted"></p>
+          <div class="s08-view-subhead"><p id="s08ViewMeta" class="muted"></p><span id="s08ViewStatusBadge" class="s08-status-pill"></span></div>
           <p id="s08ConvertedBT" class="s08-converted-bt" hidden></p>
           <div id="s08StatusPanel" class="s08-status-panel" hidden>
-            <label for="s08StatusChoice">Statut de la soumission</label>
+            <label for="s08StatusChoice">Statut</label>
             <select id="s08StatusChoice" aria-label="Choisir le statut">
               <option value="draft">Brouillon</option>
               <option value="sent">Envoyée au client</option>
               <option value="declined">Refusée</option>
               <option value="expired">Expirée</option>
             </select>
-            <button type="button" id="s08StatusSave" disabled>Enregistrer le statut</button>
+            <button type="button" id="s08StatusSave" disabled>✓ Enregistrer</button>
             <span id="s08StatusResult" role="status" aria-live="polite" class="muted"></span>
           </div>
           <p id="s08PreflightResult" class="muted" role="status" aria-live="polite" hidden></p>
           <section id="s08LinkPanel" class="s08-link-panel" hidden aria-label="Préparation des liens client véhicule">
-            <h3>Préparation SO → BT</h3>
-            <p class="muted">Sélectionne des fiches déjà enregistrées. Ces choix ne créent ni client, ni véhicule, ni BT.</p>
+            <h3>Associer le client et le véhicule</h3>
+            <p class="muted">Une seule fois avant la conversion : sélectionne les fiches exactes.</p>
             <div class="s08-link-grid">
               <label>Client enregistré<select id="s08LinkedClient"><option value="">— Choisir un client —</option></select></label>
               <label>Véhicule de ce client<select id="s08LinkedVehicle" disabled><option value="">— Choisir un véhicule —</option></select></label>
@@ -1436,15 +1464,15 @@ button.link:hover{
             <label class="s08-link-confirm"><input type="checkbox" id="s08ConfirmLinkDifferences"> Je confirme personnellement que le client et le véhicule sélectionnés correspondent bien à cette soumission, même si les libellés diffèrent.</label>
             <div class="s08-link-save">
               <button type="button" id="s08SaveLink" disabled>💾 Enregistrer la liaison SO</button>
-              <button type="button" class="ghost" id="s08PreviewBT" disabled>👁 Aperçu du futur BT</button>
-              <details id="s08DiagnosticTools" class="s08-diagnostic-tools">
+              <button type="button" class="ghost" id="s08PreviewBT" disabled hidden>👁 Aperçu du futur BT</button>
+              <details id="s08DiagnosticTools" class="s08-diagnostic-tools" hidden>
                 <summary>Outils de vérification avancés</summary>
                 <div>
                   <button type="button" class="ghost" id="s08ServerDryRun" disabled>🛡 Tester la conversion (sans créer)</button>
                   <button type="button" class="ghost" id="s08CheckSync" disabled>☁️ Vérifier la synchronisation</button>
                 </div>
               </details>
-              <button type="button" id="s08ConvertBT" disabled>✓ Approuver et créer BT</button>
+              <button type="button" id="s08ConvertBT" disabled hidden>✓ Approuver et créer BT</button>
               <span id="s08LinkSaveStatus" role="status" aria-live="polite" class="muted"></span>
             </div>
             <div id="s08BTPreview" class="s08-bt-preview" hidden>
@@ -1462,7 +1490,7 @@ button.link:hover{
               <p class="s08-view-total">Estimation transférable : <strong id="s08BTPreviewTotal"></strong></p>
               <p class="muted">Aucun BT créé ni numéro réservé. Le numéro définitif sera attribué lors de la conversion sécurisée. Taxes et facture non générées.</p>
             </div>
-            <p class="muted">Si une fiche manque, crée-la ou complète-la dans le module approprié, puis reviens à cette soumission.</p>
+            <p class="muted">Fiche manquante ? Ouvre le module approprié pour la compléter.</p>
             <div class="s08-link-actions">
               <button type="button" class="ghost" id="s08GoClients">👤 Ouvrir Clients</button>
               <button type="button" class="ghost" id="s08GoVehicles">🚗 Ouvrir Véhicules</button>
@@ -14976,6 +15004,7 @@ if (window.garageSupabase) {
     copy.querySelector(".s08-viewer-controls")?.remove();
     copy.querySelector("#s08ConvertedBT")?.remove();
     copy.querySelector("#s08StatusPanel")?.remove();
+    copy.querySelector("#s08ViewStatusBadge")?.remove();
     copy.querySelector("#s08LinkPanel")?.remove();
     copy.querySelector("#s08PreflightResult")?.remove();
     copy.querySelectorAll(".muted").forEach(el=>el.style.color="#555");
@@ -15014,6 +15043,27 @@ if (window.garageSupabase) {
   document.addEventListener("keydown",event=>{
     if(event.key==="Escape"&&!viewer.hidden){event.preventDefault();closeViewer();}
   });
+  // S08-F08 : un seul bouton visible pour préparer ou approuver.
+  // La conversion réelle conserve toutes ses validations et sa confirmation serveur.
+  function setStatusPill(el,status){
+    const label={draft:"Brouillon",sent:"Envoyée",converted:"Convertie",declined:"Refusée",expired:"Expirée",approved:"Approuvée"}[status]||status;
+    el.dataset.status=status||"draft";
+    el.textContent=label;
+  }
+  get("s08QuickApprove")?.addEventListener("click",()=>{
+    if(!selectedQuote||!["draft","sent"].includes(selectedQuote.status))return;
+    if(linkPanel.hidden){
+      get("s08Preflight").click();
+      linkPanel.scrollIntoView({behavior:"smooth",block:"nearest"});
+      return;
+    }
+    // Ne pas transformer un clic en conversion lorsque les fiches sont incomplètes.
+    if(!previewLinkReady()){
+      get("s08LinkAssessment").scrollIntoView({behavior:"smooth",block:"nearest"});
+      return;
+    }
+    get("s08ConvertBT").click();
+  });
   function viewQuote(q,trigger){
     if(!q||!viewer)return;
     selectedQuote=q;
@@ -15029,7 +15079,9 @@ if (window.garageSupabase) {
     value("s08ViewMeta",String(q.created_at||"").slice(0,10)+" · "+(labels[q.status]||q.status));
     // Une SO déjà convertie est en lecture seule : ne pas proposer une nouvelle approbation.
     const converted=q.status==="converted";
-    get("s08Preflight").hidden=converted || !["draft","sent"].includes(q.status);
+    get("s08Preflight").hidden=true;
+    get("s08QuickApprove").hidden=!["draft","sent"].includes(q.status);
+    setStatusPill(get("s08ViewStatusBadge"),q.status);
     const editableStatus=["draft","sent","declined","expired"].includes(q.status);
     get("s08StatusPanel").hidden=!editableStatus;
     get("s08StatusChoice").value=editableStatus?q.status:"draft";
@@ -15107,7 +15159,10 @@ if (window.garageSupabase) {
       get("s08ViewMeta").textContent=String(row.created_at||"").slice(0,10)+" · "+labels[to];
       // Revenir d'un refus ou d'une expiration permet à nouveau la préparation BT,
       // mais sans jamais créer de BT automatiquement.
-      get("s08Preflight").hidden=!["draft","sent"].includes(to);
+      get("s08Preflight").hidden=true;
+      get("s08QuickApprove").hidden=!["draft","sent"].includes(to);
+      setStatusPill(get("s08ViewStatusBadge"),to);
+      if(!["draft","sent"].includes(to))linkPanel.hidden=true;
       await refreshQuotes();
     }catch(err){
       console.warn("[S08-F07b] Statut non confirmé",err);
@@ -15135,7 +15190,13 @@ if (window.garageSupabase) {
     for(const q of rows){
       const d=q.content||{},tr=document.createElement("tr");
       const labels={draft:"Brouillon",sent:"Envoyée",approved:"Approuvée",declined:"Refusée",expired:"Expirée",converted:"Convertie"};
-      for(const val of [q.quote_number,String(q.created_at||"").slice(0,10),d.clientName||"",d.vehicleLabel||"",d.description||"",fmtQuote(d.totalCents||0),labels[q.status]||q.status]){
+      for(const val of [q.quote_number,String(q.created_at||"").slice(0,10),d.clientName||"",d.vehicleLabel||"",d.description||"",fmtQuote(d.totalCents||0)]){
+        const td=document.createElement("td");td.textContent=val;tr.append(td);
+      }
+      const statusCell=document.createElement("td"),pill=document.createElement("span");
+      pill.className="s08-status-pill";setStatusPill(pill,q.status);
+      statusCell.append(pill);tr.append(statusCell);
+      for(const val of []){
         const td=document.createElement("td");td.textContent=val;tr.append(td);
       }
       const td=document.createElement("td"),btn=document.createElement("button");
