@@ -311,11 +311,11 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     if(availableSeconds<60)throw Error("Attends 60 secondes après la dernière confirmation serveur.");
     const raw=prompt(
       "Période interrompue : environ "+format(availableSeconds*1000)+
-      ".\\nCombien de MINUTES as-tu réellement travaillées pendant cette période ?"+
-      "\\nEntre 0 pour récupérer sans ajouter de temps. Annuler ne change rien.","0");
+      ".\nCombien de MINUTES as-tu réellement travaillées pendant cette période ?"+
+      "\nEntre 0 pour récupérer sans ajouter de temps. Annuler ne change rien.","0");
     if(raw===null)return;
     const str=raw.trim().replace(",",".");
-    if(!/^(?:\\d+)(?:\\.\\d{1,2})?$/.test(str))
+    if(!/^(?:\d+)(?:\.\d{1,2})?$/.test(str))
       throw Error("Entre un nombre de minutes valide (ex. 1,5).");
     const seconds=Math.round(Number(str)*60);
     if(!Number.isSafeInteger(seconds)||seconds<0||seconds>28800||
