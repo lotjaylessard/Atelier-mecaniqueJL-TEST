@@ -6741,7 +6741,6 @@ function woRenderLines(wo) {
   <span class="muted">(${marginPct.toFixed(1)}%)</span>
 </td>
     <td>
-      <button class="ghost" onclick="woEditLine('${wo.id}','part',${i})">✏️</button>
       <button class="ghost" onclick="woRemovePart('${wo.id}',${i})">🗑</button>
     </td>
   </tr>
@@ -6835,7 +6834,7 @@ lBody.innerHTML = wo.labor.map((l,i)=>{
       </td>
 
       <td>
-        <button class="ghost" onclick="woEditLine('${wo.id}','labor',${i})">✏️</button>
+        ${l.timerSessionId ? `<button class="ghost" onclick="woEditLine('${wo.id}','labor',${i})" title="Ligne liée au minuteur">✏️</button>` : ""}
         <button class="ghost" onclick="woRemoveLabor('${wo.id}',${i})">🗑</button>
       </td>
     </tr>
@@ -7004,8 +7003,8 @@ function woInlineEditLine(woId,type,index,focusColumn=0){
   ok.addEventListener("click",confirm);
   cancel.addEventListener("click",finishCancel);
   controls.forEach(control=>control.addEventListener("keydown",event=>{
-    if(event.key==="Enter"){event.preventDefault();confirm();}
-    if(event.key==="Escape"){event.preventDefault();finishCancel();}
+    if(event.key==="Enter" && !event.isComposing){event.preventDefault();event.stopPropagation();confirm();}
+    if(event.key==="Escape"){event.preventDefault();event.stopPropagation();finishCancel();}
   }));
   controls[Math.min(focusColumn,controls.length-1)].focus();
 }
@@ -14800,8 +14799,8 @@ if (window.garageSupabase) {
     cancelButton.addEventListener("click",()=>{error.textContent="";render()});
     for(const input of [desc,qty,price]){
       input.addEventListener("keydown",event=>{
-        if(event.key==="Enter"){event.preventDefault();confirmEdit();}
-        if(event.key==="Escape"){event.preventDefault();error.textContent="";render();}
+        if(event.key==="Enter" && !event.isComposing){event.preventDefault();event.stopPropagation();confirmEdit();}
+        if(event.key==="Escape"){event.preventDefault();event.stopPropagation();error.textContent="";render();}
       });
     }
     cells[5].replaceChildren(confirmButton,cancelButton);
