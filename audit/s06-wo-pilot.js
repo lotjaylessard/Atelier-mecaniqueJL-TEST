@@ -27,6 +27,37 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
 #s06WoPilot input,#s06WoPilot textarea{box-sizing:border-box;width:100%;padding:7px;background:#101e2e;color:white;border:1px solid #80bbff;border-radius:5px}
 #s06WoPilot textarea{min-height:70px}
 #s06WoPilot .s06finish{grid-column:1/-1;padding-top:8px;border-top:1px solid #617e9d}
+/* S06-F10 : panneau technique conservé dans le DOM, discret hors confirmation.
+   Les écritures restent exclusivement sur le pilote Supabase validé. */
+#s06WoPilot{display:none}
+#s06WoPilot.s06-await-start{display:block;margin:6px 0;padding:0;border:0;background:transparent;color:inherit}
+#s06WoPilot.s06-await-start .s06head,
+#s06WoPilot.s06-await-start .s06clock,
+#s06WoPilot.s06-await-start .s06saved,
+#s06WoPilot.s06-await-start .s06message,
+#s06WoPilot.s06-await-start .s06gap,
+#s06WoPilot.s06-await-start #s06Pause,
+#s06WoPilot.s06-await-start #s06End,
+#s06WoPilot.s06-await-start #s06Recover{display:none!important}
+#s06WoPilot.s06-await-start .s06buttons{display:flex;margin:0}
+#s06WoPilot.s06-await-start #s06Start{border:1px solid #c9a300;background:transparent;color:#ffd400}
+#s06WoPilot.s06-await-start #s06Start::after{content:" minuterie"}
+#s06WoPilot.s06-confirming{display:grid;margin:8px 0;border-color:#d6af29;background:#262626;color:#eee}
+#s06WoPilot.s06-confirming .s06head,
+#s06WoPilot.s06-confirming .s06clock,
+#s06WoPilot.s06-confirming .s06buttons{display:none}
+#s06WoPilot.s06-confirming .s06finish{display:block}
+#s06WoPilot.s06-confirming .s06saved{display:block}
+#s06WoPilot.s06-confirming .s06message{display:block}
+#s06WoPilot.s06-interrupted{display:grid;background:#292622;border-color:#c49d54}
+#s06WoPilot.s06-interrupted .s06buttons{display:flex}
+#s06WoPilot.s06-interrupted .s06buttons #s06Start,
+#s06WoPilot.s06-interrupted .s06buttons #s06Pause,
+#s06WoPilot.s06-interrupted .s06buttons #s06End{display:none}
+#s06WoPilot.s06-interrupted .s06gap:not([hidden]){display:block}
+#s06WoPilot.s06-interrupted .s06message{display:block}
+#s06WoPilot.s06-interrupted .s06saved{display:block}
+
 @media(max-width:560px){#s06WoPilot{grid-template-columns:1fr}#s06WoPilot .s06clock{grid-column:1;text-align:left}}`;
   document.head.append(style);
   const app={user:null,garage:null,woId:null,session:null,rows:[],panel:null,busy:false,beat:null,displayTick:null,displayAnchor:null,ownRunning:null,lastVerified:null};
@@ -151,6 +182,10 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
   function paint(){
     if(!app.panel)return;
     const r=app.session;
+    const isInterrupted=r?.status==="running"&&
+      (!!interruptedReason||pendingGap(r)!==null)&&app.ownRunning!==r.id;
+    app.panel.classList.toggle("s06-await-start",!r&&!app.busy);
+    app.panel.classList.toggle("s06-interrupted",!!isInterrupted&&!app.panel.classList.contains("s06-confirming"));
     // Identité de session visible pour le miroir lecture seule du menu.
     // Une session différente ne doit jamais être affichée comme synchronisée.
     if(r?.id)app.panel.dataset.sessionId=String(r.id);
@@ -278,6 +313,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     try{await fn();}
     catch(e){
       stopBeat();
+      app.panel?.classList.add("s06-interrupted");
       savedStatus("warning","⚠ Synchronisation non confirmée : vérifier la session avant de reprendre.");
       setMsg("Action non confirmée : "+(e?.message||e)+
         "\nAucune nouvelle main-d'œuvre locale. Recharge la page avant de réessayer.");
@@ -377,6 +413,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
   }
   function showFinish(){
     if(!app.session||app.session.status!=="paused")throw Error("Mets la minuterie en pause avant de terminer.");
+    app.panel?.classList.add("s06-confirming");
     const d=qs("s06FinishForm");d.hidden=false;
     qs("s06Description").value="";
     qs("s06Rate").value=String(Number(typeof SETTINGS!=="undefined"&&(SETTINGS.defaultHourlyRate||SETTINGS.defaultLaborRate)||90));
@@ -468,7 +505,11 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     qs("s06Recover").addEventListener("click",()=>guarded(recover));
     qs("s06End").addEventListener("click",()=>guarded(showFinish));
     qs("s06Confirm").addEventListener("click",()=>guarded(finish));
-    qs("s06Cancel").addEventListener("click",()=>{qs("s06FinishForm").hidden=true;});
+    qs("s06Cancel").addEventListener("click",()=>{
+      qs("s06FinishForm").hidden=true;
+      app.panel?.classList.remove("s06-confirming");
+      paint();
+    });
     qs("s06Rate").addEventListener("input",quote);
     paint();
     guarded(async()=>{await read();setMsg(app.session?
