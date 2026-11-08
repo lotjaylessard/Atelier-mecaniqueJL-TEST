@@ -1095,6 +1095,14 @@ button.link:hover{
 
 
 #s08QuoteViewer .s08-viewer-controls{display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+/* S08-F06b : liens explicites de consultation pour la future conversion. */
+#s08QuoteViewer .s08-link-panel{border:1px solid #454545;border-radius:8px;padding:14px;margin:12px 0}
+#s08QuoteViewer .s08-link-panel[hidden]{display:none}
+#s08QuoteViewer .s08-link-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#s08QuoteViewer .s08-link-grid label{font-size:13px;min-width:0}
+#s08QuoteViewer .s08-link-grid select{width:100%;box-sizing:border-box}
+#s08QuoteViewer #s08LinkAssessment{white-space:pre-wrap}
+@media(max-width:650px){#s08QuoteViewer .s08-link-grid{grid-template-columns:1fr}}
 /* S08-F04 : fiche de consultation sans écriture, superposée à la page. */
 #s08QuoteViewer[hidden]{display:none}
 #s08QuoteViewer{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.75);padding:18px}
@@ -1381,6 +1389,17 @@ button.link:hover{
           </div>
           <p id="s08ViewMeta" class="muted"></p>
           <p id="s08PreflightResult" class="muted" role="status" aria-live="polite" hidden></p>
+          <section id="s08LinkPanel" class="s08-link-panel" hidden aria-label="Préparation des liens client véhicule">
+            <h3>Préparation SO → BT</h3>
+            <p class="muted">Sélectionne des fiches déjà enregistrées. Ces choix ne créent ni client, ni véhicule, ni BT.</p>
+            <div class="s08-link-grid">
+              <label>Client enregistré<select id="s08LinkedClient"><option value="">— Choisir un client —</option></select></label>
+              <label>Véhicule de ce client<select id="s08LinkedVehicle" disabled><option value="">— Choisir un véhicule —</option></select></label>
+            </div>
+            <p class="muted" id="s08LinkAssessment" role="status" aria-live="polite"></p>
+            <p class="muted">Si une fiche manque, crée-la d'abord normalement dans Clients ou Véhicules, puis reviens vérifier ici.</p>
+          </section>
+
           <div class="s08-viewer-details">
             <div><span class="muted">Client</span><strong id="s08ViewClient"></strong></div>
             <div><span class="muted">Téléphone</span><strong id="s08ViewPhone"></strong></div>
@@ -14431,40 +14450,76 @@ if (window.garageSupabase) {
     viewer.hidden=true;
     returnFocus?.focus?.();
   }
-  // S08-F06a : contrôle de conversion EN LECTURE SEULE.
-  // Une SO saisie librement ne peut pas déterminer seule l'identité du client.
-  get("s08Preflight")?.addEventListener("click",()=>{
-    const box=get("s08PreflightResult");
-    if(!selectedQuote||!box)return;
+  // S08-F06b : choix explicites, locaux et en lecture seule.
+  // Jamais de rapprochement automatique sur un nom ambigu.
+  const linkPanel=get("s08LinkPanel"),clientSelect=get("s08LinkedClient");
+  const vehicleSelect=get("s08LinkedVehicle"),assessment=get("s08LinkAssessment");
+  const normalizeText=value=>String(value??"").trim().normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("fr").replace(/\s+/g," ");
+  const currentClients=()=>typeof CLIENTS!=="undefined"&&Array.isArray(CLIENTS)?CLIENTS:[];
+  function clientTitle(c){
+    return String(c.name||[c.firstName,c.lastName].filter(Boolean).join(" ")||"Client sans nom");
+  }
+  function updateLinkAssessment(){
+    if(!selectedQuote||!assessment)return;
     const d=selectedQuote.content||{};
-    const clientName=String(d.clientName||"").trim();
-    const phone=String(d.clientPhone||"").replace(/\D/g,"");
-    const normalized=value=>String(value||"").trim().normalize("NFD")
-      .replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("fr").replace(/\s+/g," ");
-    const rows=typeof CLIENTS!=="undefined"&&Array.isArray(CLIENTS)?CLIENTS:[];
-    const candidates=rows.filter(c=>
-      normalized(c.name)===normalized(clientName)||
-      normalized([c.firstName,c.lastName].filter(Boolean).join(" "))===normalized(clientName)||
-      normalized([c.lastName,c.firstName].filter(Boolean).join(" "))===normalized(clientName));
-    const notes=[];
-    if(!clientName)notes.push("Nom du client manquant.");
-    if(!phone||phone.length<10)notes.push("Téléphone à confirmer dans une fiche client complète.");
-    if(candidates.length!==1)notes.push(candidates.length?
-      "Plusieurs clients possibles : sélectionner explicitement la bonne fiche.":
-      "Aucune fiche client correspondante : création ou liaison obligatoire.");
+    const messages=[];
+    const client=currentClients().find(c=>String(c.id)===clientSelect.value);
+    const vehicle=client?.vehicles?.find(v=>String(v.id)===vehicleSelect.value);
+    if(!client){messages.push("Sélectionne une fiche client existante.");}
     else{
-      const c=candidates[0];
-      notes.push("Client candidat trouvé, mais son identifiant doit être validé explicitement avant conversion.");
-      const vehicles=Array.isArray(c.vehicles)?c.vehicles:[];
-      if(!vehicles.length)notes.push("Aucun véhicule associé à cette fiche client.");
-      else notes.push("Véhicule à sélectionner explicitement, avec vérification de l'année, marque, modèle, VIN/plaque et KM.");
+      if(!clientTitle(client).trim())messages.push("Nom client manquant.");
+      const phone=String(client.phone||"").replace(/\D/g,"");
+      if(phone.length<10)messages.push("Téléphone client à compléter dans sa fiche.");
+      if(normalizeText(clientTitle(client))!==normalizeText(d.clientName||""))
+        messages.push("Nom du client différent de la SO : confirme l'identité avant la conversion.");
     }
-    if(!String(d.vehicleLabel||"").trim())notes.push("Véhicule manquant.");
-    if(!Array.isArray(d.lines)||!d.lines.length)notes.push("Aucune pièce ou main-d'œuvre.");
-    notes.push("Aucun BT créé. L'approbation restera bloquée jusqu'à la liaison certaine du client et du véhicule.");
-    box.textContent=notes.join("\n• ");
-    box.style.whiteSpace="pre-wrap";
-    box.hidden=false;
+    if(!vehicle){messages.push("Sélectionne un véhicule enregistré appartenant à ce client.");}
+    else{
+      if(!/^\d{4}$/.test(String(vehicle.year||""))||Number(vehicle.year)<1886)messages.push("Année véhicule invalide.");
+      if(!String(vehicle.make||"").trim()||!String(vehicle.model||"").trim())messages.push("Marque ou modèle manquant.");
+      if(!String(vehicle.vin||"").trim()&&!String(vehicle.plate||"").trim())
+        messages.push("Le véhicule doit avoir une plaque ou un NIV enregistré.");
+      const km=String(vehicle.km??"").trim();
+      if(!/^\d+$/.test(km))messages.push("Kilométrage à compléter dans la fiche véhicule.");
+      const summary=[vehicle.year,vehicle.make,vehicle.model].filter(Boolean).join(" ");
+      if(normalizeText(d.vehicleLabel||"")!==normalizeText(summary))
+        messages.push("Véhicule différent du libellé de la SO : vérifier explicitement qu'il s'agit du bon véhicule.");
+    }
+    if(!Array.isArray(d.lines)||!d.lines.length)messages.push("Soumission sans lignes.");
+    const ready=!!client&&!!vehicle&&!messages.length;
+    assessment.textContent=(ready?"✓ Fiches client et véhicule vérifiées pour la préparation.":"À compléter :\n• "+messages.join("\n• "))+
+      "\nAucun BT créé. La conversion restera désactivée jusqu'à son implémentation sécurisée.";
+  }
+  function populateClients(){
+    clientSelect.replaceChildren(new Option("— Choisir un client —",""));
+    for(const c of currentClients()){
+      if(c.id==null)continue;
+      clientSelect.add(new Option(clientTitle(c),String(c.id)));
+    }
+    vehicleSelect.replaceChildren(new Option("— Choisir un véhicule —",""));
+    vehicleSelect.disabled=true;
+  }
+  clientSelect.addEventListener("change",()=>{
+    const client=currentClients().find(c=>String(c.id)===clientSelect.value);
+    vehicleSelect.replaceChildren(new Option("— Choisir un véhicule —",""));
+    for(const v of Array.isArray(client?.vehicles)?client.vehicles:[]){
+      if(v.id==null)continue;
+      vehicleSelect.add(new Option([v.year,v.make,v.model,v.plate].filter(Boolean).join(" · "),String(v.id)));
+    }
+    vehicleSelect.disabled=!client;
+    updateLinkAssessment();
+  });
+  vehicleSelect.addEventListener("change",updateLinkAssessment);
+  get("s08Preflight")?.addEventListener("click",()=>{
+    if(!selectedQuote)return;
+    // Les objets CLIENTS peuvent être réhydratés après connexion.
+    try{if(typeof loadClients==="function")loadClients();}catch(e){console.warn("[S08] Lecture clients indisponible",e);}
+    populateClients();
+    linkPanel.hidden=false;
+    get("s08PreflightResult").textContent="Vérification manuelle obligatoire avant conversion : sélectionne le client et son véhicule dans les listes ci-dessous.";
+    get("s08PreflightResult").hidden=false;
+    updateLinkAssessment();
   });
   // S08-F05 : impression d'une soumission ENREGISTRÉE seulement.
   // Le document est construit depuis la fiche en lecture seule dont les valeurs
@@ -14481,6 +14536,8 @@ if (window.garageSupabase) {
     }
     const copy=viewer.querySelector(".s08-viewer-panel").cloneNode(true);
     copy.querySelector(".s08-viewer-controls")?.remove();
+    copy.querySelector("#s08LinkPanel")?.remove();
+    copy.querySelector("#s08PreflightResult")?.remove();
     copy.querySelectorAll(".muted").forEach(el=>el.style.color="#555");
     copy.querySelector(".s08-viewer-head")?.insertAdjacentHTML("afterbegin",
       '<div class="s08-print-brand">Garage-Atelier Mécanique J.L</div>');
@@ -14521,6 +14578,8 @@ if (window.garageSupabase) {
     if(!q||!viewer)return;
     selectedQuote=q;
     get("s08PreflightResult").hidden=true;
+    linkPanel.hidden=true;
+    clientSelect.value="";vehicleSelect.value="";
     const d=q.content||{},labels={draft:"Brouillon",sent:"Envoyée",approved:"Approuvée",declined:"Refusée",expired:"Expirée",converted:"Convertie"};
     const value=(id,text)=>{get(id).textContent=String(text??"—")||"—";};
     value("s08ViewTitle","Soumission "+q.quote_number);
