@@ -190,16 +190,32 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     window.dispatchEvent(new Event("s06-timer-updated"));
     return data;
   }
+  // Pilot S06 : detection d'une veille du navigateur. Ne jamais envoyer
+  // automatiquement un heartbeat retardé ni prétendre avoir confirmé ce temps.
+  let lastWakeCheck=0;
+  function warnInterrupted(reason){
+    stopBeat();
+    savedStatus("warning","⚠ "+reason+" — période non confirmée, non facturée.");
+    setMsg("Le serveur doit être relu. Après 60 s sans confirmation, utilise Récupérer, puis Reprendre. Le temps interrompu exige une validation distincte.");
+  }
   function beats(){
     stopBeat();
     if(app.session?.status!=="running")return;
     app.ownRunning=app.session.id;
     startDisplay();
+    lastWakeCheck=Date.now();
     app.beat=setInterval(()=>{
       if(app.busy)return;
+      const now=Date.now(),gap=now-lastWakeCheck;
+      lastWakeCheck=now;
+      if(gap>20000){
+        warnInterrupted("Veille ou interruption détectée ("+Math.round(gap/1000)+" s)");
+        guarded(read);
+        return;
+      }
       if(!navigator.onLine){
-        savedStatus("warning","⚠ Hors ligne — temps depuis le dernier enregistrement non confirmé.");
-        stopBeat();return;
+        warnInterrupted("Connexion perdue");
+        return;
       }
       guarded(async()=>{
         if(app.session?.status==="running"&&app.ownRunning===app.session.id){
@@ -208,6 +224,18 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       },true);
     },10000);
   }
+  document.addEventListener("visibilitychange",()=>{
+    if(document.visibilityState!=="visible"||!app.session)return;
+    if(app.ownRunning===app.session.id&&lastWakeCheck&&Date.now()-lastWakeCheck>20000){
+      warnInterrupted("Retour après mise en veille");
+      guarded(read);
+    }else if(!app.ownRunning){
+      guarded(read);
+    }
+  });
+  window.addEventListener("online",()=>{
+    if(app.session && !app.ownRunning)guarded(read);
+  });
   async function guarded(fn,isHeartbeat=false){
     if(app.busy)return;
     app.busy=true;paint();
