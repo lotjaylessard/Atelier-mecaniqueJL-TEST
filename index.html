@@ -1472,7 +1472,7 @@ button.link:hover{
                   <button type="button" class="ghost" id="s08CheckSync" disabled>☁️ Vérifier la synchronisation</button>
                 </div>
               </details>
-              <button type="button" id="s08ConvertBT" disabled hidden>✓ Approuver et créer BT</button>
+              <button type="button" id="s08ConvertBT" disabled>✓ Approuver et créer BT</button>
               <span id="s08LinkSaveStatus" role="status" aria-live="polite" class="muted"></span>
             </div>
             <div id="s08BTPreview" class="s08-bt-preview" hidden>
@@ -15054,7 +15054,7 @@ if (window.garageSupabase) {
     if(!selectedQuote||!["draft","sent"].includes(selectedQuote.status))return;
     if(linkPanel.hidden){
       get("s08Preflight").click();
-      linkPanel.scrollIntoView({behavior:"smooth",block:"nearest"});
+      linkPanel.scrollIntoView({behavior:"smooth",block:"start"});
       return;
     }
     // Ne pas transformer un clic en conversion lorsque les fiches sont incomplètes.
@@ -15196,9 +15196,6 @@ if (window.garageSupabase) {
       const statusCell=document.createElement("td"),pill=document.createElement("span");
       pill.className="s08-status-pill";setStatusPill(pill,q.status);
       statusCell.append(pill);tr.append(statusCell);
-      for(const val of []){
-        const td=document.createElement("td");td.textContent=val;tr.append(td);
-      }
       const td=document.createElement("td"),btn=document.createElement("button");
       btn.type="button";btn.className="ghost";btn.textContent="Voir";
       btn.onclick=()=>viewQuote(q,btn);
