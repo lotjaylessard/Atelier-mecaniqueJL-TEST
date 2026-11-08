@@ -1415,6 +1415,7 @@ button.link:hover{
               <button type="button" class="ghost" id="s08PreviewBT" disabled>👁 Aperçu du futur BT</button>
               <button type="button" class="ghost" id="s08ServerDryRun" disabled>🛡 Tester la conversion (sans créer)</button>
               <button type="button" class="ghost" id="s08CheckSync" disabled>☁️ Vérifier la synchronisation</button>
+              <button type="button" id="s08ConvertBT" disabled>✓ Approuver et créer BT</button>
               <span id="s08LinkSaveStatus" role="status" aria-live="polite" class="muted"></span>
             </div>
             <div id="s08BTPreview" class="s08-bt-preview" hidden>
@@ -1422,6 +1423,7 @@ button.link:hover{
               <p id="s08BTPreviewNumber" class="muted"></p>
               <p id="s08ServerDryRunStatus" class="muted" role="status" aria-live="polite"></p>
               <p id="s08CheckSyncStatus" class="muted" role="status" aria-live="polite"></p>
+              <p id="s08ConvertStatus" class="muted" role="status" aria-live="polite"></p>
               <div id="s08BTPreviewIdentity"></div>
               <p id="s08BTPreviewDescription"></p>
               <div class="s08-viewer-table"><table>
@@ -14566,9 +14568,11 @@ if (window.garageSupabase) {
     btn.disabled=!previewLinkReady();
     get("s08ServerDryRun").disabled=!previewLinkReady();
     get("s08CheckSync").disabled=!previewLinkReady();
+    get("s08ConvertBT").disabled=!previewLinkReady();
     get("s08BTPreview").hidden=true;
     get("s08ServerDryRunStatus").textContent="";
     get("s08CheckSyncStatus").textContent="";
+    get("s08ConvertStatus").textContent="";
   }
   get("s08PreviewBT")?.addEventListener("click",()=>{
     try{if(typeof loadClients==="function")loadClients();}catch(e){console.warn(e);}
@@ -14686,6 +14690,108 @@ if (window.garageSupabase) {
     }finally{
       syncCheckBusy=false;
       button.disabled=!previewLinkReady();
+    }
+  });
+  // S08-F06i : conversion atomique serveur. Aucun BT écrit dans localStorage
+  // indépendamment de la transaction. Toujours recharger l'état confirmé.
+  let convertingQuote=false;
+  get("s08ConvertBT")?.addEventListener("click",async()=>{
+    if(convertingQuote||!selectedQuote||!previewLinkReady())return;
+    const output=get("s08ConvertStatus"),button=get("s08ConvertBT");
+    const quoteId=selectedQuote.id,quoteNumber=selectedQuote.quote_number;
+    if(!window.confirm("Approuver définitivement "+quoteNumber+
+      " et créer UN bon de travail ? La soumission ne pourra plus être convertie à nouveau."))return;
+    convertingQuote=true;
+    button.disabled=true;
+    output.textContent="Vérification finale avant conversion…";
+    let transactionAttempted=false;
+    try{
+      const {sb,garageId}=context();
+      const sameContext=()=>typeof ACTIVE_GARAGE_ID!=="undefined"&&ACTIVE_GARAGE_ID===garageId;
+      if(!sameContext()||typeof hasUnconfirmedCloudChanges!=="function"||
+        typeof captureLocalGarageSnapshot!=="function"||
+        typeof garageSnapshotsEquivalent!=="function"||
+        hasUnconfirmedCloudChanges()||
+        !CLOUD_DATA_READY||!Number.isSafeInteger(CLOUD_DATA_VERSION)||
+        CLOUD_LAST_CONFIRMED_SNAPSHOT===null||
+        !garageSnapshotsEquivalent(captureLocalGarageSnapshot(),CLOUD_LAST_CONFIRMED_SNAPSHOT))
+        throw Error("Synchronisation locale non confirmée. Conversion interrompue.");
+      const startRevision=CLOUD_CHANGE_REVISION;
+      const {data:auth,error:authError}=await sb.auth.getUser();
+      if(authError||!auth?.user?.id||auth.user.id!==SUPABASE_USER?.id)
+        throw Error("La session utilisateur a changé.");
+      const [gResult,qResult]=await Promise.all([
+        sb.from("garage_data").select("version").eq("garage_id",garageId).single(),
+        sb.from("garage_quotes").select("version,status,content")
+          .eq("id",quoteId).eq("garage_id",garageId).eq("user_id",auth.user.id).single()
+      ]);
+      if(gResult.error||!Number.isSafeInteger(gResult.data?.version)||
+         gResult.data.version!==CLOUD_DATA_VERSION)
+        throw Error("Version du garage modifiée : actualise avant conversion.");
+      if(qResult.error||qResult.data?.version!==selectedQuote.version||
+        !["draft","sent"].includes(qResult.data?.status)||
+        String(qResult.data.content?.linkedClientId)!==String(selectedQuote.content?.linkedClientId)||
+        String(qResult.data.content?.linkedVehicleId)!==String(selectedQuote.content?.linkedVehicleId))
+        throw Error("Soumission modifiée ou déjà convertie : actualise avant conversion.");
+      if(!sameContext()||hasUnconfirmedCloudChanges()||
+        CLOUD_CHANGE_REVISION!==startRevision||
+        !garageSnapshotsEquivalent(captureLocalGarageSnapshot(),CLOUD_LAST_CONFIRMED_SNAPSHOT)||
+        !previewLinkReady())
+        throw Error("Modifications locales détectées : conversion annulée.");
+      const {data:dry,error:dryError}=await sb.rpc("s08_convert_quote_to_workorder",{
+        p_quote_id:quoteId,p_expected_quote_version:selectedQuote.version,
+        p_expected_garage_version:gResult.data.version,p_dry_run:true
+      });
+      if(dryError||!dry?.dryRun||dry.quoteNumber!==quoteNumber)
+        throw Error("Simulation finale refusée : "+String(dryError?.message||"réponse incorrecte"));
+      if(!sameContext()||hasUnconfirmedCloudChanges()||
+        CLOUD_CHANGE_REVISION!==startRevision||
+        !garageSnapshotsEquivalent(captureLocalGarageSnapshot(),CLOUD_LAST_CONFIRMED_SNAPSHOT))
+        throw Error("Une sauvegarde locale est apparue pendant la validation.");
+      // Bloquer les sauvegardes locales pendant la transaction et la réhydratation.
+      CLOUD_DATA_READY=false;
+      transactionAttempted=true;
+      output.textContent="Conversion atomique en cours sur Supabase TEST…";
+      const {data:converted,error:convertError}=await sb.rpc("s08_convert_quote_to_workorder",{
+        p_quote_id:quoteId,p_expected_quote_version:selectedQuote.version,
+        p_expected_garage_version:gResult.data.version,p_dry_run:false
+      });
+      if(convertError)throw convertError;
+      if(!converted||converted.dryRun!==false||
+         converted.quoteNumber!==quoteNumber||!converted.workOrderNumber)
+        throw Error("Réponse ambiguë : vérifier l'état serveur avant toute nouvelle tentative.");
+      output.textContent="BT "+converted.workOrderNumber+
+        " créé. Rechargement de l'état confirmé…";
+      const loaded=await loadCloudData();
+      if(!loaded)throw Error("BT créé, mais rechargement local non confirmé. Actualise la page.");
+      const workorder=WORKORDERS.find(w=>String(w.number)===String(converted.workOrderNumber)&&
+        String(w.sourceQuoteId)===String(quoteId));
+      if(!workorder)throw Error("BT créé sur serveur, mais absent du chargement local : ne réessaie pas.");
+      await refreshQuotes();
+      const confirmed=quotes.find(q=>q.id===quoteId);
+      if(!confirmed||confirmed.status!=="converted")
+        throw Error("BT créé, mais statut SO non confirmé localement. Actualise sans réessayer.");
+      get("s08ConvertStatus").textContent="✓ "+quoteNumber+" convertie en "+
+        converted.workOrderNumber+" — sauvegarde confirmée.";
+      get("s08ConvertBT").disabled=true;
+      renderWorkOrders();
+      alert("Conversion réussie : "+converted.workOrderNumber+
+        ". La soumission reste enregistrée avec son statut Convertie.");
+      closeViewer();
+      showPage("page-workorders");
+    }catch(err){
+      console.error("[S08-F06i] Conversion interrompue ou à confirmer",err);
+      output.textContent="⚠ "+String(err?.message||err)+
+        (transactionAttempted?" Vérifie les données serveur avant de réessayer.":" Aucun BT créé par cette tentative.");
+      if(transactionAttempted){
+        // Le serveur peut avoir commis même en cas de coupure réseau.
+        // Ne jamais rendre un nouvel essai possible sans rechargement complet.
+        try{await loadCloudData();await refreshQuotes();}catch(e){console.error(e);}
+      }
+    }finally{
+      convertingQuote=false;
+      // Après toute tentative serveur, obligation de rouvrir la SO.
+      button.disabled=true;
     }
   });
   function updateLinkAssessment(){
