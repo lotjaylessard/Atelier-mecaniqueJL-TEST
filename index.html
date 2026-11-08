@@ -1058,6 +1058,9 @@ button.link:hover{
 #s06SidebarTimer .s06-timer-controls{display:flex;gap:5px}
 #s06SidebarTimer .s06-timer-controls button{flex:1;min-width:0;font-size:11px;font-family:inherit;font-weight:600;border-radius:6px;padding:5px 2px;border:1px solid #666;background:#303030;color:#aaa;opacity:.75;cursor:not-allowed}
 #s06SidebarTimer .s06-timer-hint{color:#bbb;font-size:10px;line-height:1.25}
+#s06SidebarTimer .s06-timer-controls button{opacity:1;cursor:pointer;color:#ffd400;border-color:#b38b26;background:#282828;padding:6px 3px}
+#s06SidebarTimer .s06-timer-controls button:hover{background:#3b3320}
+#s06SidebarTimer .s06-timer-controls button:disabled{opacity:.5;cursor:default}
 #s06SidebarTimer[hidden]{display:none!important}
 #s06SidebarTimer[data-status="running"]{border-color:#55b76b}
 #s06SidebarTimer[data-status="running"] .s06-timer-status{color:#78df90}
@@ -1214,7 +1217,11 @@ button.link:hover{
       <div class="s06-timer-description" id="s06TimerDescription" title="Description du bon de travail"><strong>Description :</strong> <span></span></div>
     </div>
     <div class="s06-timer-time" id="s06TimerTime" aria-live="off">00:00:00</div>
-    <div class="s06-timer-hint">Suivi local seulement — pas encore synchronisé entre appareils.</div>
+    <div class="s06-timer-controls">
+      <button id="s06SidebarToggle" type="button">⏸ Pause</button>
+      <button id="s06SidebarStop" type="button">⏹ Arrêter</button>
+    </div>
+    <div class="s06-timer-hint">Sauvegarde locale, restauration en pause. Synchronisation multi-appareil à venir.</div>
   </section>
 
   <button class="navBtn" data-page="page-dashboard">📊 Dashboard</button>
@@ -14403,11 +14410,11 @@ if (window.garageSupabase) {
   
 </script>
 
-<!-- S06-F04e : miroir visuel du minuteur EXISTANT; aucune commande sur le BT. -->
+<!-- S06 : minuterie locale TEST visible en continu sous Menu.
+  Les commandes utilisent exclusivement les fonctions du BT existant. -->
 <script>
 (() => {
   "use strict";
-  // Le pilote persistant S06 possède son propre affichage côté menu.
   if(new URLSearchParams(location.search).get("s06_wo_pilot")==="1")return;
   const box=document.getElementById("s06SidebarTimer");
   const status=document.getElementById("s06TimerStatus");
@@ -14415,89 +14422,86 @@ if (window.garageSupabase) {
   const vehicle=document.getElementById("s06TimerVehicle");
   const desc=document.querySelector("#s06TimerDescription span");
   const time=document.getElementById("s06TimerTime");
-  if(!box||!status||!number||!vehicle||!desc||!time)return;
-  let activeId=null;
-  let activeMetadata=null;
-  const pad=x=>String(x).padStart(2,"0");
+  const toggle=document.getElementById("s06SidebarToggle");
+  const stop=document.getElementById("s06SidebarStop");
+  if(!box||!status||!number||!vehicle||!desc||!time||!toggle||!stop)return;
   const formatted=ms=>{
-    const total=Math.floor(Math.max(0,ms)/1000);
-    return pad(Math.floor(total/3600))+":"+pad(Math.floor(total/60)%60)+":"+pad(total%60);
+    const sec=Math.floor(Math.max(0,Number(ms)||0)/1000);
+    const pad=n=>String(n).padStart(2,"0");
+    return pad(Math.floor(sec/3600))+":"+pad(Math.floor(sec/60)%60)+":"+pad(sec%60);
   };
-  // Les deux implementations historiques du minuteur sont observees, jamais pilotees.
-  function state(){
-    try{
-      if(typeof WO_TIMER_INTERVAL!=="undefined" && WO_TIMER_INTERVAL &&
-         typeof WO_TIMER_START==="number")
-        return {running:true,ms:Math.max(0,Date.now()-WO_TIMER_START)};
-      if(typeof WO_TIMER_PAUSED!=="undefined" && WO_TIMER_PAUSED &&
-         typeof WO_TIMER_ELAPSED==="number")
-        return {running:false,paused:true,ms:WO_TIMER_ELAPSED};
-      if(typeof WO_TIMER!=="undefined" && WO_TIMER &&
-         WO_TIMER.running && Number.isFinite(WO_TIMER.startTime))
-        return {running:true,ms:Math.max(0,Date.now()-WO_TIMER.startTime+Number(WO_TIMER.elapsed||0))};
-      if(typeof WO_TIMER!=="undefined" && WO_TIMER &&
-         !WO_TIMER.running && Number(WO_TIMER.elapsed)>0)
-        return {running:false,paused:true,ms:WO_TIMER.elapsed};
-    }catch(_ignored){}
-    return null;
-  }
   function metadata(id){
     if(!id)return null;
     try{
-      const wo=(typeof WORKORDERS!=="undefined"&&Array.isArray(WORKORDERS))
-        ? WORKORDERS.find(w=>w&&String(w.id)===String(id)):null;
+      const wo=typeof WORKORDERS!=="undefined"&&Array.isArray(WORKORDERS)
+        ?WORKORDERS.find(w=>w&&String(w.id)===String(id)):null;
       if(!wo||wo.status!=="en_cours")return null;
       return {id:String(wo.id),number:String(wo.number||"—"),
         vehicle:String(wo.vehicleLabel||"—"),description:String(wo.description||"—")};
-    }catch(_ignored){return null;}
+    }catch(_){return null;}
+  }
+  function current(){
+    try{
+      if(typeof woTimerBackupRestore==="function")woTimerBackupRestore();
+      const id=typeof WO_TIMER_BACKUP_WO_ID!=="undefined"?WO_TIMER_BACKUP_WO_ID:null;
+      const meta=metadata(id);
+      if(!meta)return null;
+      if(typeof WO_TIMER_INTERVAL!=="undefined"&&WO_TIMER_INTERVAL&&Number.isFinite(WO_TIMER_START))
+        return {meta,running:true,ms:Math.max(0,Date.now()-WO_TIMER_START)};
+      if(typeof WO_TIMER_PAUSED!=="undefined"&&WO_TIMER_PAUSED&&
+         Number.isFinite(WO_TIMER_ELAPSED))
+        return {meta,running:false,ms:WO_TIMER_ELAPSED};
+    }catch(_){}
+    return null;
   }
   function refresh(){
-    const current=state();
-    if(!current){
-      activeId=null;activeMetadata=null;box.hidden=true;
-      return;
-    }
-    if(!activeId||!activeMetadata){
-      box.hidden=true;return;
-    }
-    const latest=metadata(activeId);
-    if(!latest){box.hidden=true;return;}
-    activeMetadata=latest;
+    const state=current();
+    if(!state){box.hidden=true;return;}
     box.hidden=false;
-    box.dataset.status=current.running?"running":"paused";
-    status.textContent=current.running?"● En cours":"● En pause";
-    number.textContent=latest.number;
-    vehicle.textContent=latest.vehicle;
-    desc.textContent=latest.description;
-    const descriptionWrapper=document.getElementById("s06TimerDescription");
-    if(descriptionWrapper)descriptionWrapper.title=latest.description;
-    time.textContent=formatted(current.ms);
+    box.dataset.status=state.running?"running":"paused";
+    status.textContent=state.running?"● En cours":"● En pause";
+    number.textContent=state.meta.number;
+    vehicle.textContent=state.meta.vehicle;
+    desc.textContent=state.meta.description;
+    document.getElementById("s06TimerDescription").title=state.meta.description;
+    time.textContent=formatted(state.ms);
+    toggle.textContent=state.running?"⏸ Pause":"▶ Reprendre";
+    toggle.disabled=false;stop.disabled=false;
   }
-  document.addEventListener("click",event=>{
-    const target=event.target;
-    if(!(target instanceof Element))return;
-    const timerButton=target.closest("#woTimerBtn,#woTimerPauseBtn,#woTimerStopBtn");
-    if(!timerButton)return;
-    const chosenId=document.getElementById("woEditId")?.value;
-    const chosen=metadata(chosenId);
-    // Lecture APRES les gestionnaires historiques, sans les remplacer.
-    setTimeout(()=>{
-      if(timerButton.id==="woTimerStopBtn"){
-        activeId=null;activeMetadata=null;box.hidden=true;
-        return;
-      }
-      if(timerButton.id==="woTimerBtn" && chosen && state()){
-        activeId=chosen.id;activeMetadata=chosen;
-      }
-      refresh();
-    },0);
+  function openBT(id,done){
+    if(typeof openWorkOrderFromDashboard!=="function")return;
+    openWorkOrderFromDashboard(id);
+    if(typeof done==="function"){
+      setTimeout(()=>{
+        if(String(document.getElementById("woEditId")?.value)!==String(id)){
+          alert("Impossible d'ouvrir le BT lié au minuteur.");return;
+        }
+        done();
+        refresh();
+      },200);
+    }
+  }
+  number.addEventListener("click",()=>{const state=current();if(state)openBT(state.meta.id);});
+  toggle.addEventListener("click",()=>{
+    const state=current();if(!state)return;
+    if(state.running){
+      pauseWOTimer();syncWOTimerUI();refresh();
+    }else{
+      // Le démarrage historique identifie le BT ouvert. Ouvrir le bon BT d'abord.
+      openBT(state.meta.id,()=>{
+        startWOTimer();
+        syncWOTimerUI();
+      });
+    }
   });
-  number.addEventListener("click",()=>{
-    if(!activeId || !metadata(activeId))return;
-    if(typeof openWorkOrderFromDashboard==="function")
-      openWorkOrderFromDashboard(activeId);
+  stop.addEventListener("click",()=>{
+    const state=current();if(!state)return;
+    // Stop exige le BT actif; une note sera demandée par le même gestionnaire.
+    openBT(state.meta.id,()=>{
+      if(typeof stopWOTimer==="function")stopWOTimer();
+      syncWOTimerUI();
+    });
   });
-  // Rafraichit seulement le miroir visuel : ne demarre aucun chronometre.
   setInterval(refresh,500);
   refresh();
 })();
