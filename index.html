@@ -1386,12 +1386,28 @@ button.link:hover{
           <div><h3>Nouvelle soumission — brouillon temporaire</h3><p class="muted">Aucun numéro SO attribué avant la sauvegarde. Aucune incidence sur les clients, les véhicules, les pièces ou les BT.</p></div>
           <button id="s08CancelQuote" type="button" class="ghost">Fermer le brouillon</button>
         </div>
-        <!-- S08 : sélection rapide sans créer ni modifier de fiche existante -->
-        <div class="s08-field-grid" style="margin-bottom:12px">
-          <label>Rechercher un client existant<input id="s08ClientLookup" type="search" autocomplete="off" placeholder="Nom ou téléphone"></label>
-          <label>Client trouvé<select id="s08ClientChoice"><option value="">— Saisie manuelle / nouveau client —</option></select></label>
-          <label>Véhicule du client<select id="s08VehicleChoice" disabled><option value="">— Choisir d'abord un client —</option></select></label>
-          <p id="s08ClientLookupInfo" class="muted" style="align-self:end;margin:0;font-size:12px">Tu peux aussi remplir les champs ci-dessous manuellement.</p>
+        <style>
+          #page-quotes .s08-client-fast{display:grid;grid-template-columns:minmax(250px,1.4fr) auto minmax(200px,1fr);align-items:end;gap:10px 14px}
+          #page-quotes .s08-client-fast>label:first-child{grid-column:1/-1;margin:0}
+          #page-quotes .s08-client-lookup-wrap{position:relative;min-width:0}
+          #page-quotes #s08ClientLookup{width:100%}
+          #page-quotes #s08NewClient{white-space:nowrap;min-height:40px}
+          #page-quotes .s08-client-results{position:absolute;top:calc(100% + 3px);left:0;right:0;z-index:100;background:#232323;border:1px solid #686868;border-radius:7px;box-shadow:0 8px 22px #0009;max-height:250px;overflow:auto}
+          #page-quotes .s08-client-results button{display:block;background:transparent;border:0;border-bottom:1px solid #454545;border-radius:0;text-align:left;color:#f4f4f4;width:100%;padding:11px 13px;font:inherit}
+          #page-quotes .s08-client-results button:hover,#page-quotes .s08-client-results button:focus-visible{background:#39495b;outline:2px solid #75b4eb;outline-offset:-2px}
+          #page-quotes .s08-client-results .s08-no-match{padding:12px;color:#ddd}
+          @media(max-width:850px){#page-quotes .s08-client-fast{grid-template-columns:minmax(0,1fr)}#page-quotes .s08-client-fast>label:first-child{grid-column:auto}}
+        </style>
+        <!-- S08 : recherche instantanée, réutilisation des fiches clients existantes -->
+        <div class="s08-client-fast" style="margin-bottom:12px">
+          <label for="s08ClientLookup">Client</label>
+          <div class="s08-client-lookup-wrap">
+            <input id="s08ClientLookup" type="search" autocomplete="off" placeholder="Tape le prénom, le nom ou le téléphone…" aria-controls="s08ClientResults" aria-expanded="false">
+            <div id="s08ClientResults" class="s08-client-results" hidden></div>
+          </div>
+          <button id="s08NewClient" type="button" class="ghost">+ Nouveau client</button>
+          <label for="s08VehicleChoice">Véhicule<select id="s08VehicleChoice" disabled><option value="">— Choisir un client —</option></select></label>
+          <p id="s08ClientLookupInfo" class="muted" style="margin:0;font-size:12px;grid-column:1/-1">Recherche instantanée. Les champs ci-dessous restent modifiables.</p>
         </div>
         <div class="s08-field-grid">
           <label>Nom du client<input id="s08ClientName" type="text" autocomplete="off" placeholder="Nom du client"></label>
@@ -14457,53 +14473,95 @@ if (window.garageSupabase) {
     setup("s08CatalogPart",catalogParts,"une pièce");
     setup("s08CatalogService",catalogServices,"un service");
   }
-  // Recherche locale, sans écriture et sans création de client/vehicule.
-  function refreshClientChoices(){
-    const query=String(get("s08ClientLookup")?.value||"").trim().normalize("NFD")
-      .replace(/[\u0300-\u036f]/g,"").toLowerCase();
-    const choice=get("s08ClientChoice"), previous=choice.value;
-    const clients=(typeof CLIENTS!=="undefined"&&Array.isArray(CLIENTS))?CLIENTS:[];
-    choice.replaceChildren(new Option("— Saisie manuelle / nouveau client —",""));
-    const filtered=clients.filter(c=>{
-      const name=String(c.name||[c.firstName,c.lastName].filter(Boolean).join(" "));
-      const content=(name+" "+String(c.phone||"")).normalize("NFD")
-        .replace(/[\u0300-\u036f]/g,"").toLowerCase();
-      return !query||content.includes(query);
-    }).slice(0,80);
-    filtered.forEach(c=>choice.add(new Option(
-      String(c.name||[c.firstName,c.lastName].filter(Boolean).join(" ")||"Client")+
-      (c.phone?" · "+c.phone:""),String(c.id))));
-    if([...choice.options].some(o=>o.value===previous))choice.value=previous;
-    get("s08ClientLookupInfo").textContent=filtered.length+
-      " client(s) correspondant(s). Sélectionne un client pour remplir la soumission.";
+  // S08 : recherche instantanée dans les clients déjà chargés, sans écriture.
+  const clientLookup=get("s08ClientLookup"),clientResults=get("s08ClientResults");
+  const vehicleChoice=get("s08VehicleChoice");
+  let selectedFastClientId="";
+  const clientsForQuote=()=>typeof CLIENTS!=="undefined"&&Array.isArray(CLIENTS)?CLIENTS:[];
+  const clientNameForQuote=c=>String(c.name||[c.firstName,c.lastName].filter(Boolean).join(" ")||"Client");
+  const normalizeLookup=value=>String(value||"").normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("fr");
+  function closeClientResults(){
+    clientResults.hidden=true;
+    clientLookup.setAttribute("aria-expanded","false");
   }
-  function chooseClient(){
-    const clients=(typeof CLIENTS!=="undefined"&&Array.isArray(CLIENTS))?CLIENTS:[];
-    const c=clients.find(c=>String(c.id)===get("s08ClientChoice").value);
-    const vehicles=get("s08VehicleChoice");
-    vehicles.replaceChildren(new Option(c?"— Choisir un véhicule —":"— Choisir d'abord un client —",""));
-    vehicles.disabled=!c;
-    if(!c)return;
-    get("s08ClientName").value=String(c.name||[c.firstName,c.lastName].filter(Boolean).join(" "));
+  function selectClientForQuote(c){
+    selectedFastClientId=String(c.id);
+    clientLookup.value=clientNameForQuote(c);
+    get("s08ClientName").value=clientNameForQuote(c);
     get("s08ClientPhone").value=String(c.phone||"");
     get("s08ClientEmail").value=String(c.email||"");
     get("s08VehicleLabel").value="";
+    vehicleChoice.replaceChildren(new Option("— Choisir un véhicule —",""));
     (Array.isArray(c.vehicles)?c.vehicles:[]).forEach(v=>{
       const label=[v.year,v.make,v.model].filter(Boolean).join(" ");
-      vehicles.add(new Option(label+(v.plate?" · "+v.plate:""),String(v.id)));
+      vehicleChoice.add(new Option(label+(v.plate?" · "+v.plate:""),String(v.id)));
     });
-    get("s08ClientLookupInfo").textContent=vehicles.options.length>1?
-      "Client sélectionné. Choisis maintenant son véhicule.":"Aucun véhicule dans cette fiche : tu peux saisir le véhicule manuellement.";
+    vehicleChoice.disabled=vehicleChoice.options.length<2;
+    get("s08ClientLookupInfo").textContent=vehicleChoice.disabled?
+      "Client sélectionné. Aucun véhicule enregistré; remplis le véhicule manuellement.":
+      "Client sélectionné. Choisis son véhicule.";
+    closeClientResults();
   }
-  function chooseVehicle(){
-    const clients=(typeof CLIENTS!=="undefined"&&Array.isArray(CLIENTS))?CLIENTS:[];
-    const c=clients.find(c=>String(c.id)===get("s08ClientChoice").value);
-    const v=c?.vehicles?.find(v=>String(v.id)===get("s08VehicleChoice").value);
+  function refreshClientChoices(){
+    const query=normalizeLookup(clientLookup.value.trim());
+    clientResults.replaceChildren();
+    if(!query){closeClientResults();return;}
+    const matching=clientsForQuote().filter(c=>normalizeLookup(
+      clientNameForQuote(c)+" "+String(c.phone||"")).includes(query)).slice(0,10);
+    for(const c of matching){
+      const button=document.createElement("button");
+      button.type="button";
+      button.textContent=clientNameForQuote(c)+(c.phone?" · "+c.phone:"");
+      button.addEventListener("click",()=>selectClientForQuote(c));
+      clientResults.append(button);
+    }
+    if(!matching.length){
+      const empty=document.createElement("div");
+      empty.className="s08-no-match";
+      empty.textContent="Aucun client trouvé. Clique sur « + Nouveau client ».";
+      clientResults.append(empty);
+    }
+    clientResults.hidden=false;
+    clientLookup.setAttribute("aria-expanded","true");
+  }
+  clientLookup?.addEventListener("input",()=>{
+    selectedFastClientId="";
+    vehicleChoice.replaceChildren(new Option("— Choisir un client —",""));
+    vehicleChoice.disabled=true;
+    refreshClientChoices();
+  });
+  clientLookup?.addEventListener("focus",refreshClientChoices);
+  clientLookup?.addEventListener("keydown",event=>{
+    if(event.key==="Escape"){closeClientResults();return;}
+    if(event.key==="Enter"&&!clientResults.hidden){
+      const first=clientResults.querySelector("button");
+      if(first){event.preventDefault();first.click();}
+    }
+  });
+  document.addEventListener("pointerdown",event=>{
+    if(!event.target.closest(".s08-client-lookup-wrap"))closeClientResults();
+  });
+  vehicleChoice?.addEventListener("change",()=>{
+    const c=clientsForQuote().find(c=>String(c.id)===selectedFastClientId);
+    const v=c?.vehicles?.find(v=>String(v.id)===vehicleChoice.value);
     if(v)get("s08VehicleLabel").value=[v.year,v.make,v.model].filter(Boolean).join(" ");
-  }
-  get("s08ClientLookup")?.addEventListener("input",refreshClientChoices);
-  get("s08ClientChoice")?.addEventListener("change",chooseClient);
-  get("s08VehicleChoice")?.addEventListener("change",chooseVehicle);
+  });
+  get("s08NewClient")?.addEventListener("click",()=>{
+    closeClientResults();
+    if(typeof renderClientModal!=="function"){
+      get("s08ClientLookupInfo").textContent="Formulaire client indisponible pour le moment.";
+      return;
+    }
+    renderClientModal();
+    const modal=get("clientModal");
+    if(modal)modal.style.display="flex";
+  });
+  document.addEventListener("client:created",event=>{
+    if(editor.hidden || !event.detail)return;
+    selectClientForQuote(event.detail);
+    get("s08ClientLookupInfo").textContent="Nouveau client enregistré. Ferme sa fiche puis choisis son véhicule ou saisis-le manuellement.";
+  });
   function prefill(kind){
     const select=get(kind==="part"?"s08CatalogPart":"s08CatalogService");
     if(!select||select.value==="")return;
@@ -14551,7 +14609,7 @@ if (window.garageSupabase) {
     if(!editor.hidden)return;
     editor.hidden=false;
     populateCatalogs();
-    refreshClientChoices();
+    clientLookup.value="";closeClientResults();
     start.textContent="Brouillon ouvert";
     start.disabled=true;
     get("s08ClientName")?.focus();
@@ -14564,9 +14622,10 @@ if (window.garageSupabase) {
     editor.querySelectorAll("input,textarea").forEach(el=>el.value="");
     get("s08LineQty").value="1";get("s08LinePrice").value="0";
     get("s08CatalogPart").value="";get("s08CatalogService").value="";
-    get("s08ClientChoice").value="";
-    get("s08VehicleChoice").replaceChildren(new Option("— Choisir d'abord un client —",""));
-    get("s08VehicleChoice").disabled=true;
+    selectedFastClientId="";
+    closeClientResults();
+    vehicleChoice.replaceChildren(new Option("— Choisir un client —",""));
+    vehicleChoice.disabled=true;
     error.textContent="";
     editor.hidden=true;start.disabled=false;start.textContent="➕ Nouvelle soumission";
   });
