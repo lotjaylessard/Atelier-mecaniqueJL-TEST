@@ -14466,9 +14466,14 @@ if (window.garageSupabase) {
       '</style></head><body>'+noScripts+'</body></html>');
     popup.document.close();
     popup.focus();
-    popup.addEventListener("load",()=>{popup.focus();popup.print();},{once:true});
+    let printStarted=false;
+    const startPrint=()=>{
+      if(printStarted||popup.closed)return;
+      printStarted=true;popup.focus();popup.print();
+    };
+    popup.addEventListener("load",startPrint,{once:true});
     // Certains navigateurs ne déclenchent pas load après document.write.
-    if(popup.document.readyState==="complete")popup.print();
+    if(popup.document.readyState==="complete")startPrint();
   });
   viewClose.addEventListener("click",closeViewer);
   viewer.addEventListener("click",event=>{if(event.target===viewer)closeViewer();});
