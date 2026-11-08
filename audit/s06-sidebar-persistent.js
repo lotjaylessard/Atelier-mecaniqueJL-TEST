@@ -13,6 +13,12 @@
   const desc=document.querySelector("#s06TimerDescription span");
   const time=document.getElementById("s06TimerTime");
   const hint=box?.querySelector(".s06-timer-hint");
+  const toggle=document.getElementById("s06SidebarToggle");
+  const stop=document.getElementById("s06SidebarStop");
+  // Les commandes du pilote restent désactivées sans confirmation de
+  // la session du même BT. Ne pas appeler la minuterie locale historique.
+  if(toggle)toggle.disabled=true;
+  if(stop)stop.disabled=true;
   if(!box||!status||!number||!vehicle||!desc||!time)return;
   if(hint)hint.textContent="Temps confirmé par Supabase toutes les 10 s; affichage fluide indicatif.";
   const pad=n=>String(n).padStart(2,"0");
@@ -43,6 +49,14 @@
     box.dataset.status=stale?"paused":current.status;
     status.textContent=stale?"⚠ À récupérer":
       current.status==="running"?"● En cours":"● En pause";
+    if(toggle){
+      toggle.textContent=stale?"⚠ Récupérer":current.status==="running"?"⏸ Pause":"▶ Reprendre";
+      toggle.disabled=false;
+    }
+    if(stop){
+      stop.textContent="⏹ Terminer";
+      stop.disabled=false;
+    }
     number.textContent=meta.number;
     vehicle.textContent=meta.vehicle;
     desc.textContent=meta.description;
@@ -107,6 +121,40 @@
       }else hide();
     }finally{busy=false;}
   }
+  function triggerPilotAction(action){
+    const selected=current&&metadata(current.work_order_id);
+    if(!selected)return;
+    // Toujours ouvrir le BT. Le pilote revérifie le compte, la session
+    // et la révision auprès du serveur avant toute mutation.
+    const requestedId=String(current.id);
+    if(typeof openWorkOrderFromDashboard==="function")
+      openWorkOrderFromDashboard(selected.id);
+    let attempts=0;
+    const watcher=setInterval(()=>{
+      if(++attempts>30){clearInterval(watcher);return;}
+      const pilot=document.getElementById("s06WoPilot");
+      const currentWo=document.getElementById("woEditId")?.value;
+      if(!pilot||String(currentWo)!==selected.id||
+        pilot.dataset.sessionId!==requestedId)return;
+      const button=pilot.querySelector("#"+(
+        action==="finish"?"s06End":
+        action==="recover"?"s06Recover":
+        action==="pause"?"s06Pause":"s06Start"));
+      if(!button||button.disabled||button.hidden){
+        if(attempts>=30)clearInterval(watcher);
+        return;
+      }
+      clearInterval(watcher);
+      button.click();
+    },200);
+  }
+  toggle?.addEventListener("click",()=>{
+    const stamp=Date.parse(current?.last_heartbeat_at||"");
+    const stale=current?.status==="running"&&Number.isFinite(stamp)&&
+      Date.now()-stamp>20000;
+    triggerPilotAction(stale?"recover":current?.status==="running"?"pause":"start");
+  });
+  stop?.addEventListener("click",()=>triggerPilotAction("finish"));
   number.addEventListener("click",()=>{
     const meta=current&&metadata(current.work_order_id);
     if(!meta)return;
