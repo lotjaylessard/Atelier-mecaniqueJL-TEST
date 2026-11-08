@@ -1094,6 +1094,20 @@ button.link:hover{
 #page-quotes .s08-quote-empty{text-align:center}
 
 
+/* S08-F04 : fiche de consultation sans écriture, superposée à la page. */
+#s08QuoteViewer[hidden]{display:none}
+#s08QuoteViewer{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.75);padding:18px}
+#s08QuoteViewer .s08-viewer-panel{background:#262626;border:1px solid #454545;border-radius:12px;max-width:900px;width:100%;max-height:90vh;overflow:auto;padding:24px}
+#s08QuoteViewer .s08-viewer-head{display:flex;justify-content:space-between;align-items:center;gap:15px}
+#s08QuoteViewer .s08-viewer-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0;padding:15px;border:1px solid #414141;border-radius:8px}
+#s08QuoteViewer .s08-viewer-details div{min-width:0;overflow-wrap:anywhere}
+#s08QuoteViewer .s08-viewer-details span,#s08QuoteViewer .s08-viewer-details strong{display:block}
+#s08QuoteViewer .s08-view-description{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0 18px}
+#s08QuoteViewer .s08-viewer-table{overflow-x:auto}
+#s08QuoteViewer table{min-width:550px}
+#s08QuoteViewer .s08-view-total{text-align:right;color:var(--accent);font-weight:bold;font-size:18px;margin:18px 0 7px}
+@media(max-width:650px){#s08QuoteViewer .s08-viewer-details{grid-template-columns:1fr}#s08QuoteViewer .s08-viewer-panel{padding:14px}}
+
 /* S08-F02b : sélection de catalogues en lecture seule. */
 #page-quotes .s08-catalog-pickers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;margin:10px 0 16px}
 #page-quotes .s08-catalog-pickers label{min-width:0;font-size:14px}
@@ -1352,6 +1366,34 @@ button.link:hover{
         </div>
       </div>
     </div>
+
+      <!-- S08-F04 : consultation seule des soumissions déjà enregistrées -->
+      <div id="s08QuoteViewer" class="s08-viewer" hidden role="dialog" aria-modal="true" aria-labelledby="s08ViewTitle">
+        <div class="s08-viewer-panel">
+          <div class="s08-viewer-head">
+            <h2 id="s08ViewTitle">Soumission</h2>
+            <button type="button" class="ghost" id="s08ViewClose">Fermer</button>
+          </div>
+          <p id="s08ViewMeta" class="muted"></p>
+          <div class="s08-viewer-details">
+            <div><span class="muted">Client</span><strong id="s08ViewClient"></strong></div>
+            <div><span class="muted">Téléphone</span><strong id="s08ViewPhone"></strong></div>
+            <div><span class="muted">Courriel</span><strong id="s08ViewEmail"></strong></div>
+            <div><span class="muted">Véhicule</span><strong id="s08ViewVehicle"></strong></div>
+          </div>
+          <h3>Travaux proposés</h3>
+          <p id="s08ViewDescription" class="s08-view-description"></p>
+          <h3>Pièces et main-d’œuvre</h3>
+          <div class="s08-viewer-table">
+            <table>
+              <thead><tr><th>Type</th><th>Description</th><th>Quantité / heures</th><th>Prix unitaire</th><th>Montant</th></tr></thead>
+              <tbody id="s08ViewLines"></tbody>
+            </table>
+          </div>
+          <p class="s08-view-total">Total estimé : <strong id="s08ViewTotal"></strong></p>
+          <p class="muted" style="font-size:12px;">Taxes applicables en sus. Document consultable seulement à cette étape.</p>
+        </div>
+      </div>
 
     <div class="page" id="page-workorders">
        <h2>Bons de travail</h2>
@@ -14374,6 +14416,45 @@ if (window.garageSupabase) {
       throw Error("Compte ou garage TEST non prêt.");
     return {sb:window.garageSupabase,garageId:ACTIVE_GARAGE_ID};
   }
+  // S08-F04 : fiche détaillée en lecture seule. Les données client sont injectées
+  // exclusivement via textContent, jamais comme HTML.
+  const viewer=get("s08QuoteViewer"),viewClose=get("s08ViewClose");
+  let returnFocus=null;
+  function closeViewer(){
+    viewer.hidden=true;
+    returnFocus?.focus?.();
+  }
+  viewClose.addEventListener("click",closeViewer);
+  viewer.addEventListener("click",event=>{if(event.target===viewer)closeViewer();});
+  document.addEventListener("keydown",event=>{
+    if(event.key==="Escape"&&!viewer.hidden){event.preventDefault();closeViewer();}
+  });
+  function viewQuote(q,trigger){
+    if(!q||!viewer)return;
+    const d=q.content||{},labels={draft:"Brouillon",sent:"Envoyée",approved:"Approuvée",declined:"Refusée",expired:"Expirée",converted:"Convertie"};
+    const value=(id,text)=>{get(id).textContent=String(text??"—")||"—";};
+    value("s08ViewTitle","Soumission "+q.quote_number);
+    value("s08ViewMeta",String(q.created_at||"").slice(0,10)+" · "+(labels[q.status]||q.status));
+    value("s08ViewClient",d.clientName);
+    value("s08ViewPhone",d.clientPhone);
+    value("s08ViewEmail",d.clientEmail);
+    value("s08ViewVehicle",d.vehicleLabel);
+    value("s08ViewDescription",d.description);
+    value("s08ViewTotal",fmtQuote(Number(d.totalCents||0)));
+    const target=get("s08ViewLines");
+    target.replaceChildren();
+    for(const line of Array.isArray(d.lines)?d.lines:[]){
+      const tr=document.createElement("tr");
+      const type={part:"Pièce",labor:"Main-d’œuvre",other:"Autre"}[line.type]||"Autre";
+      for(const text of [type,line.description||"",String(line.qty??""),fmtQuote(Number(line.priceCents||0)),fmtQuote(Number(line.amountCents||0))]){
+        const td=document.createElement("td");td.textContent=text;tr.append(td);
+      }
+      target.append(tr);
+    }
+    returnFocus=trigger;
+    viewer.hidden=false;
+    viewClose.focus();
+  }
   function renderQuoteList(){
     if(!list)return;
     const search=(get("s08QuoteSearch").value||"").toLocaleLowerCase("fr");
@@ -14396,9 +14477,7 @@ if (window.garageSupabase) {
       }
       const td=document.createElement("td"),btn=document.createElement("button");
       btn.type="button";btn.className="ghost";btn.textContent="Voir";
-      btn.onclick=()=>alert(q.quote_number+"\n"+(d.clientName||"")+"\n"+(d.vehicleLabel||"")+"\n"+
-        (d.description||"")+"\n\n"+(d.lines||[]).map(l=>l.description+" : "+fmtQuote(l.amountCents)).join("\n")+
-        "\n\nTotal estimé : "+fmtQuote(d.totalCents||0));
+      btn.onclick=()=>viewQuote(q,btn);
       td.append(btn);tr.append(td);list.append(tr);
     }
   }
