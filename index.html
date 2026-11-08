@@ -5883,7 +5883,11 @@ function persistActiveWO(wo){
 
 
   function pauseWOTimer(){
-  if (!WO_TIMER_INTERVAL) return;
+  if (!WO_TIMER_INTERVAL)return;
+  if(WO_TIMER_BACKUP_WO_ID &&
+     String(document.getElementById("woEditId")?.value)!==String(WO_TIMER_BACKUP_WO_ID)){
+    alert("Ouvre le BT associé à cette minuterie pour la mettre en pause.");return;
+  }
 
   clearInterval(WO_TIMER_INTERVAL);
   WO_TIMER_INTERVAL = null;
@@ -5897,7 +5901,11 @@ function persistActiveWO(wo){
 
 
   function stopWOTimer(){
-  if (!WO_TIMER_START) return;
+  if (!WO_TIMER_START)return;
+  if(WO_TIMER_BACKUP_WO_ID &&
+     String(document.getElementById("woEditId")?.value)!==String(WO_TIMER_BACKUP_WO_ID)){
+    alert("Ouvre le BT associé à cette minuterie pour l'arrêter.");return;
+  }
 
   clearInterval(WO_TIMER_INTERVAL);
   WO_TIMER_INTERVAL = null;
@@ -5974,7 +5982,11 @@ if (WO_TIMER_INTERVAL){
   startBtn.style.display = "none";
   stopBtn.style.display  = "inline-block";
   if (pauseBtn) pauseBtn.style.display = "inline-block";
+  stopBtn.disabled=!ownTimer;
+  if(pauseBtn)pauseBtn.disabled=!ownTimer;
 } else {
+  stopBtn.disabled=false;
+  if(pauseBtn)pauseBtn.disabled=false;
   startBtn.style.display = "inline-block";
   stopBtn.style.display  = "none";
   if (pauseBtn) pauseBtn.style.display = "none";
