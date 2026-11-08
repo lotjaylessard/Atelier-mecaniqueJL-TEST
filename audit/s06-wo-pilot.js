@@ -156,7 +156,10 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     if(r?.id)app.panel.dataset.sessionId=String(r.id);
     else delete app.panel.dataset.sessionId;
     qs("s06Clock").textContent=format(liveTime());
-    qs("s06State").textContent=r?.status==="running"?"● En cours":r?.status==="paused"?"● En pause":"● Prête";
+    const stale=r?.status==="running"&&(
+      !!interruptedReason||pendingGap(r)!==null);
+    qs("s06State").textContent=stale?"⚠ Interrompu — à vérifier":
+      r?.status==="running"?"● En cours":r?.status==="paused"?"● En pause":"● Prête";
     const another=app.rows.some(x=>x.status==="running"&&x.work_order_id!==app.woId);
     qs("s06Start").disabled=app.busy||!!another||r?.status==="running"||r?.status==="posted";
     qs("s06Pause").disabled=app.busy||r?.status!=="running"||app.ownRunning!==r.id;
