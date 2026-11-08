@@ -14599,7 +14599,9 @@ if (window.garageSupabase) {
     dryRunBusy=true;
     const button=get("s08ServerDryRun"),out=get("s08ServerDryRunStatus");
     button.disabled=true;
-    get("s08BTPreview").hidden=false;
+    // S08-F06g1 : réutiliser la fonction d'aperçu pour afficher réellement
+    // l'identité, les lignes et le total, au lieu de montrer un cadre vide.
+    get("s08PreviewBT").click();
     out.textContent="Vérification serveur en cours (aucune création)…";
     try{
       const {sb,garageId}=context();
