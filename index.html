@@ -10687,11 +10687,14 @@ function renderClientModal(id){
         showVehicleStatus('Marque ou modèle requis.','#ff8080');
         return;
       }
-      // La fiche client doit exister avant la création d'un véhicule persistant.
-      if(!CLIENTS.some(c=>String(c.id)===String(client.id))){
+      // S07 : après client:created, la liste est rechargée pour le nouveau BT.
+      // Reprendre la fiche CANONIQUE : l'objet client du modal peut être périmé.
+      const savedClient=CLIENTS.find(c=>String(c.id)===String(client.id));
+      if(!savedClient){
         showVehicleStatus('Enregistre d’abord le nouveau client, puis ajoute le véhicule.','#ff8080');
         return;
       }
+      client=savedClient;
       const v={
         id:Date.now(),
         make,model,year,
