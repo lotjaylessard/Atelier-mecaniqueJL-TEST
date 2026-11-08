@@ -1304,7 +1304,7 @@ button.link:hover{
             <tbody><tr><td colspan="8" class="muted s08-quote-empty">Aucune soumission. Création et enregistrement disponibles à la prochaine étape.</td></tr></tbody>
           </table>
         </div>
-        <p class="muted" style="font-size:12px;margin:12px 0 0">S08-F01 : structure en préparation. Aucune soumission, aucun bon de travail et aucune facture ne sont créés depuis cette page pour l'instant. Le montant estimé sera affiché sans taxes.</p>
+        <p class="muted" style="font-size:12px;margin:12px 0 0">S08-F03 : les soumissions sont stockées dans une table séparée. Aucune facture ni BT ne sera créé ici; les taxes ne sont pas affichées.</p>
       </div>
 
       <div class="card" id="s08QuoteEditor" hidden>
@@ -1343,9 +1343,10 @@ button.link:hover{
           </table>
         </div>
         <div class="s08-total"><strong>Total estimé (avant taxes) : <span id="s08DraftTotal">0,00 $</span></strong></div>
-        <p class="muted" style="margin:6px 0 0">Les taxes ne sont pas détaillées dans la soumission. L’enregistrement, l’impression et l’approbation seront activés uniquement après les prochaines étapes sécurisées.</p>
+        <p class="muted" style="margin:6px 0 0">Les taxes ne sont pas détaillées dans la soumission. L’impression et la conversion en BT restent désactivées jusqu’aux étapes suivantes.</p>
+        <p id="s08SaveStatus" role="status" aria-live="polite" class="muted"></p>
         <div class="s08-editor-buttons">
-          <button type="button" disabled title="Disponible après intégration du stockage indépendant">💾 Enregistrer la soumission</button>
+          <button type="button" id="s08SaveQuote">💾 Enregistrer la soumission</button>
           <button type="button" disabled title="Disponible à la phase PDF">🖨️ Imprimer / PDF</button>
           <button type="button" disabled title="Disponible après validation de la conversion SO vers BT">✓ Approuver et créer BT</button>
         </div>
@@ -14254,6 +14255,8 @@ if (window.garageSupabase) {
   const error=document.getElementById("s08LineError");
   if(!editor||!start||!cancel||!add||!tbody||!total)return;
   let lines=[];
+  let saving=false;
+  let quotes=[];
   const get=id=>document.getElementById(id);
   const fmt=n=>n.toLocaleString("fr-CA",{minimumFractionDigits:2,maximumFractionDigits:2})+" $";
   const moneyCents=value=>Math.round(value*100);
@@ -14360,6 +14363,100 @@ if (window.garageSupabase) {
     get("s08LineDescription").value="";get("s08LineQty").value="1";get("s08LinePrice").value="0";
     error.textContent="";render();get("s08LineDescription").focus();
   });
+
+  // S08-F03 : operations uniquement sur garage_quotes. Aucun objet métier n'est modifié.
+  const saveButton=get("s08SaveQuote"),saveStatus=get("s08SaveStatus");
+  const list=get("s08QuotesTable")?.querySelector("tbody");
+  const fmtQuote=n=>fmt(n/100);
+  function context(){
+    if(typeof ACTIVE_GARAGE_ID==="undefined"||!ACTIVE_GARAGE_ID||
+       typeof CLOUD_DATA_READY==="undefined"||!CLOUD_DATA_READY||!window.garageSupabase)
+      throw Error("Compte ou garage TEST non prêt.");
+    return {sb:window.garageSupabase,garageId:ACTIVE_GARAGE_ID};
+  }
+  function renderQuoteList(){
+    if(!list)return;
+    const search=(get("s08QuoteSearch").value||"").toLocaleLowerCase("fr");
+    const filter=get("s08QuoteStatus").value;
+    const rows=quotes.filter(q=>(!filter||q.status===filter)&&
+      [q.quote_number,q.content?.clientName,q.content?.vehicleLabel,q.content?.description]
+        .join(" ").toLocaleLowerCase("fr").includes(search));
+    get("s08QuoteCount").textContent=rows.length+" soumission"+(rows.length===1?"":"s")+" affichée"+(rows.length===1?"":"s");
+    list.replaceChildren();
+    if(!rows.length){
+      const tr=document.createElement("tr"),td=document.createElement("td");
+      td.colSpan=8;td.className="muted";td.textContent="Aucune soumission correspondante.";
+      tr.append(td);list.append(tr);return;
+    }
+    for(const q of rows){
+      const d=q.content||{},tr=document.createElement("tr");
+      const labels={draft:"Brouillon",sent:"Envoyée",approved:"Approuvée",declined:"Refusée",expired:"Expirée",converted:"Convertie"};
+      for(const val of [q.quote_number,String(q.created_at||"").slice(0,10),d.clientName||"",d.vehicleLabel||"",d.description||"",fmtQuote(d.totalCents||0),labels[q.status]||q.status]){
+        const td=document.createElement("td");td.textContent=val;tr.append(td);
+      }
+      const td=document.createElement("td"),btn=document.createElement("button");
+      btn.type="button";btn.className="ghost";btn.textContent="Voir";
+      btn.onclick=()=>alert(q.quote_number+"\n"+(d.clientName||"")+"\n"+(d.vehicleLabel||"")+"\n"+
+        (d.description||"")+"\n\n"+(d.lines||[]).map(l=>l.description+" : "+fmtQuote(l.amountCents)).join("\n")+
+        "\n\nTotal estimé : "+fmtQuote(d.totalCents||0));
+      td.append(btn);tr.append(td);list.append(tr);
+    }
+  }
+  async function refreshQuotes(){
+    try{
+      const {sb,garageId}=context();
+      const {data:auth,error:authError}=await sb.auth.getUser();
+      if(authError||!auth?.user?.id)throw Error("Session expirée.");
+      const {data,error:readError}=await sb.from("garage_quotes")
+        .select("id,quote_number,status,content,created_at")
+        .eq("garage_id",garageId).eq("user_id",auth.user.id)
+        .order("created_at",{ascending:false}).limit(200);
+      if(readError)throw readError;
+      quotes=Array.isArray(data)?data:[];
+      renderQuoteList();
+    }catch(err){
+      console.warn("[S08] Liste des soumissions indisponible",err);
+      get("s08QuoteCount").textContent="Liste indisponible — vérifier la connexion.";
+    }
+  }
+  saveButton.addEventListener("click",async()=>{
+    if(saving)return;
+    const clientName=get("s08ClientName").value.trim(),vehicleLabel=get("s08VehicleLabel").value.trim();
+    if(!clientName||!vehicleLabel||!lines.length){
+      saveStatus.textContent="Client, véhicule et au moins une ligne requis.";return;
+    }
+    const totalCents=lines.reduce((sum,l)=>sum+l.amountCents,0);
+    if(!Number.isSafeInteger(totalCents)||totalCents<0){
+      saveStatus.textContent="Total invalide.";return;
+    }
+    const content={clientName,vehicleLabel,
+      clientPhone:get("s08ClientPhone").value.trim(),clientEmail:get("s08ClientEmail").value.trim(),
+      description:get("s08QuoteDescription").value.trim(),lines:lines.map(l=>({...l})),totalCents};
+    saving=true;saveButton.disabled=true;saveStatus.textContent="Enregistrement Supabase TEST…";
+    try{
+      const {sb,garageId}=context();
+      const {data:auth,error:authError}=await sb.auth.getUser();
+      if(authError||!auth?.user?.id)throw Error("Session expirée.");
+      const {data:row,error:writeError}=await sb.from("garage_quotes")
+        .insert({garage_id:garageId,user_id:auth.user.id,status:"draft",content})
+        .select("id,quote_number,user_id,garage_id,content").single();
+      if(writeError)throw writeError;
+      if(!row||row.user_id!==auth.user.id||row.garage_id!==garageId||
+         !/^SO-\d{4,}$/.test(row.quote_number)||row.content?.totalCents!==totalCents)
+        throw Error("Confirmation ambiguë. Vérifie la liste avant un nouvel essai.");
+      saveStatus.textContent="✓ "+row.quote_number+" enregistrée sur Supabase TEST.";
+      await refreshQuotes();
+      alert("Soumission "+row.quote_number+" enregistrée.");
+    }catch(err){
+      console.error("[S08-F03] Enregistrement non confirmé",err);
+      saveStatus.textContent="Sauvegarde non confirmée : "+String(err?.message||err)+
+        ". Ne ferme pas le brouillon, vérifie la liste avant de réessayer.";
+    }finally{saving=false;saveButton.disabled=false;}
+  });
+  get("s08QuoteSearch").addEventListener("input",renderQuoteList);
+  get("s08QuoteStatus").addEventListener("change",renderQuoteList);
+  document.querySelector('[data-page="page-quotes"]')?.addEventListener("click",()=>void refreshQuotes());
+  window.addEventListener("load",()=>void refreshQuotes());
   render();
 })();
 </script>
