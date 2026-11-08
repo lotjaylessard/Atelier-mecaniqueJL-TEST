@@ -14637,10 +14637,43 @@ if (window.garageSupabase) {
       for(const val of [line.type==="part"?"Pièce":line.type==="labor"?"Main-d’œuvre":"Autre",line.description,String(line.qty),fmt(line.priceCents/100),fmt(line.amountCents/100)]){
         const cell=document.createElement("td");cell.textContent=val;row.append(cell);
       }
-      const cell=document.createElement("td"),button=document.createElement("button");
-      button.type="button";button.className="ghost danger";button.textContent="Retirer";
-      button.addEventListener("click",()=>{lines.splice(index,1);render()});
-      cell.append(button);row.append(cell);tbody.append(row);
+      const cell=document.createElement("td"),edit=document.createElement("button"),remove=document.createElement("button");
+      edit.type="button";edit.className="ghost";edit.textContent="Modifier";
+      edit.addEventListener("click",()=>{
+        error.textContent="";
+        const cells=row.querySelectorAll("td");
+        const desc=document.createElement("input"),qty=document.createElement("input"),price=document.createElement("input");
+        desc.type="text";desc.value=line.description;desc.setAttribute("aria-label","Description de la ligne");
+        qty.type="number";qty.min="0.01";qty.step="any";qty.value=String(line.qty);qty.setAttribute("aria-label","Quantité ou heures");
+        price.type="number";price.min="0";price.step="0.01";price.value=String(line.priceCents/100);price.setAttribute("aria-label","Prix unitaire");
+        for(const [cellIndex,input] of [[1,desc],[2,qty],[3,price]]){
+          cells[cellIndex].replaceChildren(input);
+          input.style.cssText="width:100%;min-width:75px;padding:7px";
+        }
+        const save=document.createElement("button"),cancelEdit=document.createElement("button");
+        save.type="button";save.textContent="✓ OK";
+        cancelEdit.type="button";cancelEdit.className="ghost";cancelEdit.textContent="Annuler";
+        save.addEventListener("click",()=>{
+          const quantity=Number(qty.value),unit=Number(price.value);
+          const cents=moneyCents(unit),amount=Math.round(quantity*cents);
+          if(!desc.value.trim()||!qty.value||!price.value||
+            !Number.isFinite(quantity)||quantity<=0||!Number.isFinite(unit)||unit<0||
+            !Number.isSafeInteger(cents)||cents<0||!Number.isSafeInteger(amount)||amount<0){
+            error.textContent="Vérifie la description, la quantité et le prix de la ligne.";
+            return;
+          }
+          lines[index]={...line,description:desc.value.trim(),qty:quantity,priceCents:cents,amountCents:amount};
+          error.textContent="";
+          render();
+        });
+        cancelEdit.addEventListener("click",()=>{error.textContent="";render()});
+        cells[5].replaceChildren(save,cancelEdit);
+        cells[5].style.whiteSpace="nowrap";
+        desc.focus();
+      });
+      remove.type="button";remove.className="ghost danger";remove.textContent="Retirer";
+      remove.addEventListener("click",()=>{lines.splice(index,1);render()});
+      cell.append(edit,remove);cell.style.whiteSpace="nowrap";row.append(cell);tbody.append(row);
     }
     total.textContent=fmt(lines.reduce((sum,line)=>sum+line.amountCents,0)/100);
   }
