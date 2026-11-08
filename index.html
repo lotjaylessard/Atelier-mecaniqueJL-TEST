@@ -5857,11 +5857,11 @@ function persistActiveWO(wo){
 }
 
 
-  function startWOTimer(){
-  if (WO_TIMER_INTERVAL) return;
+  function startWOTimer(targetWoId){
+  if (WO_TIMER_INTERVAL)return;
 
   woTimerBackupRestore();
-  const woId=document.getElementById("woEditId")?.value;
+  const woId=targetWoId||document.getElementById("woEditId")?.value;
   if(!woId)return;
   if(WO_TIMER_BACKUP_WO_ID && String(WO_TIMER_BACKUP_WO_ID)!==String(woId)){
     alert("Une minuterie est déjà en pause sur un autre BT. Ouvre ce BT pour la reprendre.");return;
@@ -5869,7 +5869,6 @@ function persistActiveWO(wo){
   WO_TIMER_BACKUP_WO_ID=String(woId);
   WO_TIMER_START = Date.now() - WO_TIMER_ELAPSED;
   WO_TIMER_PAUSED = false;
-  woTimerBackupWrite();
 
   // 🔁 Bascule boutons
   const startBtn = document.getElementById("woTimerBtn");
@@ -5886,13 +5885,14 @@ function persistActiveWO(wo){
 
     display.textContent = "⏱ " + formatDuration(elapsed);
   }, 1000);
+  woTimerBackupWrite();
 }
 
 
-  function pauseWOTimer(){
+  function pauseWOTimer(targetWoId){
   if (!WO_TIMER_INTERVAL)return;
   if(WO_TIMER_BACKUP_WO_ID &&
-     String(document.getElementById("woEditId")?.value)!==String(WO_TIMER_BACKUP_WO_ID)){
+     String(targetWoId||document.getElementById("woEditId")?.value)!==String(WO_TIMER_BACKUP_WO_ID)){
     alert("Ouvre le BT associé à cette minuterie pour la mettre en pause.");return;
   }
 
@@ -5908,67 +5908,53 @@ function persistActiveWO(wo){
 
 
   function stopWOTimer(){
-  if (!WO_TIMER_START)return;
-  if(WO_TIMER_BACKUP_WO_ID &&
-     String(document.getElementById("woEditId")?.value)!==String(WO_TIMER_BACKUP_WO_ID)){
+  // Une minuterie peut être en cours, en pause ou restaurée après rechargement.
+  woTimerBackupRestore();
+  if(!WO_TIMER_BACKUP_WO_ID||(!WO_TIMER_INTERVAL&&!WO_TIMER_PAUSED))return;
+  const woId=document.getElementById("woEditId")?.value;
+  if(String(woId)!==String(WO_TIMER_BACKUP_WO_ID)){
     alert("Ouvre le BT associé à cette minuterie pour l'arrêter.");return;
   }
-
-  clearInterval(WO_TIMER_INTERVAL);
-  WO_TIMER_INTERVAL = null;
-
-  const elapsedMs = Date.now() - WO_TIMER_START;
-  WO_TIMER_START = null;
-
-    const totalMs = WO_TIMER_PAUSED ? WO_TIMER_ELAPSED : elapsedMs;
-
-  const hours = Math.round((totalMs / 3600000) * 100) / 100;
-
-  console.log("WO TIMER STOP");
-  console.log("Heures calculées :", hours);
-
-  // 🔁 Bascule boutons
-  const startBtn = document.getElementById("woTimerBtn");
-  const stopBtn  = document.getElementById("woTimerStopBtn");
-
-  if (startBtn) startBtn.style.display = "inline-block";
-  if (stopBtn)  stopBtn.style.display  = "none";
-
-  const display = document.getElementById("woTimerDisplay");
-  if (display){
-    display.textContent = "⏱ 00:00:00";
+  const wo=getActiveWOById(woId);
+  if(!wo||!woCanEditFinancials(wo)){
+    alert("Ce BT n'autorise pas l'ajout de temps.");return;
   }
-
-      // ===============================
-  // AJOUT MAIN-D’ŒUVRE AU WO
-  // ===============================
-  const woId = document.getElementById("woEditId")?.value;
-  if (!woId) return;
-
-  const wo = getActiveWOById(woId);
-  if (!wo) return;
-
-  if (!Array.isArray(wo.labor)) wo.labor = [];
-
-  const rate = Number(SETTINGS.defaultLaborRate || 60);
-
-  wo.labor.push({
-    description: "Temps de travail (timer)",
-    hours: hours,
-    rate: rate,
-    total: Math.round(hours * rate * 100) / 100
-  });
-
-  persistActiveWO(wo);
+  // Demander la note AVANT d'arrêter : Annuler conserve le minuteur intact.
+  const entered=prompt("Note sur le travail effectué (ajoutée au BT) :","");
+  if(entered===null)return;
+  const note=entered.trim();
+  if(!note){alert("Une note est nécessaire pour terminer le minuteur.");return;}
+  const totalMs=WO_TIMER_INTERVAL&&Number.isFinite(WO_TIMER_START)
+    ?Math.max(0,Date.now()-WO_TIMER_START):WO_TIMER_ELAPSED;
+  if(!Number.isFinite(totalMs)||totalMs<=0){
+    alert("Aucune durée valide à enregistrer.");return;
+  }
+  const hours=Math.round((totalMs/3600000)*100)/100;
+  const rate=Number(SETTINGS.defaultLaborRate||60);
+  if(!Number.isFinite(rate)||rate<0){alert("Taux horaire invalide.");return;}
+  if(!Array.isArray(wo.labor))wo.labor=[];
+  const beforeNotes=String(wo.notes||"");
+  const line={description:"Temps de travail (timer) — "+note,
+    hours,rate,total:Math.round(hours*rate*100)/100};
+  wo.labor.push(line);
+  wo.notes=beforeNotes+(beforeNotes?"\n":"")+"[Minuteur "+formatDuration(totalMs)+"] "+note;
+  const saved=persistActiveWO(wo);
+  if(saved===false){
+    wo.labor.pop();wo.notes=beforeNotes;
+    alert("Enregistrement du BT non confirmé. Le minuteur reste disponible.");return;
+  }
+  clearInterval(WO_TIMER_INTERVAL);
+  WO_TIMER_INTERVAL=null;
+  WO_TIMER_START=null;
+  WO_TIMER_ELAPSED=0;
+  WO_TIMER_PAUSED=false;
+  woTimerBackupClear();
+  const notesField=document.getElementById("woNotes");
+  if(notesField)notesField.value=wo.notes;
+  const display=document.getElementById("woTimerDisplay");
+  if(display)display.textContent="⏱ 00:00:00";
   woRenderLines(wo);
-
-    WO_TIMER_ELAPSED = 0;
-WO_TIMER_PAUSED = false;
-woTimerBackupClear();
-
 }
-
-
   function syncWOTimerUI(){
   const startBtn = document.getElementById("woTimerBtn");
   const stopBtn  = document.getElementById("woTimerStopBtn");
@@ -14485,13 +14471,10 @@ if (window.garageSupabase) {
   toggle.addEventListener("click",()=>{
     const state=current();if(!state)return;
     if(state.running){
-      pauseWOTimer();syncWOTimerUI();refresh();
+      pauseWOTimer(state.meta.id);syncWOTimerUI();refresh();
     }else{
-      // Le démarrage historique identifie le BT ouvert. Ouvrir le bon BT d'abord.
-      openBT(state.meta.id,()=>{
-        startWOTimer();
-        syncWOTimerUI();
-      });
+      startWOTimer(state.meta.id);
+      syncWOTimerUI();refresh();
     }
   });
   stop.addEventListener("click",()=>{
