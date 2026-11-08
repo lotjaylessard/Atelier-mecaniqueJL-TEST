@@ -21,6 +21,8 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
 #s06WoPilot .s06saved{grid-column:1/-1;font-size:11px;line-height:1.2;margin:1px 0;color:#9ac5ef}
 #s06WoPilot .s06saved[data-state="confirmed"]{color:#83d6aa}
 #s06WoPilot .s06saved[data-state="warning"]{color:#ffc28b}
+#s06WoPilot .s06gap{grid-column:1/-1;padding:8px;border:1px solid #ffc28b;background:#352817;border-radius:5px;color:#ffe0ad;font-size:12px;line-height:1.4}
+#s06WoPilot .s06gap[hidden]{display:none}
 #s06WoPilot label{display:block;margin:6px 0 3px;font-weight:600}
 #s06WoPilot input,#s06WoPilot textarea{box-sizing:border-box;width:100%;padding:7px;background:#101e2e;color:white;border:1px solid #80bbff;border-radius:5px}
 #s06WoPilot textarea{min-height:70px}
@@ -109,6 +111,27 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     app.displayTick=setInterval(paint,250);
     paint();
   }
+  // S06-F09 TEST : période POSSIBLEMENT non confirmée. Ce n'est ni du
+  // temps sauvegardé, ni un crédit à facturer. Les horloges des appareils
+  // peuvent différer; seules les opérations RPC changent confirmed_ms.
+  function pendingGap(row){
+    if(!row||row.status!=="running"||!row.last_heartbeat_at)return null;
+    const stamp=Date.parse(row.last_heartbeat_at);
+    if(!Number.isFinite(stamp))return null;
+    const gap=Math.max(0,Date.now()-stamp);
+    return gap>20000?gap:null;
+  }
+  function paintPendingGap(){
+    const el=qs("s06UnverifiedGap");
+    if(!el)return;
+    const gap=pendingGap(app.session);
+    el.hidden=gap===null;
+    if(gap===null)return;
+    el.textContent="⚠ Interruption possible : environ "+format(gap)+
+      " depuis la dernière confirmation Supabase. Cette période n'est PAS enregistrée. "+
+      "Ne ferme pas le BT ni ne facture ce temps sans le vérifier. "+
+      "Après au moins 60 s sans confirmation, utilise « Récupérer » pour figer la session en pause.";
+  }
   function validRow(r){return r&&r.user_id===app.user&&r.garage_id===app.garage&&
     typeof r.id==="string"&&Number.isSafeInteger(Number(r.revision))&&
     Number.isSafeInteger(Number(r.confirmed_ms))&&
@@ -142,6 +165,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     qs("s06Recover").hidden=!(r?.status==="running"&&app.ownRunning!==r.id);
     qs("s06Recover").disabled=app.busy;
     if(another)setMsg("Une autre minuterie est en cours. Ouvre son BT pour la gérer.");
+    paintPendingGap();
   }
   async function client(){
     if(!navigator.onLine)throw Error("Connexion Internet requise.");
@@ -384,6 +408,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       <label for="s06Rate">Taux horaire ($/h)</label><input id="s06Rate" type="number" min="0" max="100000" step="0.01">
       <p id="s06Quote"></p><button type="button" id="s06Confirm">Confirmer l'ajout au BT</button>
       <button type="button" class="s06secondary" id="s06Cancel">Annuler</button></div>
+      <div id="s06UnverifiedGap" class="s06gap" role="status" aria-live="polite" hidden></div>
       <p id="s06SavedStatus" class="s06saved" data-state="idle" role="status" aria-live="polite">Vérification Supabase en attente…</p>
       <p id="s06Msg" class="s06message">Chargement de la session Supabase…</p>`;
     ctx.anchor.parentElement.parentElement.insertAdjacentElement("afterend",el);
