@@ -390,7 +390,11 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       if(!confirm("Démarrer une minuterie TEST pour ce BT ? Aucune ligne de main-d'œuvre ajoutée avant confirmation."))return;
       app.session=await rpc("create",null,app.woId);
     }
-    const res=await rpc("start",app.session);
+    // Si la page recharge pendant l'attente de la RPC, retrouver sa session.
+    rememberOwner();
+    let res;
+    try{res=await rpc("start",app.session);}
+    catch(e){clearOwner();throw e;}
     beats();setMsg("Démarrée. Temps confirmé par Supabase environ toutes les 5 secondes.");
   }
   async function pause(){
@@ -614,6 +618,11 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
         if(!Number.isFinite(gap)||gap<0||gap>45000){
           // Retour trop tardif : la période est incertaine, récupération manuelle.
           clearOwner();return;
+        }
+        const opened=context();
+        if(opened&&opened.id!==stored.woId&&app.panel){
+          app.panel.remove();
+          app.panel=null;
         }
         app.woId=stored.woId;
         app.session=data;
