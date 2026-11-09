@@ -14208,38 +14208,39 @@ clone.querySelectorAll("h3").forEach(h=>{
 
 
   const printWindow = window.open("", "", "width=800,height=900");
+  if(!printWindow){alert("Autorise la fenêtre d’impression pour ce site TEST.");return;}
 
   printWindow.document.write(`
     <html>
     <head>
       <title>Facture</title>
       <style>
-        body {
-          font-family: Arial, Helvetica, sans-serif;
-          padding: 25px;
-          color: #000;
+        /* Présentation commune Soumission/Facture — format lettre, sans modifier les données. */
+        @page { size: letter; margin: 14mm; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 0;
+          background: #fff !important; color: #151515 !important; font-size: 11px; line-height: 1.3; }
+        h2 { margin: 0 0 5px; border: 0; padding: 0; font-size: 20px; color: #111; }
+        h3 { font-size: 13px; margin: 10px 0 5px; }
+        .muted { color: #555 !important; font-size: 10px; }
+        /* Le bloc client/véhicule reprend les dimensions du PDF de soumission. */
+        body > div[style*="border:1px"], body > div[style*="border: 1px"] {
+          border: 1px solid #aaa !important; background: #fff !important;
+          color: #151515 !important; padding: 10px !important;
+          border-radius: 5px !important; margin: 9px 0 !important;
         }
-        h2 {
-          margin-top: 0;
-          border-bottom: 2px solid #000;
-          padding-bottom: 6px;
+        body > div[style*="border:1px"] *, body > div[style*="border: 1px"] * {
+          color: #151515 !important;
         }
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-top: 15px;
-          font-size: 13px;
-        }
-        th, td {
-          border: 1px solid #000;
-          padding: 6px;
-        }
-        th {
-          background: #eee;
-        }
-        .muted {
-          color: #555;
-        }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 10px; }
+        th,td { text-align: left; border: 0; border-bottom: 1px solid #ccc;
+          padding: 6px 5px; font-size: 10px; }
+        th { background: #eee !important; font-weight: 700; }
+        th:nth-child(n+4),td:nth-child(n+4){text-align:right}
+        tr { break-inside: avoid; }
+        .invoice-paid-badge{border:1px solid #444!important;color:#111!important;
+          font-size:10px!important;padding:4px 7px!important}
+        .pdf-hide,.no-print,.invoice-ui-taxes,.invoice-ui-discount{display:none!important}
 
 
 /* ================= PDF LAYOUT ================= */
@@ -14248,9 +14249,9 @@ clone.querySelectorAll("h3").forEach(h=>{
 
 .pdf-totals{
   position: fixed;
-  right: 25px;
-  bottom: 25px;
-  width: 260px;
+  right: 0;
+  bottom: 0;
+  width: 250px;
 
   display: flex;
   flex-direction: column;
@@ -14298,9 +14299,9 @@ clone.querySelectorAll("h3").forEach(h=>{
 /* ===== Historique paiements en bas à gauche ===== */
 .pdf-payments{
   position: fixed;
-  left: 20px;
-  bottom: 22px;
-  width: 38%;              /* ✅ plus étroit */
+  left: 0;
+  bottom: 0;
+  width: 46%;              /* ✅ plus étroit */
   font-size: 9px;
   line-height: 1.1;
 }
@@ -14362,7 +14363,13 @@ clone.querySelectorAll("h3").forEach(h=>{
 
   printWindow.document.close();
   printWindow.focus();
-  printWindow.print();
+  let printed=false;
+  const beginPrint=()=>{
+    if(printed||printWindow.closed)return;
+    printed=true;printWindow.focus();printWindow.print();
+  };
+  printWindow.addEventListener("load",beginPrint,{once:true});
+  if(printWindow.document.readyState==="complete")beginPrint();
 }
 
 
@@ -15747,7 +15754,7 @@ if (window.garageSupabase) {
     popup.document.open();
     popup.document.write('<!doctype html><html lang="fr"><head><meta charset="utf-8">'+
       '<title>'+selectedQuote.quote_number+' - Soumission</title>'+
-      '<style>@page{size:letter;margin:17mm 14mm}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;background:white;color:#151515;margin:0;font-size:12px}'+
+      '<style>@page{size:letter;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;background:white;color:#151515;margin:0;font-size:12px}'+
       '.s08-viewer-panel{width:100%;max-width:none;padding:0;border:0;background:white}'+
       '.s08-print-brand{font-size:15px;font-weight:700;color:#111;margin-bottom:8px}'+
       'h2{font-size:20px;margin:0 0 5px;color:#111}h3{font-size:13px;margin:12px 0 5px;color:#111}'+
