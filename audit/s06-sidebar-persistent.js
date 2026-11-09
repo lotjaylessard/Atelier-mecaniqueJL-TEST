@@ -30,6 +30,8 @@
   let lastRenderedId=null,lastRenderedMs=0,actionPending=false;
   let pendingAction=null,pendingFrozenMs=0;
   const reconnectKey="s06-sidebar-reconnect-v1";
+  const warnAfterMs=12000;
+  const recoverAfterMs=60000; // même limite que la fonction Supabase TEST
   const details=box.querySelector(".s06-timer-details");
   const clearCached=()=>{try{sessionStorage.removeItem(reconnectKey);}catch(_){}};
   const hide=()=>{
@@ -74,8 +76,8 @@
     delete box.dataset.pendingRestore;
     const heartbeatAt=Date.parse(current.last_heartbeat_at||"");
     const gapMs=Number.isFinite(heartbeatAt)?Date.now()-heartbeatAt:Infinity;
-    const stale=current.status==="running"&&gapMs>20000;
-    const delayed=current.status==="running"&&gapMs>12000&&!stale;
+    const stale=current.status==="running"&&gapMs>recoverAfterMs;
+    const delayed=current.status==="running"&&gapMs>warnAfterMs&&!stale;
     if(hint)hint.textContent=actionPending?
       "Commande envoyée. Confirmation de Supabase en cours…":
       delayed||stale?"Dernier temps confirmé par Supabase. Vérification de connexion en cours…":
@@ -102,8 +104,11 @@
     desc.textContent=meta.description;
     const wrapper=document.getElementById("s06TimerDescription");
     if(wrapper)wrapper.title=meta.description;
+    // Reprendre depuis l'heure du DERNIER heartbeat, pas depuis l'heure
+    // de la dernière lecture réseau. Évite le recul après un F5 à 14:05.
+    // Au-delà de 12 s sans accusé, on fige et on prévient.
     const extra=current.status==="running"&&!stale&&!delayed&&navigator.onLine?
-      Math.min(20000,Math.max(0,Date.now()-receivedAt)):0;
+      Math.min(warnAfterMs,Math.max(0,gapMs)):0;
     // Quand le BT actif est ouvert, recopier son affichage indicatif.
     // La session doit correspondre : aucune copie depuis un autre BT.
     const pilot=document.getElementById("s06WoPilot");
@@ -204,9 +209,17 @@
       pendingAction=null;
       refresh();
     };
-    const timeout=setTimeout(release,10000);
-    const handleAck=()=>{clearTimeout(timeout);window.removeEventListener("s06-timer-updated",handleAck);release();};
-    window.addEventListener("s06-timer-updated",handleAck,{once:true});
+    const timeout=setTimeout(()=>{cleanup();release();},12000);
+    const handleAck=event=>{
+      const d=event.detail;
+      if(!d||d.sessionId!==current?.id||d.action!==action)return;
+      cleanup();release();
+    };
+    function cleanup(){
+      clearTimeout(timeout);
+      window.removeEventListener("s06-timer-ack",handleAck);
+    }
+    window.addEventListener("s06-timer-ack",handleAck);
     // Toujours ouvrir le BT. Le pilote revérifie le compte, la session
     // et la révision auprès du serveur avant toute mutation.
     const requestedId=String(current.id);
@@ -216,8 +229,7 @@
     const watcher=setInterval(()=>{
       if(++attempts>30){
         clearInterval(watcher);
-        clearTimeout(timeout);
-        window.removeEventListener("s06-timer-updated",handleAck);
+        cleanup();
         release();
         return;
       }
@@ -240,7 +252,7 @@
   toggle?.addEventListener("click",()=>{
     const stamp=Date.parse(current?.last_heartbeat_at||"");
     const stale=current?.status==="running"&&Number.isFinite(stamp)&&
-      Date.now()-stamp>20000;
+      Date.now()-stamp>recoverAfterMs;
     triggerPilotAction(stale?"recover":current?.status==="running"?"pause":"start");
   });
   stop?.addEventListener("click",()=>triggerPilotAction("finish"));
