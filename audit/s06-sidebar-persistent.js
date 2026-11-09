@@ -177,10 +177,17 @@
         Number.isFinite(Number(r.confirmed_ms))&&
         (r.status==="running"||Number(r.confirmed_ms)>0)&&
         !!metadata(r.work_order_id));
+      // Priorité : session active > dernière session interrompue ou en pause.
+      // Les résultats sont déjà classés updated_at décroissant côté Supabase.
       current=rows.find(r=>r.status==="running")||rows[0]||null;
       receivedAt=Date.now();
-      if(current)rememberVerified();
-      else clearCached();
+      if(current){
+        rememberVerified();
+      }else{
+        // Une réponse serveur authentifiée vide termine la reconnexion.
+        // Sinon le témoin « Vérification… » resterait affiché indéfiniment.
+        hide();
+      }
       paint();
     }catch(_err){
       // Ne pas continuer à afficher comme « en cours » un état cloud invérifiable.
