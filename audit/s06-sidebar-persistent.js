@@ -97,7 +97,8 @@
     }
     if(stop){
       stop.textContent="⏹ Terminer";
-      stop.disabled=actionPending;
+      // Impossible de terminer une session interrompue avant récupération.
+      stop.disabled=actionPending||stale;
     }
     number.textContent=meta.number;
     vehicle.textContent=meta.vehicle;
@@ -269,6 +270,34 @@
     if(typeof openWorkOrderFromDashboard==="function")
       openWorkOrderFromDashboard(meta.id);
   });
+  // Au retour de veille, la page peut ne recevoir aucun tick durant plusieurs
+  // secondes. Réévaluer l'âge du dernier heartbeat IMMÉDIATEMENT, puis relire.
+  // Aucun calcul local ne transforme une session en « paused » côté serveur.
+  let lastWakeProbe=0;
+  function probeWake(){
+    const now=Date.now();
+    if(now-lastWakeProbe<500)return;
+    lastWakeProbe=now;
+    if(current&&current.status==="running"){
+      const stamp=Date.parse(current.last_heartbeat_at||"");
+      if(Number.isFinite(stamp)&&now-stamp>=recoverAfterMs){
+        status.textContent="⚠ À récupérer";
+        if(toggle){toggle.textContent="⚠ Récupérer";toggle.disabled=actionPending;}
+        if(stop)stop.disabled=true;
+        if(hint)hint.textContent="Interruption détectée après la veille. Vérification Supabase…";
+      }else if(Number.isFinite(stamp)&&now-stamp>warnAfterMs){
+        status.textContent="◌ Confirmation retardée";
+      }
+    }
+    paint();
+    refresh();
+  }
+  window.addEventListener("focus",probeWake);
+  window.addEventListener("pageshow",probeWake);
+  document.addEventListener("visibilitychange",()=>{
+    if(document.visibilityState==="visible")probeWake();
+  });
+  window.addEventListener("online",probeWake);
   // À chaque confirmation de transition, actualiser sans attendre le prochain cycle.
   window.addEventListener("s06-timer-updated",refresh);
   setInterval(paint,250);
