@@ -1176,6 +1176,19 @@ button.link:hover{
   #s08QuoteViewer .s08-status-feedback{max-width:100%}
 }
 
+/* Catalogue Services : formulaire compact, identifiants et logique inchangés. */
+#page-services .s08-service-entry .s08-service-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 14px}
+#page-services .s08-service-entry .s08-service-fields label{display:flex;flex-direction:column;gap:5px;min-width:0}
+#page-services .s08-service-entry .s08-service-fields input,
+#page-services .s08-service-entry .s08-service-fields select,
+#page-services .s08-service-entry .s08-service-fields textarea{width:100%;box-sizing:border-box;margin:0}
+#page-services .s08-service-entry .s08-service-name{grid-column:span 2}
+#page-services .s08-service-entry .s08-service-description{grid-column:1/-1}
+#page-services .s08-service-entry .s08-service-description textarea{min-height:60px;resize:vertical}
+#page-services .s08-service-entry .s08-service-hint{font-size:12px;margin:9px 0 0}
+@media(max-width:760px){#page-services .s08-service-entry .s08-service-fields{grid-template-columns:repeat(2,minmax(0,1fr))}#page-services .s08-service-entry .s08-service-name{grid-column:span 2}}
+@media(max-width:490px){#page-services .s08-service-entry .s08-service-fields{grid-template-columns:minmax(0,1fr)}#page-services .s08-service-entry .s08-service-name{grid-column:1}}
+
 /* S08 — fiche compacte : styles locaux seulement, aucun changement fonctionnel. */
 #s08QuoteViewer{padding:12px}
 #s08QuoteViewer .s08-viewer-panel{box-sizing:border-box;max-height:calc(100dvh - 24px);padding:16px 20px}
@@ -1775,40 +1788,43 @@ button.link:hover{
     <div class="page" id="page-services">
       <h2>Services / Réparations</h2>
 
-      <div class="card">
+      <div class="card s08-service-entry">
         <h3>Ajouter un service</h3>
-
-        <label>Nom du service</label>
-        <input id="srvName" />
-
-        <label>Catégorie</label>
-        <select id="srvCategory">
-          <option value="Entretien">Entretien</option>
-          <option value="Mécanique générale">Mécanique générale</option>
-          <option value="Freins">Freins</option>
-          <option value="Suspension">Suspension</option>
-          <option value="Direction">Direction</option>
-          <option value="Refroidissement">Refroidissement</option>
-          <option value="Diagnostic">Diagnostic</option>
-          <option value="Électricité">Électricité</option>
-          <option value="Pneus">Pneus</option>
-          <option value="Échappement">Échappement</option>
-          <option value="Transmission">Transmission</option>
-          <option value="Moteur">Moteur</option>
-          <option value="Divers">Divers</option>
-        </select>
-
-        <label>Description (optionnel)</label>
-        <textarea id="srvDesc"></textarea>
-
-        <h4>Prix fixe (forfait)</h4>
-        <input id="srvPriceFixed" type="number" step="0.01" placeholder="Ex: 89.95" />
-
-        <h4>OU Temps et taux horaire</h4>
-        <label>Heures</label>
-        <input id="srvHours" type="number" step="0.1" placeholder="Ex: 1.5" />
-        <label>Taux horaire ($ / h)</label>
-        <input id="srvRate" type="number" step="0.01" placeholder="Ex: 95" />
+        <div class="s08-service-fields">
+          <label class="s08-service-name">Nom du service
+            <input id="srvName" />
+          </label>
+          <label>Catégorie
+            <select id="srvCategory">
+              <option value="Entretien">Entretien</option>
+              <option value="Mécanique générale">Mécanique générale</option>
+              <option value="Freins">Freins</option>
+              <option value="Suspension">Suspension</option>
+              <option value="Direction">Direction</option>
+              <option value="Refroidissement">Refroidissement</option>
+              <option value="Diagnostic">Diagnostic</option>
+              <option value="Électricité">Électricité</option>
+              <option value="Pneus">Pneus</option>
+              <option value="Échappement">Échappement</option>
+              <option value="Transmission">Transmission</option>
+              <option value="Moteur">Moteur</option>
+              <option value="Divers">Divers</option>
+            </select>
+          </label>
+          <label class="s08-service-description">Description (optionnel)
+            <textarea id="srvDesc"></textarea>
+          </label>
+          <label>Prix fixe — forfait ($)
+            <input id="srvPriceFixed" type="number" step="0.01" placeholder="Ex: 89.95" />
+          </label>
+          <label>Heures (si tarif horaire)
+            <input id="srvHours" type="number" step="0.1" placeholder="Ex: 1.5" />
+          </label>
+          <label>Taux horaire ($ / h)
+            <input id="srvRate" type="number" step="0.01" placeholder="Ex: 95" />
+          </label>
+        </div>
+        <p class="muted s08-service-hint">Indique un prix fixe <strong>ou</strong> les heures et le taux horaire.</p>
 
         <button id="srvAddBtn" type="button" style="margin-top:10px;">Ajouter le service</button>
         <div id="s07ServiceSaveStatus" role="status" aria-live="polite" style="min-height:16px;font-size:12px;margin-top:6px;color:var(--muted)"></div>
