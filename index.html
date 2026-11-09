@@ -14216,12 +14216,13 @@ clone.querySelectorAll("h3").forEach(h=>{
       <title>Facture</title>
       <style>
         /* S08 TEST : en-tête/pied de page sur chaque feuille, marges réservées. */
-        @page { size: letter; margin: 22mm 14mm 20mm; }
+        @page { size: letter; margin: 14mm; }
+        /* Garder l'en-tête et le pied DANS la zone imprimable : ne pas générer une page fantôme. */
         .jl-print-header,.jl-print-footer{position:fixed;left:0;right:0;display:flex;justify-content:space-between;align-items:center;color:#333}
-        .jl-print-header{top:-15mm;border-bottom:1px solid #888;padding:0 0 3mm;font-size:11px;font-weight:700}
-        .jl-print-footer{bottom:-13mm;border-top:1px solid #aaa;padding:3mm 0 0;font-size:9px;color:#555}
+        .jl-print-header{top:0;border-bottom:1px solid #888;padding:0 0 3mm;font-size:11px;font-weight:700}
+        .jl-print-footer{bottom:0;border-top:1px solid #aaa;padding:3mm 0 0;font-size:9px;color:#555}
         .jl-print-kind{font-weight:700;letter-spacing:1px;text-transform:uppercase}
-        .jl-print-body{position:relative}
+        .jl-print-body{position:relative;padding-top:13mm;padding-bottom:13mm}
         @media screen{.jl-print-header,.jl-print-footer{position:static;margin:8px 0}}
 
         * { box-sizing: border-box; }
@@ -15766,11 +15767,12 @@ if (window.garageSupabase) {
     popup.document.open();
     popup.document.write('<!doctype html><html lang="fr"><head><meta charset="utf-8">'+
       '<title>'+selectedQuote.quote_number+' - Soumission</title>'+
-      '<style>@page{size:letter;margin:22mm 14mm 20mm}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;background:white;color:#151515;margin:0;font-size:12px}'+
+      '<style>@page{size:letter;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;background:white;color:#151515;margin:0;font-size:12px}'+
       '.jl-print-header,.jl-print-footer{position:fixed;left:0;right:0;display:flex;justify-content:space-between;align-items:center;color:#333}'+
-      '.jl-print-header{top:-15mm;border-bottom:1px solid #888;padding:0 0 3mm;font-size:11px;font-weight:700}'+
-      '.jl-print-footer{bottom:-13mm;border-top:1px solid #aaa;padding:3mm 0 0;font-size:9px;color:#555}'+
+      '.jl-print-header{top:0;border-bottom:1px solid #888;padding:0 0 3mm;font-size:11px;font-weight:700}'+
+      '.jl-print-footer{bottom:0;border-top:1px solid #aaa;padding:3mm 0 0;font-size:9px;color:#555}'+
       '.jl-print-kind{font-weight:700;letter-spacing:1px;text-transform:uppercase}'+
+      '.jl-print-body{padding-top:13mm;padding-bottom:13mm}'+
       '@media screen{.jl-print-header,.jl-print-footer{position:static;margin:8px 0}}'+
       '.s08-viewer-panel{width:100%;max-width:none;padding:0;border:0;background:white}'+
       '.s08-print-brand{font-size:15px;font-weight:700;color:#111;margin-bottom:8px}'+
@@ -15786,7 +15788,7 @@ if (window.garageSupabase) {
       '.muted{color:#555;font-size:10px}button{display:none}'+
       '</style></head><body>'+
       '<header class="jl-print-header"><span>Garage-Atelier Mécanique J.L</span><span class="jl-print-kind">Soumission</span></header>'+
-      '<main>'+noScripts+'</main>'+
+      '<main class="jl-print-body">'+noScripts+'</main>'+
       '<footer class="jl-print-footer"><span>Garage-Atelier Mécanique J.L</span><span>Soumission</span></footer>'+
       '</body></html>');
     popup.document.close();
