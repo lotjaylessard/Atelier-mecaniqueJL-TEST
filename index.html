@@ -1253,7 +1253,7 @@ button.link:hover{
 #page-quotes .s08-editor-heading{display:flex;align-items:start;justify-content:space-between;gap:12px;flex-wrap:wrap}
 #page-quotes .s08-field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 14px}
 #page-quotes .s08-field-grid label,#page-quotes .s08-line-add label{min-width:0}
-#page-quotes .s08-line-add{display:grid;grid-template-columns:100px minmax(180px,1fr) 105px 110px 110px 110px auto;gap:10px;align-items:end}
+#page-quotes .s08-line-add{display:grid;grid-template-columns:95px minmax(180px,1fr) 105px 110px 110px 110px 110px auto;gap:10px;align-items:end}
 #page-quotes .s08-line-add input,#page-quotes .s08-line-add select{box-sizing:border-box;width:100%}
 #page-quotes .s08-line-add button{margin-bottom:0;white-space:nowrap}
 #page-quotes .s08-editor-lines{overflow-x:auto;max-width:100%}
@@ -1556,14 +1556,14 @@ button.link:hover{
           <label>Description<input id="s08LineDescription" type="text" placeholder="Pièce ou travail à effectuer"></label>
           <label id="s08PartNumberLabel"># pièce<input id="s08LinePartNumber" type="text" placeholder="Référence (facultatif)"></label>
           <label>Quantité / heures<input id="s08LineQty" type="number" step="0.01" min="0.01" value="1"></label>
-          <label>Prix de vente ($)<input id="s08LinePrice" type="number" step="0.01" min="0" value="0"></label>
-          <label id="s08CostLabel">Coût d'achat ($)<input id="s08LineCost" type="number" step="0.01" min="0" value="0"></label>
+          <label id="s08CostLabel">Coûtant ($)<input id="s08LineCost" type="number" step="0.01" min="0" value="0"></label>
+          <label>Vente ($)<input id="s08LinePrice" type="number" step="0.01" min="0" value="0"></label>
           <button id="s08AddLine" type="button" title="Ajouter la ligne (ou appuyer sur Entrée)">+ Ajouter la ligne</button>
         </div>
         <p class="muted" style="font-size:12px;margin:4px 0 0">Astuce : <strong>Entrée</strong> dans les champs de la ligne ajoute directement la pièce ou le service.</p>
         <p id="s08LineError" role="status" aria-live="polite" class="muted"></p>
         <div class="s08-editor-lines">
-          <table><thead><tr><th>Type</th><th>Description</th><th># pièce</th><th>Quantité</th><th>Prix de vente</th><th>Montant</th><th>Action</th><th>Coût pièce</th><th>Profit pièce</th></tr></thead>
+          <table><thead><tr><th>Type</th><th>Description</th><th># pièce</th><th>Quantité</th><th>Coûtant</th><th>Vente</th><th>Montant</th><th>Profit</th><th>Actions</th></tr></thead>
             <tbody id="s08DraftLines"><tr><td colspan="9" class="muted">Aucune ligne ajoutée.</td></tr></tbody>
           </table>
         </div>
@@ -15058,6 +15058,8 @@ if (window.garageSupabase) {
 
   // S08 : clic sur une cellule pour modifier une ligne, Enter ou ✓ pour confirmer.
   // Toutes les modifications restent dans le brouillon jusqu'à l'enregistrement.
+  // S08 : colonnes uniformes — Qté, Coûtant, Vente, Montant, Profit, Actions.
+  // Coûtant et Vente sont des prix unitaires ; Montant et Profit portent sur la quantité.
   let activeEditIndex=-1;
   function render(){
     activeEditIndex=-1;
@@ -15068,11 +15070,18 @@ if (window.garageSupabase) {
       tr.append(td);tbody.append(tr);
     }
     for(const [index,line] of lines.entries()){
-      const row=document.createElement("tr");
-      const values=[line.type==="part"?"Pièce":line.type==="labor"?"Main-d’œuvre":"Autre",line.description,line.type==="part"?(line.number||"—"):"—",String(line.qty),fmt(line.priceCents/100),fmt(line.amountCents/100)];
-      const cells=values.map((val,i)=>{
+      const row=document.createElement("tr"),part=line.type==="part";
+      const unitCost=Number(line.costCents)||0;
+      const values=[
+        part?"Pièce":line.type==="labor"?"Main-d’œuvre":"Autre",
+        line.description,part?(line.number||"—"):"—",String(line.qty),
+        part?fmt(unitCost/100):"—",fmt(line.priceCents/100),
+        fmt(line.amountCents/100),
+        part?fmt((line.amountCents-Math.round(unitCost*line.qty))/100):"—"
+      ];
+      values.forEach((val,i)=>{
         const cell=document.createElement("td");cell.textContent=val;
-        if(i>=1&&i<=4 && (i!==2 || line.type==="part")){
+        if([1,3,5].includes(i)||(part&&[2,4].includes(i))){
           cell.tabIndex=0;cell.setAttribute("role","button");
           cell.title="Cliquer pour modifier cette ligne";
           cell.style.cursor="pointer";
@@ -15081,18 +15090,12 @@ if (window.garageSupabase) {
             if(event.key==="Enter"||event.key===" "){event.preventDefault();beginInlineEdit(index,i);}
           });
         }
-        row.append(cell);return cell;
+        row.append(cell);
       });
       const actions=document.createElement("td"),remove=document.createElement("button");
       remove.type="button";remove.className="ghost danger";remove.textContent="Retirer";
       remove.addEventListener("click",()=>{lines.splice(index,1);render()});
-      actions.append(remove);row.append(actions);
-      const unitCost=Number(line.costCents)||0;
-      const part=line.type==="part";
-      for(const value of [part?fmt(unitCost*line.qty/100):"—",part?fmt((line.priceCents-unitCost)*line.qty/100):"—"]){
-        const td=document.createElement("td");td.textContent=value;row.append(td);
-      }
-      tbody.append(row);
+      actions.append(remove);row.append(actions);tbody.append(row);
     }
     total.textContent=fmt(lines.reduce((sum,line)=>sum+line.amountCents,0)/100);
     const cost=lines.filter(l=>l.type==="part").reduce((sum,l)=>sum+Math.round((Number(l.costCents)||0)*l.qty),0);
@@ -15101,27 +15104,24 @@ if (window.garageSupabase) {
     get("s08PartsProfitTotal").textContent=fmt((revenue-cost)/100);
   }
   function beginInlineEdit(index,focusedCell){
-    if(activeEditIndex!==-1 || saving)return;
+    if(activeEditIndex!==-1||saving)return;
     const line=lines[index],row=tbody.rows[index],cells=row?.cells;
     if(!line||!cells)return;
-    activeEditIndex=index;
-    error.textContent="";
-    const desc=document.createElement("input"),partNumber=document.createElement("input"),qty=document.createElement("input"),price=document.createElement("input"),cost=document.createElement("input");
-    partNumber.type="text";partNumber.value=String(line.number||"");partNumber.setAttribute("aria-label","Numéro de pièce");
+    activeEditIndex=index;error.textContent="";
+    const part=line.type==="part";
+    const desc=document.createElement("input"),partNumber=document.createElement("input"),
+      qty=document.createElement("input"),cost=document.createElement("input"),price=document.createElement("input");
     desc.type="text";desc.value=line.description;desc.setAttribute("aria-label","Description");
+    partNumber.type="text";partNumber.value=String(line.number||"");partNumber.setAttribute("aria-label","Numéro de pièce");
     qty.type="number";qty.min="0.01";qty.step="any";qty.value=String(line.qty);qty.setAttribute("aria-label","Quantité ou heures");
-    price.type="number";price.min="0";price.step="0.01";price.value=String(line.priceCents/100);price.setAttribute("aria-label","Prix de vente");
-    if(line.type==="part"){
-      cost.type="number";cost.min="0";cost.step="0.01";cost.value=String((Number(line.costCents)||0)/100);
-      cost.setAttribute("aria-label","Coût d'achat de la pièce");
-      cost.style.cssText="width:100%;min-width:75px;padding:7px;box-sizing:border-box";
-      cells[7].replaceChildren(cost);
-    }
-    [desc,...(line.type==="part"?[partNumber]:[]),qty,price].forEach((input,i)=>{
-      const cell=cells[i+1+(line.type==="part"?0:(i>0?1:0))];
-      cell.replaceChildren(input);cell.removeAttribute("role");cell.removeAttribute("tabindex");
+    cost.type="number";cost.min="0";cost.step="0.01";cost.value=String((Number(line.costCents)||0)/100);cost.setAttribute("aria-label","Coûtant");
+    price.type="number";price.min="0";price.step="0.01";price.value=String(line.priceCents/100);price.setAttribute("aria-label","Vente");
+    const fields=[[1,desc],[3,qty],[5,price],...(part?[[2,partNumber],[4,cost]]:[])];
+    for(const [position,input] of fields){
+      cells[position].replaceChildren(input);
+      cells[position].removeAttribute("role");cells[position].removeAttribute("tabindex");
       input.style.cssText="width:100%;min-width:75px;padding:7px;box-sizing:border-box";
-    });
+    }
     const confirmButton=document.createElement("button");
     confirmButton.type="button";confirmButton.textContent="✓";
     confirmButton.title="Confirmer les modifications";
@@ -15132,29 +15132,28 @@ if (window.garageSupabase) {
     function confirmEdit(){
       const quantity=Number(qty.value),unit=Number(price.value);
       const cents=moneyCents(unit),amount=Math.round(quantity*cents);
-      const costCents=line.type==="part"?moneyCents(Number(cost.value)):0;
+      const costCents=part?moneyCents(Number(cost.value)):0;
       if(!desc.value.trim()||!qty.value||!price.value||
         !Number.isFinite(quantity)||quantity<=0||!Number.isFinite(unit)||unit<0||
         !Number.isSafeInteger(cents)||cents<0||!Number.isSafeInteger(amount)||amount<0||
-        !Number.isSafeInteger(costCents)||costCents<0||(line.type==="part"&&!cost.value)){
-        error.textContent="Vérifie la description, la quantité et le prix de la ligne.";
-        return;
+        !Number.isSafeInteger(costCents)||costCents<0||(part&&!cost.value)){
+        error.textContent="Vérifie la description, la quantité, le coûtant et le prix de vente.";return;
       }
       lines[index]={...line,description:desc.value.trim(),qty:quantity,priceCents:cents,amountCents:amount,
-        ...(line.type==="part"?{costCents,number:partNumber.value.trim()}:{})};
+        ...(part?{costCents,number:partNumber.value.trim()}:{})};
       error.textContent="";render();
     }
     confirmButton.addEventListener("click",confirmEdit);
     cancelButton.addEventListener("click",()=>{error.textContent="";render()});
-    for(const input of [desc,...(line.type==="part"?[partNumber]:[]),qty,price,...(line.type==="part"?[cost]:[])]){
+    for(const [,input] of fields){
       input.addEventListener("keydown",event=>{
-        if(event.key==="Enter" && !event.isComposing){event.preventDefault();event.stopPropagation();confirmEdit();}
+        if(event.key==="Enter"&&!event.isComposing){event.preventDefault();event.stopPropagation();confirmEdit();}
         if(event.key==="Escape"){event.preventDefault();event.stopPropagation();error.textContent="";render();}
       });
     }
-    cells[6].replaceChildren(confirmButton,cancelButton);
-    cells[6].style.whiteSpace="nowrap";
-    [desc,partNumber,qty,price][focusedCell-1]?.focus();
+    cells[8].replaceChildren(confirmButton,cancelButton);
+    cells[8].style.whiteSpace="nowrap";
+    ({1:desc,2:partNumber,3:qty,4:cost,5:price})[focusedCell]?.focus();
   }
   start.addEventListener("click",()=>{
     if(!editor.hidden)return;
