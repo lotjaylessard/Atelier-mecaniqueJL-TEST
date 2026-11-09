@@ -1545,7 +1545,6 @@ button.link:hover{
               <option value="declined">Refusée</option>
               <option value="expired">Expirée</option>
             </select>
-            <button type="button" id="s08StatusSave" disabled>✓ Enregistrer</button>
             <span id="s08StatusResult" role="status" aria-live="polite" class="muted"></span>
           </div>
           <p id="s08PreflightResult" class="muted" role="status" aria-live="polite" hidden></p>
@@ -15734,22 +15733,27 @@ if (window.garageSupabase) {
   };
   let statusSaving=false;
   function updateStatusControl(){
-    const choice=get("s08StatusChoice"),button=get("s08StatusSave");
-    if(!selectedQuote||statusSaving||!statusTransitions[selectedQuote.status]){
-      button.disabled=true;return;
+    const choice=get("s08StatusChoice");
+    choice.disabled=statusSaving;
+    // Afficher seulement les transitions autorisées, en gardant la valeur actuelle.
+    const allowed=statusTransitions[selectedQuote?.status]||[];
+    for(const opt of choice.options){
+      opt.disabled=opt.value!==selectedQuote?.status&&!allowed.includes(opt.value);
     }
-    const from=selectedQuote.status,to=choice.value;
-    button.disabled=!(to===from||statusTransitions[from].includes(to))||to===from;
   }
-  get("s08StatusChoice").addEventListener("change",updateStatusControl);
-  get("s08StatusSave").addEventListener("click",async()=>{
+  get("s08StatusChoice").addEventListener("change",async()=>{
     const q=selectedQuote;
+    const choice=get("s08StatusChoice");
     if(statusSaving||!q||!statusTransitions[q.status])return;
-    const to=get("s08StatusChoice").value;
-    if(!statusTransitions[q.status].includes(to))return;
+    const to=choice.value;
+    if(to===q.status)return;
+    if(!statusTransitions[q.status].includes(to)){choice.value=q.status;return;}
     const labels={draft:"Brouillon",sent:"Envoyée",declined:"Refusée",expired:"Expirée"};
     if(!confirm("Changer le statut de "+q.quote_number+" de "+
-      labels[q.status]+" à "+labels[to]+" ?"))return;
+      labels[q.status]+" à "+labels[to]+" ?")){
+      choice.value=q.status;
+      return;
+    }
     statusSaving=true;updateStatusControl();
     const feedback=get("s08StatusResult");
     feedback.textContent="Mise à jour sur Supabase TEST…";
@@ -15766,8 +15770,9 @@ if (window.garageSupabase) {
       if(!row||row.id!==q.id||row.status!==to||row.version!==q.version+1)
         throw Error("Conflit de version ou sauvegarde non confirmée : rouvre la soumission.");
       selectedQuote={...q,...row};
+      choice.value=to;
       feedback.textContent="✓ Statut enregistré : "+labels[to]+".";
-      get("s08ViewMeta").textContent=String(row.created_at||"").slice(0,10)+" · "+labels[to];
+      get("s08ViewMeta").textContent=String(row.created_at||"").slice(0,10);
       // Revenir d'un refus ou d'une expiration permet à nouveau la préparation BT,
       // mais sans jamais créer de BT automatiquement.
       get("s08Preflight").hidden=true;
@@ -15777,6 +15782,7 @@ if (window.garageSupabase) {
       await refreshQuotes();
     }catch(err){
       console.warn("[S08-F07b] Statut non confirmé",err);
+      choice.value=q.status;
       feedback.textContent="⚠ "+String(err?.message||err)+
         " Vérifie la liste avant de recommencer.";
     }finally{
