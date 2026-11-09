@@ -72,14 +72,14 @@
     box.hidden=false;
     if(details)details.hidden=false;
     delete box.dataset.pendingRestore;
-    if(hint)hint.textContent=actionPending?
-      "Commande envoyée. Confirmation de Supabase en cours…":
-      delayed||stale?"Dernier temps confirmé par Supabase. Vérification de connexion en cours…":
-      "Temps confirmé par Supabase environ toutes les 5 s; affichage fluide indicatif.";
     const heartbeatAt=Date.parse(current.last_heartbeat_at||"");
     const gapMs=Number.isFinite(heartbeatAt)?Date.now()-heartbeatAt:Infinity;
     const stale=current.status==="running"&&gapMs>20000;
     const delayed=current.status==="running"&&gapMs>12000&&!stale;
+    if(hint)hint.textContent=actionPending?
+      "Commande envoyée. Confirmation de Supabase en cours…":
+      delayed||stale?"Dernier temps confirmé par Supabase. Vérification de connexion en cours…":
+      "Temps confirmé par Supabase environ toutes les 5 s; affichage fluide indicatif.";
     box.dataset.status=stale?"paused":current.status;
     status.textContent=actionPending?
       (pendingAction==="pause"?"◌ Pause demandée…":
