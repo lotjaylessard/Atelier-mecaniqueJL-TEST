@@ -15730,7 +15730,19 @@ if (window.garageSupabase) {
     value("s08ViewClient",d.clientName);
     value("s08ViewPhone",d.clientPhone);
     value("s08ViewEmail",d.clientEmail);
-    value("s08ViewVehicle",d.vehicleLabel);
+    // Les soumissions recentes conservent les IDs du véhicule sélectionné.
+    // Lire les détails dans sa fiche courante, sans inventer les champs manquants.
+    const linkedClient=currentClients().find(c=>String(c.id)===String(d.linkedClientId??""));
+    const linkedVehicle=linkedClient?.vehicles?.find(v=>String(v.id)===String(d.linkedVehicleId??""));
+    const vehicleText=linkedVehicle
+      ? [
+          linkedVehicle.year,linkedVehicle.make,linkedVehicle.model,
+          linkedVehicle.trim||linkedVehicle.submodel||linkedVehicle.subModel,
+          linkedVehicle.engine,
+          "NIV : "+(String(linkedVehicle.vin??"").trim()||"—")
+        ].filter(v=>String(v??"").trim()).join(" / ")
+      : String(d.vehicleLabel||"—")+" / NIV : non disponible";
+    value("s08ViewVehicle",vehicleText);
     value("s08ViewDescription",d.description);
     value("s08ViewTotal",fmtQuote(Number(d.totalCents||0)));
     const target=get("s08ViewLines");
