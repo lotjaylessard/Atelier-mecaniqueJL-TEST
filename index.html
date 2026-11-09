@@ -3008,6 +3008,7 @@ const isPaid =
         <tr>
           <th>Type</th>
           <th>Description</th>
+          <th># pièce</th>
           <th>Qté</th>
           <th>Prix</th>
           <th>Total</th>
@@ -3017,7 +3018,8 @@ const isPaid =
         ${(inv.items || []).map(it=>`
           <tr>
             <td>${it.type}</td>
-            <td>${it.desc}</td>
+            <td>${escapeHTML(String(it.desc||""))}</td>
+            <td>${it.type==="Pièce" ? escapeHTML(String(it.number||it.invNumber||"")) || "—" : "—"}</td>
             <td>${it.timerSessionId ? Number(it.qty).toFixed(2) + ' h' : it.qty}</td>
             <td>${money(it.rate)} $</td>
             <td>${money(s06InvoiceItemAmount(it))} $</td>
@@ -5719,6 +5721,7 @@ vehicleId: invoice.vehicleId ?? null,
       .filter(i => i.type === "Pièce")
       .map(i => ({
         name: i.desc,
+        number: i.number || i.invNumber || "",
         qty: Number(i.qty),
         rate: Number(i.rate),
         total: Number(i.qty) * Number(i.rate)
@@ -5956,6 +5959,7 @@ function persistActiveWO(wo){
       invoice.items.push({
         type: "Pièce",
         desc: p.name,
+        number: p.number || "",
         qty: p.qty,
         rate: p.rate
       });
@@ -6200,7 +6204,8 @@ function saveTempWOToInvoice(tempWO){
   (tempWO.parts || []).forEach(p=>{
     items.push({
       type: "Pièce",
-      desc: `${p.name || ""}${p.number ? " (#"+p.number+")" : ""}`.trim(),
+      desc: String(p.name||"").trim(),
+      number: p.number || "",
       qty: Number(p.qty) || 0,
       rate: Number(p.rate) || 0,
       total: (Number(p.qty) || 0) * (Number(p.rate) || 0)
@@ -7727,7 +7732,8 @@ const invoice = {
 (wo.parts || []).forEach(p=>{
   invoice.items.push({
     type: "Pièce",
-    desc: `${p.name}${p.number ? " (#"+p.number+")" : ""}`,
+    desc: p.name,
+    number: p.number || "",
     qty: Number(p.qty),
     rate: Number(p.rate),
     total: Number(p.qty) * Number(p.rate)
@@ -14032,6 +14038,7 @@ function woConvertToInvoice(wo) {
     invoice.items.push({
       type: "Pièce",
       desc: p.name,
+      number: p.number || "",
       qty: p.qty,
       rate: p.rate
     });
