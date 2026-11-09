@@ -5,7 +5,7 @@
  * L'ancien miroir gère les modes hors pilote.
  */
 (() => {
-  if(new URLSearchParams(location.search).get("s06_wo_pilot")!=="1")return;
+  if(new URLSearchParams(location.search).get("s06_legacy_timer")==="1")return;
   const box=document.getElementById("s06SidebarTimer");
   const status=document.getElementById("s06TimerStatus");
   const number=document.getElementById("s06TimerWorkOrder");
