@@ -1165,7 +1165,7 @@ button.link:hover{
 #s08QuoteViewer .s08-viewer-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 #s08QuoteViewer .s08-viewer-controls button{white-space:nowrap;padding:9px 12px}
 #s08QuoteViewer .s08-status-feedback:empty{display:none}
-#s08QuoteViewer .s08-status-feedback{font-size:12px;line-height:1.25;max-width:180px;overflow-wrap:anywhere}
+#s08QuoteViewer .s08-status-feedback{font-size:12px;line-height:1.25;max-width:185px;overflow-wrap:anywhere;flex:0 1 auto;white-space:normal}
 #s08QuoteViewer .s08-view-subhead{display:flex;align-items:center;gap:8px 11px;flex-wrap:wrap;margin:4px 0 8px}
 #s08QuoteViewer .s08-view-subhead .s08-status-panel{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:0;margin-left:auto}
 #s08QuoteViewer .s08-view-subhead .s08-status-panel[hidden]{display:none}
@@ -1547,7 +1547,6 @@ button.link:hover{
             <h2 id="s08ViewTitle">Soumission</h2>
             <div class="s08-viewer-controls">
               <button type="button" id="s08QuickApprove" title="Approuver la soumission et créer un bon de travail">✓ Approuver</button>
-              <span id="s08StatusResult" class="muted s08-status-feedback" role="status" aria-live="polite"></span>
               <button type="button" class="ghost" id="s08Preflight" hidden>Vérifier avant conversion</button>
               <button type="button" class="primary" id="s08ViewPrint" title="Imprimer ou enregistrer la soumission en PDF">🖨️ Imprimer</button>
               <button type="button" class="ghost" id="s08ViewClose">Fermer</button>
@@ -1564,6 +1563,7 @@ button.link:hover{
               <option value="declined">Refusée</option>
               <option value="expired">Expirée</option>
             </select>
+              <span id="s08StatusResult" class="muted s08-status-feedback" role="status" aria-live="polite"></span>
             </div>
           </div>
           <p id="s08ConvertedBT" class="s08-converted-bt" hidden></p>
