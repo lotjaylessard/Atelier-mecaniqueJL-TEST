@@ -235,7 +235,10 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     else {app.lastVerified=null;savedStatus("idle","Aucune session enregistrée pour ce BT.");}
   }
   async function rpc(action,existing,woId=null){
-    const c=await client();
+    // Heartbeat fréquent : éviter un getUser réseau supplémentaire à chaque ping.
+    // La RPC Supabase contrôle toujours auth.uid() et la révision côté serveur.
+    const c=action==="heartbeat"&&app.user&&app.garage&&navigator.onLine&&
+      window.garageSupabase?.rpc?window.garageSupabase:await client();
     const {data,error}=await c.rpc("s06_timer_transition",{
       p_id:existing?.id||null,p_action:action,
       p_expected_revision:existing?Number(existing.revision):0,p_work_order_id:woId
@@ -247,8 +250,17 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       throw Error("Accusé de réception serveur incohérent. Recharge la page.");
     app.rows=app.rows.filter(x=>x.id!==data.id).concat(data);
     if(data.work_order_id===app.woId)app.session=data;
-    if(action==="heartbeat"&&app.ownRunning===data.id&&data.status==="running")
-      app.displayAnchor={at:Date.now(),ms:Number(data.confirmed_ms)};
+    if(action==="heartbeat"&&app.ownRunning===data.id){
+      if(data.status==="running"){
+        app.displayAnchor={at:Date.now(),ms:Number(data.confirmed_ms)};
+      }else{
+        // Le serveur peut décider de suspendre après un long délai (>20 s).
+        // Cette pause doit prendre effet immédiatement, même hors de la page BT.
+        stopBeat();
+        interruptedReason="Le serveur a mis la minuterie en pause après une interruption de confirmation.";
+        setMsg("⚠ Minuterie suspendue par Supabase. Vérifie le temps confirmé avant de reprendre.");
+      }
+    }
     paint();confirmSaved(data,"write");
     window.dispatchEvent(new Event("s06-timer-updated"));
     return data;
@@ -294,7 +306,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
           await rpc("heartbeat",app.session);setMsg("Minuterie en cours.");
         }
       },true);
-    },3000);
+    },5000);
   }
   document.addEventListener("visibilitychange",()=>{
     if(document.visibilityState!=="visible"||!app.session)return;
@@ -329,7 +341,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       app.session=await rpc("create",null,app.woId);
     }
     const res=await rpc("start",app.session);
-    beats();setMsg("Démarrée. Temps confirmé par Supabase environ toutes les 3 secondes.");
+    beats();setMsg("Démarrée. Temps confirmé par Supabase environ toutes les 5 secondes.");
   }
   async function pause(){
     if(!app.session||app.session.status!=="running"||app.ownRunning!==app.session.id)
