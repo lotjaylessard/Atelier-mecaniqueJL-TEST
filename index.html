@@ -1207,6 +1207,20 @@ button.link:hover{
 @media(max-width:760px){#page-services .s08-service-entry .s08-service-fields{grid-template-columns:repeat(2,minmax(0,1fr))}#page-services .s08-service-entry .s08-service-name{grid-column:span 2}}
 @media(max-width:490px){#page-services .s08-service-entry .s08-service-fields{grid-template-columns:minmax(0,1fr)}#page-services .s08-service-entry .s08-service-name{grid-column:1}}
 
+
+/* S08 : confidentialité et profits — styles limités aux soumissions TEST. */
+#page-quotes .s08-page-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}
+#page-quotes .s08-page-heading h2{margin:0}
+#page-quotes .s08-profit-negative,#s08QuoteViewer .s08-profit-negative{color:#ff6666;font-weight:700}
+#page-quotes .s08-profit-positive,#s08QuoteViewer .s08-profit-positive{color:#56d18a;font-weight:700}
+#page-quotes .s08-profit-neutral,#s08QuoteViewer .s08-profit-neutral{color:#f3f3f3}
+#page-quotes.s08-private .s08-garage-only{display:none!important}
+#page-quotes.s08-private #s08CostLabel{visibility:hidden}
+#s08QuoteViewer #s08GarageFinancials[hidden]{display:none!important}
+#s08QuoteViewer #s08GarageFinancials{margin-top:12px;padding:12px;border:1px solid #505050;border-radius:8px}
+#s08QuoteViewer #s08GarageFinancials h3{margin:0 0 8px}
+#s08QuoteViewer #s08GarageFinancials td,#s08QuoteViewer #s08GarageFinancials th{padding:6px 8px}
+
 /* S08 — fiche compacte : styles locaux seulement, aucun changement fonctionnel. */
 #s08QuoteViewer{padding:12px}
 #s08QuoteViewer .s08-viewer-panel{box-sizing:border-box;max-height:calc(100dvh - 24px);padding:16px 20px}
@@ -1469,7 +1483,7 @@ button.link:hover{
         <!-- WORK ORDERS -->
     <!-- S08-F01 : module Soumissions indépendant, squelette sans écriture de données. -->
     <div class="page" id="page-quotes">
-      <h2>Soumissions</h2>
+      <div class="s08-page-heading"><h2>Soumissions</h2><button id="s08PrivacyToggle" type="button" class="ghost" aria-pressed="false" title="Masquer ou afficher les informations internes">⋯ Vue garage</button></div>
       <div class="card s08-quotes-card" id="s08QuotesListCard">
         <div class="module-search-toolbar">
           <button id="s08NewQuote" type="button" title="Préparer une soumission temporaire (non enregistrée)">➕ Nouvelle soumission</button>
@@ -1562,13 +1576,13 @@ button.link:hover{
         </div>
         <p class="muted" style="font-size:12px;margin:4px 0 0">Astuce : <strong>Entrée</strong> dans les champs de la ligne ajoute directement la pièce ou le service.</p>
         <p id="s08LineError" role="status" aria-live="polite" class="muted"></p>
-        <div class="s08-editor-lines">
+        <div class="s08-editor-lines s08-garage-only">
           <table><thead><tr><th>Type</th><th>Description</th><th># pièce</th><th>Quantité</th><th>Coûtant</th><th>Vente</th><th>Montant</th><th>Profit</th><th>Actions</th></tr></thead>
             <tbody id="s08DraftLines"><tr><td colspan="9" class="muted">Aucune ligne ajoutée.</td></tr></tbody>
           </table>
         </div>
         <div class="s08-total"><strong>Total estimé (avant taxes) : <span id="s08DraftTotal">0,00 $</span></strong></div>
-        <p class="muted" style="text-align:right;margin:4px 0 0;font-size:12px">Interne uniquement — coût total des pièces : <strong id="s08PartsCostTotal">0,00 $</strong> · Profit brut estimé sur les pièces : <strong id="s08PartsProfitTotal">0,00 $</strong> (main-d’œuvre exclue).</p>
+        <p class="muted s08-garage-only" style="text-align:right;margin:4px 0 0;font-size:12px">Interne uniquement — coût total des pièces : <strong id="s08PartsCostTotal">0,00 $</strong> · Profit brut estimé sur les pièces : <strong id="s08PartsProfitTotal">0,00 $</strong> (main-d’œuvre exclue).</p>
         <p class="muted" style="margin:6px 0 0">Taxes applicables en sus. Après l’enregistrement, impression et approbation sont disponibles dans la fiche de la soumission.</p>
         <p id="s08SaveStatus" role="status" aria-live="polite" class="muted"></p>
         <div class="s08-editor-buttons">
@@ -1583,6 +1597,7 @@ button.link:hover{
           <div class="s08-viewer-head">
             <h2 id="s08ViewTitle">Soumission</h2>
             <div class="s08-viewer-controls">
+              <button type="button" id="s08ViewerMode" class="ghost" aria-pressed="false" title="Afficher les informations internes du garage">⋯ Vue garage</button>
               <button type="button" id="s08QuickApprove" title="Approuver la soumission et créer un bon de travail">✓ Approuver</button>
               <button type="button" class="ghost" id="s08Preflight" hidden>Vérifier avant conversion</button>
               <button type="button" class="primary" id="s08ViewPrint" title="Imprimer ou enregistrer la soumission en PDF">🖨️ Imprimer</button>
@@ -1671,6 +1686,7 @@ button.link:hover{
               <tbody id="s08ViewLines"></tbody>
             </table>
           </div>
+          <div id="s08GarageFinancials" class="s08-garage-only" hidden><h3>Informations internes — garage seulement</h3><div class="s08-viewer-table"><table><thead><tr><th>Pièce</th><th>Qté</th><th>Coûtant</th><th>Vente</th><th>Profit</th></tr></thead><tbody id="s08GarageProfitLines"></tbody></table></div><p class="muted" id="s08GarageProfitTotal"></p></div>
           <p class="s08-view-total">Total estimé : <strong id="s08ViewTotal"></strong></p>
           <p class="muted" style="font-size:12px;">Taxes applicables en sus. Soumission valide pendant 15 jours.</p>
         </div>
@@ -14874,6 +14890,19 @@ if (window.garageSupabase) {
   let saving=false;
   let quotes=[];
   const get=id=>document.getElementById(id);
+  let s08ClientMode=false;
+  function setS08ClientMode(clientMode){
+    s08ClientMode=!!clientMode;
+    document.getElementById("page-quotes")?.classList.toggle("s08-private",s08ClientMode);
+    const pageButton=document.getElementById("s08PrivacyToggle");
+    const viewerButton=document.getElementById("s08ViewerMode");
+    if(pageButton){pageButton.textContent=s08ClientMode?"⋯ Vue client":"⋯ Vue garage";pageButton.setAttribute("aria-pressed",String(s08ClientMode));}
+    if(viewerButton){viewerButton.textContent=s08ClientMode?"⋯ Vue client":"⋯ Vue garage";viewerButton.setAttribute("aria-pressed",String(s08ClientMode));}
+    const financials=document.getElementById("s08GarageFinancials");
+    if(financials)financials.hidden=s08ClientMode||viewer.hidden;
+  }
+  document.getElementById("s08PrivacyToggle")?.addEventListener("click",()=>setS08ClientMode(!s08ClientMode));
+  document.getElementById("s08ViewerMode")?.addEventListener("click",()=>setS08ClientMode(!s08ClientMode));
   const fmt=n=>n.toLocaleString("fr-CA",{minimumFractionDigits:2,maximumFractionDigits:2})+" $";
   const moneyCents=value=>Math.round(value*100);
   // S08-F02b : lecture seule depuis les mêmes catalogues que les modules Pièces et Services.
@@ -15072,15 +15101,17 @@ if (window.garageSupabase) {
     for(const [index,line] of lines.entries()){
       const row=document.createElement("tr"),part=line.type==="part";
       const unitCost=Number(line.costCents)||0;
+      const profitCents=line.amountCents-Math.round(unitCost*line.qty);
       const values=[
         part?"Pièce":line.type==="labor"?"Main-d’œuvre":"Autre",
         line.description,part?(line.number||"—"):"—",String(line.qty),
         part?fmt(unitCost/100):"—",fmt(line.priceCents/100),
         fmt(line.amountCents/100),
-        part?fmt((line.amountCents-Math.round(unitCost*line.qty))/100):"—"
+        part?fmt(profitCents/100):"—"
       ];
       values.forEach((val,i)=>{
         const cell=document.createElement("td");cell.textContent=val;
+        if(i===7&&part)cell.classList.add(profitCents<0?"s08-profit-negative":profitCents>0?"s08-profit-positive":"s08-profit-neutral");
         if([1,3,5].includes(i)||(part&&[2,4].includes(i))){
           cell.tabIndex=0;cell.setAttribute("role","button");
           cell.title="Cliquer pour modifier cette ligne";
@@ -15690,7 +15721,10 @@ if (window.garageSupabase) {
       return;
     }
     const copy=viewer.querySelector(".s08-viewer-panel").cloneNode(true);
+    // Impression toujours client, même si la vue garage est ouverte.
+    copy.querySelector("#s08GarageFinancials")?.remove();
     copy.querySelector(".s08-viewer-controls")?.remove();
+    copy.querySelectorAll(".s08-garage-only").forEach(node=>node.remove());
     copy.querySelector("#s08ConvertedBT")?.remove();
     copy.querySelector("#s08StatusPanel")?.remove();
     copy.querySelector("#s08ViewStatusBadge")?.remove();
@@ -15705,16 +15739,17 @@ if (window.garageSupabase) {
       '<title>'+selectedQuote.quote_number+' - Soumission</title>'+
       '<style>@page{size:letter;margin:17mm 14mm}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;background:white;color:#151515;margin:0;font-size:12px}'+
       '.s08-viewer-panel{width:100%;max-width:none;padding:0;border:0;background:white}'+
-      '.s08-print-brand{font-size:16px;font-weight:700;color:#111;margin-bottom:14px}'+
-      'h2{font-size:23px;margin:0 0 8px;color:#111}h3{font-size:15px;margin:22px 0 9px;color:#111}'+
-      '.s08-viewer-details{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:13px;border:1px solid #aaa;border-radius:5px;margin:18px 0}'+
+      '.s08-print-brand{font-size:15px;font-weight:700;color:#111;margin-bottom:8px}'+
+      'h2{font-size:20px;margin:0 0 5px;color:#111}h3{font-size:13px;margin:12px 0 5px;color:#111}'+
+      '.s08-viewer-details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px 14px;padding:10px;border:1px solid #aaa;border-radius:5px;margin:9px 0}'+
+      '.s08-vehicle-detail{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 14px;border-top:1px solid #ddd;padding-top:7px}'+
       '.s08-viewer-details div span,.s08-viewer-details div strong{display:block;overflow-wrap:anywhere}'+
-      '.s08-viewer-details div span{font-size:10px;color:#555}.s08-viewer-details div strong{font-size:12px;margin-top:4px}'+
+      '.s08-viewer-details div span{font-size:9px;color:#555}.s08-viewer-details div strong{font-size:11px;margin-top:2px}'+
       '.s08-view-description{white-space:pre-wrap;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse}'+
-      'th,td{text-align:left;border-bottom:1px solid #ccc;padding:9px 6px;font-size:11px}th{background:#eee}'+
+      'th,td{text-align:left;border-bottom:1px solid #ccc;padding:6px 5px;font-size:10px}th{background:#eee}'+
       'th:nth-child(n+3),td:nth-child(n+3){text-align:right}tr{break-inside:avoid}'+
-      '.s08-view-total{text-align:right;font-size:18px;font-weight:700;margin:22px 0 7px}'+
-      '.muted{color:#555;font-size:11px}button{display:none}'+
+      '.s08-view-total{text-align:right;font-size:16px;font-weight:700;margin:12px 0 5px}'+
+      '.muted{color:#555;font-size:10px}button{display:none}'+
       '</style></head><body>'+noScripts+'</body></html>');
     popup.document.close();
     popup.focus();
@@ -15896,8 +15931,25 @@ if (window.garageSupabase) {
       }
       target.append(tr);
     }
+    const garageRows=get("s08GarageProfitLines");
+    garageRows.replaceChildren();
+    let garageProfitCents=0;
+    for(const line of Array.isArray(d.lines)?d.lines:[]){
+      if(line.type!=="part")continue;
+      const qty=Number(line.qty)||0,unitCost=Number(line.costCents)||0;
+      const profit=Number(line.amountCents||0)-Math.round(unitCost*qty);
+      garageProfitCents+=profit;
+      const tr=document.createElement("tr");
+      for(const value of [line.description||"",String(qty),fmtQuote(unitCost),fmtQuote(Number(line.priceCents)||0),fmtQuote(profit)]){
+        const td=document.createElement("td");td.textContent=value;tr.append(td);
+      }
+      tr.cells[4].classList.add(profit<0?"s08-profit-negative":profit>0?"s08-profit-positive":"s08-profit-neutral");
+      garageRows.append(tr);
+    }
+    get("s08GarageProfitTotal").textContent="Profit brut estimé sur les pièces : "+fmtQuote(garageProfitCents)+" (main-d’œuvre exclue)";
     returnFocus=trigger;
     viewer.hidden=false;
+    setS08ClientMode(true);
     viewClose.focus();
   }
   // S08-F07b : gestion des statuts indépendamment des BT.
