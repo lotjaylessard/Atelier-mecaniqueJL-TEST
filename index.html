@@ -6814,6 +6814,7 @@ function woAddPartLine(wo) {
         name: part.name,
         number: part.number,
         qty,
+        cost: Number(part.cost || 0),
         rate: Number(part.price || 0),
         total: qty * Number(part.price || 0)
       });
