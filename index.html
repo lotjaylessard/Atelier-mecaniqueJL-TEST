@@ -1176,6 +1176,19 @@ button.link:hover{
   #s08QuoteViewer .s08-status-feedback{max-width:100%}
 }
 
+/* Catalogue Pièces : même présentation que Services. */
+#page-parts #s08PartEntry[hidden]{display:none!important}
+#page-parts .s08-part-form-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+#page-parts .s08-part-form-head h3{margin:0}
+#page-parts .s08-part-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 14px}
+#page-parts .s08-part-fields label{display:flex;flex-direction:column;gap:5px;min-width:0}
+#page-parts .s08-part-fields input,#page-parts .s08-part-fields select{width:100%;box-sizing:border-box;margin:0}
+#page-parts #s08NewPart{flex:0 0 auto;white-space:nowrap}
+#page-parts #s08PartListStatus:empty{display:none}
+#page-parts #s08PartListStatus{font-size:12px;margin:3px 0 8px}
+@media(max-width:760px){#page-parts .s08-part-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:490px){#page-parts .s08-part-fields{grid-template-columns:minmax(0,1fr)}}
+
 /* Catalogue Services : formulaire compact, identifiants et logique inchangés. */
 #page-services #s08ServiceEntry[hidden]{display:none!important}
 #page-services .s08-service-form-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
@@ -1871,17 +1884,16 @@ button.link:hover{
     <div class="page" id="page-parts">
       <h2>Inventaire des pièces</h2>
 
-      <div class="card">
-        <h3>Ajouter une pièce</h3>
-
-        <label>Nom de la pièce</label>
-        <input id="partInvName" />
-
-        <label>Numéro de pièce</label>
-        <input id="partInvNumber" />
-
-        <label>Catégorie</label>
-        <select id="partInvCategory">
+      <div class="card s08-part-entry" id="s08PartEntry" hidden>
+        <div class="s08-part-form-head">
+          <h3 id="s08PartFormTitle">Ajouter une pièce</h3>
+          <button type="button" class="ghost" id="s08PartCancel">Annuler</button>
+        </div>
+        <div class="s08-part-fields">
+          <label>Nom de la pièce<input id="partInvName" /></label>
+          <label>Numéro de pièce<input id="partInvNumber" /></label>
+          <label>Catégorie
+            <select id="partInvCategory">
           <option value="Moteur">Moteur</option>
           <option value="Transmission">Transmission</option>
           <option value="Suspension">Suspension</option>
@@ -1895,22 +1907,18 @@ button.link:hover{
           <option value="Carrosserie">Carrosserie</option>
           <option value="Pneus">Pneus</option>
           <option value="Divers">Divers</option>
-        </select>
-
-        <label>Quantité en stock</label>
-        <input id="partInvQty" type="number" value="1" />
-
-        <label>Prix coûtant ($)</label>
-        <input id="partInvCost" type="number" step="0.01" />
-
-        <label>Prix de vente ($)</label>
-        <input id="partInvPrice" type="number" step="0.01" />
-
-        <button id="partInvAddBtn" type="button" style="margin-top:8px;">Ajouter dans l’inventaire</button>
+            </select>
+          </label>
+          <label>Quantité en stock<input id="partInvQty" type="number" value="1" /></label>
+          <label>Prix coûtant ($)<input id="partInvCost" type="number" step="0.01" /></label>
+          <label>Prix de vente ($)<input id="partInvPrice" type="number" step="0.01" /></label>
+        </div>
+        <button id="partInvAddBtn" type="button" style="margin-top:12px;">Ajouter dans l’inventaire</button>
         <div id="s07PartSaveStatus" role="status" aria-live="polite" style="min-height:16px;font-size:12px;margin-top:6px;color:var(--muted)"></div>
       </div>
 
       <div class="card s05-catalog"><div class="module-search-toolbar">
+      <button type="button" id="s08NewPart">➕ Nouvelle pièce</button>
       <input id="partInvSearch" type="search" placeholder="🔎 Rechercher : nom, numéro, catégorie, stock..." aria-label="Rechercher une pièce" />
       <select id="partInvFilter">
         <option value="">Toutes catégories</option>
@@ -1930,6 +1938,7 @@ button.link:hover{
       </select>
       </div>
       <div id="partResultCount" class="module-result-count" role="status" aria-live="polite"></div>
+      <div id="s08PartListStatus" class="muted" role="status" aria-live="polite"></div>
       <div id="partsInventoryList"></div>
       </div>
     </div>
@@ -3147,6 +3156,9 @@ function showPage(id){
   PARTS = loadArrayFromStorage(STORAGE.parts);
   renderPartsList();
 
+  // Le catalogue reste visible en premier; ouvrir le formulaire seulement sur demande.
+  if($("s08NewPart"))$("s08NewPart").onclick=()=>s08OpenPartForm(false);
+  if($("s08PartCancel"))$("s08PartCancel").onclick=()=>s08ClosePartForm(true);
   // S07-F08b : confirmations du catalogue Pièces (sans modification des prix ni stocks).
   if ($("partInvAddBtn")){
     const button=$("partInvAddBtn");
@@ -3199,9 +3211,13 @@ function showPage(id){
       EDITING_PART_ID=null;
       for(const id of ["partInvName","partInvNumber","partInvCost","partInvPrice"])$(id).value="";
       $("partInvQty").value=1;
-      button.textContent="✓ Enregistré localement";
-      show("✓ Pièce enregistrée localement. Vérifier « Synchronisé » avant d'actualiser.","#61d99a");
+      button.textContent="Ajouter dans l’inventaire";
       renderPartsList();
+      s08ClosePartForm(false);
+      if($("s08PartListStatus")){
+        $("s08PartListStatus").textContent="✓ Pièce enregistrée localement. Vérifier « Synchronisé » avant d'actualiser.";
+        $("s08PartListStatus").style.color="#61d99a";
+      }
     };
   }
 
@@ -11071,6 +11087,37 @@ function s08CloseServiceForm(ask=false){
   if($("s07ServiceSaveStatus"))$("s07ServiceSaveStatus").textContent="";
 }
 
+/* S08 : catalogue Pièces, formulaire repliable comme Services. */
+function s08OpenPartForm(editing=false){
+  const panel=$("s08PartEntry");
+  if(!panel)return;
+  if(!editing){
+    EDITING_PART_ID=null;
+    for(const id of ["partInvName","partInvNumber","partInvCost","partInvPrice"]){
+      if($(id))$(id).value="";
+    }
+    if($("partInvQty"))$("partInvQty").value="1";
+    if($("partInvCategory"))$("partInvCategory").selectedIndex=0;
+    if($("partInvAddBtn"))$("partInvAddBtn").textContent="Ajouter dans l’inventaire";
+  }
+  if($("s08PartFormTitle"))$("s08PartFormTitle").textContent=editing?"Modifier une pièce":"Ajouter une pièce";
+  if($("s07PartSaveStatus"))$("s07PartSaveStatus").textContent="";
+  if($("s08PartListStatus"))$("s08PartListStatus").textContent="";
+  panel.hidden=false;
+  panel.scrollIntoView({block:"start",behavior:"smooth"});
+  $("partInvName")?.focus();
+}
+function s08ClosePartForm(ask=false){
+  const panel=$("s08PartEntry");
+  if(!panel||panel.hidden)return;
+  if(ask && (EDITING_PART_ID || ["partInvName","partInvNumber","partInvCost","partInvPrice"].some(id=>String($(id)?.value||"").trim())) &&
+    !confirm("Fermer le formulaire sans enregistrer les modifications ?"))return;
+  panel.hidden=true;
+  EDITING_PART_ID=null;
+  if($("partInvAddBtn"))$("partInvAddBtn").textContent="Ajouter dans l’inventaire";
+  if($("s07PartSaveStatus"))$("s07PartSaveStatus").textContent="";
+}
+
 /* ===================== SERVICES ===================== */
 function loadServices(){
   SERVICES = loadArrayFromStorage(STORAGE.services);
@@ -11293,6 +11340,7 @@ function renderPartsList(){
   if (!p) return;
 
   EDITING_PART_ID = p.id;
+  s08OpenPartForm(true);
 
   $("partInvName").value = p.name || "";
   $("partInvNumber").value = p.number || "";
