@@ -56,7 +56,16 @@
     }catch(_ignored){return null;}
   }
   function paint(){
-    if(!current){box.hidden=true;return;}
+    // L'ancienne boucle masquait le panneau chaque 250 ms AVANT que
+    // Supabase soit prêt : cause du délai visible après rafraîchissement.
+    if(!current){
+      if(box.dataset.pendingRestore==="1"){
+        box.hidden=false;
+        if(toggle)toggle.disabled=true;
+        if(stop)stop.disabled=true;
+      }else box.hidden=true;
+      return;
+    }
     const meta=metadata(current.work_order_id);
     if(!meta){box.hidden=true;return;}
     box.hidden=false;
@@ -137,7 +146,7 @@
       if(box.dataset.pendingRestore==="1"){
         try{
           const cached=JSON.parse(sessionStorage.getItem(reconnectKey)||"null");
-          if(!cached||cached.user!==auth.user.id||cached.garage!==ACTIVE_GARAGE_ID)
+          if(cached&&(cached.user!==auth.user.id||cached.garage!==ACTIVE_GARAGE_ID))
             hide();
         }catch(_){hide();}
       }
@@ -228,5 +237,15 @@
   window.addEventListener("s06-timer-updated",refresh);
   setInterval(paint,250);
   setInterval(refresh,8000);
+  // Ne pas attendre le prochain cycle de 8 s lorsque l'application finit
+  // de charger les données du garage après connexion.
+  const boot=setInterval(()=>{
+    let ready=false;
+    try{ready=!!CLOUD_DATA_READY&&!!ACTIVE_GARAGE_ID;}catch(_){}
+    if(ready){
+      clearInterval(boot);
+      refresh();
+    }
+  },300);
   refresh();
 })();
