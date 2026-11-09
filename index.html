@@ -15695,7 +15695,7 @@ if (window.garageSupabase) {
     const editableStatus=["draft","sent","declined","expired"].includes(q.status);
     get("s08StatusPanel").hidden=!editableStatus;
     get("s08StatusChoice").value=editableStatus?q.status:"draft";
-    get("s08StatusSave").disabled=true;
+    updateStatusControl();
     get("s08StatusResult").textContent="";
     get("s08DiagnosticTools").open=false;
     const btInfo=get("s08ConvertedBT");
