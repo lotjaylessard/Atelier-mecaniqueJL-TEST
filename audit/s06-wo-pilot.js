@@ -285,6 +285,9 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     }
     paint();confirmSaved(data,"write");
     window.dispatchEvent(new Event("s06-timer-updated"));
+    window.dispatchEvent(new CustomEvent("s06-timer-ack",{detail:{
+      action,sessionId:data.id,revision:Number(data.revision),status:data.status
+    }}));
     return data;
   }
   // Pilot S06 : detection d'une veille du navigateur. Ne jamais envoyer
@@ -417,6 +420,9 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       app.session=res;
       confirmSaved(res,"write");
       window.dispatchEvent(new Event("s06-timer-updated"));
+      window.dispatchEvent(new CustomEvent("s06-timer-ack",{detail:{
+        action:"recover",sessionId:res.id,revision:Number(res.revision),status:res.status
+      }}));
     }
     if(res.status!=="paused")throw Error("La session n'est pas en pause.");
     interruptedReason="";
