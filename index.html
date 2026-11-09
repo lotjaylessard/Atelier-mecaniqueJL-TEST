@@ -3214,8 +3214,8 @@ function showPage(id){
   renderServicesList();
 
   // La liste est l'écran principal; formulaire uniquement sur demande.
-  $("s08NewService")?.addEventListener("click",()=>s08OpenServiceForm(false),{once:true});
-  $("s08ServiceCancel")?.addEventListener("click",()=>s08CloseServiceForm(true),{once:true});
+  if($("s08NewService"))$("s08NewService").onclick=()=>s08OpenServiceForm(false);
+  if($("s08ServiceCancel"))$("s08ServiceCancel").onclick=()=>s08CloseServiceForm(true);
   // S07-F08 : gestionnaire actif du bouton services avec confirmation locale.
   if ($("srvAddBtn")){
     const button=$("srvAddBtn");
