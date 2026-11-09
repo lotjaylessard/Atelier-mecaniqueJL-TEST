@@ -1159,6 +1159,21 @@ button.link:hover{
 #s08QuoteViewer button[hidden]{display:none}
 #s08QuoteViewer #s08QuickApprove{background:#f6c744;color:#111;border:1px solid #f6c744;font-weight:700}
 #s08QuoteViewer #s08QuickApprove:hover{filter:brightness(1.08)}
+/* S08 — fiche compacte : styles locaux seulement, aucun changement fonctionnel. */
+#s08QuoteViewer{padding:12px}
+#s08QuoteViewer .s08-viewer-panel{box-sizing:border-box;max-height:calc(100dvh - 24px);padding:16px 20px}
+#s08QuoteViewer .s08-viewer-head{gap:10px}
+#s08QuoteViewer .s08-viewer-head h2{margin:0}
+#s08QuoteViewer .s08-view-subhead{margin:5px 0 7px;gap:9px}
+#s08QuoteViewer .s08-status-panel{padding:6px 0 8px;gap:8px}
+#s08QuoteViewer .s08-viewer-details{margin:9px 0 12px;padding:11px 14px;gap:7px 18px}
+#s08QuoteViewer .s08-viewer-panel>h3{margin:11px 0 6px}
+#s08QuoteViewer .s08-view-description{margin:3px 0 9px}
+#s08QuoteViewer .s08-viewer-table th,#s08QuoteViewer .s08-viewer-table td{padding-top:7px;padding-bottom:7px}
+#s08QuoteViewer .s08-view-total{margin:10px 0 5px}
+#s08QuoteViewer .s08-viewer-panel>p:last-child{margin:6px 0 0}
+@media(max-width:650px){#s08QuoteViewer .s08-viewer-panel{padding:13px}#s08QuoteViewer .s08-viewer-details{gap:8px}}
+
 @media(max-width:720px){#s08QuoteViewer .s08-viewer-head{align-items:flex-start;flex-direction:column}#s08QuoteViewer .s08-viewer-controls{width:100%;flex-wrap:wrap}}
 /* S08-F04 : fiche de consultation sans écriture, superposée à la page. */
 #s08QuoteViewer[hidden]{display:none}
