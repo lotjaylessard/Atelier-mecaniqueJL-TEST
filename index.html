@@ -6939,7 +6939,8 @@ function woRenderLines(wo) {
 
     return `
   <tr>
-    <td>${p.name}</td>
+    <td>${escapeHTML(String(p.name||""))}</td>
+    <td>${escapeHTML(String(p.number||"")) || "—"}</td>
     <td>${qty}</td>
     <td>${money(cost)} $</td>
     <td>${money(price)} $</td>
@@ -6956,7 +6957,7 @@ function woRenderLines(wo) {
   }).join("");
   // Edition directe des cellules des pièces (BT), si modifications autorisées.
   if(woCanEditFinancials(wo))pBody.querySelectorAll("tr").forEach((row,i)=>{
-    [0,1,2,3].forEach(column=>{
+    [0,1,2,3,4].forEach(column=>{
       const cell=row.cells[column];if(!cell)return;
       cell.style.cursor="pointer";cell.tabIndex=0;cell.title="Cliquer pour modifier";
       cell.addEventListener("click",()=>woInlineEditLine(wo.id,"part",i,column));
@@ -7158,6 +7159,7 @@ function woInlineEditLine(woId,type,index,focusColumn=0){
   woInlineEditing=true;
   const spec=isPart?[
     ["name","text",line.name],
+    ["number","text",line.number||""],
     ["qty","number",line.qty],
     ["cost","number",line.cost||0],
     ["rate","number",line.rate]
@@ -7183,18 +7185,19 @@ function woInlineEditLine(woId,type,index,focusColumn=0){
   function finishCancel(){woInlineEditing=false;woRenderLines(wo);}
   function confirm(){
     if(!woCanEditFinancials(wo)){alert("Ce BT n'est plus modifiable.");finishCancel();return;}
-    const name=controls[0].value.trim(),qtyText=controls[1].value;
-    const qty=Number(qtyText),cost=isPart?Number(controls[2].value):0;
-    const rate=Number(controls[isPart?3:2].value);
+    const name=controls[0].value.trim(),qtyText=controls[isPart?2:1].value;
+    const partNumber=isPart?controls[1].value.trim():"";
+    const qty=Number(qtyText),cost=isPart?Number(controls[3].value):0;
+    const rate=Number(controls[isPart?4:2].value);
     if(!name || !qtyText || !Number.isFinite(qty) || qty<=0 ||
       !Number.isFinite(cost)||cost<0||!Number.isFinite(rate)||rate<0 ||
-      (isPart && !controls[2].value)||!controls[isPart?3:2].value){
+      (isPart && !controls[3].value)||!controls[isPart?4:2].value){
       alert("Vérifie la description, la quantité/heures, le coût et le prix.");return;
     }
     // Pour le minuteur : si les heures affichées n'ont pas été touchées,
     // conserver les heures exactes et le montant d'origine.
     // confirmedMs reste toujours l'historique réel, même si les heures facturées changent.
-    if(isPart)Object.assign(line,{name,qty,cost,rate,total:Math.round(qty*rate*100)/100});
+    if(isPart)Object.assign(line,{name,number:partNumber,qty,cost,rate,total:Math.round(qty*rate*100)/100});
     else {
       const unchangedTimerHours=timerHoursDisplay!==null &&
         controls[1].value.trim()===timerHoursDisplay;
@@ -8333,6 +8336,7 @@ const statusLabel =
       <thead>
         <tr>
   <th>Nom</th>
+  <th># pièce</th>
   <th>Qté</th>
   <th>Coût</th>
   <th>Prix</th>
@@ -8348,6 +8352,9 @@ const statusLabel =
 
   <label>Nom de la pièce</label>
   <input id="woManualPartName">
+
+  <label>Numéro de pièce (facultatif)</label>
+  <input id="woManualPartNumber" placeholder="Référence / SKU">
 
   <label>Quantité</label>
   <input id="woManualPartQty" type="number" value="1">
@@ -8547,6 +8554,7 @@ if (saveManualBtn){
   saveManualBtn.onclick = () => {
     if (!woRequireFinancialEdit(wo)) return;
     const name = document.getElementById("woManualPartName").value.trim();
+    const number = document.getElementById("woManualPartNumber").value.trim();
     const qty = Number(document.getElementById("woManualPartQty").value);
     const rate = Number(document.getElementById("woManualPartRate").value);
 
@@ -8558,6 +8566,7 @@ if (saveManualBtn){
 
 wo.parts.push({
   name,
+  number,
   qty,
   cost,
   rate,
@@ -8570,6 +8579,7 @@ woRenderLines(wo);
 
     // reset + fermer
     document.getElementById("woManualPartName").value = "";
+    document.getElementById("woManualPartNumber").value = "";
     document.getElementById("woManualPartQty").value = 1;
     document.getElementById("woManualPartRate").value = "";
     manualBox.style.display = "none";
