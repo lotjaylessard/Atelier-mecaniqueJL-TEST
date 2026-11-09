@@ -1198,7 +1198,9 @@ button.link:hover{
 #s08QuoteViewer .s08-viewer-panel{background:#262626;border:1px solid #454545;border-radius:12px;max-width:900px;width:100%;max-height:90vh;overflow:auto;padding:24px}
 #s08QuoteViewer .s08-viewer-head{display:flex;justify-content:space-between;align-items:center;gap:15px}
 #s08QuoteViewer .s08-viewer-details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0;padding:15px;border:1px solid #414141;border-radius:8px}
-#s08QuoteViewer .s08-viewer-details .s08-vehicle-detail{grid-column:1/-1;border-top:1px solid #414141;padding-top:8px}
+#s08QuoteViewer .s08-viewer-details .s08-vehicle-detail{grid-column:1/-1;border-top:1px solid #414141;padding-top:9px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 18px}
+@media(max-width:650px){#s08QuoteViewer .s08-viewer-details .s08-vehicle-detail{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){#s08QuoteViewer .s08-viewer-details .s08-vehicle-detail{grid-template-columns:minmax(0,1fr)}}
 #s08QuoteViewer #s08StatusLabel{white-space:nowrap;font-weight:600;font-size:12px}
 #s08QuoteViewer .s08-status-feedback:empty{display:none}
 #s08QuoteViewer .s08-viewer-details div{min-width:0;overflow-wrap:anywhere}
@@ -1619,7 +1621,14 @@ button.link:hover{
             <div><span class="muted">Client</span><strong id="s08ViewClient"></strong></div>
             <div><span class="muted">Téléphone</span><strong id="s08ViewPhone"></strong></div>
             <div><span class="muted">Courriel</span><strong id="s08ViewEmail"></strong></div>
-            <div class="s08-vehicle-detail"><span class="muted">Véhicule</span><strong id="s08ViewVehicle"></strong></div>
+            <div class="s08-vehicle-detail" aria-label="Informations du véhicule">
+              <div><span class="muted">Année</span><strong id="s08ViewVehicleYear"></strong></div>
+              <div><span class="muted">Marque</span><strong id="s08ViewVehicleMake"></strong></div>
+              <div><span class="muted">Modèle</span><strong id="s08ViewVehicleModel"></strong></div>
+              <div><span class="muted">Sous-modèle</span><strong id="s08ViewVehicleTrim"></strong></div>
+              <div><span class="muted">Moteur</span><strong id="s08ViewVehicleEngine"></strong></div>
+              <div><span class="muted">NIV</span><strong id="s08ViewVehicleVin"></strong></div>
+            </div>
           </div>
           <h3>Travaux proposés</h3>
           <p id="s08ViewDescription" class="s08-view-description"></p>
@@ -15734,15 +15743,20 @@ if (window.garageSupabase) {
     // Lire les détails dans sa fiche courante, sans inventer les champs manquants.
     const linkedClient=currentClients().find(c=>String(c.id)===String(d.linkedClientId??""));
     const linkedVehicle=linkedClient?.vehicles?.find(v=>String(v.id)===String(d.linkedVehicleId??""));
-    const vehicleText=linkedVehicle
-      ? [
-          linkedVehicle.year,linkedVehicle.make,linkedVehicle.model,
-          linkedVehicle.trim||linkedVehicle.submodel||linkedVehicle.subModel,
-          linkedVehicle.engine,
-          "NIV : "+(String(linkedVehicle.vin??"").trim()||"—")
-        ].filter(v=>String(v??"").trim()).join(" / ")
-      : String(d.vehicleLabel||"—")+" / NIV : non disponible";
-    value("s08ViewVehicle",vehicleText);
+    // Présentation par champs comme la ligne Client, sans modifier la soumission.
+    const vehicleFields=linkedVehicle?{
+      Year:linkedVehicle.year,
+      Make:linkedVehicle.make,
+      Model:linkedVehicle.model,
+      Trim:linkedVehicle.trim||linkedVehicle.submodel||linkedVehicle.subModel,
+      Engine:linkedVehicle.engine,
+      Vin:linkedVehicle.vin
+    }:{
+      Year:"",Make:"",Model:d.vehicleLabel||"",Trim:"",Engine:"",Vin:""
+    };
+    for(const [field,content] of Object.entries(vehicleFields)){
+      value("s08ViewVehicle"+field,String(content??"").trim()||"—");
+    }
     value("s08ViewDescription",d.description);
     value("s08ViewTotal",fmtQuote(Number(d.totalCents||0)));
     const target=get("s08ViewLines");
