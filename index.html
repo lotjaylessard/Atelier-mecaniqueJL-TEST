@@ -15626,18 +15626,27 @@ if (window.garageSupabase) {
     // Une SO déjà liée et valide peut être approuvée immédiatement.
     if(previewLinkReady()){updatePreviewButton();get("s08ConvertBT").click();return;}
     // Une ancienne SO ne garde que des libellés : résolution strictement unique.
+    let legacyMatch=null;
     if(!selectedQuote.content?.linkedClientId&&!selectedQuote.content?.linkedVehicleId){
       try{if(typeof loadClients==="function")loadClients();}catch(e){console.warn(e);}
-      const match=uniqueLegacyQuoteIdentity(selectedQuote);
-      if(match&&await confirmUniqueExistingQuoteLink(match)&&previewLinkReady()){
+      legacyMatch=uniqueLegacyQuoteIdentity(selectedQuote);
+      if(legacyMatch&&await confirmUniqueExistingQuoteLink(legacyMatch)&&previewLinkReady()){
         updatePreviewButton();
         get("s08ConvertBT").click();
         return;
       }
     }
-    // L'association est absente, ambiguë ou incomplète : ne jamais choisir
-    // arbitrairement un client ni un véhicule.
+    // Association incomplète : retrouver visuellement les fiches exactes,
+    // puis afficher les champs manquants. Ne jamais forcer le choix manuel.
     get("s08Preflight").click();
+    if(legacyMatch){
+      clientSelect.value=String(legacyMatch.client.id);
+      clientSelect.dispatchEvent(new Event("change"));
+      vehicleSelect.value=String(legacyMatch.vehicle.id);
+      updateLinkAssessment();
+      get("s08PreflightResult").textContent=
+        "✓ Client et véhicule retrouvés automatiquement. Complète uniquement les informations signalées ci-dessous avant de créer le BT.";
+    }
     linkPanel.scrollIntoView({behavior:"smooth",block:"start"});
   });
   function viewQuote(q,trigger){
