@@ -1227,7 +1227,7 @@ button.link:hover{
        Ne montre ni client ni véhicule avant confirmation du compte Supabase. -->
   <script>
   (() => {
-    if(new URLSearchParams(location.search).get("s06_wo_pilot")!=="1")return;
+    if(new URLSearchParams(location.search).get("s06_legacy_timer")==="1")return;
     // Toujours montrer un état d'attente IMMEDIAT, même sans cache.
     // Ne révèle aucune identité de BT avant vérification du compte.
     let cached=null;
@@ -5154,7 +5154,7 @@ function woTimerBackupContext(){
   }catch(_){return null;}
 }
 function woTimerBackupWrite(){
-  if(new URLSearchParams(location.search).get("s06_wo_pilot")==="1")return;
+  if(new URLSearchParams(location.search).get("s06_legacy_timer")!=="1")return;
   const ctx=woTimerBackupContext();
   if(!ctx||!WO_TIMER_BACKUP_WO_ID)return;
   const elapsed=WO_TIMER_INTERVAL&&Number.isFinite(WO_TIMER_START)
@@ -5175,7 +5175,7 @@ function woTimerBackupClear(){
   WO_TIMER_BACKUP_WO_ID=null;
 }
 function woTimerBackupRestore(){
-  if(WO_TIMER_RESTORED||new URLSearchParams(location.search).get("s06_wo_pilot")==="1")return;
+  if(WO_TIMER_RESTORED||new URLSearchParams(location.search).get("s06_legacy_timer")!=="1")return;
   const ctx=woTimerBackupContext();if(!ctx)return;
   let saved;
   try{saved=JSON.parse(localStorage.getItem(WO_TIMER_BACKUP_KEY)||"null");}
@@ -14457,7 +14457,7 @@ if (window.garageSupabase) {
 <script>
 (() => {
   "use strict";
-  if(new URLSearchParams(location.search).get("s06_wo_pilot")==="1")return;
+  if(new URLSearchParams(location.search).get("s06_legacy_timer")!=="1")return;
   const box=document.getElementById("s06SidebarTimer");
   const status=document.getElementById("s06TimerStatus");
   const number=document.getElementById("s06TimerWorkOrder");
