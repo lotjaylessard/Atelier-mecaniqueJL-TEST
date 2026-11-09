@@ -28,7 +28,23 @@
   };
   let current=null,receivedAt=0,busy=false,uid=null,garage=null;
   let lastRenderedId=null,lastRenderedMs=0,actionPending=false;
-  const hide=()=>{current=null;lastRenderedId=null;lastRenderedMs=0;box.hidden=true;};
+  const reconnectKey="s06-sidebar-reconnect-v1";
+  const details=box.querySelector(".s06-timer-details");
+  const clearCached=()=>{try{sessionStorage.removeItem(reconnectKey);}catch(_){}};
+  const hide=()=>{
+    current=null;lastRenderedId=null;lastRenderedMs=0;
+    clearCached();box.hidden=true;
+    delete box.dataset.pendingRestore;
+  };
+  function rememberVerified(){
+    // À conserver uniquement pour un affichage d'attente au même onglet.
+    // Jamais considéré comme une preuve que la minuterie continue de tourner.
+    if(!current||!uid||!garage)return;
+    try{sessionStorage.setItem(reconnectKey,JSON.stringify({
+      at:Date.now(),user:uid,garage,id:current.id,
+      ms:Number(current.confirmed_ms),status:current.status
+    }));}catch(_){}
+  }
   function metadata(id){
     try{
       const wo=(typeof WORKORDERS!=="undefined"&&Array.isArray(WORKORDERS))
@@ -44,6 +60,9 @@
     const meta=metadata(current.work_order_id);
     if(!meta){box.hidden=true;return;}
     box.hidden=false;
+    if(details)details.hidden=false;
+    delete box.dataset.pendingRestore;
+    if(hint)hint.textContent="Temps confirmé par Supabase toutes les 10 s; affichage fluide indicatif.";
     const heartbeatAt=Date.parse(current.last_heartbeat_at||"");
     const stale=current.status==="running"&&Number.isFinite(heartbeatAt)&&
       Date.now()-heartbeatAt>20000;
@@ -114,6 +133,14 @@
       const {data:auth,error:authError}=await client.auth.getUser();
       if(authError||!auth?.user?.id)throw Error("Compte absent");
       if(uid&&uid!==auth.user.id){hide();throw Error("Compte changé");}
+      // Écarter toute durée mise en cache par un autre compte/garage.
+      if(box.dataset.pendingRestore==="1"){
+        try{
+          const cached=JSON.parse(sessionStorage.getItem(reconnectKey)||"null");
+          if(!cached||cached.user!==auth.user.id||cached.garage!==ACTIVE_GARAGE_ID)
+            hide();
+        }catch(_){hide();}
+      }
       uid=auth.user.id;garage=ACTIVE_GARAGE_ID;
       const {data,error}=await client.from("garage_timer_sessions")
         .select("id,user_id,garage_id,work_order_id,status,confirmed_ms,last_heartbeat_at,revision,updated_at")
@@ -127,6 +154,8 @@
         !!metadata(r.work_order_id));
       current=rows.find(r=>r.status==="running")||rows[0]||null;
       receivedAt=Date.now();
+      if(current)rememberVerified();
+      else clearCached();
       paint();
     }catch(_err){
       // Ne pas continuer à afficher comme « en cours » un état cloud invérifiable.
@@ -134,6 +163,11 @@
         current={...current,status:"paused"};
         receivedAt=Date.now();paint();
         status.textContent="⚠ À vérifier";
+      }else if(box.dataset.pendingRestore==="1"){
+        // Aucune réponse serveur : conserver un témoin de reconnexion, jamais
+        // le convertir en compteur actif ni activer les boutons.
+        if(status)status.textContent="⚠ Connexion non confirmée";
+        if(hint)hint.textContent="Dernier temps connu — état Supabase à vérifier.";
       }else hide();
     }finally{busy=false;}
   }
