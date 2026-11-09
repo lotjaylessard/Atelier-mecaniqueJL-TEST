@@ -1215,6 +1215,7 @@ button.link:hover{
 #page-quotes .s08-profit-positive,#s08QuoteViewer .s08-profit-positive{color:#56d18a;font-weight:700}
 #page-quotes .s08-profit-neutral,#s08QuoteViewer .s08-profit-neutral{color:#f3f3f3}
 #page-quotes.s08-private .s08-garage-only{display:none!important}
+#page-quotes.s08-private #s08DraftLines td:nth-child(5),#page-quotes.s08-private #s08DraftLines td:nth-child(8),#page-quotes.s08-private .s08-editor-lines th:nth-child(5),#page-quotes.s08-private .s08-editor-lines th:nth-child(8){display:none!important}
 #page-quotes.s08-private #s08CostLabel{visibility:hidden}
 #s08QuoteViewer #s08GarageFinancials[hidden]{display:none!important}
 #s08QuoteViewer #s08GarageFinancials{margin-top:12px;padding:12px;border:1px solid #505050;border-radius:8px}
@@ -1576,7 +1577,7 @@ button.link:hover{
         </div>
         <p class="muted" style="font-size:12px;margin:4px 0 0">Astuce : <strong>Entrée</strong> dans les champs de la ligne ajoute directement la pièce ou le service.</p>
         <p id="s08LineError" role="status" aria-live="polite" class="muted"></p>
-        <div class="s08-editor-lines s08-garage-only">
+        <div class="s08-editor-lines">
           <table><thead><tr><th>Type</th><th>Description</th><th># pièce</th><th>Quantité</th><th>Coûtant</th><th>Vente</th><th>Montant</th><th>Profit</th><th>Actions</th></tr></thead>
             <tbody id="s08DraftLines"><tr><td colspan="9" class="muted">Aucune ligne ajoutée.</td></tr></tbody>
           </table>
