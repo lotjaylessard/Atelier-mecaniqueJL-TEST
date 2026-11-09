@@ -294,7 +294,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
           await rpc("heartbeat",app.session);setMsg("Minuterie en cours.");
         }
       },true);
-    },10000);
+    },3000);
   }
   document.addEventListener("visibilitychange",()=>{
     if(document.visibilityState!=="visible"||!app.session)return;
@@ -329,7 +329,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       app.session=await rpc("create",null,app.woId);
     }
     const res=await rpc("start",app.session);
-    beats();setMsg("Démarrée. Temps enregistré par Supabase toutes les 10 secondes.");
+    beats();setMsg("Démarrée. Temps confirmé par Supabase environ toutes les 3 secondes.");
   }
   async function pause(){
     if(!app.session||app.session.status!=="running"||app.ownRunning!==app.session.id)
