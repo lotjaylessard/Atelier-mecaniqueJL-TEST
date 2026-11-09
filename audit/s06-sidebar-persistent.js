@@ -74,16 +74,19 @@
     delete box.dataset.pendingRestore;
     if(hint)hint.textContent=actionPending?
       "Commande envoyée. Confirmation de Supabase en cours…":
-      "Temps confirmé par Supabase environ toutes les 3 s; affichage fluide indicatif.";
+      delayed||stale?"Dernier temps confirmé par Supabase. Vérification de connexion en cours…":
+      "Temps confirmé par Supabase environ toutes les 5 s; affichage fluide indicatif.";
     const heartbeatAt=Date.parse(current.last_heartbeat_at||"");
-    const stale=current.status==="running"&&Number.isFinite(heartbeatAt)&&
-      Date.now()-heartbeatAt>20000;
+    const gapMs=Number.isFinite(heartbeatAt)?Date.now()-heartbeatAt:Infinity;
+    const stale=current.status==="running"&&gapMs>20000;
+    const delayed=current.status==="running"&&gapMs>12000&&!stale;
     box.dataset.status=stale?"paused":current.status;
     status.textContent=actionPending?
       (pendingAction==="pause"?"◌ Pause demandée…":
        pendingAction==="start"?"◌ Reprise demandée…":
        pendingAction==="recover"?"◌ Récupération…":"◌ Ouverture du BT…"):
       stale?"⚠ À récupérer":
+      delayed?"◌ Confirmation retardée":
       current.status==="running"?"● En cours":"● En pause";
     if(toggle){
       toggle.textContent=actionPending?"⏳ Enregistrement…":
@@ -99,7 +102,7 @@
     desc.textContent=meta.description;
     const wrapper=document.getElementById("s06TimerDescription");
     if(wrapper)wrapper.title=meta.description;
-    const extra=current.status==="running"&&!stale&&navigator.onLine?
+    const extra=current.status==="running"&&!stale&&!delayed&&navigator.onLine?
       Math.min(20000,Math.max(0,Date.now()-receivedAt)):0;
     // Quand le BT actif est ouvert, recopier son affichage indicatif.
     // La session doit correspondre : aucune copie depuis un autre BT.
@@ -123,7 +126,7 @@
       lastRenderedId=String(current.id);
       lastRenderedMs=0;
     }
-    const running=current.status==="running"&&!stale&&navigator.onLine;
+    const running=current.status==="running"&&!stale&&!delayed&&navigator.onLine;
     const shownMs=actionPending&&pendingAction==="pause"?
       pendingFrozenMs:
       running?Math.max(lastRenderedMs,candidateMs):Number(current.confirmed_ms);
