@@ -2823,8 +2823,9 @@ function s06InvoiceItemAmount(item){
   return Number(item?.qty||0)*Number(item?.rate||0);
 }
 function s06LaborHoursLabel(l){
-  const hours=Number(l?.hours||0);
-  return l?.timerSessionId && Number.isFinite(hours)?hours.toFixed(2):l.hours;
+  const hours=Number(l?.hours);
+  // Uniformiser la présentation des heures sans arrondir la valeur stockée.
+  return Number.isFinite(hours)?hours.toFixed(2):String(l?.hours??"");
 }
 function recalcInvoice(inv){
   if (invoiceHasPaymentActivity(inv)) return; // Verrouiller le total historique.
