@@ -15672,7 +15672,7 @@ if (window.garageSupabase) {
     const d=q.content||{},labels={draft:"Brouillon",sent:"Envoyée",approved:"Approuvée",declined:"Refusée",expired:"Expirée",converted:"Convertie"};
     const value=(id,text)=>{get(id).textContent=String(text??"—")||"—";};
     value("s08ViewTitle","Soumission "+q.quote_number);
-    value("s08ViewMeta",String(q.created_at||"").slice(0,10)+" · "+(labels[q.status]||q.status));
+    value("s08ViewMeta",String(q.created_at||"").slice(0,10)); // Le statut est déjà affiché dans la pastille colorée.
     // Une SO déjà convertie est en lecture seule : ne pas proposer une nouvelle approbation.
     const converted=q.status==="converted";
     get("s08Preflight").hidden=true;
