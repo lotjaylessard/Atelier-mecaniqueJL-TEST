@@ -6954,16 +6954,13 @@ lBody.innerHTML = wo.labor.map((l,i)=>{
       </td>
 
       <td>
-        ${l.timerSessionId ? `<button class="ghost" onclick="woEditLine('${wo.id}','labor',${i})" title="Ligne liée au minuteur">✏️</button>` : ""}
         <button class="ghost" onclick="woRemoveLabor('${wo.id}',${i})">🗑</button>
       </td>
     </tr>
   `;
 }).join("");
-  // Les entrées chronométrées gardent le circuit de validation du minuteur.
+  // Toutes les lignes de main-d'œuvre, incluant le minuteur, se modifient en place.
   if(woCanEditFinancials(wo))lBody.querySelectorAll("tr").forEach((row,i)=>{
-    const entry=wo.labor[i];
-    if(entry?.timerSessionId)return;
     [0,1,2].forEach(column=>{
       const cell=row.cells[column];if(!cell)return;
       cell.style.cursor="pointer";cell.tabIndex=0;cell.title="Cliquer pour modifier";
@@ -7054,8 +7051,7 @@ function updateTimerDisplay() {
 }
 
 // S08/S04 TEST : saisie sur la ligne du BT, sans fenêtre supplémentaire.
-// Préserve toutes les barrières financières existantes et l'ancien
-// éditeur pour les lignes issues du minuteur.
+// Préserve les barrières financières, y compris pour les lignes minuteur.
 let woInlineEditing=false;
 function woInlineEditLine(woId,type,index,focusColumn=0){
   if(woInlineEditing)return;
@@ -7065,9 +7061,6 @@ function woInlineEditLine(woId,type,index,focusColumn=0){
   const collection=isPart?wo.parts:wo.labor;
   const line=collection?.[index];
   if(!line)return;
-  if(!isPart && line.timerSessionId){
-    woEditLine(woId,type,index);return;
-  }
   const table=$(isPart?"woPartsTable":"woLaborTable");
   const row=table?.querySelector("tbody")?.rows[index];
   if(!row)return;
@@ -7108,7 +7101,7 @@ function woInlineEditLine(woId,type,index,focusColumn=0){
       (isPart && !controls[2].value)||!controls[isPart?3:2].value){
       alert("Vérifie la description, la quantité/heures, le coût et le prix.");return;
     }
-    // Toujours contrôler les valeurs avant l'écriture. Pas de changement aux lignes minuteur.
+    // confirmedMs conserve le temps chronométré; hours et total sont facturables.
     if(isPart)Object.assign(line,{name,qty,cost,rate,total:Math.round(qty*rate*100)/100});
     else Object.assign(line,{description:name,hours:qty,rate,total:Math.round(qty*rate*100)/100});
     const result=persistActiveWO(wo);
