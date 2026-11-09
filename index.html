@@ -1419,7 +1419,7 @@ button.link:hover{
         <div class="s08-quotes-table" role="region" aria-label="Liste des soumissions">
           <table id="s08QuotesTable">
             <thead><tr><th># SO</th><th>Date</th><th>Client</th><th>Véhicule</th><th>Description</th><th>Montant estimé</th><th>Statut</th></tr></thead>
-            <tbody><tr><td colspan="7" class="muted s08-quote-empty">Aucune soumission. Création et enregistrement disponibles à la prochaine étape.</td></tr></tbody>
+            <tbody><tr><td colspan="7" class="muted s08-quote-empty">Aucune soumission enregistrée.</td></tr></tbody>
           </table>
         </div>
         <p class="muted" style="font-size:12px;margin:12px 0 0">Les soumissions sont conservées séparément des bons de travail. Une soumission approuvée reste consultable et conserve le numéro du BT créé.</p>
@@ -1500,12 +1500,10 @@ button.link:hover{
         </div>
         <div class="s08-total"><strong>Total estimé (avant taxes) : <span id="s08DraftTotal">0,00 $</span></strong></div>
         <p class="muted" style="text-align:right;margin:4px 0 0;font-size:12px">Interne uniquement — coût total des pièces : <strong id="s08PartsCostTotal">0,00 $</strong> · Profit brut estimé sur les pièces : <strong id="s08PartsProfitTotal">0,00 $</strong> (main-d’œuvre exclue).</p>
-        <p class="muted" style="margin:6px 0 0">Les taxes ne sont pas détaillées dans la soumission. L’impression et la conversion en BT restent désactivées jusqu’aux étapes suivantes.</p>
+        <p class="muted" style="margin:6px 0 0">Taxes applicables en sus. Après l’enregistrement, impression et approbation sont disponibles dans la fiche de la soumission.</p>
         <p id="s08SaveStatus" role="status" aria-live="polite" class="muted"></p>
         <div class="s08-editor-buttons">
           <button type="button" id="s08SaveQuote">💾 Enregistrer la soumission</button>
-          <button type="button" disabled title="Disponible à la phase PDF">🖨️ Imprimer / PDF</button>
-          <button type="button" disabled title="Disponible après validation de la conversion SO vers BT">✓ Approuver et créer BT</button>
         </div>
       </div>
     </div>
@@ -14994,8 +14992,8 @@ if (window.garageSupabase) {
     start.disabled=true;
     clientLookup?.focus();
   });
-  cancel.addEventListener("click",()=>{
-    if(lines.length || [ "s08ClientName","s08ClientPhone","s08ClientEmail","s08VehicleLabel","s08QuoteDescription"].some(id=>get(id)?.value.trim())){
+  function closeQuoteDraft(askBeforeDiscard=true){
+    if(askBeforeDiscard && (lines.length || [ "s08ClientName","s08ClientPhone","s08ClientEmail","s08VehicleLabel","s08QuoteDescription"].some(id=>get(id)?.value.trim()))){
       if(!confirm("Fermer et perdre ce brouillon non enregistré ?"))return;
     }
     lines=[];render();
@@ -15011,7 +15009,8 @@ if (window.garageSupabase) {
     editor.hidden=true;
     if(quotesListCard)quotesListCard.hidden=false;
     start.disabled=false;start.textContent="➕ Nouvelle soumission";
-  });
+  }
+  cancel.addEventListener("click",()=>closeQuoteDraft(true));
   // S08-F09 TEST : Entrée ajoute la ligne en cours sans clic supplémentaire.
   // Ne pas intercepter les sélections, les compositions IME ni les modifications
   // d'une ligne déjà enregistrée qui possèdent leurs propres écouteurs.
@@ -15865,14 +15864,16 @@ if (window.garageSupabase) {
       if(authError||!auth?.user?.id)throw Error("Session expirée.");
       const {data:row,error:writeError}=await sb.from("garage_quotes")
         .insert({garage_id:garageId,user_id:auth.user.id,status:"draft",content})
-        .select("id,quote_number,user_id,garage_id,content").single();
+        .select("id,quote_number,user_id,garage_id,content,status,created_at,version,converted_bt_id").single();
       if(writeError)throw writeError;
       if(!row||row.user_id!==auth.user.id||row.garage_id!==garageId||
          !/^SO-\d{4,}$/.test(row.quote_number)||row.content?.totalCents!==totalCents)
         throw Error("Confirmation ambiguë. Vérifie la liste avant un nouvel essai.");
-      saveStatus.textContent="✓ "+row.quote_number+" enregistrée sur Supabase TEST.";
+      // Ouvrir la fiche uniquement après confirmation serveur; ne pas répéter l'insertion.
+      closeQuoteDraft(false);
       await refreshQuotes();
-      alert("Soumission "+row.quote_number+" enregistrée.");
+      const saved=quotes.find(q=>q.id===row.id)||row;
+      viewQuote(saved,start);
     }catch(err){
       console.error("[S08-F03] Enregistrement non confirmé",err);
       saveStatus.textContent="Sauvegarde non confirmée : "+String(err?.message||err)+
