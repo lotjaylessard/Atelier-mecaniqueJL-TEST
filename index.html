@@ -7065,6 +7065,8 @@ function woInlineEditLine(woId,type,index,focusColumn=0){
   const row=table?.querySelector("tbody")?.rows[index];
   if(!row)return;
   const snapshot={...line};
+  // Le champ montre les heures arrondies, sans modifier la précision enregistrée.
+  const timerHoursDisplay=!isPart && line.timerSessionId ? Number(line.hours).toFixed(2) : null;
   woInlineEditing=true;
   const spec=isPart?[
     ["name","text",line.name],
@@ -7073,7 +7075,7 @@ function woInlineEditLine(woId,type,index,focusColumn=0){
     ["rate","number",line.rate]
   ]:[
     ["description","text",line.description],
-    ["hours","number",line.hours],
+    ["hours","number",timerHoursDisplay ?? line.hours],
     ["rate","number",line.rate]
   ];
   const controls=spec.map(([key,type,value],j)=>{
@@ -7101,9 +7103,19 @@ function woInlineEditLine(woId,type,index,focusColumn=0){
       (isPart && !controls[2].value)||!controls[isPart?3:2].value){
       alert("Vérifie la description, la quantité/heures, le coût et le prix.");return;
     }
-    // confirmedMs conserve le temps chronométré; hours et total sont facturables.
+    // Pour le minuteur : si les heures affichées n'ont pas été touchées,
+    // conserver les heures exactes et le montant d'origine.
+    // confirmedMs reste toujours l'historique réel, même si les heures facturées changent.
     if(isPart)Object.assign(line,{name,qty,cost,rate,total:Math.round(qty*rate*100)/100});
-    else Object.assign(line,{description:name,hours:qty,rate,total:Math.round(qty*rate*100)/100});
+    else {
+      const unchangedTimerHours=timerHoursDisplay!==null &&
+        controls[1].value.trim()===timerHoursDisplay;
+      const billableHours=unchangedTimerHours ? Number(snapshot.hours) : qty;
+      const amount=unchangedTimerHours && rate===Number(snapshot.rate)
+        ? s06LaborLineAmount(snapshot)
+        : Math.round(billableHours*rate*100)/100;
+      Object.assign(line,{description:name,hours:billableHours,rate,total:amount});
+    }
     const result=persistActiveWO(wo);
     if(result===false){
       Object.keys(line).forEach(k=>{if(!(k in snapshot))delete line[k];});
