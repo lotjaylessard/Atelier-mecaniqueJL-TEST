@@ -6786,7 +6786,8 @@ function woAddPartLine(wo) {
         <b>${partIcon(p.category)} ${p.name}</b> <span class="muted">#${p.number || ""}</span><br>
         <span class="muted">Catégorie : ${p.category || "Divers"}</span><br>
         <span class="muted">Stock : ${stock}</span><br>
-        <span class="muted">Prix : ${money(p.price || 0)} $</span><br>
+        <span class="muted">Coûtant : ${money(p.cost || 0)} $</span><br>
+        <span class="muted">Vente : ${money(p.price || 0)} $</span><br>
         <button class="ghost" data-wo-part-index="${idx}">➕ Utiliser pour ce bon</button>
       </div>
     `;
@@ -7863,8 +7864,8 @@ function openWorkOrderDetail(wo){
           <tr>
             <th>Description</th>
             <th>Qté</th>
-            <th>Coût</th>
-            <th>Prix</th>
+            <th>Coûtant</th>
+            <th>Vente</th>
             <th>Total</th>
             <th>Profit</th>
             <th></th>
@@ -8339,8 +8340,8 @@ const statusLabel =
   <th>Nom</th>
   <th># pièce</th>
   <th>Qté</th>
-  <th>Coût</th>
-  <th>Prix</th>
+  <th>Coûtant</th>
+  <th>Vente</th>
   <th>Total</th>
   <th>Profit</th>
   <th></th>
