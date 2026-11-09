@@ -28,6 +28,7 @@
   };
   let current=null,receivedAt=0,busy=false,uid=null,garage=null;
   let lastRenderedId=null,lastRenderedMs=0,actionPending=false;
+  let pendingAction=null,pendingFrozenMs=0;
   const reconnectKey="s06-sidebar-reconnect-v1";
   const details=box.querySelector(".s06-timer-details");
   const clearCached=()=>{try{sessionStorage.removeItem(reconnectKey);}catch(_){}};
@@ -71,12 +72,18 @@
     box.hidden=false;
     if(details)details.hidden=false;
     delete box.dataset.pendingRestore;
-    if(hint)hint.textContent="Temps confirmé par Supabase toutes les 10 s; affichage fluide indicatif.";
+    if(hint)hint.textContent=actionPending?
+      "Commande envoyée. Confirmation de Supabase en cours…":
+      "Temps confirmé par Supabase environ toutes les 3 s; affichage fluide indicatif.";
     const heartbeatAt=Date.parse(current.last_heartbeat_at||"");
     const stale=current.status==="running"&&Number.isFinite(heartbeatAt)&&
       Date.now()-heartbeatAt>20000;
     box.dataset.status=stale?"paused":current.status;
-    status.textContent=stale?"⚠ À récupérer":
+    status.textContent=actionPending?
+      (pendingAction==="pause"?"◌ Pause demandée…":
+       pendingAction==="start"?"◌ Reprise demandée…":
+       pendingAction==="recover"?"◌ Récupération…":"◌ Ouverture du BT…"):
+      stale?"⚠ À récupérer":
       current.status==="running"?"● En cours":"● En pause";
     if(toggle){
       toggle.textContent=actionPending?"⏳ Enregistrement…":
@@ -117,8 +124,9 @@
       lastRenderedMs=0;
     }
     const running=current.status==="running"&&!stale&&navigator.onLine;
-    const shownMs=running?Math.max(lastRenderedMs,candidateMs):
-      Number(current.confirmed_ms);
+    const shownMs=actionPending&&pendingAction==="pause"?
+      pendingFrozenMs:
+      running?Math.max(lastRenderedMs,candidateMs):Number(current.confirmed_ms);
     lastRenderedMs=shownMs;
     time.textContent=formatted(shownMs);
   }
@@ -183,10 +191,16 @@
   function triggerPilotAction(action){
     const selected=current&&metadata(current.work_order_id);
     if(!selected||actionPending)return;
+    pendingAction=action;
+    pendingFrozenMs=lastRenderedMs||Number(current.confirmed_ms);
     actionPending=true;paint();
     // Libérer le verrou après la synchronisation serveur ou, en cas de
     // confirmation annulée, après le délai maximal de l'interface.
-    const release=()=>{actionPending=false;refresh();};
+    const release=()=>{
+      actionPending=false;
+      pendingAction=null;
+      refresh();
+    };
     const timeout=setTimeout(release,10000);
     const handleAck=()=>{clearTimeout(timeout);window.removeEventListener("s06-timer-updated",handleAck);release();};
     window.addEventListener("s06-timer-updated",handleAck,{once:true});
