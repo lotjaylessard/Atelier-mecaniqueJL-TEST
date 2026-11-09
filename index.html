@@ -1177,6 +1177,11 @@ button.link:hover{
 }
 
 /* Catalogue Services : formulaire compact, identifiants et logique inchangés. */
+#page-services #s08ServiceEntry[hidden]{display:none!important}
+#page-services .s08-service-form-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+#page-services .s08-service-form-head h3{margin:0}
+#page-services #s08NewService{flex:0 0 auto;white-space:nowrap}
+@media(max-width:720px){#page-services .module-search-toolbar:has(#s08NewService){flex-wrap:wrap}#page-services #s08NewService{width:auto}}
 #page-services .s08-service-entry .s08-service-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 14px}
 #page-services .s08-service-entry .s08-service-fields label{display:flex;flex-direction:column;gap:5px;min-width:0}
 #page-services .s08-service-entry .s08-service-fields input,
@@ -1788,8 +1793,8 @@ button.link:hover{
     <div class="page" id="page-services">
       <h2>Services / Réparations</h2>
 
-      <div class="card s08-service-entry">
-        <h3>Ajouter un service</h3>
+      <div class="card s08-service-entry" id="s08ServiceEntry" hidden>
+        <div class="s08-service-form-head"><h3 id="s08ServiceFormTitle">Ajouter un service</h3><button type="button" class="ghost" id="s08ServiceCancel">Annuler</button></div>
         <div class="s08-service-fields">
           <label class="s08-service-name">Nom du service
             <input id="srvName" />
@@ -1834,6 +1839,7 @@ button.link:hover{
 
 <!-- 🔍 Barre recherche + filtre -->
 <div class="card s05-catalog"><div class="module-search-toolbar">
+  <button type="button" id="s08NewService">➕ Nouveau service</button>
 
   <input
     type="search"
@@ -3207,6 +3213,9 @@ function showPage(id){
   SERVICES = loadArrayFromStorage(STORAGE.services);
   renderServicesList();
 
+  // La liste est l'écran principal; formulaire uniquement sur demande.
+  $("s08NewService")?.addEventListener("click",()=>s08OpenServiceForm(false),{once:true});
+  $("s08ServiceCancel")?.addEventListener("click",()=>s08CloseServiceForm(true),{once:true});
   // S07-F08 : gestionnaire actif du bouton services avec confirmation locale.
   if ($("srvAddBtn")){
     const button=$("srvAddBtn");
@@ -3258,9 +3267,10 @@ function showPage(id){
       $("srvPriceFixed").value="";
       $("srvHours").value="";
       $("srvRate").value="";
-      button.textContent="✓ Enregistré localement";
-      feedback("✓ Service enregistré localement. Vérifier « Synchronisé » avant d'actualiser.","#61d99a");
+      button.textContent="Ajouter le service";
+      feedback("");
       renderServicesList();
+      s08CloseServiceForm(false);
     };
   }
 
@@ -11034,6 +11044,35 @@ function initPartsModule(){
 }
   
 
+/* S08 : affichage du formulaire Services, sans changer sa sauvegarde. */
+function s08OpenServiceForm(editing=false){
+  const panel=$("s08ServiceEntry");
+  if(!panel)return;
+  if(!editing){
+    EDITING_SERVICE_ID=null;
+    for(const id of ["srvName","srvDesc","srvPriceFixed","srvHours","srvRate"]){
+      if($(id))$(id).value="";
+    }
+    if($("srvCategory"))$("srvCategory").selectedIndex=0;
+    if($("srvAddBtn"))$("srvAddBtn").textContent="Ajouter le service";
+  }
+  if($("s08ServiceFormTitle"))$("s08ServiceFormTitle").textContent=editing?"Modifier un service":"Ajouter un service";
+  if($("s07ServiceSaveStatus"))$("s07ServiceSaveStatus").textContent="";
+  panel.hidden=false;
+  panel.scrollIntoView({block:"start",behavior:"smooth"});
+  if(!editing)$("srvName")?.focus();
+}
+function s08CloseServiceForm(ask=false){
+  const panel=$("s08ServiceEntry");
+  if(!panel||panel.hidden)return;
+  if(ask && (EDITING_SERVICE_ID || ["srvName","srvDesc","srvPriceFixed","srvHours","srvRate"].some(id=>String($(id)?.value||"").trim())) &&
+    !confirm("Fermer le formulaire sans enregistrer les modifications ?"))return;
+  panel.hidden=true;
+  EDITING_SERVICE_ID=null;
+  if($("srvAddBtn"))$("srvAddBtn").textContent="Ajouter le service";
+  if($("s07ServiceSaveStatus"))$("s07ServiceSaveStatus").textContent="";
+}
+
 /* ===================== SERVICES ===================== */
 function loadServices(){
   SERVICES = loadArrayFromStorage(STORAGE.services);
@@ -11045,6 +11084,7 @@ function loadServices(){
   if (!srv) return;
 
   EDITING_SERVICE_ID = srv.id;
+  s08OpenServiceForm(true);
 
   $("srvName").value = srv.name || "";
   $("srvCategory").value = srv.category || "";
