@@ -64,6 +64,28 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
   // S06 : après un POST validé, conserver le rechargement de sécurité
   // et rouvrir uniquement le BT du même garage et du même compte.
   const restoreKey="s06-posted-return-v1";
+  const ownerKey="s06-tab-owner-v1";
+  // Uniquement la dernière session réellement démarrée dans CET onglet.
+  // sessionStorage survit au refresh, mais pas à un autre appareil.
+  function rememberOwner(){
+    if(!app.session||!app.user||!app.garage||!app.woId)return;
+    try{sessionStorage.setItem(ownerKey,JSON.stringify({
+      user:app.user,garage:app.garage,id:app.session.id,woId:app.woId,
+      at:Date.now()
+    }));}catch(_){}
+  }
+  function clearOwner(){
+    try{sessionStorage.removeItem(ownerKey);}catch(_){}
+  }
+  function ownerSnapshot(){
+    try{
+      const o=JSON.parse(sessionStorage.getItem(ownerKey)||"null");
+      if(!o||!o.id||!o.woId||!o.user||!o.garage||
+         !Number.isFinite(Number(o.at))||Date.now()-Number(o.at)>86400000)return null;
+      return o;
+    }catch(_){return null;}
+  }
+
   function restoreAfterReload(){
     let saved;
     try{saved=JSON.parse(sessionStorage.getItem(restoreKey)||"null");}catch(_){return;}
@@ -254,8 +276,8 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       if(data.status==="running"){
         app.displayAnchor={at:Date.now(),ms:Number(data.confirmed_ms)};
       }else{
-        // Le serveur peut décider de suspendre après un long délai (>20 s).
-        // Cette pause doit prendre effet immédiatement, même hors de la page BT.
+        // Le serveur a arrêté les confirmations : ne plus afficher un timer actif.
+        clearOwner();
         stopBeat();
         interruptedReason="Le serveur a mis la minuterie en pause après une interruption de confirmation.";
         setMsg("⚠ Minuterie suspendue par Supabase. Vérifie le temps confirmé avant de reprendre.");
@@ -271,6 +293,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
   let interruptedReason="";
   function warnInterrupted(reason){
     interruptedReason=reason;
+    clearOwner();
     stopBeat();
     savedStatus("warning","⚠ "+reason+" — période non confirmée, non facturée.");
     setMsg("Le serveur doit être relu. Après 60 s sans confirmation, utilise Récupérer, puis Reprendre. Le temps interrompu exige une validation distincte.");
@@ -286,13 +309,14 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     stopBeat();
     if(app.session?.status!=="running")return;
     app.ownRunning=app.session.id;
+    rememberOwner();
     startDisplay();
     lastWakeCheck=Date.now();
     app.beat=setInterval(()=>{
       if(app.busy)return;
       const now=Date.now(),gap=now-lastWakeCheck;
       lastWakeCheck=now;
-      if(gap>20000){
+      if(gap>45000){
         warnInterrupted("Veille ou interruption détectée ("+Math.round(gap/1000)+" s)");
         guarded(recheckInterrupted);
         return;
@@ -310,7 +334,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
   }
   document.addEventListener("visibilitychange",()=>{
     if(document.visibilityState!=="visible"||!app.session)return;
-    if(app.ownRunning===app.session.id&&lastWakeCheck&&Date.now()-lastWakeCheck>20000){
+    if(app.ownRunning===app.session.id&&lastWakeCheck&&Date.now()-lastWakeCheck>45000){
       warnInterrupted("Retour après mise en veille");
       guarded(recheckInterrupted);
     }else if(!app.ownRunning){
@@ -348,7 +372,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       throw Error("Cette minuterie n'a pas été démarrée dans cet onglet.");
     const res=await rpc("pause",app.session);
     if(res.status!=="paused")throw Error("Pause non confirmée.");
-    stopBeat();setMsg("Pause confirmée. Durée conservée sur Supabase.");
+    clearOwner();stopBeat();setMsg("Pause confirmée. Durée conservée sur Supabase.");
   }
   async function recover(){
     await read(); // Etat et révision relus avant tout changement.
@@ -396,6 +420,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     }
     if(res.status!=="paused")throw Error("La session n'est pas en pause.");
     interruptedReason="";
+    clearOwner();
     stopBeat();paint();
     await read();
     setMsg(seconds>0?
@@ -470,6 +495,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       typeof wo.notes!=="string"||wo.notes.split(marker).length!==2||
       Number(lines[0].total)!==Number(ack.total))
       throw Error("Écriture probablement effectuée, mais lecture incohérente. Recharge le BT; ne répète pas la confirmation.");
+    clearOwner();
     stopBeat();
     window.dispatchEvent(new Event("s06-timer-updated"));
     qs("s06FinishForm").hidden=true;
@@ -529,6 +555,53 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       "Session retrouvée automatiquement dans Supabase.":
       "Aucune session : appuie sur Démarrer pour commencer.");});
   }
+  // Reprise automatique après F5 / Ctrl+Shift+R :
+  // pas de remise à zéro de la session, pas de double minuteur.
+  // Un heartbeat court et atomique ré-attache la session de CET onglet.
+  async function rejoinAfterReload(){
+    const stored=ownerSnapshot();
+    if(!stored)return;
+    let elapsed=0;
+    const check=setInterval(async()=>{
+      elapsed+=250;
+      if(elapsed>30000){clearInterval(check);return;}
+      try{
+        if(typeof CLOUD_DATA_READY==="undefined"||!CLOUD_DATA_READY||
+           typeof ACTIVE_GARAGE_ID!=="string"||!ACTIVE_GARAGE_ID||
+           !window.garageSupabase?.auth?.getUser)return;
+        clearInterval(check);
+        const c=await client(); // auth.uid + garage courants
+        if(stored.user!==app.user||stored.garage!==app.garage){clearOwner();return;}
+        const {data,error}=await c.from("garage_timer_sessions")
+          .select("id,user_id,garage_id,work_order_id,status,confirmed_ms,last_heartbeat_at,revision,posted_labor_id")
+          .eq("id",stored.id).eq("user_id",app.user).single();
+        if(error||!validRow(data)||data.work_order_id!==stored.woId||
+           data.status!=="running"){clearOwner();return;}
+        const gap=Date.now()-Date.parse(data.last_heartbeat_at||"");
+        if(!Number.isFinite(gap)||gap<0||gap>45000){
+          // Retour trop tardif : la période est incertaine, récupération manuelle.
+          clearOwner();return;
+        }
+        if(app.ownRunning||app.busy)return;
+        app.woId=stored.woId;
+        app.session=data;
+        app.rows=[data];
+        // Le serveur accepte au plus 60 secondes depuis le dernier heartbeat.
+        const ack=await rpc("heartbeat",data);
+        if(ack.status==="running"){
+          beats();
+          setMsg("Session retrouvée et confirmée par Supabase après rafraîchissement.");
+        }else{
+          clearOwner();
+        }
+      }catch(e){
+        clearOwner();
+        stopBeat();
+        console.warn("[S06 TEST] Reprise automatique non confirmée",e?.message||e);
+      }
+    },250);
+  }
+  rejoinAfterReload();
   // Le BT est rendu dynamiquement ; une vérification légère suffit.
   // Pas de changement de données ni d'appel réseau hors du BT.
   const watcher=setInterval(mount,900);
