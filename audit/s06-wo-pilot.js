@@ -594,53 +594,64 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
   async function rejoinAfterReload(){
     const stored=ownerSnapshot();
     if(!stored)return;
-    let elapsed=0;
+    const bootAt=Date.now();
+    let inFlight=false;
     const check=setInterval(async()=>{
-      elapsed+=250;
-      if(elapsed>30000){clearInterval(check);return;}
+      if(inFlight)return;
+      if(Date.now()-bootAt>30000){
+        clearInterval(check);
+        clearOwner();
+        return;
+      }
       try{
         if(typeof CLOUD_DATA_READY==="undefined"||!CLOUD_DATA_READY||
            typeof ACTIVE_GARAGE_ID!=="string"||!ACTIVE_GARAGE_ID||
            !window.garageSupabase?.auth?.getUser)return;
-        // Le BT peut être en cours de chargement lors du refresh.
-        // Ne pas abandonner la reprise si une lecture du formulaire est déjà active.
         if(app.ownRunning){clearInterval(check);return;}
         if(app.busy)return;
-        clearInterval(check);
-        const c=await client(); // auth.uid + garage courants
-        if(stored.user!==app.user||stored.garage!==app.garage){clearOwner();return;}
+        inFlight=true;
+        const c=await client();
+        if(stored.user!==app.user||stored.garage!==app.garage){
+          clearInterval(check);clearOwner();return;
+        }
         const {data,error}=await c.from("garage_timer_sessions")
           .select("id,user_id,garage_id,work_order_id,status,confirmed_ms,last_heartbeat_at,revision,posted_labor_id")
           .eq("id",stored.id).eq("user_id",app.user).single();
-        if(error||!validRow(data)||data.work_order_id!==stored.woId||
-           data.status!=="running"){clearOwner();return;}
+        if(error)throw Error(error.message||"Relecture Supabase indisponible");
+        if(!validRow(data)||data.work_order_id!==stored.woId||
+           data.status!=="running"){
+          clearInterval(check);clearOwner();return;
+        }
         const gap=Date.now()-Date.parse(data.last_heartbeat_at||"");
         if(!Number.isFinite(gap)||gap<0||gap>45000){
-          // Retour trop tardif : la période est incertaine, récupération manuelle.
-          clearOwner();return;
+          // Interruption longue : aucune reprise ni facturation implicite.
+          clearInterval(check);clearOwner();return;
         }
         const opened=context();
         if(opened&&opened.id!==stored.woId&&app.panel){
-          app.panel.remove();
-          app.panel=null;
+          app.panel.remove();app.panel=null;
         }
         app.woId=stored.woId;
         app.session=data;
         app.rows=[data];
-        // Le serveur accepte au plus 60 secondes depuis le dernier heartbeat.
+        // La révision est relue à CHAQUE essai. Une réponse perdue n'entraîne
+        // pas un deuxième démarrage ou l'ajout d'une deuxième session.
         const ack=await rpc("heartbeat",data);
         if(ack.status==="running"){
+          clearInterval(check);
           beats();
           setMsg("Session retrouvée et confirmée par Supabase après rafraîchissement.");
         }else{
+          clearInterval(check);
           clearOwner();
         }
       }catch(e){
-        clearOwner();
-        stopBeat();
-        console.warn("[S06 TEST] Reprise automatique non confirmée",e?.message||e);
+        // Un seul échec réseau ne doit pas faire perdre la reprise.
+        console.warn("[S06 TEST] Tentative de reconnexion",e?.message||e);
+      }finally{
+        inFlight=false;
       }
-    },250);
+    },500);
   }
   rejoinAfterReload();
   // Le BT est rendu dynamiquement ; une vérification légère suffit.
