@@ -1215,16 +1215,15 @@ button.link:hover{
 #page-quotes .s08-profit-positive,#s08QuoteViewer .s08-profit-positive{color:#56d18a;font-weight:700}
 #page-quotes .s08-profit-neutral,#s08QuoteViewer .s08-profit-neutral{color:#f3f3f3}
 /* Vue client limitée à la consultation : saisie de soumission toujours complète. */
-#page-quotes #s08PrivacyToggle,#s08QuoteViewer #s08ViewerMode{
+#s08QuoteViewer #s08ViewerMode{
  box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;
  width:35px;min-width:35px;height:32px;padding:0;border-radius:7px;
  background:transparent;color:#ddd;border:1px solid #666;
  font-size:23px;line-height:1;font-weight:700;
 }
-#page-quotes #s08PrivacyToggle[aria-pressed="true"],#s08QuoteViewer #s08ViewerMode[aria-pressed="true"]{
+#s08QuoteViewer #s08ViewerMode[aria-pressed="true"]{
  background:#1c5639;color:#a9f4c3;border-color:#43a36b;
 }
-#page-quotes:has(#s08QuoteEditor:not([hidden])) #s08PrivacyToggle{display:none!important}
 #s08QuoteViewer #s08GarageFinancials[hidden]{display:none!important}
 #s08QuoteViewer #s08GarageFinancials{margin-top:12px;padding:12px;border:1px solid #505050;border-radius:8px}
 #s08QuoteViewer #s08GarageFinancials h3{margin:0 0 8px}
@@ -1492,7 +1491,7 @@ button.link:hover{
         <!-- WORK ORDERS -->
     <!-- S08-F01 : module Soumissions indépendant, squelette sans écriture de données. -->
     <div class="page" id="page-quotes">
-      <div class="s08-page-heading"><h2>Soumissions</h2><button id="s08PrivacyToggle" type="button" class="ghost" aria-pressed="false" aria-label="Passer en mode client" title="Passer en mode client">⋯</button></div>
+      <div class="s08-page-heading"><h2>Soumissions</h2></div>
       <div class="card s08-quotes-card" id="s08QuotesListCard">
         <div class="module-search-toolbar">
           <button id="s08NewQuote" type="button" title="Préparer une soumission temporaire (non enregistrée)">➕ Nouvelle soumission</button>
@@ -14903,7 +14902,7 @@ if (window.garageSupabase) {
   let s08ClientMode=false;
   function setS08ClientMode(clientMode){
     s08ClientMode=!!clientMode;
-    for(const id of ["s08PrivacyToggle","s08ViewerMode"]){
+    for(const id of ["s08ViewerMode"]){
       const button=document.getElementById(id);
       if(!button)continue;
       button.textContent="⋯";
@@ -14914,7 +14913,6 @@ if (window.garageSupabase) {
     const financials=document.getElementById("s08GarageFinancials");
     if(financials)financials.hidden=s08ClientMode||viewer.hidden;
   }
-  document.getElementById("s08PrivacyToggle")?.addEventListener("click",()=>setS08ClientMode(!s08ClientMode));
   document.getElementById("s08ViewerMode")?.addEventListener("click",()=>setS08ClientMode(!s08ClientMode));
   const fmt=n=>n.toLocaleString("fr-CA",{minimumFractionDigits:2,maximumFractionDigits:2})+" $";
   const moneyCents=value=>Math.round(value*100);
