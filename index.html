@@ -15624,12 +15624,13 @@ if (window.garageSupabase) {
   get("s08QuickApprove")?.addEventListener("click",async()=>{
     if(automaticLinkBusy||!selectedQuote||!["draft","sent"].includes(selectedQuote.status))return;
     // Une SO déjà liée et valide peut être approuvée immédiatement.
-    if(previewLinkReady()){get("s08ConvertBT").click();return;}
+    if(previewLinkReady()){updatePreviewButton();get("s08ConvertBT").click();return;}
     // Une ancienne SO ne garde que des libellés : résolution strictement unique.
     if(!selectedQuote.content?.linkedClientId&&!selectedQuote.content?.linkedVehicleId){
       try{if(typeof loadClients==="function")loadClients();}catch(e){console.warn(e);}
       const match=uniqueLegacyQuoteIdentity(selectedQuote);
       if(match&&await confirmUniqueExistingQuoteLink(match)&&previewLinkReady()){
+        updatePreviewButton();
         get("s08ConvertBT").click();
         return;
       }
