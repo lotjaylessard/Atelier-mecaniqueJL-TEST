@@ -12441,6 +12441,25 @@ if ($("lastWorkOrdersBox")) {
 }
 
 
+// Revenu mensuel : une facture n'entre dans le graphique qu'au mois où son solde est payé.
+// Anciens dossiers : utiliser le dernier paiement, sinon paidDate, et en dernier recours
+// la date de facture si aucun historique de paiement n'est disponible.
+function monthlyInvoiceSettlementDate(inv){
+  if(String(inv?.status||"").toLowerCase()!=="paid")return "";
+  const validDate=value=>{
+    const match=String(value||"").match(/^(\d{4})-(\d{2})-(\d{2})(?:\D|$)/);
+    if(!match)return "";
+    const [,year,month,day]=match;
+    const date=new Date(Date.UTC(Number(year),Number(month)-1,Number(day)));
+    return date.getUTCFullYear()===Number(year)&&date.getUTCMonth()+1===Number(month)&&date.getUTCDate()===Number(day)
+      ?year+"-"+month+"-"+day:"";
+  };
+  const payments=Array.isArray(inv.payments)?inv.payments:[];
+  // Les paiements sont ajoutés dans l'ordre et le dernier solde termine la facture.
+  const finalPayment=payments.length?validDate(payments[payments.length-1]?.date):"";
+  return finalPayment||validDate(inv.paidDate)||validDate(inv.date);
+}
+
 function renderMonthlyRevenueChart(){
 
 let globalTooltip = document.getElementById("dashboardTooltip");
@@ -12469,7 +12488,7 @@ if (!chart) return;
 chart.innerHTML = "";
 
 const paidInvoices = (INVOICES || []).filter(inv =>
-  (inv.status || "").toLowerCase() === "paid"
+  (inv.status || "").toLowerCase() === "paid" && monthlyInvoiceSettlementDate(inv)
 );
 
 if (paidInvoices.length === 0){
@@ -12480,7 +12499,7 @@ if (paidInvoices.length === 0){
 /* ===================== EXTRAIRE ANNÉES ===================== */
 
 const years = [...new Set(
-  paidInvoices.map(inv => inv.date?.slice(0,4))
+  paidInvoices.map(inv => monthlyInvoiceSettlementDate(inv).slice(0,4))
 )].sort().reverse();
 
 if (yearSelect){
@@ -12503,10 +12522,10 @@ const selectedYear = yearSelect?.value || years[0];
 const monthMap = {};
 
 paidInvoices
-  .filter(inv => inv.date?.startsWith(selectedYear))
+  .filter(inv => monthlyInvoiceSettlementDate(inv).startsWith(selectedYear))
   .forEach(inv => {
 
-    const month = inv.date.slice(0,7);
+    const month = monthlyInvoiceSettlementDate(inv).slice(0,7);
 
     if (!monthMap[month]){
       monthMap[month] = { revenue:0, profit:0 };
@@ -14497,10 +14516,13 @@ function markInvoicePartial(number, method){
   }];
   inv.paidAmount = Math.round(previouslyPaid*100 + amountCents)/100;
   inv.status = Math.round(inv.paidAmount*100) >= Math.round(total*100) ? "paid" : "partial";
-  inv.paidDate = new Date().toLocaleDateString("fr-CA");
-  if (inv.status === "paid") inv.paymentMethod = method;
+  if (inv.status === "paid") {
+    inv.paidDate = new Date().toLocaleDateString("fr-CA");
+    inv.paymentMethod = method;
+  }
   saveInvoices();
   renderInvoiceList();
+  if(typeof renderDashboard==="function")renderDashboard();
   openInvoiceEditModal(number);
 }
 
