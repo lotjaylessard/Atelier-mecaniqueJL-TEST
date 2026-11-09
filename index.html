@@ -1182,7 +1182,7 @@ button.link:hover{
 #page-quotes .s08-editor-heading{display:flex;align-items:start;justify-content:space-between;gap:12px;flex-wrap:wrap}
 #page-quotes .s08-field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 14px}
 #page-quotes .s08-field-grid label,#page-quotes .s08-line-add label{min-width:0}
-#page-quotes .s08-line-add{display:grid;grid-template-columns:130px minmax(180px,1fr) 135px 140px auto;gap:10px;align-items:end}
+#page-quotes .s08-line-add{display:grid;grid-template-columns:110px minmax(180px,1fr) 125px 125px 125px auto;gap:10px;align-items:end}
 #page-quotes .s08-line-add input,#page-quotes .s08-line-add select{box-sizing:border-box;width:100%}
 #page-quotes .s08-line-add button{margin-bottom:0;white-space:nowrap}
 #page-quotes .s08-editor-lines{overflow-x:auto;max-width:100%}
@@ -1484,17 +1484,19 @@ button.link:hover{
           <label>Type<select id="s08LineType"><option value="part">Pièce</option><option value="labor">Main-d’œuvre / Service</option><option value="other">Autre</option></select></label>
           <label>Description<input id="s08LineDescription" type="text" placeholder="Pièce ou travail à effectuer"></label>
           <label>Quantité / heures<input id="s08LineQty" type="number" step="0.01" min="0.01" value="1"></label>
-          <label>Prix unitaire ($)<input id="s08LinePrice" type="number" step="0.01" min="0" value="0"></label>
+          <label>Prix de vente ($)<input id="s08LinePrice" type="number" step="0.01" min="0" value="0"></label>
+          <label id="s08CostLabel">Coût d'achat ($)<input id="s08LineCost" type="number" step="0.01" min="0" value="0"></label>
           <button id="s08AddLine" type="button" title="Ajouter la ligne (ou appuyer sur Entrée)">+ Ajouter la ligne</button>
         </div>
         <p class="muted" style="font-size:12px;margin:4px 0 0">Astuce : <strong>Entrée</strong> dans les champs de la ligne ajoute directement la pièce ou le service.</p>
         <p id="s08LineError" role="status" aria-live="polite" class="muted"></p>
         <div class="s08-editor-lines">
-          <table><thead><tr><th>Type</th><th>Description</th><th>Quantité</th><th>Prix unitaire</th><th>Montant</th><th>Action</th></tr></thead>
-            <tbody id="s08DraftLines"><tr><td colspan="6" class="muted">Aucune ligne ajoutée.</td></tr></tbody>
+          <table><thead><tr><th>Type</th><th>Description</th><th>Quantité</th><th>Prix de vente</th><th>Montant</th><th>Action</th><th>Coût pièce</th><th>Profit pièce</th></tr></thead>
+            <tbody id="s08DraftLines"><tr><td colspan="8" class="muted">Aucune ligne ajoutée.</td></tr></tbody>
           </table>
         </div>
         <div class="s08-total"><strong>Total estimé (avant taxes) : <span id="s08DraftTotal">0,00 $</span></strong></div>
+        <p class="muted" style="text-align:right;margin:4px 0 0;font-size:12px">Interne uniquement — coût total des pièces : <strong id="s08PartsCostTotal">0,00 $</strong> · Profit brut estimé sur les pièces : <strong id="s08PartsProfitTotal">0,00 $</strong> (main-d’œuvre exclue).</p>
         <p class="muted" style="margin:6px 0 0">Les taxes ne sont pas détaillées dans la soumission. L’impression et la conversion en BT restent désactivées jusqu’aux étapes suivantes.</p>
         <p id="s08SaveStatus" role="status" aria-live="polite" class="muted"></p>
         <div class="s08-editor-buttons">
@@ -14855,6 +14857,8 @@ if (window.garageSupabase) {
     get("s08LineDescription").value=String(entry.name||"")+(entry.desc?" — "+String(entry.desc):"");
     get("s08LineQty").value=String(qty);
     get("s08LinePrice").value=String(price);
+    get("s08LineCost").value=kind==="part"?String(Number(entry.cost)||0):"0";
+    updateCostVisibility();
     error.textContent="Champs préremplis depuis le catalogue. Vérifie les prix, puis ajoute la ligne.";
     get(kind==="part"?"s08CatalogService":"s08CatalogPart").value="";
     // NAPA : une seule sélection, puis quantité et prix au clavier.
@@ -14862,6 +14866,13 @@ if (window.garageSupabase) {
     quantity.focus();
     quantity.select();
   }
+  function updateCostVisibility(){
+    const part=get("s08LineType").value==="part";
+    get("s08CostLabel").hidden=!part;
+    get("s08LineCost").disabled=!part;
+  }
+  get("s08LineType").addEventListener("change",updateCostVisibility);
+  updateCostVisibility();
   get("s08CatalogPart")?.addEventListener("change",()=>prefill("part"));
   get("s08CatalogService")?.addEventListener("change",()=>prefill("service"));
 
@@ -14873,7 +14884,7 @@ if (window.garageSupabase) {
     tbody.replaceChildren();
     if(!lines.length){
       const tr=document.createElement("tr"),td=document.createElement("td");
-      td.colSpan=6;td.className="muted";td.textContent="Aucune ligne ajoutée.";
+      td.colSpan=8;td.className="muted";td.textContent="Aucune ligne ajoutée.";
       tr.append(td);tbody.append(tr);
     }
     for(const [index,line] of lines.entries()){
@@ -14895,9 +14906,19 @@ if (window.garageSupabase) {
       const actions=document.createElement("td"),remove=document.createElement("button");
       remove.type="button";remove.className="ghost danger";remove.textContent="Retirer";
       remove.addEventListener("click",()=>{lines.splice(index,1);render()});
-      actions.append(remove);row.append(actions);tbody.append(row);
+      actions.append(remove);row.append(actions);
+      const unitCost=Number(line.costCents)||0;
+      const part=line.type==="part";
+      for(const value of [part?fmt(unitCost*line.qty/100):"—",part?fmt((line.priceCents-unitCost)*line.qty/100):"—"]){
+        const td=document.createElement("td");td.textContent=value;row.append(td);
+      }
+      tbody.append(row);
     }
     total.textContent=fmt(lines.reduce((sum,line)=>sum+line.amountCents,0)/100);
+    const cost=lines.filter(l=>l.type==="part").reduce((sum,l)=>sum+Math.round((Number(l.costCents)||0)*l.qty),0);
+    const revenue=lines.filter(l=>l.type==="part").reduce((sum,l)=>sum+l.amountCents,0);
+    get("s08PartsCostTotal").textContent=fmt(cost/100);
+    get("s08PartsProfitTotal").textContent=fmt((revenue-cost)/100);
   }
   function beginInlineEdit(index,focusedCell){
     if(activeEditIndex!==-1 || saving)return;
@@ -14905,10 +14926,16 @@ if (window.garageSupabase) {
     if(!line||!cells)return;
     activeEditIndex=index;
     error.textContent="";
-    const desc=document.createElement("input"),qty=document.createElement("input"),price=document.createElement("input");
+    const desc=document.createElement("input"),qty=document.createElement("input"),price=document.createElement("input"),cost=document.createElement("input");
     desc.type="text";desc.value=line.description;desc.setAttribute("aria-label","Description");
     qty.type="number";qty.min="0.01";qty.step="any";qty.value=String(line.qty);qty.setAttribute("aria-label","Quantité ou heures");
-    price.type="number";price.min="0";price.step="0.01";price.value=String(line.priceCents/100);price.setAttribute("aria-label","Prix unitaire");
+    price.type="number";price.min="0";price.step="0.01";price.value=String(line.priceCents/100);price.setAttribute("aria-label","Prix de vente");
+    if(line.type==="part"){
+      cost.type="number";cost.min="0";cost.step="0.01";cost.value=String((Number(line.costCents)||0)/100);
+      cost.setAttribute("aria-label","Coût d'achat de la pièce");
+      cost.style.cssText="width:100%;min-width:75px;padding:7px;box-sizing:border-box";
+      cells[6].replaceChildren(cost);
+    }
     [desc,qty,price].forEach((input,i)=>{
       const cell=cells[i+1];
       cell.replaceChildren(input);cell.removeAttribute("role");cell.removeAttribute("tabindex");
@@ -14924,18 +14951,21 @@ if (window.garageSupabase) {
     function confirmEdit(){
       const quantity=Number(qty.value),unit=Number(price.value);
       const cents=moneyCents(unit),amount=Math.round(quantity*cents);
+      const costCents=line.type==="part"?moneyCents(Number(cost.value)):0;
       if(!desc.value.trim()||!qty.value||!price.value||
         !Number.isFinite(quantity)||quantity<=0||!Number.isFinite(unit)||unit<0||
-        !Number.isSafeInteger(cents)||cents<0||!Number.isSafeInteger(amount)||amount<0){
+        !Number.isSafeInteger(cents)||cents<0||!Number.isSafeInteger(amount)||amount<0||
+        !Number.isSafeInteger(costCents)||costCents<0||(line.type==="part"&&!cost.value)){
         error.textContent="Vérifie la description, la quantité et le prix de la ligne.";
         return;
       }
-      lines[index]={...line,description:desc.value.trim(),qty:quantity,priceCents:cents,amountCents:amount};
+      lines[index]={...line,description:desc.value.trim(),qty:quantity,priceCents:cents,amountCents:amount,
+        ...(line.type==="part"?{costCents}:{})};
       error.textContent="";render();
     }
     confirmButton.addEventListener("click",confirmEdit);
     cancelButton.addEventListener("click",()=>{error.textContent="";render()});
-    for(const input of [desc,qty,price]){
+    for(const input of [desc,qty,price,...(line.type==="part"?[cost]:[])]){
       input.addEventListener("keydown",event=>{
         if(event.key==="Enter" && !event.isComposing){event.preventDefault();event.stopPropagation();confirmEdit();}
         if(event.key==="Escape"){event.preventDefault();event.stopPropagation();error.textContent="";render();}
@@ -14961,7 +14991,7 @@ if (window.garageSupabase) {
     }
     lines=[];render();
     editor.querySelectorAll("input,textarea").forEach(el=>el.value="");
-    get("s08LineQty").value="1";get("s08LinePrice").value="0";
+    get("s08LineQty").value="1";get("s08LinePrice").value="0";get("s08LineCost").value="0";
     get("s08CatalogPart").value="";get("s08CatalogService").value="";
     selectedFastClientId="";
     clearClientFields();
@@ -14976,7 +15006,7 @@ if (window.garageSupabase) {
   // S08-F09 TEST : Entrée ajoute la ligne en cours sans clic supplémentaire.
   // Ne pas intercepter les sélections, les compositions IME ni les modifications
   // d'une ligne déjà enregistrée qui possèdent leurs propres écouteurs.
-  for(const id of ["s08LineType","s08LineDescription","s08LineQty","s08LinePrice"]){
+  for(const id of ["s08LineType","s08LineDescription","s08LineQty","s08LinePrice","s08LineCost"]){
     get(id)?.addEventListener("keydown",event=>{
       if(event.key!=="Enter"||event.isComposing||event.repeat||event.shiftKey||
          event.ctrlKey||event.altKey||event.metaKey||saving||editor.hidden)return;
@@ -14989,15 +15019,20 @@ if (window.garageSupabase) {
     const qty=Number(get("s08LineQty").value);
     const price=Number(get("s08LinePrice").value);
     const priceCents=moneyCents(price),amountCents=Math.round(qty*priceCents);
+    const isPart=get("s08LineType").value==="part";
+    const costValue=get("s08LineCost").value;
+    const costCents=isPart?moneyCents(Number(costValue)):0;
     if(!description || !Number.isFinite(qty)||qty<=0||!Number.isFinite(price)||
       price<0||!Number.isSafeInteger(priceCents)||!Number.isSafeInteger(amountCents)||
-      priceCents<0||amountCents<0){
-      error.textContent="Indique une description, une quantité positive et un prix valide.";
+      priceCents<0||amountCents<0||
+      (isPart&&(!costValue||!Number.isSafeInteger(costCents)||costCents<0))){
+      error.textContent="Indique une description, une quantité positive, un prix de vente et un coût d'achat valides.";
       get("s08LineDescription").value.trim()?get("s08LineQty").focus():get("s08LineDescription").focus();
       return;
     }
-    lines.push({type:get("s08LineType").value,description,qty,priceCents,amountCents});
-    get("s08LineDescription").value="";get("s08LineQty").value="1";get("s08LinePrice").value="0";
+    lines.push({type:get("s08LineType").value,description,qty,priceCents,amountCents,
+      ...(isPart?{costCents}:{})});
+    get("s08LineDescription").value="";get("s08LineQty").value="1";get("s08LinePrice").value="0";get("s08LineCost").value="0";
     error.textContent="";render();get("s08LineDescription").focus();
   });
 
