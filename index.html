@@ -6944,7 +6944,7 @@ lBody.innerHTML = wo.labor.map((l,i)=>{
   return `
     <tr>
       <td>${l.description}</td>
-      <td>${s06LaborHoursLabel(l)}${l.timerSessionId && Number.isFinite(Number(l.confirmedMs)) ? ' h ('+formatDuration(Number(l.confirmedMs))+' exactes)' : ''}</td>
+      <td>${s06LaborHoursLabel(l)}${l.timerSessionId && Number.isFinite(Number(l.confirmedMs)) ? ' h facturées <span class="muted">(minuteur initial : '+formatDuration(Number(l.confirmedMs))+')</span>' : ''}</td>
       <td>${money(l.rate)} $</td>
       <td>${money(total)} $</td>
 
