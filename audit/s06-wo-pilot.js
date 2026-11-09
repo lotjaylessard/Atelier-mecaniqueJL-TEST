@@ -294,6 +294,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
   // automatiquement un heartbeat retardé ni prétendre avoir confirmé ce temps.
   let lastWakeCheck=0;
   let interruptedReason="";
+  let heartbeatFailures=0;
   function warnInterrupted(reason){
     interruptedReason=reason;
     clearOwner();
@@ -312,6 +313,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     stopBeat();
     if(app.session?.status!=="running")return;
     app.ownRunning=app.session.id;
+    heartbeatFailures=0;
     rememberOwner();
     startDisplay();
     lastWakeCheck=Date.now();
@@ -350,13 +352,34 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
   async function guarded(fn,isHeartbeat=false){
     if(app.busy)return;
     app.busy=true;paint();
-    try{await fn();}
-    catch(e){
-      stopBeat();
+    try{
+      await fn();
+      if(isHeartbeat)heartbeatFailures=0;
+    }catch(e){
+      if(isHeartbeat && app.session?.status==="running"&&app.ownRunning===app.session.id){
+        // Une réponse RPC perdue peut avoir été enregistrée côté serveur.
+        // Relire la révision avant de réessayer pour éviter les doublons.
+        heartbeatFailures++;
+        try{
+          await read();
+          const age=Date.now()-Date.parse(app.session?.last_heartbeat_at||"");
+          if(app.session?.status==="running"&&
+             Number.isFinite(age)&&age>=0&&age<45000){
+            app.displayAnchor={at:Date.now(),ms:Number(app.session.confirmed_ms)};
+            heartbeatFailures=0;
+            setMsg("Confirmation retrouvée après une réponse réseau manquante.");
+            return;
+          }
+        }catch(_){}
+        if(heartbeatFailures<3&&navigator.onLine){
+          savedStatus("warning","⚠ Confirmation réseau retardée. Nouvelle tentative automatique.");
+          return;
+        }
+      }
+      warnInterrupted("Connexion ou confirmation Supabase interrompue");
       app.panel?.classList.add("s06-interrupted");
-      savedStatus("warning","⚠ Synchronisation non confirmée : vérifier la session avant de reprendre.");
       setMsg("Action non confirmée : "+(e?.message||e)+
-        "\nAucune nouvelle main-d'œuvre locale. Recharge la page avant de réessayer.");
+        "\nLe temps manquant n'a pas été ajouté. Vérifie la session puis récupère-la.");
     }finally{app.busy=false;paint();}
   }
   async function start(){
