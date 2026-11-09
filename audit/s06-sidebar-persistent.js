@@ -27,7 +27,8 @@
     return pad(Math.floor(total/3600))+":"+pad(Math.floor(total/60)%60)+":"+pad(total%60);
   };
   let current=null,receivedAt=0,busy=false,uid=null,garage=null;
-  const hide=()=>{current=null;box.hidden=true;};
+  let lastRenderedId=null,lastRenderedMs=0,actionPending=false;
+  const hide=()=>{current=null;lastRenderedId=null;lastRenderedMs=0;box.hidden=true;};
   function metadata(id){
     try{
       const wo=(typeof WORKORDERS!=="undefined"&&Array.isArray(WORKORDERS))
@@ -50,12 +51,13 @@
     status.textContent=stale?"⚠ À récupérer":
       current.status==="running"?"● En cours":"● En pause";
     if(toggle){
-      toggle.textContent=stale?"⚠ Récupérer":current.status==="running"?"⏸ Pause":"▶ Reprendre";
-      toggle.disabled=false;
+      toggle.textContent=actionPending?"⏳ Enregistrement…":
+        stale?"⚠ Récupérer":current.status==="running"?"⏸ Pause":"▶ Reprendre";
+      toggle.disabled=actionPending;
     }
     if(stop){
       stop.textContent="⏹ Terminer";
-      stop.disabled=false;
+      stop.disabled=actionPending;
     }
     number.textContent=meta.number;
     vehicle.textContent=meta.vehicle;
@@ -73,10 +75,24 @@
       String(activeWo)===String(current.work_order_id)&&
       document.getElementById("page-workorders")?.style.display!=="none"&&
       document.getElementById("woDetailCard")?.style.display!=="none";
-    time.textContent=sameSession&&pilotClock&&
-      /^\d{2,}:\d{2}:\d{2}$/.test(pilotClock.textContent.trim())?
-      pilotClock.textContent.trim():
-      formatted(Number(current.confirmed_ms)+extra);
+    const pilotMatches=sameSession&&pilotClock&&
+      /^\d{2,}:\d{2}:\d{2}$/.test(pilotClock.textContent.trim());
+    const pilotSeconds=pilotMatches?
+      pilotClock.textContent.trim().split(":").reduce((v,n)=>v*60+Number(n),0):null;
+    // Le rafraîchissement réseau (toutes les 8 s) ne doit pas faire reculer
+    // l'affichage indicatif pendant une session en marche. Seule la réponse
+    // officielle de pause fixe la durée exacte, même si elle diffère.
+    const candidateMs=pilotSeconds!==null?pilotSeconds*1000:
+      Number(current.confirmed_ms)+extra;
+    if(lastRenderedId!==String(current.id)){
+      lastRenderedId=String(current.id);
+      lastRenderedMs=0;
+    }
+    const running=current.status==="running"&&!stale&&navigator.onLine;
+    const shownMs=running?Math.max(lastRenderedMs,candidateMs):
+      Number(current.confirmed_ms);
+    lastRenderedMs=shownMs;
+    time.textContent=formatted(shownMs);
   }
   async function refresh(){
     if(busy)return;
@@ -123,7 +139,14 @@
   }
   function triggerPilotAction(action){
     const selected=current&&metadata(current.work_order_id);
-    if(!selected)return;
+    if(!selected||actionPending)return;
+    actionPending=true;paint();
+    // Libérer le verrou après la synchronisation serveur ou, en cas de
+    // confirmation annulée, après le délai maximal de l'interface.
+    const release=()=>{actionPending=false;refresh();};
+    const timeout=setTimeout(release,10000);
+    const handleAck=()=>{clearTimeout(timeout);window.removeEventListener("s06-timer-updated",handleAck);release();};
+    window.addEventListener("s06-timer-updated",handleAck,{once:true});
     // Toujours ouvrir le BT. Le pilote revérifie le compte, la session
     // et la révision auprès du serveur avant toute mutation.
     const requestedId=String(current.id);
@@ -131,7 +154,13 @@
       openWorkOrderFromDashboard(selected.id);
     let attempts=0;
     const watcher=setInterval(()=>{
-      if(++attempts>30){clearInterval(watcher);return;}
+      if(++attempts>30){
+        clearInterval(watcher);
+        clearTimeout(timeout);
+        window.removeEventListener("s06-timer-updated",handleAck);
+        release();
+        return;
+      }
       const pilot=document.getElementById("s06WoPilot");
       const currentWo=document.getElementById("woEditId")?.value;
       if(!pilot||String(currentWo)!==selected.id||
