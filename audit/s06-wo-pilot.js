@@ -3,7 +3,7 @@
    Les anciennes commandes sont masquées uniquement dans ce mode.
    Ne modifie jamais les BT en local ; seule RPC serveur ajoute notes + main-d'œuvre. */
 (() => {
-  if(new URLSearchParams(location.search).get("s06_wo_pilot")!=="1")return;
+  if(new URLSearchParams(location.search).get("s06_legacy_timer")==="1")return;
   document.body.classList.add("s06-wo-pilot");
   const style=document.createElement("style");
   style.textContent=`.s06-wo-pilot #woTimerBtn,.s06-wo-pilot #woTimerPauseBtn,
