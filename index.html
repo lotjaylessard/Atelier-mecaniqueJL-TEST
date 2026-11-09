@@ -1214,9 +1214,17 @@ button.link:hover{
 #page-quotes .s08-profit-negative,#s08QuoteViewer .s08-profit-negative{color:#ff6666;font-weight:700}
 #page-quotes .s08-profit-positive,#s08QuoteViewer .s08-profit-positive{color:#56d18a;font-weight:700}
 #page-quotes .s08-profit-neutral,#s08QuoteViewer .s08-profit-neutral{color:#f3f3f3}
-#page-quotes.s08-private .s08-garage-only{display:none!important}
-#page-quotes.s08-private #s08DraftLines td:nth-child(5),#page-quotes.s08-private #s08DraftLines td:nth-child(8),#page-quotes.s08-private .s08-editor-lines th:nth-child(5),#page-quotes.s08-private .s08-editor-lines th:nth-child(8){display:none!important}
-#page-quotes.s08-private #s08CostLabel{visibility:hidden}
+/* Vue client limitée à la consultation : saisie de soumission toujours complète. */
+#page-quotes #s08PrivacyToggle,#s08QuoteViewer #s08ViewerMode{
+ box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;
+ width:35px;min-width:35px;height:32px;padding:0;border-radius:7px;
+ background:transparent;color:#ddd;border:1px solid #666;
+ font-size:23px;line-height:1;font-weight:700;
+}
+#page-quotes #s08PrivacyToggle[aria-pressed="true"],#s08QuoteViewer #s08ViewerMode[aria-pressed="true"]{
+ background:#1c5639;color:#a9f4c3;border-color:#43a36b;
+}
+#page-quotes:has(#s08QuoteEditor:not([hidden])) #s08PrivacyToggle{display:none!important}
 #s08QuoteViewer #s08GarageFinancials[hidden]{display:none!important}
 #s08QuoteViewer #s08GarageFinancials{margin-top:12px;padding:12px;border:1px solid #505050;border-radius:8px}
 #s08QuoteViewer #s08GarageFinancials h3{margin:0 0 8px}
@@ -1484,7 +1492,7 @@ button.link:hover{
         <!-- WORK ORDERS -->
     <!-- S08-F01 : module Soumissions indépendant, squelette sans écriture de données. -->
     <div class="page" id="page-quotes">
-      <div class="s08-page-heading"><h2>Soumissions</h2><button id="s08PrivacyToggle" type="button" class="ghost" aria-pressed="false" title="Masquer ou afficher les informations internes">⋯ Vue garage</button></div>
+      <div class="s08-page-heading"><h2>Soumissions</h2><button id="s08PrivacyToggle" type="button" class="ghost" aria-pressed="false" aria-label="Passer en mode client" title="Passer en mode client">⋯</button></div>
       <div class="card s08-quotes-card" id="s08QuotesListCard">
         <div class="module-search-toolbar">
           <button id="s08NewQuote" type="button" title="Préparer une soumission temporaire (non enregistrée)">➕ Nouvelle soumission</button>
@@ -1598,7 +1606,7 @@ button.link:hover{
           <div class="s08-viewer-head">
             <h2 id="s08ViewTitle">Soumission</h2>
             <div class="s08-viewer-controls">
-              <button type="button" id="s08ViewerMode" class="ghost" aria-pressed="false" title="Afficher les informations internes du garage">⋯ Vue garage</button>
+              <button type="button" id="s08ViewerMode" class="ghost" aria-pressed="false" aria-label="Passer en mode client" title="Passer en mode client">⋯</button>
               <button type="button" id="s08QuickApprove" title="Approuver la soumission et créer un bon de travail">✓ Approuver</button>
               <button type="button" class="ghost" id="s08Preflight" hidden>Vérifier avant conversion</button>
               <button type="button" class="primary" id="s08ViewPrint" title="Imprimer ou enregistrer la soumission en PDF">🖨️ Imprimer</button>
@@ -14891,14 +14899,18 @@ if (window.garageSupabase) {
   let saving=false;
   let quotes=[];
   const get=id=>document.getElementById(id);
+  // Mode client : ne masque jamais les champs du formulaire de création.
   let s08ClientMode=false;
   function setS08ClientMode(clientMode){
     s08ClientMode=!!clientMode;
-    document.getElementById("page-quotes")?.classList.toggle("s08-private",s08ClientMode);
-    const pageButton=document.getElementById("s08PrivacyToggle");
-    const viewerButton=document.getElementById("s08ViewerMode");
-    if(pageButton){pageButton.textContent=s08ClientMode?"⋯ Vue client":"⋯ Vue garage";pageButton.setAttribute("aria-pressed",String(s08ClientMode));}
-    if(viewerButton){viewerButton.textContent=s08ClientMode?"⋯ Vue client":"⋯ Vue garage";viewerButton.setAttribute("aria-pressed",String(s08ClientMode));}
+    for(const id of ["s08PrivacyToggle","s08ViewerMode"]){
+      const button=document.getElementById(id);
+      if(!button)continue;
+      button.textContent="⋯";
+      button.setAttribute("aria-pressed",String(s08ClientMode));
+      const action=s08ClientMode?"Revenir en mode garage":"Passer en mode client";
+      button.setAttribute("aria-label",action);button.title=action;
+    }
     const financials=document.getElementById("s08GarageFinancials");
     if(financials)financials.hidden=s08ClientMode||viewer.hidden;
   }
