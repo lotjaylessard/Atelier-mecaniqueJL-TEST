@@ -1224,10 +1224,8 @@ button.link:hover{
 #s08QuoteViewer #s08ViewerMode[aria-pressed="true"]{
  background:#1c5639;color:#a9f4c3;border-color:#43a36b;
 }
-#s08QuoteViewer #s08GarageFinancials[hidden]{display:none!important}
-#s08QuoteViewer #s08GarageFinancials{margin-top:12px;padding:12px;border:1px solid #505050;border-radius:8px}
-#s08QuoteViewer #s08GarageFinancials h3{margin:0 0 8px}
-#s08QuoteViewer #s08GarageFinancials td,#s08QuoteViewer #s08GarageFinancials th{padding:6px 8px}
+#s08QuoteViewer.s08-client-mode .s08-internal-col{display:none!important}
+#s08QuoteViewer .s08-viewer-table th.s08-internal-col,#s08QuoteViewer .s08-viewer-table td.s08-internal-col{text-align:right}
 
 /* S08 — fiche compacte : styles locaux seulement, aucun changement fonctionnel. */
 #s08QuoteViewer{padding:12px}
@@ -1690,11 +1688,10 @@ button.link:hover{
           <h3>Pièces et main-d’œuvre</h3>
           <div class="s08-viewer-table">
             <table>
-              <thead><tr><th>Type</th><th>Description</th><th># pièce</th><th>Quantité / heures</th><th>Prix unitaire</th><th>Montant</th></tr></thead>
+              <thead><tr><th>Type</th><th>Description</th><th># pièce</th><th>Quantité / heures</th><th class="s08-internal-col">Coûtant</th><th>Vente</th><th>Montant</th><th class="s08-internal-col">Profit</th></tr></thead>
               <tbody id="s08ViewLines"></tbody>
             </table>
           </div>
-          <div id="s08GarageFinancials" class="s08-garage-only" hidden><h3>Informations internes — garage seulement</h3><div class="s08-viewer-table"><table><thead><tr><th>Pièce</th><th>Qté</th><th>Coûtant</th><th>Vente</th><th>Profit</th></tr></thead><tbody id="s08GarageProfitLines"></tbody></table></div><p class="muted" id="s08GarageProfitTotal"></p></div>
           <p class="s08-view-total">Total estimé : <strong id="s08ViewTotal"></strong></p>
           <p class="muted" style="font-size:12px;">Taxes applicables en sus. Soumission valide pendant 15 jours.</p>
         </div>
@@ -14910,8 +14907,7 @@ if (window.garageSupabase) {
       const action=s08ClientMode?"Revenir en mode garage":"Passer en mode client";
       button.setAttribute("aria-label",action);button.title=action;
     }
-    const financials=document.getElementById("s08GarageFinancials");
-    if(financials)financials.hidden=s08ClientMode||viewer.hidden;
+    viewer.classList.toggle("s08-client-mode",s08ClientMode);
   }
   document.getElementById("s08ViewerMode")?.addEventListener("click",()=>setS08ClientMode(!s08ClientMode));
   const fmt=n=>n.toLocaleString("fr-CA",{minimumFractionDigits:2,maximumFractionDigits:2})+" $";
@@ -15733,7 +15729,7 @@ if (window.garageSupabase) {
     }
     const copy=viewer.querySelector(".s08-viewer-panel").cloneNode(true);
     // Impression toujours client, même si la vue garage est ouverte.
-    copy.querySelector("#s08GarageFinancials")?.remove();
+    copy.querySelectorAll(".s08-internal-col").forEach(node=>node.remove());
     copy.querySelector(".s08-viewer-controls")?.remove();
     copy.querySelectorAll(".s08-garage-only").forEach(node=>node.remove());
     copy.querySelector("#s08ConvertedBT")?.remove();
@@ -15936,28 +15932,26 @@ if (window.garageSupabase) {
     target.replaceChildren();
     for(const line of Array.isArray(d.lines)?d.lines:[]){
       const tr=document.createElement("tr");
+      const isPart=line.type==="part";
+      const qty=Number(line.qty)||0;
+      const costCents=Number(line.costCents)||0;
+      const profitCents=Number(line.amountCents||0)-Math.round(costCents*qty);
       const type={part:"Pièce",labor:"Main-d’œuvre",other:"Autre"}[line.type]||"Autre";
-      for(const text of [type,line.description||"",line.type==="part"?(line.number||"—"):"—",String(line.qty??""),fmtQuote(Number(line.priceCents||0)),fmtQuote(Number(line.amountCents||0))]){
-        const td=document.createElement("td");td.textContent=text;tr.append(td);
-      }
+      const values=[
+        type,line.description||"",isPart?(line.number||"—"):"—",
+        String(line.qty??""),isPart?fmtQuote(costCents):"—",
+        fmtQuote(Number(line.priceCents||0)),fmtQuote(Number(line.amountCents||0)),
+        isPart?fmtQuote(profitCents):"—"
+      ];
+      values.forEach((value,index)=>{
+        const td=document.createElement("td");
+        td.textContent=value;
+        if(index===4||index===7)td.classList.add("s08-internal-col");
+        if(index===7&&isPart)td.classList.add(profitCents<0?"s08-profit-negative":profitCents>0?"s08-profit-positive":"s08-profit-neutral");
+        tr.append(td);
+      });
       target.append(tr);
     }
-    const garageRows=get("s08GarageProfitLines");
-    garageRows.replaceChildren();
-    let garageProfitCents=0;
-    for(const line of Array.isArray(d.lines)?d.lines:[]){
-      if(line.type!=="part")continue;
-      const qty=Number(line.qty)||0,unitCost=Number(line.costCents)||0;
-      const profit=Number(line.amountCents||0)-Math.round(unitCost*qty);
-      garageProfitCents+=profit;
-      const tr=document.createElement("tr");
-      for(const value of [line.description||"",String(qty),fmtQuote(unitCost),fmtQuote(Number(line.priceCents)||0),fmtQuote(profit)]){
-        const td=document.createElement("td");td.textContent=value;tr.append(td);
-      }
-      tr.cells[4].classList.add(profit<0?"s08-profit-negative":profit>0?"s08-profit-positive":"s08-profit-neutral");
-      garageRows.append(tr);
-    }
-    get("s08GarageProfitTotal").textContent="Profit brut estimé sur les pièces : "+fmtQuote(garageProfitCents)+" (main-d’œuvre exclue)";
     returnFocus=trigger;
     viewer.hidden=false;
     setS08ClientMode(true);
