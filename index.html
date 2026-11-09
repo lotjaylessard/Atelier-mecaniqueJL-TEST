@@ -15567,8 +15567,11 @@ if (window.garageSupabase) {
     const matches=[];
     for(const c of currentClients()){
       if(normalizeText(clientTitle(c))!==normalizeText(d.clientName))continue;
-      if(d.clientPhone&&String(c.phone||"").replace(/\D/g,"")!==
-          String(d.clientPhone).replace(/\D/g,""))continue;
+      // Un ancien numéro fictif ou incomplet n'est pas un identifiant fiable.
+      // Un numéro complet divergent, en revanche, bloque le rapprochement.
+      if(String(d.clientPhone||"").replace(/\D/g,"").length>=10&&
+         String(c.phone||"").replace(/\D/g,"")!==
+         String(d.clientPhone).replace(/\D/g,""))continue;
       for(const v of Array.isArray(c.vehicles)?c.vehicles:[]){
         if(normalizeText(vehicleDisplayForQuote(v))===normalizeText(d.vehicleLabel))
           matches.push({client:c,vehicle:v});
