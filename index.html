@@ -15710,7 +15710,10 @@ if (window.garageSupabase) {
     restoreSavedQuoteLink();
     linkPanel.hidden=false;
     updatePreviewButton();
-    get("s08PreflightResult").textContent="Vérification manuelle obligatoire avant conversion : sélectionne le client et son véhicule dans les listes ci-dessous.";
+    get("s08PreflightResult").textContent=
+      selectedQuote.content?.linkedClientId&&selectedQuote.content?.linkedVehicleId
+        ? "Client et véhicule déjà sélectionnés dans cette soumission. Complète uniquement les informations signalées avant d’approuver."
+        : "Association manquante : sélectionne les fiches exactes du client et de son véhicule.";
     get("s08PreflightResult").hidden=false;
     updateLinkAssessment();
   });
@@ -15851,6 +15854,19 @@ if (window.garageSupabase) {
     if(automaticLinkBusy||!selectedQuote||!["draft","sent"].includes(selectedQuote.status))return;
     // Une SO déjà liée et valide peut être approuvée immédiatement.
     if(previewLinkReady()){updatePreviewButton();get("s08ConvertBT").click();return;}
+    // S08 : la SO récente conserve déjà les IDs sélectionnés à sa création.
+    // Après correction d'une fiche incomplète, réutiliser ces mêmes IDs sans
+    // redemander une sélection ou forcer un rapprochement par nom.
+    const savedClientId=selectedQuote.content?.linkedClientId;
+    const savedVehicleId=selectedQuote.content?.linkedVehicleId;
+    if(savedClientId&&savedVehicleId){
+      try{if(typeof loadClients==="function")loadClients();}catch(e){console.warn(e);}
+      const client=currentClients().find(c=>String(c.id)===String(savedClientId));
+      const vehicle=client?.vehicles?.find(v=>String(v.id)===String(savedVehicleId));
+      if(client&&vehicle&&await confirmUniqueExistingQuoteLink({client,vehicle})&&previewLinkReady()){
+        updatePreviewButton();get("s08ConvertBT").click();return;
+      }
+    }
     // Une ancienne SO ne garde que des libellés : résolution strictement unique.
     let legacyMatch=null;
     if(!selectedQuote.content?.linkedClientId&&!selectedQuote.content?.linkedVehicleId){
