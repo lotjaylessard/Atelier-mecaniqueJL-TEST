@@ -569,6 +569,10 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
         if(typeof CLOUD_DATA_READY==="undefined"||!CLOUD_DATA_READY||
            typeof ACTIVE_GARAGE_ID!=="string"||!ACTIVE_GARAGE_ID||
            !window.garageSupabase?.auth?.getUser)return;
+        // Le BT peut être en cours de chargement lors du refresh.
+        // Ne pas abandonner la reprise si une lecture du formulaire est déjà active.
+        if(app.ownRunning){clearInterval(check);return;}
+        if(app.busy)return;
         clearInterval(check);
         const c=await client(); // auth.uid + garage courants
         if(stored.user!==app.user||stored.garage!==app.garage){clearOwner();return;}
@@ -582,7 +586,6 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
           // Retour trop tardif : la période est incertaine, récupération manuelle.
           clearOwner();return;
         }
-        if(app.ownRunning||app.busy)return;
         app.woId=stored.woId;
         app.session=data;
         app.rows=[data];
