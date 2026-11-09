@@ -15558,19 +15558,86 @@ if (window.garageSupabase) {
     el.dataset.status=status||"draft";
     el.textContent=label;
   }
-  get("s08QuickApprove")?.addEventListener("click",()=>{
-    if(!selectedQuote||!["draft","sent"].includes(selectedQuote.status))return;
-    if(linkPanel.hidden){
-      get("s08Preflight").click();
-      linkPanel.scrollIntoView({behavior:"smooth",block:"start"});
-      return;
+  // S08-F11 : l'approbation se base sur des IDs et non seulement sur les
+  // libellés. Pour une ancienne SO, n'accepter qu'une correspondance UNIQUE,
+  // exacte, avec la fiche client et le véhicule toujours valides.
+  function uniqueLegacyQuoteIdentity(q){
+    const d=q?.content||{};
+    if(!d.clientName||!d.vehicleLabel)return null;
+    const matches=[];
+    for(const c of currentClients()){
+      if(normalizeText(clientTitle(c))!==normalizeText(d.clientName))continue;
+      if(d.clientPhone&&String(c.phone||"").replace(/\D/g,"")!==
+          String(d.clientPhone).replace(/\D/g,""))continue;
+      for(const v of Array.isArray(c.vehicles)?c.vehicles:[]){
+        if(normalizeText(vehicleDisplayForQuote(v))===normalizeText(d.vehicleLabel))
+          matches.push({client:c,vehicle:v});
+      }
     }
-    // Ne pas transformer un clic en conversion lorsque les fiches sont incomplètes.
-    if(!previewLinkReady()){
-      get("s08LinkAssessment").scrollIntoView({behavior:"smooth",block:"nearest"});
-      return;
+    return matches.length===1?matches[0]:null;
+  }
+  let automaticLinkBusy=false;
+  async function confirmUniqueExistingQuoteLink(match){
+    const q=selectedQuote;
+    if(!q||automaticLinkBusy||!match)return false;
+    const {client,vehicle}=match,d=q.content||{};
+    if(client.id==null||vehicle.id==null||
+       String(client.phone||"").replace(/\D/g,"").length<10||
+       !/^\d{4}$/.test(String(vehicle.year??""))||Number(vehicle.year)<1886||
+       !String(vehicle.make||"").trim()||!String(vehicle.model||"").trim()||
+       (!String(vehicle.vin||"").trim()&&!String(vehicle.plate||"").trim())||
+       !/^\d+$/.test(String(vehicle.km??"").trim())||
+       !Array.isArray(d.lines)||!d.lines.length)return false;
+    automaticLinkBusy=true;
+    const button=get("s08QuickApprove");
+    button.disabled=true;
+    try{
+      const {sb,garageId}=context();
+      const {data:auth,error:authError}=await sb.auth.getUser();
+      if(authError||!auth?.user?.id)throw Error("Session expirée.");
+      const content={...d,linkedClientId:String(client.id),linkedVehicleId:String(vehicle.id),
+        linkConfirmedAt:new Date().toISOString(),
+        // Le libellé détaillé peut inclure moteur/sous-modèle, contrairement
+        // au résumé année-marque-modèle attendu par la RPC.
+        linkAcknowledgedDifferences:true};
+      const {data:row,error}=await sb.from("garage_quotes")
+        .update({content,version:Number(q.version)+1})
+        .eq("id",q.id).eq("garage_id",garageId)
+        .eq("user_id",auth.user.id).eq("version",q.version)
+        .in("status",["draft","sent"])
+        .select("id,garage_id,user_id,quote_number,status,content,version").maybeSingle();
+      if(error||!row||row.id!==q.id||Number(row.version)!==Number(q.version)+1||
+         String(row.content?.linkedClientId)!==String(client.id)||
+         String(row.content?.linkedVehicleId)!==String(vehicle.id))
+        throw Error("Association non confirmée par Supabase : actualise la soumission.");
+      if(selectedQuote?.id!==q.id)throw Error("La soumission ouverte a changé.");
+      selectedQuote={...selectedQuote,...row};
+      return true;
+    }catch(e){
+      get("s08LinkSaveStatus").textContent="Association automatique non confirmée : "+String(e.message||e);
+      return false;
+    }finally{
+      automaticLinkBusy=false;
+      button.disabled=false;
     }
-    get("s08ConvertBT").click();
+  }
+  get("s08QuickApprove")?.addEventListener("click",async()=>{
+    if(automaticLinkBusy||!selectedQuote||!["draft","sent"].includes(selectedQuote.status))return;
+    // Une SO déjà liée et valide peut être approuvée immédiatement.
+    if(previewLinkReady()){get("s08ConvertBT").click();return;}
+    // Une ancienne SO ne garde que des libellés : résolution strictement unique.
+    if(!selectedQuote.content?.linkedClientId&&!selectedQuote.content?.linkedVehicleId){
+      try{if(typeof loadClients==="function")loadClients();}catch(e){console.warn(e);}
+      const match=uniqueLegacyQuoteIdentity(selectedQuote);
+      if(match&&await confirmUniqueExistingQuoteLink(match)&&previewLinkReady()){
+        get("s08ConvertBT").click();
+        return;
+      }
+    }
+    // L'association est absente, ambiguë ou incomplète : ne jamais choisir
+    // arbitrairement un client ni un véhicule.
+    get("s08Preflight").click();
+    linkPanel.scrollIntoView({behavior:"smooth",block:"start"});
   });
   function viewQuote(q,trigger){
     if(!q||!viewer)return;
@@ -15740,6 +15807,27 @@ if (window.garageSupabase) {
     const content={clientName,vehicleLabel,
       clientPhone:get("s08ClientPhone").value.trim(),clientEmail:get("s08ClientEmail").value.trim(),
       description:get("s08QuoteDescription").value.trim(),lines:lines.map(l=>({...l})),totalCents};
+    // S08-F11 : le client ET son véhicule ont déjà été choisis dans l'éditeur.
+    // Conserver leurs IDs dans la soumission pour ne jamais les redemander.
+    const chosenClient=clientsForQuote().find(c=>String(c.id)===selectedFastClientId);
+    const chosenVehicle=chosenClient?.vehicles?.find(v=>String(v.id)===vehicleChoice.value);
+    if(chosenClient&&chosenVehicle&&
+       clientNameForQuote(chosenClient)===clientName&&
+       vehicleDisplayForQuote(chosenVehicle)===vehicleLabel){
+      content.linkedClientId=String(chosenClient.id);
+      content.linkedVehicleId=String(chosenVehicle.id);
+      const ready=String(chosenClient.phone||"").replace(/\D/g,"").length>=10&&
+        /^\d{4}$/.test(String(chosenVehicle.year??""))&&Number(chosenVehicle.year)>=1886&&
+        String(chosenVehicle.make||"").trim()&&String(chosenVehicle.model||"").trim()&&
+        (String(chosenVehicle.plate||"").trim()||String(chosenVehicle.vin||"").trim())&&
+        /^\d+$/.test(String(chosenVehicle.km??""));
+      if(ready){
+        content.linkConfirmedAt=new Date().toISOString();
+        // L'éditeur affiche le libellé complet du véhicule choisi;
+        // l'aperçu BT utilise un résumé plus court du même véhicule.
+        content.linkAcknowledgedDifferences=true;
+      }
+    }
     saving=true;saveButton.disabled=true;saveStatus.textContent="Enregistrement Supabase TEST…";
     try{
       const {sb,garageId}=context();
