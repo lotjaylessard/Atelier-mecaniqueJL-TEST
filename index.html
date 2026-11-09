@@ -14241,6 +14241,10 @@ clone.querySelectorAll("h3").forEach(h=>{
         .invoice-paid-badge{border:1px solid #444!important;color:#111!important;
           font-size:10px!important;padding:4px 7px!important}
         .pdf-hide,.no-print,.invoice-ui-taxes,.invoice-ui-discount{display:none!important}
+        /* Ne pas pousser les totaux ou les paiements au bas d'une page vide. */
+        #invTotal{font-size:15px}
+        .pdf-totals hr{border-top:1px solid #333}
+        @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 
 
 /* ================= PDF LAYOUT ================= */
@@ -14248,18 +14252,18 @@ clone.querySelectorAll("h3").forEach(h=>{
 /* ====== BLOC TOTAUX PDF — LAYOUT SOLIDE ====== */
 
 .pdf-totals{
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  width: 250px;
-
+  position: static !important;
+  float: none !important;
+  width: min(100%, 270px);
+  margin: 12px 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
-
   font-size: 12px;
   line-height: 1.25;
+  break-inside: avoid;
 }
+.pdf-totals .pdf-totals{width:100%;margin:0}
 
 /* lignes normales (Escompte, Sous-total, TPS, TVQ) */
 .pdf-totals > div{
@@ -14298,12 +14302,13 @@ clone.querySelectorAll("h3").forEach(h=>{
 
 /* ===== Historique paiements en bas à gauche ===== */
 .pdf-payments{
-  position: fixed;
-  left: 0;
-  bottom: 0;
-  width: 46%;              /* ✅ plus étroit */
-  font-size: 9px;
-  line-height: 1.1;
+  position: static !important;
+  float: none !important;
+  width: min(100%, 340px);
+  margin: 12px 0 0;
+  font-size: 10px;
+  line-height: 1.2;
+  break-inside: avoid;
 }
 
 .pdf-payments h1,
