@@ -12734,7 +12734,8 @@ if (clientObj && Array.isArray(clientObj.vehicles)){
     rows += `
       <tr>
         <td>${it.type || ""}</td>
-        <td>${it.desc || ""}</td>
+        <td>${escapeHTML(String(it.desc||""))}</td>
+        <td>${it.type==="Pièce" ? (escapeHTML(String(it.number||it.invNumber||"")) || "—") : "—"}</td>
         <td style="text-align:right;">${Number(it.qty).toFixed(2)}</td>
         <td style="text-align:right;">${money(it.rate)} $</td>
         <td style="text-align:right;">${money(s06InvoiceItemAmount(it))} $</td>
@@ -12830,6 +12831,7 @@ content.innerHTML = `
       <tr>
         <th>Type</th>
         <th>Description</th>
+        <th># pièce</th>
         <th style="text-align:right;">Qté</th>
         <th style="text-align:right;">Prix</th>
         <th style="text-align:right;">Total</th>
