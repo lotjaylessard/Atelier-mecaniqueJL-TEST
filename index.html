@@ -14215,8 +14215,15 @@ clone.querySelectorAll("h3").forEach(h=>{
     <head>
       <title>Facture</title>
       <style>
-        /* Présentation commune Soumission/Facture — format lettre, sans modifier les données. */
-        @page { size: letter; margin: 14mm; }
+        /* S08 TEST : en-tête/pied de page sur chaque feuille, marges réservées. */
+        @page { size: letter; margin: 22mm 14mm 20mm; }
+        .jl-print-header,.jl-print-footer{position:fixed;left:0;right:0;display:flex;justify-content:space-between;align-items:center;color:#333}
+        .jl-print-header{top:-15mm;border-bottom:1px solid #888;padding:0 0 3mm;font-size:11px;font-weight:700}
+        .jl-print-footer{bottom:-13mm;border-top:1px solid #aaa;padding:3mm 0 0;font-size:9px;color:#555}
+        .jl-print-kind{font-weight:700;letter-spacing:1px;text-transform:uppercase}
+        .jl-print-body{position:relative}
+        @media screen{.jl-print-header,.jl-print-footer{position:static;margin:8px 0}}
+
         * { box-sizing: border-box; }
         body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 0;
           background: #fff !important; color: #151515 !important; font-size: 11px; line-height: 1.3; }
@@ -14359,9 +14366,9 @@ clone.querySelectorAll("h3").forEach(h=>{
       </style>
     </head>
     <body>
-      ${clone.innerHTML}
-    
-
+      <header class="jl-print-header"><span>Garage-Atelier Mécanique J.L</span><span class="jl-print-kind">Facture</span></header>
+      <main class="jl-print-body">${clone.innerHTML}</main>
+      <footer class="jl-print-footer"><span>Garage-Atelier Mécanique J.L</span><span>Facture</span></footer>
 </body>
     </html>
   `);
@@ -15753,13 +15760,18 @@ if (window.garageSupabase) {
     copy.querySelector("#s08LinkPanel")?.remove();
     copy.querySelector("#s08PreflightResult")?.remove();
     copy.querySelectorAll(".muted").forEach(el=>el.style.color="#555");
-    copy.querySelector(".s08-viewer-head")?.insertAdjacentHTML("afterbegin",
-      '<div class="s08-print-brand">Garage-Atelier Mécanique J.L</div>');
+    // L'identité du garage est désormais dans l'en-tête de page, pas répétée dans le corps.
+    copy.querySelector(".s08-print-brand")?.remove();
     const noScripts=copy.outerHTML;
     popup.document.open();
     popup.document.write('<!doctype html><html lang="fr"><head><meta charset="utf-8">'+
       '<title>'+selectedQuote.quote_number+' - Soumission</title>'+
-      '<style>@page{size:letter;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;background:white;color:#151515;margin:0;font-size:12px}'+
+      '<style>@page{size:letter;margin:22mm 14mm 20mm}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;background:white;color:#151515;margin:0;font-size:12px}'+
+      '.jl-print-header,.jl-print-footer{position:fixed;left:0;right:0;display:flex;justify-content:space-between;align-items:center;color:#333}'+
+      '.jl-print-header{top:-15mm;border-bottom:1px solid #888;padding:0 0 3mm;font-size:11px;font-weight:700}'+
+      '.jl-print-footer{bottom:-13mm;border-top:1px solid #aaa;padding:3mm 0 0;font-size:9px;color:#555}'+
+      '.jl-print-kind{font-weight:700;letter-spacing:1px;text-transform:uppercase}'+
+      '@media screen{.jl-print-header,.jl-print-footer{position:static;margin:8px 0}}'+
       '.s08-viewer-panel{width:100%;max-width:none;padding:0;border:0;background:white}'+
       '.s08-print-brand{font-size:15px;font-weight:700;color:#111;margin-bottom:8px}'+
       'h2{font-size:20px;margin:0 0 5px;color:#111}h3{font-size:13px;margin:12px 0 5px;color:#111}'+
@@ -15772,7 +15784,11 @@ if (window.garageSupabase) {
       'th:nth-child(n+3),td:nth-child(n+3){text-align:right}tr{break-inside:avoid}'+
       '.s08-view-total{text-align:right;font-size:16px;font-weight:700;margin:12px 0 5px}'+
       '.muted{color:#555;font-size:10px}button{display:none}'+
-      '</style></head><body>'+noScripts+'</body></html>');
+      '</style></head><body>'+
+      '<header class="jl-print-header"><span>Garage-Atelier Mécanique J.L</span><span class="jl-print-kind">Soumission</span></header>'+
+      '<main>'+noScripts+'</main>'+
+      '<footer class="jl-print-footer"><span>Garage-Atelier Mécanique J.L</span><span>Soumission</span></footer>'+
+      '</body></html>');
     popup.document.close();
     popup.focus();
     let printStarted=false;
