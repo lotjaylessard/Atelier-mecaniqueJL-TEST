@@ -1159,6 +1159,23 @@ button.link:hover{
 #s08QuoteViewer button[hidden]{display:none}
 #s08QuoteViewer #s08QuickApprove{background:#f6c744;color:#111;border:1px solid #f6c744;font-weight:700}
 #s08QuoteViewer #s08QuickApprove:hover{filter:brightness(1.08)}
+
+/* S08 : barre d'actions et statut sur deux rangées légères, sans ligne de confirmation dédiée. */
+#s08QuoteViewer .s08-viewer-head{gap:8px;flex-wrap:wrap}
+#s08QuoteViewer .s08-viewer-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+#s08QuoteViewer .s08-viewer-controls button{white-space:nowrap;padding:9px 12px}
+#s08QuoteViewer .s08-status-feedback:empty{display:none}
+#s08QuoteViewer .s08-status-feedback{font-size:12px;line-height:1.25;max-width:180px;overflow-wrap:anywhere}
+#s08QuoteViewer .s08-view-subhead{display:flex;align-items:center;gap:8px 11px;flex-wrap:wrap;margin:4px 0 8px}
+#s08QuoteViewer .s08-view-subhead .s08-status-panel{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:0;margin-left:auto}
+#s08QuoteViewer .s08-view-subhead .s08-status-panel[hidden]{display:none}
+#s08QuoteViewer .s08-status-panel select{width:auto;min-width:165px;max-width:230px;padding:7px 10px}
+@media(max-width:720px){
+  #s08QuoteViewer .s08-view-subhead .s08-status-panel{margin-left:0}
+  #s08QuoteViewer .s08-viewer-controls{width:100%}
+  #s08QuoteViewer .s08-status-feedback{max-width:100%}
+}
+
 /* S08 — fiche compacte : styles locaux seulement, aucun changement fonctionnel. */
 #s08QuoteViewer{padding:12px}
 #s08QuoteViewer .s08-viewer-panel{box-sizing:border-box;max-height:calc(100dvh - 24px);padding:16px 20px}
@@ -1529,15 +1546,17 @@ button.link:hover{
           <div class="s08-viewer-head">
             <h2 id="s08ViewTitle">Soumission</h2>
             <div class="s08-viewer-controls">
-              <button type="button" id="s08QuickApprove">✓ Approuver → BT</button>
+              <button type="button" id="s08QuickApprove" title="Approuver la soumission et créer un bon de travail">✓ Approuver</button>
+              <span id="s08StatusResult" class="muted s08-status-feedback" role="status" aria-live="polite"></span>
               <button type="button" class="ghost" id="s08Preflight" hidden>Vérifier avant conversion</button>
-              <button type="button" class="primary" id="s08ViewPrint">🖨️ Imprimer / PDF</button>
+              <button type="button" class="primary" id="s08ViewPrint" title="Imprimer ou enregistrer la soumission en PDF">🖨️ Imprimer</button>
               <button type="button" class="ghost" id="s08ViewClose">Fermer</button>
             </div>
           </div>
-          <div class="s08-view-subhead"><p id="s08ViewMeta" class="muted"></p><span id="s08ViewStatusBadge" class="s08-status-pill"></span></div>
-          <p id="s08ConvertedBT" class="s08-converted-bt" hidden></p>
-          <div id="s08StatusPanel" class="s08-status-panel" hidden>
+          <div class="s08-view-subhead">
+            <p id="s08ViewMeta" class="muted"></p>
+            <span id="s08ViewStatusBadge" class="s08-status-pill"></span>
+            <div id="s08StatusPanel" class="s08-status-panel" hidden>
             <label for="s08StatusChoice">Statut</label>
             <select id="s08StatusChoice" aria-label="Choisir le statut">
               <option value="draft">Brouillon</option>
@@ -1545,8 +1564,9 @@ button.link:hover{
               <option value="declined">Refusée</option>
               <option value="expired">Expirée</option>
             </select>
-            <span id="s08StatusResult" role="status" aria-live="polite" class="muted"></span>
+            </div>
           </div>
+          <p id="s08ConvertedBT" class="s08-converted-bt" hidden></p>
           <p id="s08PreflightResult" class="muted" role="status" aria-live="polite" hidden></p>
           <section id="s08LinkPanel" class="s08-link-panel" hidden aria-label="Préparation des liens client véhicule">
             <h3>Associer le client et le véhicule</h3>
@@ -15771,7 +15791,7 @@ if (window.garageSupabase) {
         throw Error("Conflit de version ou sauvegarde non confirmée : rouvre la soumission.");
       selectedQuote={...q,...row};
       choice.value=to;
-      feedback.textContent="✓ Statut enregistré : "+labels[to]+".";
+      feedback.textContent="✓ Statut enregistré";
       get("s08ViewMeta").textContent=String(row.created_at||"").slice(0,10);
       // Revenir d'un refus ou d'une expiration permet à nouveau la préparation BT,
       // mais sans jamais créer de BT automatiquement.
