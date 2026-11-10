@@ -1385,41 +1385,9 @@ button.link:hover{
     </div>
     <div class="s06-timer-hint">Sauvegarde locale, restauration en pause. Synchronisation multi-appareil à venir.</div>
   </section>
-  <!-- S06-F11 TEST : témoin instantané au rechargement, PAS une preuve serveur.
-       Ne montre ni client ni véhicule avant confirmation du compte Supabase. -->
-  <script>
-  (() => {
-    if(new URLSearchParams(location.search).get("s06_legacy_timer")==="1")return;
-    // Toujours montrer un état d'attente IMMEDIAT, même sans cache.
-    // Ne révèle aucune identité de BT avant vérification du compte.
-    let cached=null;
-    try{cached=JSON.parse(sessionStorage.getItem("s06-sidebar-reconnect-v1")||"null");}catch(_){}
-    const valid=!!cached&&Number.isFinite(cached.at)&&Date.now()-cached.at<86400000&&
-      Number.isFinite(cached.ms)&&cached.ms>=0&&!!cached.user&&!!cached.garage;
-    const panel=document.getElementById("s06SidebarTimer");
-    if(!panel)return;
-    panel.hidden=false;
-    panel.dataset.pendingRestore="1";
-    panel.dataset.status="paused";
-    const status=document.getElementById("s06TimerStatus");
-    if(status)status.textContent="◌ Vérification…";
-    const secs=Math.floor((valid?cached.ms:0)/1000),pad=n=>String(n).padStart(2,"0");
-    const time=document.getElementById("s06TimerTime");
-    if(time)time.textContent=valid?
-      [Math.floor(secs/3600),Math.floor(secs/60)%60,secs%60].map(pad).join(":"):"--:--:--";
-    const details=panel.querySelector(".s06-timer-details");
-    if(details)details.hidden=true;
-    const toggle=document.getElementById("s06SidebarToggle");
-    const stop=document.getElementById("s06SidebarStop");
-    if(toggle)toggle.disabled=true;
-    if(stop)stop.disabled=true;
-    const hint=panel.querySelector(".s06-timer-hint");
-    if(hint)hint.textContent=valid?
-      "Dernier temps connu, non vérifié. Connexion à Supabase…":
-      "Recherche de la session Supabase en cours…";
-  })();
-  </script>
-
+  <!-- S06 TEST : ne jamais afficher un état de vérification provisoire.
+       Le panneau est masqué par défaut et n'est visible qu'après
+       confirmation d'une minuterie réelle par la logique de restauration. -->
   <button class="navBtn" data-page="page-dashboard">📊 Dashboard</button>
   <button class="navBtn" data-page="page-quotes">📝 Soumissions</button>
   <button class="navBtn" data-page="page-workorders">📋 Work Order</button>
