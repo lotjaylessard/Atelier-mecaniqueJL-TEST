@@ -2209,16 +2209,7 @@ button.link:hover{
         <label>TVQ (%)<input id="settingQST" type="number" step="0.001" /></label>
         <label>Taux horaire ($/h)<input id="settingDefaultHourlyRate" type="number" step="0.01" placeholder="ex: 60" /></label>
       </div>
-      <details class="jl-settings-rate-tools">
-        <summary>Modifier les tarifs des services existants</summary>
-        <button id="applyDefaultRateToServices" type="button" class="ghost" title="Action distincte : applique le taux indiqué aux services horaires existants, sans modifier les forfaits">Appliquer aux services existants</button>
-      </details>
     </details>
-
-    <div class="jl-settings-actions" style="margin:10px 0 16px">
-      <button id="saveSettings" type="button">💾 Enregistrer les paramètres</button>
-      <span id="jlSettingsSaveStatus" class="muted" role="status" aria-live="polite"></span>
-    </div>
 
     <details class="jl-settings-backup jl-settings-options" id="jlDashboardOptions">
       <summary>📊 Tableau de bord <span class="muted">(personnaliser)</span></summary>
@@ -2248,6 +2239,12 @@ button.link:hover{
       <p id="jlBackupAudit" class="muted jl-settings-hint" hidden>Export JSON : données du garage et soumissions. Pièces jointes : références seulement, fichiers binaires non inclus.</p>
       <p id="jlBackupStatus" class="muted jl-settings-hint" role="status" aria-live="polite"></p>
     </details>
+
+    <div class="jl-settings-actions" style="margin:14px 0 2px">
+      <button id="saveSettings" type="button">💾 Enregistrer les paramètres</button>
+      <span id="jlSettingsSaveStatus" class="muted" role="status" aria-live="polite"></span>
+    </div>
+
   </div>
 </div>
 
@@ -9252,17 +9249,32 @@ function initSettings(){
           if(status)status.textContent='Vérifie les taxes et le taux horaire.';
           return;
         }
+        const previousRate=Number(SETTINGS.defaultHourlyRate || 0);
         SETTINGS.garageName=$('settingGarageName').value.trim() || SETTINGS.garageName;
         SETTINGS.gst=gst;
         SETTINGS.qst=qst;
         SETTINGS.defaultHourlyRate=rate;
+        // Un changement de taux met à jour les services horaires existants.
+        // Ne jamais modifier les forfaits ni les lignes déjà inscrites dans les BT.
+        let updatedServices=0;
+        if(rate!==previousRate){
+          loadServices();
+          SERVICES.forEach(service=>{
+            if(service && Number(service.priceFixed || 0)<=0 &&
+               Number(service.rate)!==rate){
+              service.rate=rate;
+              updatedServices++;
+            }
+          });
+          if(updatedServices)saveServices();
+        }
         saveSettings();
         updateGarageNameUI();
         renderTotals();
         // Le profil appartient à Supabase Auth : ne l'écrire que s'il a changé.
         const profileSaved=profileName===oldProfileName || await saveConnectedUserDisplayName();
         if(status)status.textContent=profileSaved
-          ? '✓ Paramètres enregistrés.'
+          ? '✓ Paramètres enregistrés.'+(updatedServices?' '+updatedServices+' service(s) horaire(s) mis à jour.':'')
           : '⚠ Réglages du garage enregistrés; nom affiché non confirmé.';
       }catch(error){
         console.error('[TEST] Enregistrement paramètres',error);
@@ -9331,50 +9343,6 @@ function initSettings(){
   window.jlPrintShouldShowPartNumber=()=>settings.printPartNumber;
   applyDashboard();
 })();
-
-  // ===================== APPLY DEFAULT RATE TO SERVICES =====================
-if ($('applyDefaultRateToServices')){
-  $('applyDefaultRateToServices').addEventListener('click', () => {
-
-    // ✅ Toujours lire le champ (pas l'ancienne valeur en mémoire)
-const rate = toNum($('settingDefaultHourlyRate')?.value, 0);
-
-// ✅ On sauvegarde aussi le setting, sinon au refresh ça revient en arrière
-SETTINGS.defaultHourlyRate = rate;
-saveSettings();
-
-if (!rate || rate <= 0){
-  alert("Taux horaire par défaut invalide.");
-  return;
-}
-
-    const ok = confirm(
-      `Appliquer ${rate} $/h à TOUS les services horaires ?\n\n` +
-      `Les forfaits (prix fixes) ne seront PAS modifiés.`
-    );
-    if (!ok) return;
-
-    let updated = 0;
-
-    loadServices(); // sécurité: s'assure d'avoir les services à jour
-
-
-    SERVICES.forEach(s => {
-      // service horaire = PAS de prix fixe
-      if (!s.priceFixed || Number(s.priceFixed) <= 0){
-        if (Number(s.rate) !== rate){
-          s.rate = rate;
-          updated++;
-        }
-      }
-    });
-
-    saveServices();
-    renderServices();
-
-    alert(`✔ ${updated} service(s) mis à jour.`);
-  });
-}
 
 /* ===================== INVOICES CORE ===================== */
 function loadInvoices(){
