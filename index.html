@@ -467,6 +467,17 @@ input[type="checkbox"]{
 
     .page{display:none;}
 
+    /* Tableau de bord : deux blocs compacts et indicateurs directement accessibles. */
+    #page-dashboard .jl-dashboard-summary{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+    #page-dashboard .jl-dashboard-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 14px}
+    #page-dashboard .jl-dashboard-kpi{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;min-width:0;padding:5px 7px;text-align:left;color:var(--text);background:transparent;border:1px solid transparent;border-radius:7px;cursor:pointer}
+    #page-dashboard .jl-dashboard-kpi:hover,#page-dashboard .jl-dashboard-kpi:focus-visible{border-color:var(--accent);outline:none;background:rgba(160,160,160,.07)}
+    #page-dashboard .jl-dashboard-kpi .stat-value{margin:0}
+    #page-dashboard .jl-dashboard-finances{display:grid;gap:14px;align-content:start}
+    #page-dashboard .jl-dashboard-finances>div{display:flex;flex-direction:column;gap:4px}
+    #page-dashboard .jl-dashboard-finances .stat-value{margin:0}
+    @media(max-width:900px){#page-dashboard .jl-dashboard-summary{grid-template-columns:1fr}}
+    @media(max-width:480px){#page-dashboard .jl-dashboard-metrics{grid-template-columns:1fr 1fr;gap:5px}}
     /* Dashboard cards */
     .stats-grid{
       display:grid;
@@ -1434,43 +1445,37 @@ button.link:hover{
   <div class="dashboard-stack">
 
       <h2>Tableau de bord</h2>
-      <div class="stats-grid">
-      <div class="stat-card">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-
-    <div>
-      <div class="stat-label">Factures impayées</div>
-      <div class="stat-value" id="statInvoices">0</div>
-    </div>
-
-    <div>
-      <div class="stat-label">Work Orders en cours</div>
-      <div class="stat-value" id="statWOInProgress">0</div>
-    </div>
-
-    <div>
-      <div class="stat-label">Clients</div>
-      <div class="stat-value" id="statClients">0</div>
-    </div>
-
-    <div>
-      <div class="stat-label">Véhicules</div>
-      <div class="stat-value" id="statVehicles">0</div>
-    </div>
-
-  </div>
-</div>
-
+      <div class="stats-grid jl-dashboard-summary">
         <div class="stat-card">
-  <div class="stat-label">Revenus totaux</div>
-  <div class="stat-value" id="dashTotalRevenue">0 $</div>
-
-  <div class="stat-label" style="margin-top:6px;">Profits totaux</div>
-  <div class="stat-value" id="dashTotalProfit" style="color:#4CAF50;">
-    0 $
-  </div>
-</div>
+          <div class="jl-dashboard-metrics">
+            <button type="button" class="jl-dashboard-kpi" onclick="dashboardOpenModule('page-invoice-list','pending')">
+              <span class="stat-label">Factures impayées</span><strong class="stat-value" id="statInvoices">0</strong>
+            </button>
+            <button type="button" class="jl-dashboard-kpi" onclick="dashboardOpenModule('page-invoice-list','partial')">
+              <span class="stat-label">Factures partiellement payées</span><strong class="stat-value" id="statPartialInvoices">0</strong>
+            </button>
+            <button type="button" class="jl-dashboard-kpi" onclick="dashboardOpenModule('page-workorders')">
+              <span class="stat-label">Work Orders en cours</span><strong class="stat-value" id="statWOInProgress">0</strong>
+            </button>
+            <button type="button" class="jl-dashboard-kpi" onclick="dashboardOpenModule('page-quotes','sent')">
+              <span class="stat-label">Soumissions en attente d'approbation</span><strong class="stat-value" id="statPendingQuotes">—</strong>
+            </button>
+            <button type="button" class="jl-dashboard-kpi" onclick="dashboardOpenModule('page-clients')">
+              <span class="stat-label">Clients</span><strong class="stat-value" id="statClients">0</strong>
+            </button>
+            <button type="button" class="jl-dashboard-kpi" onclick="dashboardOpenModule('page-vehicles')">
+              <span class="stat-label">Véhicules</span><strong class="stat-value" id="statVehicles">0</strong>
+            </button>
+          </div>
         </div>
+        <div class="stat-card">
+          <div class="jl-dashboard-finances">
+            <div><span class="stat-label">Revenus totaux</span><strong class="stat-value" id="dashTotalRevenue">0 $</strong></div>
+            <div><span class="stat-label">Profits totaux</span><strong class="stat-value" id="dashTotalProfit" style="color:#4CAF50;">0 $</strong></div>
+            <div><span class="stat-label">Temps de travail total (tous les BT)</span><strong class="stat-value" id="dashTotalLaborHours">0 h 00 min</strong></div>
+          </div>
+        </div>
+      </div>
       <div class="card">
   <h3>5 Dernières notes</h3>
   <div id="lastNotesBox"></div>
@@ -1523,16 +1528,6 @@ button.link:hover{
   </div>
 </div>
 
-      <div class="card">
-        <h3>Raccourcis</h3>
-        <div style="display:flex;flex-wrap:wrap;gap:10px;">
-          <button class="ghost" onclick="openNewWorkOrderFromDashboard()">+ Nouveau Work Order</button>
-          <button class="ghost" onclick="showPage('page-invoice-list')">Gestion Factures</button>
-          <button class="ghost" onclick="showPage('page-clients')">+ Nouveau Client</button>
-          <button class="ghost" onclick="showPage('page-services')">Configurer Services</button>
-          <button class="ghost" onclick="showPage('page-parts')">Gestion Inventaire</button>
-        </div>
-      </div>
       </div>
     </div>
 
@@ -12254,6 +12249,45 @@ if ($("filterVehicle")) {
 }
 
 
+// Navigation des statistiques, uniquement sur les listes existantes.
+function dashboardOpenModule(page,filter=""){
+  showPage(page);
+  if(page==="page-invoice-list"){
+    const el=$("invoiceStatusFilter");
+    if(el){el.value=filter;renderInvoiceList();}
+  }else if(page==="page-quotes"){
+    const el=$("s08QuoteStatus");
+    if(el){el.value=filter;el.dispatchEvent(new Event("change",{bubbles:true}));}
+  }
+}
+
+// Les soumissions sont séparées dans Supabase; ne pas inventer zéro
+// lorsqu'une lecture réseau échoue.
+let dashboardQuoteCheckAt=0,dashboardQuotePending=false;
+async function dashboardRefreshPendingQuotes(){
+  if(dashboardQuotePending||Date.now()-dashboardQuoteCheckAt<15000)return;
+  if(typeof CLOUD_DATA_READY==="undefined"||!CLOUD_DATA_READY||
+     typeof ACTIVE_GARAGE_ID==="undefined"||!ACTIVE_GARAGE_ID)return;
+  dashboardQuotePending=true;dashboardQuoteCheckAt=Date.now();
+  const el=$("statPendingQuotes");
+  try{
+    const db=window.garageSupabase;
+    if(!db?.auth?.getUser||!db?.from)throw Error("Supabase indisponible");
+    const {data:auth,error:authError}=await db.auth.getUser();
+    if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
+    const {count,error}=await db.from("garage_quotes")
+      .select("id",{count:"exact",head:true})
+      .eq("garage_id",ACTIVE_GARAGE_ID)
+      .eq("user_id",auth.user.id)
+      .eq("status","sent");
+    if(error||!Number.isSafeInteger(count))throw Error("Nombre de soumissions non confirmé");
+    if(el){el.textContent=String(count);el.title="Soumissions envoyées en attente d'approbation";}
+  }catch(error){
+    if(el){el.textContent="—";el.title="Lecture des soumissions indisponible";}
+    console.warn("[Dashboard TEST] Soumissions non vérifiées",error);
+  }finally{dashboardQuotePending=false;}
+}
+
 function renderDashboard(){
   // 🔒 Source de vérité directe (dashboard = lecture seule)
 INVOICES = loadArrayFromStorage(STORAGE.invoices);
@@ -12265,7 +12299,10 @@ WORKORDERS = loadArrayFromStorage(STORAGE.workorders);
 
   // 1) Dashboard = même logique que page Factures : factures "actives" = pas payées
   const activeInvoices = (INVOICES || []).filter(inv => (inv.status || "unpaid") !== "paid");
-  const invoicesCount = activeInvoices.length;
+  const invoicesCount = activeInvoices.filter(inv =>
+    ["unpaid","pending"].includes(String(inv.status||"unpaid").toLowerCase())).length;
+  const partialInvoicesCount = activeInvoices.filter(inv =>
+    String(inv.status||"").toLowerCase()==="partial").length;
 
 // ===== REVENUS = FACTURES ARCHIVÉES SEULEMENT =====
 const archivedInvoices = (INVOICES || []).filter(inv => inv.archived === true);
@@ -12288,6 +12325,8 @@ const woInProgressCount = WORKORDERS.filter(
 ).length;
   
   if($('statInvoices')) $('statInvoices').innerText=invoicesCount;
+  if($('statPartialInvoices')) $('statPartialInvoices').innerText=partialInvoicesCount;
+  dashboardRefreshPendingQuotes();
   if ($('statWOInProgress')) {
   $('statWOInProgress').innerText = woInProgressCount;
 }
@@ -12312,6 +12351,22 @@ if ($('dashTotalProfit')) {
   $('dashTotalProfit').innerText = money(totalProfit) + ' $';
 }
   
+  // Main-d'œuvre de TOUS les BT : durée exacte pour les lignes du minuteur,
+  // heures normales pour les autres. Aucun arrondi par ligne.
+  const totalLaborSeconds=WORKORDERS.reduce((seconds,wo)=>{
+    const labor=Array.isArray(wo?.labor)?wo.labor:[];
+    return seconds+labor.reduce((subtotal,line)=>{
+      const ms=line?.timerSessionId&&Number.isFinite(Number(line.confirmedMs))
+        ?Number(line.confirmedMs):null;
+      const lineSeconds=ms!==null ? ms/1000 : Number(line?.hours||0)*3600;
+      return subtotal+(Number.isFinite(lineSeconds)&&lineSeconds>0?lineSeconds:0);
+    },0);
+  },0);
+  const totalMinutes=Math.round(totalLaborSeconds/60);
+  if($('dashTotalLaborHours')) $('dashTotalLaborHours').textContent=
+    Math.floor(totalMinutes/60).toLocaleString('fr-CA')+' h '+
+    String(totalMinutes%60).padStart(2,'0')+' min';
+
   if($('statClients')) $('statClients').innerText=clientsCount;
   if($('statVehicles')) $('statVehicles').innerText=vehiclesCount;
 
