@@ -491,6 +491,28 @@ input[type="checkbox"]{
     @media(max-width:750px){#page-dashboard #lastNotesBox>div{grid-template-columns:1fr}}
     @media(max-width:900px){#page-dashboard .jl-dashboard-summary{grid-template-columns:1fr}}
     @media(max-width:480px){#page-dashboard .jl-dashboard-metrics{grid-template-columns:1fr 1fr;gap:5px}}
+    /* TEST : blocs du Dashboard configurables, sans mouvement de données */
+    #page-dashboard .jl-dashboard-blocks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+    #page-dashboard .jl-dashboard-blocks>[data-jl-dashboard-card]{min-width:0}
+    #page-dashboard .jl-dashboard-blocks .jl-dashboard-wide{grid-column:1/-1}
+    #page-dashboard [data-jl-dashboard-card][hidden]{display:none!important}
+    #page-dashboard .jl-dashboard-blocks>.stat-card{padding:0}
+    #page-dashboard .jl-dashboard-blocks>[data-jl-dashboard-card]>.stat-card{height:100%;box-sizing:border-box}
+    #page-dashboard .jl-dashboard-list{display:grid;gap:5px;margin-top:7px;font-size:13px}
+    #page-dashboard .jl-dashboard-row{width:100%;text-align:left;background:transparent;color:inherit;border:1px solid var(--border);border-radius:6px;padding:8px 9px;cursor:pointer;min-width:0}
+    #page-dashboard .jl-dashboard-row:hover,#page-dashboard .jl-dashboard-row:focus-visible{border-color:var(--accent);outline:none}
+    #page-dashboard .jl-dashboard-row-title{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-weight:650}
+    #page-dashboard .jl-dashboard-row-subtitle{display:block;color:var(--muted);margin-top:3px}
+    #page-dashboard .jl-dashboard-row-detail{display:block;margin-top:3px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    #page-dashboard .jl-dashboard-tag{font-size:11px;padding:2px 6px;border-radius:5px;border:1px solid var(--border);font-weight:650}
+    #page-dashboard .jl-dashboard-tag[data-kind="partial"]{color:#f5c542}
+    #page-dashboard .jl-dashboard-tag[data-kind="paid"]{color:#77d69a}
+    #page-dashboard .jl-dashboard-tag[data-kind="overdue"]{color:#ffa47d}
+    #page-settings .jl-dashboard-order-settings{padding-top:10px;border-top:1px solid var(--border);margin-top:10px;font-size:13px}
+    #page-settings .jl-dashboard-order-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 9px;margin-top:8px}
+    #page-settings .jl-dashboard-order-entry{display:flex;gap:5px;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:6px;padding:4px 7px}
+    #page-settings .jl-dashboard-order-entry button{padding:3px 8px;font-size:12px}
+    @media(max-width:850px){#page-dashboard .jl-dashboard-blocks{grid-template-columns:1fr}#page-dashboard .jl-dashboard-blocks .jl-dashboard-wide{grid-column:auto}#page-settings .jl-dashboard-order-options{grid-template-columns:1fr}}
     /* Dashboard cards */
     .stats-grid{
       display:grid;
@@ -1489,12 +1511,12 @@ button.link:hover{
           </div>
         </div>
       </div>
-      <div class="card">
+      <div id="jlDashboardBlocks" class="jl-dashboard-blocks">
+        <section data-jl-dashboard-card="notes" class="jl-dashboard-wide"><div class="card">
   <h3>5 Dernières notes</h3>
   <div id="lastNotesBox"></div>
-</div>
-
-    <div class="card">
+</div></section>
+        <section data-jl-dashboard-card="monthly" class="jl-dashboard-wide"><div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;">
   <h3>📅 Résultats mensuels — factures entièrement payées</h3>
 
@@ -1526,20 +1548,12 @@ button.link:hover{
        position:relative;
      ">
 </div>
-    </div>
-      
-<div class="dashboard-two-cols">
-
-  <div class="stat-card">
-    <div class="stat-label">Bons de travail "En Cours"</div>
-    <div id="lastWorkOrdersBox" style="margin-top:6px;font-size:0.9rem;line-height:1.2rem;"></div>
-  </div>
-  
-  <div class="stat-card">
-    <div class="stat-label">5 dernières factures</div>
-    <div id="lastInvoicesBox" style="margin-top:6px;font-size:0.9rem;line-height:1.2rem;"></div>
-  </div>
-</div>
+    </div></section>
+        <section data-jl-dashboard-card="workorders" class=""><div class="stat-card"><div class="stat-label">Bons de travail en cours</div><div id="lastWorkOrdersBox" class="jl-dashboard-list"></div></div></section>
+        <section data-jl-dashboard-card="invoices" class=""><div class="stat-card"><div class="stat-label">Dernières factures</div><div id="lastInvoicesBox" class="jl-dashboard-list"></div></div></section>
+        <section data-jl-dashboard-card="quotes" class=""><div class="stat-card"><div class="stat-label">Soumissions à suivre <span id="jlQuoteLoading" class="muted"></span></div><div id="jlDashboardQuotesBox" class="jl-dashboard-list" aria-live="polite">Chargement…</div></div></section>
+        <section data-jl-dashboard-card="overdue" class=""><div class="stat-card"><div class="stat-label">Factures anciennes impayées (15 jours et +)</div><div id="jlDashboardOldInvoicesBox" class="jl-dashboard-list"></div></div></section>
+      </div>
 
       </div>
     </div>
@@ -2226,6 +2240,12 @@ button.link:hover{
         <label><input type="checkbox" data-jl-dashboard="monthly" checked /> Résultats mensuels</label>
         <label><input type="checkbox" data-jl-dashboard="workorders" checked /> BT en cours</label>
         <label><input type="checkbox" data-jl-dashboard="invoices" checked /> Dernières factures</label>
+        <label><input type="checkbox" data-jl-dashboard="quotes" checked /> Soumissions à suivre</label>
+        <label><input type="checkbox" data-jl-dashboard="overdue" checked /> Factures anciennes impayées</label>
+      </div>
+      <div class="jl-dashboard-order-settings">
+        <div class="muted">Ordre des blocs (↑ ↓)</div>
+        <div id="jlDashboardOrderOptions" class="jl-dashboard-order-options"></div>
       </div>
     </details>
 
