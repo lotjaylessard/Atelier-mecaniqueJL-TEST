@@ -581,22 +581,51 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     el.addEventListener("s06-sidebar-finish-request",event=>{
       const request=event.detail;
       if(!request||String(request.woId)!==String(app.woId)||
-         String(request.sessionId)!==String(app.session?.id))return;
-      guarded(async()=>{
-        if(app.session?.status==="running"){
-          await pause(); // confirmation atomique du temps par Supabase
+         !request.sessionId)return;
+      // Le pilote peut encore lire Supabase lors de l'ouverture du BT.
+      // Attendre cette lecture, sans déclencher une deuxième commande.
+      let attempts=0;
+      const finishWhenReady=setInterval(async()=>{
+        if(++attempts>80 || !el.isConnected || app.woId!==String(request.woId)){
+          clearInterval(finishWhenReady);
+          return;
         }
-        if(app.session?.status!=="paused")
-          throw Error("La minuterie doit être en pause avant la confirmation.");
-        showFinish();
-        const form=qs("s06FinishForm");
-        if(form?.hidden)throw Error("Formulaire de fin introuvable.");
-        form.scrollIntoView({block:"center",behavior:"smooth"});
-        qs("s06Description")?.focus();
-        window.dispatchEvent(new CustomEvent("s06-timer-ack",{detail:{
-          action:"finish",sessionId:request.sessionId,status:"paused"
-        }}));
-      });
+        if(app.busy)return;
+        clearInterval(finishWhenReady);
+        app.busy=true;
+        paint();
+        try{
+          await read(); // Vérification serveur du compte et de la session.
+          if(String(app.session?.id)!==String(request.sessionId))
+            throw Error("La session du minuteur ne correspond pas au BT ouvert.");
+          if(app.session.status==="running"){
+            // Une minuterie appartenant à cet onglet peut être mise en pause.
+            // Ne jamais ajouter du temps non confirmé.
+            await pause();
+          }
+          if(app.session?.status!=="paused")
+            throw Error("La minuterie doit être en pause. Vérifie sa récupération.");
+          showFinish();
+          const form=qs("s06FinishForm");
+          if(!form||form.hidden)throw Error("Formulaire de fin introuvable.");
+          form.scrollIntoView({block:"center",behavior:"smooth"});
+          qs("s06Description")?.focus();
+          window.dispatchEvent(new CustomEvent("s06-timer-ack",{detail:{
+            action:"finish",sessionId:String(request.sessionId),status:"paused"
+          }}));
+        }catch(error){
+          console.error("[S06 TEST] Formulaire de fin",error);
+          setMsg("⚠ Impossible d'ouvrir la confirmation : "+
+            (error?.message||String(error))+
+            " Le temps enregistré est conservé.");
+          window.dispatchEvent(new CustomEvent("s06-timer-ack",{detail:{
+            action:"finish",sessionId:String(request.sessionId),status:"error"
+          }}));
+        }finally{
+          app.busy=false;
+          paint();
+        }
+      },250);
     });
     qs("s06Confirm").addEventListener("click",()=>guarded(finish));
     qs("s06Cancel").addEventListener("click",()=>{
