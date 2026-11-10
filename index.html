@@ -12877,7 +12877,14 @@ function renderMonthlyRevenueChart(){
     chart.append(col);
   }
   // Laisser les contrôles se réutiliser : aucun listener supplémentaire par rendu.
-  periodSelect.onchange=()=>renderMonthlyRevenueChart();
+  periodSelect.onchange=()=>{
+    if(periodSelect.value==="month"){
+      const monthsWithPayments=paid.filter(x=>x.date.startsWith(yearSelect.value))
+        .map(x=>x.date.slice(5,7)).sort();
+      if(monthsWithPayments.length)monthSelect.value=monthsWithPayments[monthsWithPayments.length-1];
+    }
+    renderMonthlyRevenueChart();
+  };
   yearSelect.onchange=()=>renderMonthlyRevenueChart();
   monthSelect.onchange=()=>renderMonthlyRevenueChart();
 }
