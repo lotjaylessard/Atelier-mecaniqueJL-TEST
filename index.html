@@ -2,6 +2,15 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+  <script>
+    // Ne pas restaurer l'ancien défilement après un F5 ou retour navigateur.
+    if("scrollRestoration" in history)history.scrollRestoration="manual";
+    window.addEventListener("pageshow",()=>{
+      window.scrollTo(0,0);
+      document.documentElement.scrollTop=0;
+      document.body.scrollTop=0;
+    });
+  </script>
   <script type="module">
   import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
@@ -3215,6 +3224,12 @@ function loadInvoiceIntoEditor(inv){
 }
   
 
+// Position de lecture remise en haut lors d'un changement de module.
+function jlScrollPageTop(){
+  window.scrollTo({top:0,left:0,behavior:"instant"});
+  document.documentElement.scrollTop=0;
+  document.body.scrollTop=0;
+}
 function showPage(id){
 
   // cacher toutes les pages
@@ -3416,6 +3431,8 @@ function showPage(id){
   renderHistoryWOTable();
   break;
 }
+  // Un retour à une section doit toujours montrer son en-tête.
+  jlScrollPageTop();
 }
 
 
