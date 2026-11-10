@@ -216,6 +216,45 @@ resetInactivityTimer();
       --danger:#ff4d4d;
       --muted:#aaaaaa;
     }
+/* S09 TEST — paramètres compacts et thème clair (présentation uniquement). */
+#page-settings .jl-settings-card{max-width:none;padding:14px 18px}
+#page-settings .jl-settings-section{padding:10px 0 14px;border-bottom:1px solid var(--border)}
+#page-settings .jl-settings-section:first-child{padding-top:0}
+#page-settings .jl-settings-section h3{font-size:17px;margin:0 0 9px}
+#page-settings .jl-settings-grid{display:grid;grid-template-columns:repeat(3,minmax(130px,1fr));gap:10px 14px}
+#page-settings .jl-settings-grid .jl-settings-wide{grid-column:1/-1}
+#page-settings label{display:block;font-size:14px}
+#page-settings input,#page-settings select{display:block;margin-top:4px;padding:7px 9px;font-size:14px}
+#page-settings .jl-settings-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+#page-settings .jl-settings-profile{display:flex;flex-wrap:wrap;align-items:end;gap:12px}
+#page-settings .jl-settings-profile label{flex:1;min-width:220px;max-width:520px}
+#page-settings .jl-settings-profile .muted{align-self:center}
+#page-settings .jl-settings-hint{margin:6px 0 0}
+#page-settings .jl-settings-backup{margin-top:12px;padding:10px 12px;border:1px solid var(--border);border-radius:8px}
+#page-settings .jl-settings-backup summary{cursor:pointer;color:var(--accent);font-weight:700}
+@media(max-width:800px){#page-settings .jl-settings-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){#page-settings .jl-settings-grid{grid-template-columns:1fr}}
+/* Le site garde la couleur jaune industrielle; le thème change les surfaces et la lisibilité. */
+html[data-jl-theme="light"]{
+  --bg:#f1f3f6;--card:#fff;--text:#202936;--border:#c5ced8;
+  --muted:#52606e;--accent:#936500;
+  color-scheme:light;
+}
+html[data-jl-theme="light"] body{background:var(--bg);color:var(--text)}
+html[data-jl-theme="light"] #sidebar,
+html[data-jl-theme="light"] .topbar{background:#e6eaf0!important;color:var(--text)!important}
+html[data-jl-theme="light"] .card,
+html[data-jl-theme="light"] .stat-card,
+html[data-jl-theme="light"] .modal-panel{background:var(--card)!important;color:var(--text)!important;border-color:var(--border)!important}
+html[data-jl-theme="light"] input,
+html[data-jl-theme="light"] select,
+html[data-jl-theme="light"] textarea{background:#fff!important;color:#202936!important;border-color:#aeb9c6!important}
+html[data-jl-theme="light"] th{background:#e2e7ed!important;color:#6c4b00!important}
+html[data-jl-theme="light"] td{color:var(--text)}
+html[data-jl-theme="light"] .muted{color:var(--muted)}
+html[data-jl-theme="light"] .navBtn{background:#f5c542!important;color:#121212!important}
+html[data-jl-theme="light"] button:not(.ghost):not(.navBtn){color:#151515}
+
     *{box-sizing:border-box;}
     body{
   font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
@@ -2143,60 +2182,63 @@ button.link:hover{
     
     <!-- PARAMÈTRES -->
     <div class="page" id="page-settings">
-      <h2>Paramètres</h2>
-      <div class="card">
-        <label>Nom du garage</label>
-        <input id="settingGarageName" />
+  <h2>Paramètres</h2>
+  <div class="card jl-settings-card">
+    <section class="jl-settings-section" aria-labelledby="jlGarageSettingsTitle">
+      <h3 id="jlGarageSettingsTitle">Garage</h3>
+      <div class="jl-settings-grid">
+        <label class="jl-settings-wide">Nom du garage
+          <input id="settingGarageName" />
+        </label>
+        <label>TPS (%)<input id="settingGST" type="number" step="0.01" /></label>
+        <label>TVQ (%)<input id="settingQST" type="number" step="0.001" /></label>
+        <label>Taux horaire ($/h)<input id="settingDefaultHourlyRate" type="number" step="0.01" placeholder="ex: 60" /></label>
+      </div>
+      <div class="jl-settings-actions">
+        <button id="saveSettings" type="button">💾 Enregistrer les paramètres</button>
+        <button id="applyDefaultRateToServices" type="button" class="ghost" title="Modifie uniquement les services à taux horaire, sans toucher aux forfaits">Appliquer le taux aux services horaires</button>
+      </div>
+      <p class="muted jl-settings-hint">Les taux s'appliquent aux nouvelles factures. Les forfaits ne sont pas modifiés par le bouton des services.</p>
+    </section>
 
-        <label>TPS (%)</label>
-        <input id="settingGST" type="number" step="0.01" />
+    <section class="jl-settings-section" aria-labelledby="jlProfileSettingsTitle">
+      <h3 id="jlProfileSettingsTitle">Mon profil</h3>
+      <div class="jl-settings-profile">
+        <label>Nom affiché dans la barre du haut
+          <input id="settingProfileDisplayName" type="text" maxlength="80" autocomplete="name" placeholder="Prénom et nom" />
+        </label>
+        <button id="saveProfileDisplayName" type="button" class="ghost">Enregistrer mon nom</button>
+      </div>
+      <div id="profileDisplayNameStatus" class="muted" role="status" aria-live="polite"></div>
+      <p class="muted jl-settings-hint">Personnel au compte connecté. Le rôle Propriétaire/Employé reste automatique.</p>
+    </section>
 
-        <label>TVQ (%)</label>
-        <input id="settingQST" type="number" step="0.01" />
+    <section class="jl-settings-section" aria-labelledby="jlAppearanceTitle">
+      <h3 id="jlAppearanceTitle">Apparence</h3>
+      <div class="jl-settings-profile">
+        <label for="jlAppearanceSelect">Thème du site
+          <select id="jlAppearanceSelect">
+            <option value="dark">Sombre</option>
+            <option value="light">Clair</option>
+          </select>
+        </label>
+        <span class="muted">Préférence de ce navigateur. Aucun effet sur les factures imprimées.</span>
+      </div>
+    </section>
 
-        <label>Taux horaire par défaut ($ / h)</label>
-<input id="settingDefaultHourlyRate" type="number" step="0.01" placeholder="ex: 120">
-
-
-<button id="applyDefaultRateToServices"
-        class="ghost"
-        style="margin-top:10px;">
-  Appliquer le taux à tous les services horaires
-</button>
-
-<div class="muted" style="margin-top:6px;">
-  Modifie uniquement les services à taux horaire (les forfaits ne sont pas touchés).
+    <details class="jl-settings-backup">
+      <summary>Sauvegarde / Restauration <span class="muted">(ouvrir les outils)</span></summary>
+      <div class="jl-settings-actions">
+        <button id="btnExportData" type="button">📤 Exporter toutes les données</button>
+        <input type="file" id="importBackupFile" style="display:none;" />
+        <button id="btnImportData" type="button" class="ghost">📥 Importer un backup (.json)</button>
+      </div>
+      <p class="muted jl-settings-hint">Les restaurations peuvent remplacer des données. Conserve toujours une sauvegarde avant d'importer.</p>
+    </details>
+  </div>
 </div>
 
-        <button id="saveSettings" style="margin-top:10px;">💾 Enregistrer les paramètres</button>
-        <div class="muted" style="margin-top:6px;">Les nouvelles factures utiliseront ces taux de taxes.</div>
-
-        <hr style="margin:20px 0; border-color:var(--border);">
-
-        <h3>Mon profil</h3>
-        <label for="settingProfileDisplayName">Nom affiché dans la barre du haut</label>
-        <input id="settingProfileDisplayName" type="text" maxlength="80" autocomplete="name" placeholder="Prénom et nom">
-        <div class="muted" style="margin-top:6px;">Personnel au compte connecté. Ne modifie ni le nom du garage ni le rôle Propriétaire/Employé.</div>
-        <button id="saveProfileDisplayName" type="button" class="ghost" style="margin-top:10px;">Enregistrer mon nom</button>
-        <div id="profileDisplayNameStatus" class="muted" role="status" aria-live="polite" style="margin-top:6px;"></div>
-
-        <hr style="margin:20px 0; border-color:var(--border);">
-
-        <h3>Sauvegarde / Restauration</h3>
-        <button id="btnExportData">📤 Exporter toutes les données</button>
-        <br><br>
-        <input type="file" id="importBackupFile" style="display:none;" />
-        <button id="btnImportData" class="ghost">📥 Importer un backup (.json)</button>
-
-        <div class="muted" style="margin-top:10px;">
-          Sauvegarde toutes vos données (factures, clients, pièces, services, paramètres, etc.)
-          dans un fichier .json que vous pouvez restaurer plus tard.
-        </div>
-      </div>
-    </div>
-
   </div>
-
   <!-- MODAL CLIENT -->
   <div id="clientModal" class="modal-backdrop">
     <div class="modal-panel">
@@ -9217,6 +9259,27 @@ function initSettings(){
     });
   }
 }
+
+
+// Thème d'affichage local au navigateur : aucune écriture dans les données garage.
+(function initJLAppearance(){
+  const key="jl-test-appearance-v1";
+  const allowed=new Set(["dark","light"]);
+  const apply=value=>{
+    const mode=allowed.has(value)?value:"dark";
+    document.documentElement.setAttribute("data-jl-theme",mode);
+    const select=document.getElementById("jlAppearanceSelect");
+    if(select)select.value=mode;
+  };
+  let saved="dark";
+  try{saved=localStorage.getItem(key)||"dark";}catch(_){}
+  apply(saved);
+  const select=document.getElementById("jlAppearanceSelect");
+  if(select)select.addEventListener("change",()=>{
+    apply(select.value);
+    try{localStorage.setItem(key,select.value);}catch(_){}
+  });
+})();
 
   // ===================== APPLY DEFAULT RATE TO SERVICES =====================
 if ($('applyDefaultRateToServices')){
