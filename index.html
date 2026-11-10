@@ -14406,6 +14406,14 @@ function printInvoice(){
 
   // 🔧 Clone du contenu pour impression (on ne touche PAS à l'écran)
   const clone = content.cloneNode(true);
+  // Préférence d'impression personnelle : retirer uniquement la colonne # pièce.
+  if(window.jlPrintShouldShowPartNumber?.()===false){
+    clone.querySelectorAll("table").forEach(table=>{
+      const index=Array.from(table.querySelectorAll("thead th")).findIndex(th=>/#\\s*(de\\s*)?pi[eè]ce/i.test(th.textContent||""));
+      if(index<0)return;
+      table.querySelectorAll("tr").forEach(row=>row.children[index]?.remove());
+    });
+  }
 
   // ❌ Supprimer bloc TAXES (UI)
   clone.querySelectorAll(".invoice-ui-taxes").forEach(el => el.remove());
@@ -16055,6 +16063,12 @@ if (window.garageSupabase) {
     const copy=viewer.querySelector(".s08-viewer-panel").cloneNode(true);
     // Impression toujours client, même si la vue garage est ouverte.
     copy.querySelectorAll(".s08-internal-col").forEach(node=>node.remove());
+    if(window.jlPrintShouldShowPartNumber?.()===false){
+      copy.querySelectorAll(".s08-viewer-table table").forEach(table=>{
+        const index=Array.from(table.querySelectorAll("thead th")).findIndex(th=>/#\\s*(de\\s*)?pi[eè]ce/i.test(th.textContent||""));
+        if(index>=0)table.querySelectorAll("tr").forEach(row=>row.children[index]?.remove());
+      });
+    }
     copy.querySelector(".s08-viewer-controls")?.remove();
     copy.querySelectorAll(".s08-garage-only").forEach(node=>node.remove());
     copy.querySelector("#s08ConvertedBT")?.remove();
