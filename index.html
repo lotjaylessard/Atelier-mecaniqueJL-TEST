@@ -476,6 +476,10 @@ input[type="checkbox"]{
     #page-dashboard .jl-dashboard-finances{display:grid;gap:14px;align-content:start}
     #page-dashboard .jl-dashboard-finances>div{display:flex;flex-direction:column;gap:4px}
     #page-dashboard .jl-dashboard-finances .stat-value{margin:0}
+    /* Deux colonnes de notes sur grand écran pour limiter le défilement. */
+    #page-dashboard #lastNotesBox>div{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px!important}
+    #page-dashboard #lastNotesBox>div>div{min-width:0;overflow-wrap:anywhere}
+    @media(max-width:750px){#page-dashboard #lastNotesBox>div{grid-template-columns:1fr}}
     @media(max-width:900px){#page-dashboard .jl-dashboard-summary{grid-template-columns:1fr}}
     @media(max-width:480px){#page-dashboard .jl-dashboard-metrics{grid-template-columns:1fr 1fr;gap:5px}}
     /* Dashboard cards */
@@ -12304,7 +12308,8 @@ WORKORDERS = loadArrayFromStorage(STORAGE.workorders);
   loadInvoices(); // INVOICES = loadArrayFromStorage(...) :contentReference[oaicite:2]{index=2}
 
   // 1) Dashboard = même logique que page Factures : factures "actives" = pas payées
-  const activeInvoices = (INVOICES || []).filter(inv => (inv.status || "unpaid") !== "paid");
+  const activeInvoices = (INVOICES || []).filter(inv =>
+    inv.archived !== true && (inv.status || "unpaid") !== "paid");
   const invoicesCount = activeInvoices.filter(inv =>
     ["unpaid","pending"].includes(String(inv.status||"unpaid").toLowerCase())).length;
   const partialInvoicesCount = activeInvoices.filter(inv =>
