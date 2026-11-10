@@ -531,6 +531,7 @@ input[type="checkbox"]{
     #page-dashboard .jl-finance-legend i{display:inline-block;width:9px;height:9px;border-radius:2px}
     #page-dashboard .jl-finance-chart{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:9px;align-items:end;min-height:180px;padding:13px 4px 0;overflow-x:auto}
     #page-dashboard .jl-finance-chart[data-mode="all"]{grid-template-columns:repeat(auto-fit,minmax(66px,1fr))}
+    #page-dashboard .jl-finance-chart[data-mode="month"]{grid-template-columns:minmax(100px,160px);justify-content:center}
     #page-dashboard .jl-finance-column{min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:5px}
     #page-dashboard .jl-finance-bars{height:145px;display:flex;align-items:flex-end;gap:3px;border-bottom:1px solid var(--border)}
     #page-dashboard .jl-finance-bar{flex:1;min-width:0;border-radius:3px 3px 0 0;min-height:0}
@@ -12811,9 +12812,10 @@ function renderMonthlyRevenueChart(){
   // sans changement des paramètres fiscaux historiques.
   const sum=key=>filtered.reduce((acc,x)=>acc+(finite(x[key])?x[key]:0),0);
   const complete=key=>filtered.every(x=>finite(x[key]));
+  const knownPaid=complete("total");
   const total=sum("total"),knownSales=complete("sales"),knownCosts=complete("cost");
   const knownProfit=complete("profit"),sales=sum("sales"),costs=sum("cost"),profit=sum("profit");
-  set("annualPaidTotal",dollars(total));
+  set("annualPaidTotal",knownPaid?dollars(total):"—");
   set("jlFinanceTaxes",complete("tax")?dollars(sum("tax")):"—");
   set("jlFinanceSales",knownSales?dollars(sales):"—");
   set("annualPartCost",knownCosts?dollars(costs):"—");
@@ -12823,11 +12825,13 @@ function renderMonthlyRevenueChart(){
   set("jlFinanceCount",String(filtered.length));
   set("jlFinanceAverage",knownSales&&filtered.length?dollars(sales/filtered.length):"—");
 
+  const missingPaid=filtered.filter(x=>!finite(x.total)).length;
   const missingTax=filtered.filter(x=>!finite(x.sales)).length;
   const missingWO=filtered.filter(x=>!finite(x.cost)).length;
   const caveat=document.getElementById("jlFinanceCaveat");
   if(caveat){
     const gaps=[];
+    if(missingPaid)gaps.push(missingPaid+" facture(s) sans total historique vérifiable");
     if(missingTax)gaps.push(missingTax+" facture(s) sans taxes historiques vérifiables");
     if(missingWO)gaps.push(missingWO+" facture(s) sans coût de pièces associé à un BT");
     caveat.textContent=(gaps.length?"Données incomplètes : "+gaps.join(" ; ")+". Les valeurs non vérifiables sont indiquées par « — ». ":"")+
