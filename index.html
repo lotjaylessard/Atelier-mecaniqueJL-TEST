@@ -513,6 +513,35 @@ input[type="checkbox"]{
     #page-settings .jl-dashboard-order-entry{display:flex;gap:5px;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:6px;padding:4px 7px}
     #page-settings .jl-dashboard-order-entry button{padding:3px 8px;font-size:12px}
     @media(max-width:850px){#page-dashboard .jl-dashboard-blocks{grid-template-columns:1fr}#page-dashboard .jl-dashboard-blocks .jl-dashboard-wide{grid-column:auto}#page-settings .jl-dashboard-order-options{grid-template-columns:1fr}}
+    /* Analyse financière TEST : présentation compacte et adaptable. */
+    #page-dashboard .jl-finance-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    #page-dashboard .jl-finance-heading h3{margin:0}
+    #page-dashboard .jl-finance-filters{display:flex;gap:8px;flex-wrap:wrap}
+    #page-dashboard .jl-finance-filters label{display:flex;gap:5px;align-items:center;font-size:12px;color:var(--muted)}
+    #page-dashboard .jl-finance-filters label[hidden]{display:none}
+    #page-dashboard .jl-finance-filters select{width:auto;min-width:82px;padding:5px 8px}
+    #page-dashboard .jl-finance-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:12px 0}
+    #page-dashboard .jl-finance-summary>div{border:1px solid var(--border);border-radius:7px;padding:9px;min-width:0}
+    #page-dashboard .jl-finance-summary span{font-size:12px;display:block;color:var(--muted)}
+    #page-dashboard .jl-finance-summary strong{font-size:17px;display:block;margin-top:4px;font-variant-numeric:tabular-nums}
+    #page-dashboard #annualPartCost{color:#e8bd45}
+    #page-dashboard #annualGrossProfit{color:#4caf50}
+    #page-dashboard .jl-finance-legend{display:flex;flex-wrap:wrap;gap:15px;font-size:12px;color:var(--muted);margin:6px 0}
+    #page-dashboard .jl-finance-legend span{display:flex;align-items:center;gap:5px}
+    #page-dashboard .jl-finance-legend i{display:inline-block;width:9px;height:9px;border-radius:2px}
+    #page-dashboard .jl-finance-chart{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:9px;align-items:end;min-height:180px;padding:13px 4px 0;overflow-x:auto}
+    #page-dashboard .jl-finance-chart[data-mode="all"]{grid-template-columns:repeat(auto-fit,minmax(66px,1fr))}
+    #page-dashboard .jl-finance-column{min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:5px}
+    #page-dashboard .jl-finance-bars{height:145px;display:flex;align-items:flex-end;gap:3px;border-bottom:1px solid var(--border)}
+    #page-dashboard .jl-finance-bar{flex:1;min-width:0;border-radius:3px 3px 0 0;min-height:0}
+    #page-dashboard .jl-finance-bar[data-metric="sales"]{background:#8bbcff}
+    #page-dashboard .jl-finance-bar[data-metric="cost"]{background:#e8bd45}
+    #page-dashboard .jl-finance-bar[data-metric="profit"]{background:#4caf50}
+    #page-dashboard .jl-finance-column-label{text-align:center;font-size:11px;color:var(--muted);white-space:nowrap}
+    #page-dashboard .jl-finance-column[aria-current="true"] .jl-finance-column-label{font-weight:800;color:var(--accent)}
+    #page-dashboard .jl-finance-caveat{font-size:12px;margin:10px 0 0}
+    @media(max-width:900px){#page-dashboard .jl-finance-summary{grid-template-columns:repeat(2,minmax(0,1fr))}#page-dashboard .jl-finance-chart{grid-template-columns:repeat(12,minmax(58px,1fr))}}
+    @media(max-width:480px){#page-dashboard .jl-finance-summary strong{font-size:14px}}
     /* Dashboard cards */
     .stats-grid{
       display:grid;
@@ -1517,37 +1546,39 @@ button.link:hover{
   <div id="lastNotesBox"></div>
 </div></section>
         <section data-jl-dashboard-card="monthly" class="jl-dashboard-wide"><div class="card">
-  <div style="display:flex;justify-content:space-between;align-items:center;">
-  <h3>📅 Résultats mensuels — factures entièrement payées</h3>
-
-  <select id="revenueYearFilter"
-          style="width:120px;height:32px;">
-  </select>
-</div>
-  <div id="annualRevenueSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:12px 0 10px;" aria-live="polite">
-    <div style="border:1px solid var(--border);border-radius:8px;padding:10px">
-      <div class="muted">Factures payées (taxes incluses)</div><strong id="annualPaidTotal">0,00 $</strong>
-    </div>
-    <div style="border:1px solid var(--border);border-radius:8px;padding:10px">
-      <div class="muted">Coût d'achat des pièces</div><strong id="annualPartCost" style="color:#f5c542">0,00 $</strong>
-    </div>
-    <div style="border:1px solid var(--border);border-radius:8px;padding:10px">
-      <div class="muted">Profit brut estimé</div><strong id="annualGrossProfit" style="color:#4CAF50">0,00 $</strong>
+  <div class="jl-finance-heading">
+    <h3>📊 Revenus, coûts et rentabilité</h3>
+    <div class="jl-finance-filters">
+      <label for="jlFinancePeriod">Période <select id="jlFinancePeriod">
+        <option value="year">Année</option><option value="month">Mois</option>
+        <option value="all">Tout</option>
+      </select></label>
+      <label for="revenueYearFilter" id="jlFinanceYearLabel">Année <select id="revenueYearFilter"></select></label>
+      <label for="jlFinanceMonth" id="jlFinanceMonthLabel" hidden>Mois <select id="jlFinanceMonth">
+        <option value="01">Janvier</option><option value="02">Février</option>
+        <option value="03">Mars</option><option value="04">Avril</option>
+        <option value="05">Mai</option><option value="06">Juin</option>
+        <option value="07">Juillet</option><option value="08">Août</option>
+        <option value="09">Septembre</option><option value="10">Octobre</option>
+        <option value="11">Novembre</option><option value="12">Décembre</option>
+      </select></label>
     </div>
   </div>
-  <p class="muted" style="margin:0 0 8px;font-size:12px">Jaune : coût d'achat des pièces · Vert : profit brut estimé. Les salaires et autres dépenses ne sont pas déduits; les factures payées incluent les taxes.</p>
-  <div id="monthlyRevenueChart"
-     style="
-       height:220px;
-       display:flex;
-       align-items:flex-end;
-       gap:20px;
-       padding:10px;
-       overflow-x:auto;
-       overflow-y:visible;
-       position:relative;
-     ">
-</div>
+  <div class="jl-finance-summary" aria-live="polite">
+    <div><span>Factures encaissées TTC</span><strong id="annualPaidTotal">0,00 $</strong></div>
+    <div><span>Taxes facturées (TPS + TVQ)</span><strong id="jlFinanceTaxes">0,00 $</strong></div>
+    <div><span>Ventes hors taxes</span><strong id="jlFinanceSales">0,00 $</strong></div>
+    <div><span>Coût des pièces des BT</span><strong id="annualPartCost">0,00 $</strong></div>
+    <div><span>Profit brut estimé</span><strong id="annualGrossProfit">0,00 $</strong></div>
+    <div><span>Marge brute estimée</span><strong id="jlFinanceMargin">—</strong></div>
+    <div><span>Factures payées</span><strong id="jlFinanceCount">0</strong></div>
+    <div><span>Vente HT moyenne / facture</span><strong id="jlFinanceAverage">—</strong></div>
+  </div>
+  <div class="jl-finance-legend"><span><i style="background:#8bbcff"></i> Ventes HT</span>
+  <span><i style="background:#e8bd45"></i> Coût des pièces</span>
+  <span><i style="background:#4caf50"></i> Profit brut estimé</span></div>
+  <div id="monthlyRevenueChart" class="jl-finance-chart" role="img" aria-label="Graphique financier mensuel"></div>
+  <p id="jlFinanceCaveat" class="muted jl-finance-caveat"></p>
     </div></section>
         <section data-jl-dashboard-card="workorders" class=""><div class="stat-card"><div class="stat-label">Bons de travail en cours</div><div id="lastWorkOrdersBox" class="jl-dashboard-list"></div></div></section>
         <section data-jl-dashboard-card="invoices" class=""><div class="stat-card"><div class="stat-label">Dernières factures</div><div id="lastInvoicesBox" class="jl-dashboard-list"></div></div></section>
