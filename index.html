@@ -13630,72 +13630,142 @@ if($('btnPrint')){
   });
 }
 
-/* ===================== BACKUP EXPORT / IMPORT ===================== */
-function exportAllData(){
-  const data={
-    settings:SETTINGS,
-    invoices:INVOICES,
-    clients:CLIENTS,
-    parts:PARTS,
-    services:SERVICES
-  };
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");
-  const date=new Date().toISOString().split("T")[0];
-  a.href=url;
-  a.download=`garage_backup_${date}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+/* ===================== SAUVEGARDE JSON TEST (lecture seule) =====================
+   L'ancien export omettait NOTES, LINKS et WORKORDERS.
+   L'ancien import ecrasait des donnees du garage sans confirmation de version :
+   il est bloque jusqu'a la mise en place d'une restauration atomique verifiee.
+*/
+async function exportAllData(){
+  const button=$("btnExportData"),feedback=$("jlBackupStatus");
+  if(button)button.disabled=true;
+  const info=msg=>{if(feedback)feedback.textContent=msg;};
+  info("Vérification de la sauvegarde…");
+  try{
+    if(!sb||!SUPABASE_USER?.id||!ACTIVE_GARAGE_ID||!CLOUD_DATA_READY||
+      !Number.isSafeInteger(CLOUD_DATA_VERSION)||
+      CLOUD_SYNC_IN_PROGRESS||CLOUD_SYNC_PENDING||CLOUD_SYNC_DIRTY||
+      CLOUD_SYNC_FAILED||cloudSyncTimer!==null){
+      throw Error("Synchronisation non confirmée : export interrompu pour éviter une sauvegarde incomplète.");
+    }
+    const {data:current,error:authError}=await sb.auth.getUser();
+    if(authError||current?.user?.id!==SUPABASE_USER.id)throw Error("Session non confirmée.");
+    const garageId=ACTIVE_GARAGE_ID,userId=SUPABASE_USER.id,version=CLOUD_DATA_VERSION;
+    const local=captureLocalGarageSnapshot();
+    if(!CLOUD_LAST_CONFIRMED_SNAPSHOT||
+       !garageSnapshotsEquivalent(local,CLOUD_LAST_CONFIRMED_SNAPSHOT)){
+      throw Error("Modifications locales non confirmées. Attends la synchronisation avant l'export.");
+    }
+    const {data:cloud,error:cloudError}=await sb.from("garage_data")
+      .select("data,version").eq("garage_id",garageId).maybeSingle();
+    if(cloudError||!cloud||cloud.version!==version||!cloud.data||
+       !garageSnapshotsEquivalent(local,cloud.data)){
+      throw Error("Les données du serveur ne correspondent pas au garage local. Export interrompu.");
+    }
+    const keys=["clients","invoices","workorders","notes","links","parts","services"];
+    for(const key of keys){
+      if(!Array.isArray(cloud.data[key]))throw Error("Section manquante dans le cloud : "+key);
+    }
+    if(!cloud.data.settings||typeof cloud.data.settings!=="object"||
+       !Number.isSafeInteger(cloud.data.invoiceCounter)){
+      throw Error("Paramètres ou compteur de factures non vérifiables.");
+    }
+    // Soumissions : pagination jusqu'à épuisement, sans limite silencieuse à 200.
+    const quotes=[];const limit=200;
+    for(let offset=0;offset<100000;offset+=limit){
+      const {data:rows,error}=await sb.from("garage_quotes")
+        .select("id,garage_id,user_id,quote_number,status,content,created_at,version,converted_bt_id")
+        .eq("garage_id",garageId).eq("user_id",userId)
+        .order("created_at",{ascending:true}).order("id",{ascending:true})
+        .range(offset,offset+limit-1);
+      if(error||!Array.isArray(rows))throw Error("Liste des soumissions non confirmée.");
+      quotes.push(...rows);
+      if(rows.length<limit)break;
+      if(offset+limit>=100000)throw Error("Trop de soumissions : export interrompu plutôt que tronqué.");
+    }
+    if(CLOUD_SYNC_IN_PROGRESS||CLOUD_SYNC_DIRTY||CLOUD_SYNC_PENDING||
+       CLOUD_SYNC_FAILED||CLOUD_DATA_VERSION!==version||ACTIVE_GARAGE_ID!==garageId){
+      throw Error("Les données ont changé pendant l'export. Réessaie.");
+    }
+    const {data:finalVersion,error:versionError}=await sb.from("garage_data")
+      .select("version").eq("garage_id",garageId).maybeSingle();
+    if(versionError||finalVersion?.version!==version)throw Error("Version modifiée durant l'export.");
+    const attachments=(cloud.data.workorders||[]).flatMap(wo=>
+      (Array.isArray(wo.attachments)?wo.attachments:[]).map(item=>({
+        workorder:wo.number||wo.id||"",name:item.name||"",path:item.path||"",type:item.type||""
+      }))
+    );
+    const payload={
+      format:"atelier-test-full-data-v2",createdAt:new Date().toISOString(),
+      garageId,userId,cloudVersion:version,
+      data:cloud.data,quotes,
+      attachments:{bucket:"wo-files",files:attachments,bytesIncluded:false},
+      limitations:[
+        "Fichiers physiques joints aux BT non inclus : chemins/references uniquement",
+        "Profils utilisateurs et autorisations Supabase non inclus",
+        "Historique des versions Supabase et sessions de connexion non inclus"
+      ]
+    };
+    const json=JSON.stringify(payload,null,2);
+    const check=JSON.parse(json);
+    if(keys.some(key=>check.data[key].length!==cloud.data[key].length)||
+       check.quotes.length!==quotes.length||
+       check.attachments.files.length!==attachments.length){
+      throw Error("Vérification du contenu exporté échouée.");
+    }
+    const blob=new Blob([json],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement("a");
+    link.href=url;link.download="garage_TEST_complet_"+new Date().toISOString().slice(0,10)+".json";
+    document.body.appendChild(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+    info("✓ JSON créé : "+check.data.notes.length+" notes, "+check.data.workorders.length+
+      " BT, "+quotes.length+" soumissions. ATTENTION : "+attachments.length+
+      " pièce(s) jointe(s) référencée(s), fichiers NON inclus.");
+  }catch(error){
+    console.error("[TEST] Export bloqué :",error);
+    info("⚠ "+(error?.message||"Export impossible."));
+  }finally{if(button)button.disabled=false;}
 }
 
+// L'import automatique précédent écrasait les collections et perdait les notes/BT.
+// Un fichier peut être choisi pour inspection seulement, sans aucune écriture.
 function importAllData(json){
-  try{
-    if(json.settings) SETTINGS=json.settings;
-    if(json.invoices) INVOICES=json.invoices;
-    if(json.clients) CLIENTS=json.clients;
-    if(json.parts) PARTS=json.parts;
-    if(json.services) SERVICES=json.services;
-    saveSettings();
-    saveInvoices();
-    saveClients();
-    saveParts();
-    saveServices();
-    initSettings();
-    renderInvoicesTable();
-    renderClientsTable();
-    renderServices();
-    renderDashboard();
-    alert("Backup importé avec succès !");
-  }catch(e){
-    alert("Erreur lors de l’importation du fichier.");
+  const feedback=$("jlBackupStatus");
+  const tell=text=>{if(feedback)feedback.textContent=text;};
+  if(!json||typeof json!=="object"){
+    tell("Fichier invalide. Aucune donnée modifiée.");return;
+  }
+  if(json.format==="atelier-test-full-data-v2" && json.data){
+    const summary=["clients","invoices","workorders","notes","links","parts","services"]
+      .map(key=>key+": "+(Array.isArray(json.data[key])?json.data[key].length:"manquant")).join(" · ");
+    tell("Inspection seulement (aucune restauration) : "+summary+
+      " · soumissions : "+(Array.isArray(json.quotes)?json.quotes.length:"manquantes")+
+      ". L'importation sécurisée n'est pas encore disponible.");
+  }else{
+    tell("Ancien format de sauvegarde détecté. Restauration bloquée : il peut manquer les notes ou les BT.");
   }
 }
-
-if($("btnExportData")){
-  $("btnExportData").addEventListener("click", exportAllData);
+$("btnExportData")?.addEventListener("click",exportAllData);
+$("btnImportData")?.addEventListener("click",()=>$("importBackupFile")?.click());
+$("importBackupFile")?.addEventListener("change",async event=>{
+  const file=event.target.files?.[0];
+  if(!file)return;
+  try{importAllData(JSON.parse(await file.text()));}
+  catch(error){const feedback=$("jlBackupStatus");if(feedback)feedback.textContent="Fichier JSON invalide. Aucune donnée modifiée.";}
+  event.target.value="";
+});
+// Affiche les indicateurs sans revendiquer une sauvegarde cloud non confirmée.
+function updateJLBackupStatus(){
+  const el=$("jlBackupSyncStatus");
+  if(!el)return;
+  el.textContent=!CLOUD_DATA_READY?"Non disponible"
+    :CLOUD_SYNC_FAILED?"Erreur"
+    :CLOUD_SYNC_IN_PROGRESS||CLOUD_SYNC_PENDING||CLOUD_SYNC_DIRTY||cloudSyncTimer!==null?"Synchronisation en cours"
+    :"Synchronisé (version "+String(CLOUD_DATA_VERSION)+")";
 }
-if($("btnImportData")){
-  $("btnImportData").addEventListener("click",()=>{
-    $("importBackupFile").click();
-  });
-}
-if($("importBackupFile")){
-  $("importBackupFile").addEventListener("change",(e)=>{
-    const file=e.target.files[0];
-    if(!file) return;
-    const reader=new FileReader();
-    reader.onload=function(evt){
-      try{
-        const json=JSON.parse(evt.target.result);
-        importAllData(json);
-      }catch(err){
-        alert("Fichier invalide.");
-      }
-    };
-    reader.readAsText(file);
-  });
-}
+$("btnExportData")?.addEventListener("focus",updateJLBackupStatus);
+$("btnImportData")?.addEventListener("focus",updateJLBackupStatus);
+document.querySelector("#page-settings .jl-settings-backup:not(.jl-settings-options)")?.addEventListener("toggle",updateJLBackupStatus);
 
 /* ===================== NOTES ===================== */
 
