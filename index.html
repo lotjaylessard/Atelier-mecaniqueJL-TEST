@@ -12500,13 +12500,17 @@ if ($("lastInvoicesBox")) {
 
         // ICI : affichage direct dans l’ordre trié
         lastFive.forEach(inv => {
+            const linkedWO = WORKORDERS.find(wo =>
+              String(wo.number) === String(inv.workOrderNumber || inv.referenceWO || "")
+            );
+            const vehicleLabel = String(inv.vehicle || linkedWO?.vehicleLabel || "").trim();
             html += `
                 <div 
                     style="padding:6px; border:1px solid var(--border); border-radius:6px; cursor:pointer;"
                     onclick="openFromDashboard('${inv.number}')"
                 >
                     <b>#${inv.number}</b> — ${money(inv.total)} $
-                    <br><span class="muted">${inv.customer || "Client inconnu"}</span>
+                    <br><span class="muted">${inv.customer || "Client inconnu"}${vehicleLabel ? " • " + vehicleLabel : ""}</span>
                 </div>
             `;
         });
