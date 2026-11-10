@@ -12767,210 +12767,117 @@ function monthlyInvoiceSettlementDate(inv){
 }
 
 function renderMonthlyRevenueChart(){
+  const chart=document.getElementById("monthlyRevenueChart");
+  const periodSelect=document.getElementById("jlFinancePeriod");
+  const yearSelect=document.getElementById("revenueYearFilter");
+  const monthSelect=document.getElementById("jlFinanceMonth");
+  if(!chart||!periodSelect||!yearSelect||!monthSelect)return;
+  const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value;};
+  const dollars=n=>money(n)+" $";
+  const finite=n=>typeof n==="number"&&Number.isFinite(n);
+  const paid=(Array.isArray(INVOICES)?INVOICES:[])
+    .filter(inv=>String(inv?.status||"").toLowerCase()==="paid")
+    .map(inv=>{
+      const date=monthlyInvoiceSettlementDate(inv);
+      if(!date)return null;
+      const total=Number(inv.total);
+      const hasTax=inv.gst!==undefined&&inv.gst!==null&&inv.qst!==undefined&&inv.qst!==null;
+      const gst=hasTax?Number(inv.gst):NaN;
+      const qst=hasTax?Number(inv.qst):NaN;
+      const knownTaxes=finite(gst)&&finite(qst)&&gst>=0&&qst>=0;
+      const sales=knownTaxes&&finite(total)?total-gst-qst:null;
+      const wo=WORKORDERS.find(w=>String(w.number)===String(inv.workOrderNumber||inv.referenceWO||""));
+      const parts=wo&&Array.isArray(wo.parts)?wo.parts:null;
+      const cost=parts&&parts.every(p=>[Number(p.qty||0),Number(p.cost||0)].every(finite))?
+        parts.reduce((n,p)=>n+Number(p.qty||0)*Number(p.cost||0),0):null;
+      return {date,total:finite(total)?total:null,tax:knownTaxes?gst+qst:null,
+        sales:finite(sales)?sales:null,cost:finite(cost)?cost:null,
+        profit:finite(sales)&&finite(cost)?sales-cost:null};
+    }).filter(Boolean);
+  const currentYear=String(new Date().getFullYear());
+  const years=[...new Set(paid.map(x=>x.date.slice(0,4)).concat(currentYear))].sort().reverse();
+  const previousYear=yearSelect.value;
+  yearSelect.replaceChildren(...years.map(y=>new Option(y,y)));
+  yearSelect.value=years.includes(previousYear)?previousYear:(years.find(y=>paid.some(x=>x.date.startsWith(y)))||currentYear);
+  const mode=["month","year","all"].includes(periodSelect.value)?periodSelect.value:"year";
+  document.getElementById("jlFinanceYearLabel").hidden=mode==="all";
+  document.getElementById("jlFinanceMonthLabel").hidden=mode!=="month";
+  let month=monthSelect.value;
+  if(!/^(0[1-9]|1[0-2])$/.test(month))month="01";
+  const selectedYear=yearSelect.value;
+  const filtered=paid.filter(p=>mode==="all"||
+    (mode==="year"?p.date.startsWith(selectedYear):p.date.startsWith(selectedYear+"-"+month)));
+  // Tous les montants proviennent des champs archivés des factures,
+  // sans changement des paramètres fiscaux historiques.
+  const sum=key=>filtered.reduce((acc,x)=>acc+(finite(x[key])?x[key]:0),0);
+  const complete=key=>filtered.every(x=>finite(x[key]));
+  const total=sum("total"),knownSales=complete("sales"),knownCosts=complete("cost");
+  const knownProfit=complete("profit"),sales=sum("sales"),costs=sum("cost"),profit=sum("profit");
+  set("annualPaidTotal",dollars(total));
+  set("jlFinanceTaxes",complete("tax")?dollars(sum("tax")):"—");
+  set("jlFinanceSales",knownSales?dollars(sales):"—");
+  set("annualPartCost",knownCosts?dollars(costs):"—");
+  set("annualGrossProfit",knownProfit?dollars(profit):"—");
+  set("jlFinanceMargin",knownProfit&&knownSales&&sales>0?
+    (profit/sales*100).toLocaleString("fr-CA",{maximumFractionDigits:1,minimumFractionDigits:1})+" %":"—");
+  set("jlFinanceCount",String(filtered.length));
+  set("jlFinanceAverage",knownSales&&filtered.length?dollars(sales/filtered.length):"—");
 
-let globalTooltip = document.getElementById("dashboardTooltip");
-
-if (!globalTooltip){
-  globalTooltip = document.createElement("div");
-  globalTooltip.id = "dashboardTooltip";
-  globalTooltip.style.position = "fixed";
-  globalTooltip.style.background = "#111";
-  globalTooltip.style.border = "1px solid #333";
-  globalTooltip.style.padding = "10px 14px";
-  globalTooltip.style.borderRadius = "10px";
-  globalTooltip.style.fontSize = "13px";
-  globalTooltip.style.pointerEvents = "none";
-  globalTooltip.style.opacity = "0";
-  globalTooltip.style.transition = "opacity 0.15s ease";
-  globalTooltip.style.zIndex = "9999";
-  globalTooltip.style.boxShadow = "0 10px 28px rgba(0,0,0,0.7)";
-  document.body.appendChild(globalTooltip);
-}
-
-const chart = $("monthlyRevenueChart");
-const yearSelect = $("revenueYearFilter");
-if (!chart) return;
-const annualPaid=$("annualPaidTotal");
-const annualCost=$("annualPartCost");
-const annualProfit=$("annualGrossProfit");
-const annualReset=()=>{
-  if(annualPaid)annualPaid.textContent=money(0)+" $";
-  if(annualCost)annualCost.textContent=money(0)+" $";
-  if(annualProfit)annualProfit.textContent=money(0)+" $";
-};
-annualReset();
-chart.replaceChildren();
-
-const paidInvoices = (INVOICES || []).filter(inv =>
-  (inv.status || "").toLowerCase() === "paid" && monthlyInvoiceSettlementDate(inv)
-);
-
-if (paidInvoices.length === 0){
-  chart.innerHTML = `<span class="muted">Aucune donnée.</span>`;
-  return;
-}
-
-/* ===================== EXTRAIRE ANNÉES ===================== */
-
-const years = [...new Set(
-  paidInvoices.map(inv => monthlyInvoiceSettlementDate(inv).slice(0,4))
-)].sort().reverse();
-
-if (yearSelect){
-  const current = yearSelect.value;
-
-  yearSelect.innerHTML =
-    years.map(y => `<option value="${y}">${y}</option>`).join("");
-
-  if (current && years.includes(current)){
-    yearSelect.value = current;
+  const missingTax=filtered.filter(x=>!finite(x.sales)).length;
+  const missingWO=filtered.filter(x=>!finite(x.cost)).length;
+  const caveat=document.getElementById("jlFinanceCaveat");
+  if(caveat){
+    const gaps=[];
+    if(missingTax)gaps.push(missingTax+" facture(s) sans taxes historiques vérifiables");
+    if(missingWO)gaps.push(missingWO+" facture(s) sans coût de pièces associé à un BT");
+    caveat.textContent=(gaps.length?"Données incomplètes : "+gaps.join(" ; ")+". Les valeurs non vérifiables sont indiquées par « — ». ":"")+
+      "Profit brut estimé = ventes hors taxes moins coût des pièces des BT. Main-d’œuvre comptée comme revenu, sans coût salarial ni autres dépenses. Les factures partielles ne sont pas incluses.";
   }
-
-  yearSelect.onchange = renderMonthlyRevenueChart;
-}
-
-const selectedYear = yearSelect?.value || years[0];
-
-/* ===================== GROUPER PAR MOIS ===================== */
-
-const monthMap = {};
-
-paidInvoices
-  .filter(inv => monthlyInvoiceSettlementDate(inv).startsWith(selectedYear))
-  .forEach(inv => {
-
-    const month = monthlyInvoiceSettlementDate(inv).slice(0,7);
-
-    if (!monthMap[month]){
-      monthMap[month] = { revenue:0, cost:0, profit:0 };
-    }
-
-    // Total TTC utile au suivi des paiements, mais ne pas le confondre avec
-    // le coût des pièces ou le profit brut (tous deux calculés hors taxes).
-    monthMap[month].revenue += Number(inv.total || 0);
-    const wo = WORKORDERS.find(w =>
-      String(w.number) === String(inv.workOrderNumber)
-    );
-    if(wo){
-      const partsCost=(Array.isArray(wo.parts)?wo.parts:[]).reduce((sum,part)=>{
-        return sum+Number(part.cost||0)*Number(part.qty||0);
-      },0);
-      monthMap[month].cost+=partsCost;
-      monthMap[month].profit+=calcWorkOrderProfit(wo);
-    }
+  chart.replaceChildren();
+  chart.dataset.mode=mode;
+  const keys=mode==="all"?years.slice().reverse():
+    mode==="month"?[selectedYear+"-"+month]:
+    Array.from({length:12},(_,i)=>selectedYear+"-"+String(i+1).padStart(2,"0"));
+  const groups=keys.map(key=>{
+    const records=paid.filter(p=>mode==="all"?p.date.startsWith(key):p.date.slice(0,7)===key);
+    return {key,records,
+      sales:records.every(x=>finite(x.sales))?records.reduce((v,x)=>v+x.sales,0):null,
+      cost:records.every(x=>finite(x.cost))?records.reduce((v,x)=>v+x.cost,0):null,
+      profit:records.every(x=>finite(x.profit))?records.reduce((v,x)=>v+x.profit,0):null};
   });
-
-const months = Object.keys(monthMap).sort();
-
-if (months.length === 0){
-  chart.innerHTML = `<span class="muted">Aucune donnée pour ${selectedYear}</span>`;
-  return;
+  const max=Math.max(1,...groups.flatMap(g=>[g.sales,g.cost,g.profit].filter(finite).map(n=>Math.max(0,n))));
+  // Le mode Année répartit la largeur sur 12 mois même si un seul est actif.
+  for(const g of groups){
+    const col=document.createElement("div");col.className="jl-finance-column";
+    if(mode==="month")col.setAttribute("aria-current","true");
+    const bars=document.createElement("div");bars.className="jl-finance-bars";
+    for(const key of ["sales","cost","profit"]){
+      const val=g[key];
+      const bar=document.createElement("div");bar.className="jl-finance-bar";
+      bar.dataset.metric=key;
+      bar.style.height=(finite(val)&&val>0?Math.max(2,val/max*145):0)+"px";
+      bars.append(bar);
+    }
+    col.append(bars);
+    const label=document.createElement("span");label.className="jl-finance-column-label";
+    const monthIndex=Number(g.key.slice(5,7))-1;
+    label.textContent=mode==="all"?g.key:monthLabel(monthIndex);
+    col.append(label);
+    const short=(value)=>finite(value)?dollars(value):"Non vérifiable";
+    col.title=(mode==="all"?"Année ":"Mois ")+g.key+
+      "\nVentes HT : "+short(g.sales)+
+      "\nCoût des pièces : "+short(g.cost)+
+      "\nProfit brut estimé : "+short(g.profit)+
+      "\nFactures payées : "+g.records.length;
+    col.tabIndex=0;
+    chart.append(col);
+  }
+  // Laisser les contrôles se réutiliser : aucun listener supplémentaire par rendu.
+  periodSelect.onchange=()=>renderMonthlyRevenueChart();
+  yearSelect.onchange=()=>renderMonthlyRevenueChart();
+  monthSelect.onchange=()=>renderMonthlyRevenueChart();
 }
 
-const yearly=months.reduce((sum,month)=>{
-  sum.paid+=monthMap[month].revenue;
-  sum.cost+=monthMap[month].cost;
-  sum.profit+=monthMap[month].profit;
-  return sum;
-},{paid:0,cost:0,profit:0});
-if(annualPaid)annualPaid.textContent=money(yearly.paid)+" $";
-if(annualCost)annualCost.textContent=money(yearly.cost)+" $";
-if(annualProfit)annualProfit.textContent=money(yearly.profit)+" $";
-
-// Hauteur basée sur les coûts connus + profits positifs : jamais sur les taxes.
-const maxRevenueRaw=Math.max(...months.map(m=>Math.max(0,monthMap[m].cost)+Math.max(0,monthMap[m].profit)));
-const maxRevenue=Math.max(1,maxRevenueRaw*1.15);
-
-
-/* ===================== RENDU ===================== */
-
-months.forEach(month => {
-
-  const revenue = monthMap[month].revenue;
-  const cost = monthMap[month].cost;
-  const profit = monthMap[month].profit;
-
-  const col = document.createElement("div");
-  col.style.display = "flex";
-  col.style.flexDirection = "column";
-  col.style.alignItems = "center";
-  col.style.minWidth = "80px";
-
-  /* ===== BARS ===== */
-
-  const barWrap = document.createElement("div");
-  barWrap.style.height = "180px";
-  barWrap.style.display = "flex";
-  barWrap.style.flexDirection = "column";
-  barWrap.style.justifyContent = "flex-end";
-  barWrap.style.width = "100%";
-
-  const costHeight=(Math.max(0,cost)/maxRevenue)*180;
-  const profitHeight=(Math.max(0,profit)/maxRevenue)*180;
-  const costBar=document.createElement("div");
-  costBar.style.height=costHeight+"px";
-  costBar.style.background="#f5c542";
-  costBar.style.width="100%";
-  const profitBar=document.createElement("div");
-  profitBar.style.height=profitHeight+"px";
-  profitBar.style.background="#4CAF50";
-  profitBar.style.width="100%";
-  barWrap.appendChild(costBar);
-  barWrap.appendChild(profitBar);
-
-  /* ===== TOOLTIP GLOBAL PRO ===== */
-
-  barWrap.onmousemove = (e) => {
-    globalTooltip.innerHTML = `
-      <div style="color:#ddd;font-weight:600;">Factures payées TTC : ${money(revenue)} $</div>
-      <div style="color:#f5c542;font-weight:600;">Coût des pièces : ${money(cost)} $</div>
-      <div style="color:#4CAF50;font-weight:600;">Profit brut estimé : ${money(profit)} $</div>
-      <div style="margin-top:4px;color:#ccc;">Main-d’œuvre considérée sans coût salarial.</div>
-    `;
-
-    globalTooltip.style.display = "block";
-    globalTooltip.style.opacity = "1";
-    globalTooltip.style.left = (e.clientX + 15) + "px";
-    globalTooltip.style.top  = (e.clientY - 50) + "px";
-  };
-
-  barWrap.onmouseleave = () => {
-    globalTooltip.style.opacity = "0";
-    setTimeout(() => {
-      globalTooltip.style.display = "none";
-    }, 150);
-  };
-
-  /* ===== LABELS ===== */
-
-  const monthLabel = document.createElement("div");
-  monthLabel.textContent = month;
-  monthLabel.style.marginTop = "8px";
-  monthLabel.style.fontSize = "12px";
-  monthLabel.style.opacity = "0.8";
-
-  const revenueLabel = document.createElement("div");
-  revenueLabel.textContent = money(cost) + " $";
-  revenueLabel.style.color = "#f5c542";
-  revenueLabel.style.fontWeight = "700";
-  revenueLabel.style.fontSize = "12px";
-
-  const profitLabel = document.createElement("div");
-  profitLabel.textContent = money(profit) + " $";
-  profitLabel.style.color = "#4CAF50";
-  profitLabel.style.fontWeight = "700";
-  profitLabel.style.fontSize = "12px";
-
-  col.appendChild(barWrap);
-  col.appendChild(monthLabel);
-  col.appendChild(revenueLabel);
-  col.appendChild(profitLabel);
-
-  chart.appendChild(col);
-});
-}
-
-  
   function monthLabel(index){
   const months = [
     "Jan","Fév","Mar","Avr","Mai","Juin",
