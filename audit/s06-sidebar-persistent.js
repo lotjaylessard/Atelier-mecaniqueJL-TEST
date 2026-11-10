@@ -245,8 +245,16 @@
       const currentWo=document.getElementById("woEditId")?.value;
       if(!pilot||String(currentWo)!==selected.id||
         pilot.dataset.sessionId!==requestedId)return;
+      if(action==="finish"){
+        // Terminer depuis le menu : le pilote vérifie la session,
+        // met en pause si nécessaire puis ouvre le formulaire du BT.
+        clearInterval(watcher);
+        pilot.dispatchEvent(new CustomEvent("s06-sidebar-finish-request",{
+          detail:{sessionId:requestedId,woId:selected.id}
+        }));
+        return;
+      }
       const button=pilot.querySelector("#"+(
-        action==="finish"?"s06End":
         action==="recover"?"s06Recover":
         action==="pause"?"s06Pause":"s06Start"));
       if(!button||button.disabled||button.hidden){
