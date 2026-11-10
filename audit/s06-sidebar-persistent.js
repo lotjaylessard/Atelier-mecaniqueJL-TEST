@@ -243,8 +243,9 @@
       }
       const pilot=document.getElementById("s06WoPilot");
       const currentWo=document.getElementById("woEditId")?.value;
-      if(!pilot||String(currentWo)!==selected.id||
-        pilot.dataset.sessionId!==requestedId)return;
+      // La lecture de la session est asynchrone : le pilote valide lui-même
+      // son identité Supabase. Ne pas attendre son data-session-id ici.
+      if(!pilot||String(currentWo)!==selected.id)return;
       if(action==="finish"){
         // Terminer depuis le menu : le pilote vérifie la session,
         // met en pause si nécessaire puis ouvre le formulaire du BT.
