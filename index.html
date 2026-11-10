@@ -2217,7 +2217,6 @@ button.link:hover{
         <label>Nom affiché
           <input id="settingProfileDisplayName" type="text" maxlength="80" autocomplete="name" placeholder="Prénom et nom" />
         </label>
-        <button id="saveProfileDisplayName" type="button" class="ghost">Enregistrer mon nom</button>
       </div>
       <div id="profileDisplayNameStatus" class="muted" role="status" aria-live="polite"></div>
       <div class="jl-theme-row" style="margin-top:10px">
@@ -2236,11 +2235,15 @@ button.link:hover{
         <label>Taux horaire ($/h)<input id="settingDefaultHourlyRate" type="number" step="0.01" placeholder="ex: 60" /></label>
       </div>
       <div class="jl-settings-actions">
-        <button id="saveSettings" type="button">💾 Enregistrer les paramètres</button>
         <button id="applyDefaultRateToServices" type="button" class="ghost" title="Modifie uniquement les services à taux horaire, sans toucher aux forfaits">Appliquer le taux aux services horaires</button>
       </div>
-      <p class="muted jl-settings-hint">Enregistrer les paramètres sauvegarde aussi le nom du garage. Taxes appliquées aux nouvelles factures; forfaits inchangés.</p>
+      <p class="muted jl-settings-hint">Taxes appliquées aux nouvelles factures; forfaits inchangés.</p>
     </section>
+
+    <div class="jl-settings-actions" style="margin:10px 0 16px">
+      <button id="saveSettings" type="button">💾 Enregistrer les paramètres</button>
+      <span id="jlSettingsSaveStatus" class="muted" role="status" aria-live="polite"></span>
+    </div>
 
     <details class="jl-settings-backup jl-settings-options" id="jlDashboardOptions">
       <summary>📊 Tableau de bord <span class="muted">(personnaliser)</span></summary>
@@ -9242,35 +9245,6 @@ function saveSettings(){
   // ===============================
 // 💾 Sauvegarde des paramètres
 // ===============================
-if ($("saveSettings")){
-  $("saveSettings").onclick = () => {
-
-    SETTINGS.garageName =
-      $("settingGarageName").value.trim() || "Garage";
-
-    SETTINGS.gst =
-      Number($("settingGST").value || 0);
-
-    SETTINGS.qst =
-      Number($("settingQST").value || 0);
-
-    SETTINGS.defaultHourlyRate =
-      Number($("settingDefaultHourlyRate").value || 0);
-
-    localStorage.setItem(
-      STORAGE.settings,
-      JSON.stringify(SETTINGS)
-    );
-
-    scheduleCloudSync();
-
-    updateGarageNameUI();
-
-    alert("Paramètres enregistrés");
-  };
-}
-
-  
 function initSettings(){
   loadSettings();
   
@@ -9284,15 +9258,43 @@ function initSettings(){
   $('settingDefaultHourlyRate').value = SETTINGS.defaultHourlyRate || 0;
 
   if($('saveSettings')){
-    $('saveSettings').addEventListener('click',()=>{
-      SETTINGS.garageName = $('settingGarageName').value.trim() || SETTINGS.garageName;
-      SETTINGS.gst = toNum($('settingGST')?.value, SETTINGS.gst);
-      SETTINGS.qst = toNum($('settingQST')?.value, SETTINGS.qst);
-      SETTINGS.defaultHourlyRate = toNum($('settingDefaultHourlyRate')?.value, SETTINGS.defaultHourlyRate);
-      
-      saveSettings();
-      alert('Paramètres enregistrés.');
-      renderTotals();
+    $('saveSettings').addEventListener('click', async ()=>{
+      const button=$('saveSettings');
+      const status=document.getElementById('jlSettingsSaveStatus');
+      const profileInput=document.getElementById('settingProfileDisplayName');
+      const profileName=profileInput?.value.trim().replace(/\s+/g,' ')||'';
+      const oldProfileName=String(SUPABASE_USER?.user_metadata?.display_name||'').trim();
+      button.disabled=true;
+      if(status)status.textContent='Enregistrement…';
+      try{
+        // Validation avant de sauvegarder les réglages du garage.
+        if(!profileName || profileName.length>80){
+          if(status)status.textContent='Nom affiché invalide (1 à 80 caractères).';
+          return;
+        }
+        const gst=Number($('settingGST').value);
+        const qst=Number($('settingQST').value);
+        const rate=Number($('settingDefaultHourlyRate').value);
+        if(![gst,qst,rate].every(Number.isFinite) || gst<0 || qst<0 || rate<0){
+          if(status)status.textContent='Vérifie les taxes et le taux horaire.';
+          return;
+        }
+        SETTINGS.garageName=$('settingGarageName').value.trim() || SETTINGS.garageName;
+        SETTINGS.gst=gst;
+        SETTINGS.qst=qst;
+        SETTINGS.defaultHourlyRate=rate;
+        saveSettings();
+        updateGarageNameUI();
+        renderTotals();
+        // Le profil appartient à Supabase Auth : ne l'écrire que s'il a changé.
+        const profileSaved=profileName===oldProfileName || await saveConnectedUserDisplayName();
+        if(status)status.textContent=profileSaved
+          ? '✓ Paramètres enregistrés.'
+          : '⚠ Réglages du garage enregistrés; nom affiché non confirmé.';
+      }catch(error){
+        console.error('[TEST] Enregistrement paramètres',error);
+        if(status)status.textContent='⚠ Enregistrement non confirmé. Vérifie les données.';
+      }finally{button.disabled=false;}
     });
   }
 }
@@ -14265,15 +14267,15 @@ function initLinksModule() {
   // Auth user_metadata est destiné à la présentation, jamais aux permissions.
   async function saveConnectedUserDisplayName(){
     const input=document.getElementById("settingProfileDisplayName");
-    const button=document.getElementById("saveProfileDisplayName");
+    const button=document.getElementById("saveSettings");
     const status=document.getElementById("profileDisplayNameStatus");
-    if(!input||!button||!status)return;
+    if(!input||!button||!status)return false;
     const name=input.value.trim().replace(/\s+/g," ");
     if(!name||name.length>80){
-      status.textContent="Entre un nom de 1 à 80 caractères.";return;
+      status.textContent="Entre un nom de 1 à 80 caractères.";return false;
     }
     if(!sb?.auth||!SUPABASE_USER?.id){
-      status.textContent="Compte non connecté : modification impossible.";return;
+      status.textContent="Compte non connecté : modification impossible.";return false;
     }
     button.disabled=true;
     status.textContent="Enregistrement du profil…";
@@ -14290,12 +14292,13 @@ function initLinksModule() {
       SUPABASE_USER=verified.data.user;
       updateConnectedUserGreeting();
       status.textContent="✓ Nom enregistré pour ce compte.";
+      return true;
     }catch(error){
       console.error("[TEST] Nom du profil non confirmé",error);
-      status.textContent="Enregistrement non confirmé. Réessaie sans modifier les paramètres du garage.";
+      status.textContent="Enregistrement du nom affiché non confirmé.";
+      return false;
     }finally{button.disabled=false;}
   }
-  document.getElementById("saveProfileDisplayName")?.addEventListener("click",saveConnectedUserDisplayName);
 
 
 function syncKmEverywhereFromWO(wo, newKm){
