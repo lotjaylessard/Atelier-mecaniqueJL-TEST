@@ -1439,12 +1439,24 @@ button.link:hover{
 
     <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;">
-  <h3>📅 Revenus mensuels</h3>
+  <h3>📅 Résultats mensuels — factures entièrement payées</h3>
 
   <select id="revenueYearFilter"
           style="width:120px;height:32px;">
   </select>
 </div>
+  <div id="annualRevenueSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:12px 0 10px;" aria-live="polite">
+    <div style="border:1px solid var(--border);border-radius:8px;padding:10px">
+      <div class="muted">Factures payées (taxes incluses)</div><strong id="annualPaidTotal">0,00 $</strong>
+    </div>
+    <div style="border:1px solid var(--border);border-radius:8px;padding:10px">
+      <div class="muted">Coût d'achat des pièces</div><strong id="annualPartCost" style="color:#f5c542">0,00 $</strong>
+    </div>
+    <div style="border:1px solid var(--border);border-radius:8px;padding:10px">
+      <div class="muted">Profit brut estimé</div><strong id="annualGrossProfit" style="color:#4CAF50">0,00 $</strong>
+    </div>
+  </div>
+  <p class="muted" style="margin:0 0 8px;font-size:12px">Jaune : coût d'achat des pièces · Vert : profit brut estimé. Les salaires et autres dépenses ne sont pas déduits; les factures payées incluent les taxes.</p>
   <div id="monthlyRevenueChart"
      style="
        height:220px;
@@ -12484,8 +12496,16 @@ if (!globalTooltip){
 const chart = $("monthlyRevenueChart");
 const yearSelect = $("revenueYearFilter");
 if (!chart) return;
-
-chart.innerHTML = "";
+const annualPaid=$("annualPaidTotal");
+const annualCost=$("annualPartCost");
+const annualProfit=$("annualGrossProfit");
+const annualReset=()=>{
+  if(annualPaid)annualPaid.textContent=money(0)+" $";
+  if(annualCost)annualCost.textContent=money(0)+" $";
+  if(annualProfit)annualProfit.textContent=money(0)+" $";
+};
+annualReset();
+chart.replaceChildren();
 
 const paidInvoices = (INVOICES || []).filter(inv =>
   (inv.status || "").toLowerCase() === "paid" && monthlyInvoiceSettlementDate(inv)
@@ -12528,17 +12548,21 @@ paidInvoices
     const month = monthlyInvoiceSettlementDate(inv).slice(0,7);
 
     if (!monthMap[month]){
-      monthMap[month] = { revenue:0, profit:0 };
+      monthMap[month] = { revenue:0, cost:0, profit:0 };
     }
 
+    // Total TTC utile au suivi des paiements, mais ne pas le confondre avec
+    // le coût des pièces ou le profit brut (tous deux calculés hors taxes).
     monthMap[month].revenue += Number(inv.total || 0);
-
     const wo = WORKORDERS.find(w =>
       String(w.number) === String(inv.workOrderNumber)
     );
-
-    if (wo){
-      monthMap[month].profit += calcWorkOrderProfit(wo);
+    if(wo){
+      const partsCost=(Array.isArray(wo.parts)?wo.parts:[]).reduce((sum,part)=>{
+        return sum+Number(part.cost||0)*Number(part.qty||0);
+      },0);
+      monthMap[month].cost+=partsCost;
+      monthMap[month].profit+=calcWorkOrderProfit(wo);
     }
   });
 
@@ -12549,10 +12573,19 @@ if (months.length === 0){
   return;
 }
 
-const maxRevenueRaw = Math.max(...months.map(m => monthMap[m].revenue));
+const yearly=months.reduce((sum,month)=>{
+  sum.paid+=monthMap[month].revenue;
+  sum.cost+=monthMap[month].cost;
+  sum.profit+=monthMap[month].profit;
+  return sum;
+},{paid:0,cost:0,profit:0});
+if(annualPaid)annualPaid.textContent=money(yearly.paid)+" $";
+if(annualCost)annualCost.textContent=money(yearly.cost)+" $";
+if(annualProfit)annualProfit.textContent=money(yearly.profit)+" $";
 
-// 👇 On ajoute 15% d'espace visuel
-const maxRevenue = maxRevenueRaw * 1.15;
+// Hauteur basée sur les coûts connus + profits positifs : jamais sur les taxes.
+const maxRevenueRaw=Math.max(...months.map(m=>Math.max(0,monthMap[m].cost)+Math.max(0,monthMap[m].profit)));
+const maxRevenue=Math.max(1,maxRevenueRaw*1.15);
 
 
 /* ===================== RENDU ===================== */
@@ -12560,7 +12593,8 @@ const maxRevenue = maxRevenueRaw * 1.15;
 months.forEach(month => {
 
   const revenue = monthMap[month].revenue;
-  const profit  = monthMap[month].profit;
+  const cost = monthMap[month].cost;
+  const profit = monthMap[month].profit;
 
   const col = document.createElement("div");
   col.style.display = "flex";
@@ -12577,47 +12611,27 @@ months.forEach(month => {
   barWrap.style.justifyContent = "flex-end";
   barWrap.style.width = "100%";
 
-  // Hauteur totale basée sur revenu vs mois max
-  const totalHeight = (revenue / maxRevenue) * 180;
-
-  // Ratio de marge réel
-  const marginRatio = revenue > 0 ? (profit / revenue) : 0;
-
-  const profitHeight  = totalHeight * marginRatio;
-  const revenueHeight = totalHeight - profitHeight;
-
-  const revenueBar = document.createElement("div");
-  revenueBar.style.height = revenueHeight + "px";
-  revenueBar.style.background = "#f5c542";
-  revenueBar.style.width = "100%";
-  revenueBar.style.borderRadius = "4px 4px 0 0";
-
-  const profitBar = document.createElement("div");
-  profitBar.style.height = profitHeight + "px";
-  profitBar.style.background = "#4CAF50";
-  profitBar.style.width = "100%";
-
-  barWrap.appendChild(revenueBar);
+  const costHeight=(Math.max(0,cost)/maxRevenue)*180;
+  const profitHeight=(Math.max(0,profit)/maxRevenue)*180;
+  const costBar=document.createElement("div");
+  costBar.style.height=costHeight+"px";
+  costBar.style.background="#f5c542";
+  costBar.style.width="100%";
+  const profitBar=document.createElement("div");
+  profitBar.style.height=profitHeight+"px";
+  profitBar.style.background="#4CAF50";
+  profitBar.style.width="100%";
+  barWrap.appendChild(costBar);
   barWrap.appendChild(profitBar);
 
   /* ===== TOOLTIP GLOBAL PRO ===== */
 
   barWrap.onmousemove = (e) => {
-
-    const margin = revenue > 0
-      ? ((profit / revenue) * 100).toFixed(1)
-      : 0;
-
     globalTooltip.innerHTML = `
-      <div style="color:#f5c542;font-weight:600;">
-        Revenu: ${money(revenue)} $
-      </div>
-      <div style="color:#4CAF50;font-weight:600;">
-        Profit: ${money(profit)} $
-      </div>
-      <div style="margin-top:4px;color:#ccc;">
-        Marge: <b>${margin} %</b>
-      </div>
+      <div style="color:#ddd;font-weight:600;">Factures payées TTC : ${money(revenue)} $</div>
+      <div style="color:#f5c542;font-weight:600;">Coût des pièces : ${money(cost)} $</div>
+      <div style="color:#4CAF50;font-weight:600;">Profit brut estimé : ${money(profit)} $</div>
+      <div style="margin-top:4px;color:#ccc;">Main-d’œuvre considérée sans coût salarial.</div>
     `;
 
     globalTooltip.style.display = "block";
@@ -12642,7 +12656,7 @@ months.forEach(month => {
   monthLabel.style.opacity = "0.8";
 
   const revenueLabel = document.createElement("div");
-  revenueLabel.textContent = money(revenue) + " $";
+  revenueLabel.textContent = money(cost) + " $";
   revenueLabel.style.color = "#f5c542";
   revenueLabel.style.fontWeight = "700";
   revenueLabel.style.fontSize = "12px";
