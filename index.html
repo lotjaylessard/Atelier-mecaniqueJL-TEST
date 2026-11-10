@@ -12355,15 +12355,35 @@ async function dashboardRefreshPendingQuotes(){
     if(!db?.auth?.getUser||!db?.from)throw Error("Supabase indisponible");
     const {data:auth,error:authError}=await db.auth.getUser();
     if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
-    const {count,error}=await db.from("garage_quotes")
-      .select("id",{count:"exact",head:true})
+    const {data:rows,count,error}=await db.from("garage_quotes")
+      .select("id,quote_number,created_at,status,content",{count:"exact"})
       .eq("garage_id",ACTIVE_GARAGE_ID)
       .eq("user_id",auth.user.id)
-      .eq("status","sent");
-    if(error||!Number.isSafeInteger(count))throw Error("Nombre de soumissions non confirmé");
+      .eq("status","sent")
+      .order("created_at",{ascending:false})
+      .limit(5);
+    if(error||!Array.isArray(rows)||!Number.isSafeInteger(count))
+      throw Error("Soumissions non confirmées");
     if(el){el.textContent=String(count);el.title="Soumissions envoyées en attente d'approbation";}
+    jlDashboardFillList("jlDashboardQuotesBox",rows.map(q=>{
+      const detail=q.content||{};
+      const amount=Number(detail.totalCents);
+      return {
+        title:String(q.quote_number||"SO")+" · "+
+          (Number.isFinite(amount)?money(amount/100)+" $":"Montant à vérifier"),
+        subtitle:String(detail.clientName||"Client inconnu")+
+          (detail.vehicleLabel?" · "+String(detail.vehicleLabel):""),
+        detail:String(q.created_at||"").slice(0,10),
+        badge:"Envoyée",kind:"partial",
+        onClick:()=>jlDashboardOpenQuote(q.id)
+      };
+    }),"Aucune soumission en attente d'approbation.");
   }catch(error){
     if(el){el.textContent="—";el.title="Lecture des soumissions indisponible";}
+    const list=document.getElementById("jlDashboardQuotesBox");
+    if(list){const message=document.createElement("span");message.className="muted";
+      message.textContent="Impossible de vérifier les soumissions.";
+      list.replaceChildren(message);}
     console.warn("[Dashboard TEST] Soumissions non vérifiées",error);
   }finally{dashboardQuotePending=false;}
 }
