@@ -2173,6 +2173,15 @@ button.link:hover{
 
         <hr style="margin:20px 0; border-color:var(--border);">
 
+        <h3>Mon profil</h3>
+        <label for="settingProfileDisplayName">Nom affiché dans la barre du haut</label>
+        <input id="settingProfileDisplayName" type="text" maxlength="80" autocomplete="name" placeholder="Prénom et nom">
+        <div class="muted" style="margin-top:6px;">Personnel au compte connecté. Ne modifie ni le nom du garage ni le rôle Propriétaire/Employé.</div>
+        <button id="saveProfileDisplayName" type="button" class="ghost" style="margin-top:10px;">Enregistrer mon nom</button>
+        <div id="profileDisplayNameStatus" class="muted" role="status" aria-live="polite" style="margin-top:6px;"></div>
+
+        <hr style="margin:20px 0; border-color:var(--border);">
+
         <h3>Sauvegarde / Restauration</h3>
         <button id="btnExportData">📤 Exporter toutes les données</button>
         <br><br>
@@ -14032,14 +14041,52 @@ function initLinksModule() {
     if(!greeting)return;
     if(!SUPABASE_USER?.id){greeting.textContent="Bonjour!";return;}
     const metadata=SUPABASE_USER.user_metadata||{};
-    const displayName=[metadata.first_name,metadata.firstName,metadata.name,metadata.full_name,metadata.display_name]
+    const displayName=[metadata.display_name,metadata.full_name,metadata.first_name,metadata.firstName,metadata.name]
       .find(value=>typeof value==="string"&&value.trim())?.trim()
       ||String(SUPABASE_USER.email||"").split("@")[0].replace(/[._-]+/g," ").trim()
       ||"Utilisateur";
     const roleLabel=ACTIVE_GARAGE_MEMBER_ROLE==="owner"?"Propriétaire"
       :ACTIVE_GARAGE_MEMBER_ROLE==="employee"?"Employé":"";
     greeting.textContent="Bonjour, "+(roleLabel?roleLabel+" ":"")+displayName+"!";
+    const field=document.getElementById("settingProfileDisplayName");
+    if(field && document.activeElement!==field)field.value=String(metadata.display_name||"");
   }
+
+  // Le nom d'affichage appartient exclusivement au compte authentifié.
+  // Auth user_metadata est destiné à la présentation, jamais aux permissions.
+  async function saveConnectedUserDisplayName(){
+    const input=document.getElementById("settingProfileDisplayName");
+    const button=document.getElementById("saveProfileDisplayName");
+    const status=document.getElementById("profileDisplayNameStatus");
+    if(!input||!button||!status)return;
+    const name=input.value.trim().replace(/\\s+/g," ");
+    if(!name||name.length>80){
+      status.textContent="Entre un nom de 1 à 80 caractères.";return;
+    }
+    if(!sb?.auth||!SUPABASE_USER?.id){
+      status.textContent="Compte non connecté : modification impossible.";return;
+    }
+    button.disabled=true;
+    status.textContent="Enregistrement du profil…";
+    try{
+      const current=await sb.auth.getUser();
+      if(current.error||current.data?.user?.id!==SUPABASE_USER.id)throw new Error("Session non confirmée.");
+      const {data,error}=await sb.auth.updateUser({data:{display_name:name}});
+      if(error)throw error;
+      if(data?.user?.id!==SUPABASE_USER.id)throw new Error("Mise à jour non confirmée.");
+      const verified=await sb.auth.getUser();
+      if(verified.error||verified.data?.user?.id!==SUPABASE_USER.id||
+         verified.data.user.user_metadata?.display_name!==name)
+         throw new Error("Le profil n'a pas pu être vérifié.");
+      SUPABASE_USER=verified.data.user;
+      updateConnectedUserGreeting();
+      status.textContent="✓ Nom enregistré pour ce compte.";
+    }catch(error){
+      console.error("[TEST] Nom du profil non confirmé",error);
+      status.textContent="Enregistrement non confirmé. Réessaie sans modifier les paramètres du garage.";
+    }finally{button.disabled=false;}
+  }
+  document.getElementById("saveProfileDisplayName")?.addEventListener("click",saveConnectedUserDisplayName);
 
 
 function syncKmEverywhereFromWO(wo, newKm){
