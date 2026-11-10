@@ -2212,7 +2212,7 @@ button.link:hover{
     </details>
 
     <details class="jl-settings-backup jl-settings-options" id="jlDashboardOptions">
-      <summary>📊 Tableau de bord <span class="muted">(personnaliser)</span></summary>
+      <summary>📊 Tableau de bord</summary>
       <div class="jl-settings-toggle-grid">
         <label><input type="checkbox" data-jl-dashboard="notes" checked /> Dernières notes</label>
         <label><input type="checkbox" data-jl-dashboard="monthly" checked /> Résultats mensuels</label>
@@ -2222,14 +2222,14 @@ button.link:hover{
     </details>
 
     <details class="jl-settings-backup jl-settings-options" id="jlPrintOptions">
-      <summary>🧾 Factures et soumissions <span class="muted">(options d'impression)</span></summary>
+      <summary>🧾 Factures et soumissions</summary>
       <div class="jl-settings-toggle-grid">
         <label><input type="checkbox" id="jlPrintPartNumber" checked /> Afficher le # de pièce</label>
       </div>
     </details>
 
     <details class="jl-settings-backup">
-      <summary>🔒 Sauvegardes et sécurité <span class="muted">(ouvrir)</span></summary>
+      <summary>🔒 Sauvegardes et sécurité</summary>
       <div class="muted jl-settings-hint">État : <strong id="jlBackupSyncStatus">à vérifier</strong></div>
       <div class="jl-settings-actions">
         <button id="btnExportData" type="button">📤 Exporter toutes les données</button>
@@ -9273,8 +9273,10 @@ function initSettings(){
         renderTotals();
         // Le profil appartient à Supabase Auth : ne l'écrire que s'il a changé.
         const profileSaved=profileName===oldProfileName || await saveConnectedUserDisplayName();
+        // Aucune phrase grise permanente après une sauvegarde réussie.
+        // Les erreurs restent explicites pour ne jamais masquer un échec.
         if(status)status.textContent=profileSaved
-          ? '✓ Paramètres enregistrés.'+(updatedServices?' '+updatedServices+' service(s) horaire(s) mis à jour.':'')
+          ? ''
           : '⚠ Réglages du garage enregistrés; nom affiché non confirmé.';
       }catch(error){
         console.error('[TEST] Enregistrement paramètres',error);
@@ -14232,7 +14234,7 @@ function initLinksModule() {
          throw new Error("Le profil n'a pas pu être vérifié.");
       SUPABASE_USER=verified.data.user;
       updateConnectedUserGreeting();
-      status.textContent="✓ Nom enregistré pour ce compte.";
+      status.textContent="";
       return true;
     }catch(error){
       console.error("[TEST] Nom du profil non confirmé",error);
