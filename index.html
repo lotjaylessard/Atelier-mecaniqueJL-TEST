@@ -232,6 +232,13 @@ resetInactivityTimer();
 #page-settings .jl-settings-hint{margin:6px 0 0}
 #page-settings .jl-settings-backup{margin-top:12px;padding:10px 12px;border:1px solid var(--border);border-radius:8px}
 #page-settings .jl-settings-backup summary{cursor:pointer;color:var(--accent);font-weight:700}
+#page-settings .jl-settings-options{padding:8px 12px;margin-top:8px}
+#page-settings .jl-settings-toggle-grid{display:flex;flex-wrap:wrap;gap:8px 20px;padding:12px 4px 3px}
+#page-settings .jl-settings-toggle-grid label{display:inline-flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap}
+#page-settings .jl-settings-toggle-grid input{width:auto;margin:0;accent-color:var(--accent)}
+#page-settings .jl-settings-backup .jl-settings-actions{margin-top:8px}
+#page-settings .jl-settings-backup button{padding:6px 10px;font-size:13px}
+
 #page-settings .jl-theme-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 #page-settings .jl-theme-row #jlThemeLabel{font-size:14px;margin-right:8px}
 #page-settings #jlThemeToggle{position:relative;width:48px;height:27px;flex:0 0 48px;border-radius:999px;border:1px solid #838b94;background:#636b75;padding:0;cursor:pointer;transition:background .18s ease,border-color .18s ease}
@@ -2210,36 +2217,51 @@ button.link:hover{
     </section>
 
     <section class="jl-settings-section" aria-labelledby="jlProfileSettingsTitle">
-      <h3 id="jlProfileSettingsTitle">Mon profil</h3>
+      <h3 id="jlProfileSettingsTitle">Mon compte et apparence</h3>
       <div class="jl-settings-profile">
-        <label>Nom affiché dans la barre du haut
+        <label>Nom affiché
           <input id="settingProfileDisplayName" type="text" maxlength="80" autocomplete="name" placeholder="Prénom et nom" />
         </label>
         <button id="saveProfileDisplayName" type="button" class="ghost">Enregistrer mon nom</button>
       </div>
       <div id="profileDisplayNameStatus" class="muted" role="status" aria-live="polite"></div>
-      <p class="muted jl-settings-hint">Personnel au compte connecté. Le rôle Propriétaire/Employé reste automatique.</p>
-    </section>
-
-    <section class="jl-settings-section" aria-labelledby="jlAppearanceTitle">
-      <h3 id="jlAppearanceTitle">Apparence</h3>
-      <div class="jl-theme-row">
-        <span id="jlThemeLabel">Thème du site</span>
-        <span class="muted">Sombre</span>
-        <button id="jlThemeToggle" type="button" role="switch" aria-checked="false" aria-labelledby="jlThemeLabel" aria-label="Thème clair" title="Passer en thème clair"><span class="jl-theme-knob" aria-hidden="true"></span></button>
+      <div class="jl-theme-row" style="margin-top:10px">
+        <span id="jlThemeLabel">Apparence</span><span class="muted">Sombre</span>
+        <button id="jlThemeToggle" type="button" role="switch" aria-checked="false" aria-labelledby="jlThemeLabel" title="Passer en thème clair"><span class="jl-theme-knob" aria-hidden="true"></span></button>
         <span class="muted">Clair</span>
       </div>
-      <p class="muted jl-settings-hint">Préférence de ce navigateur. Aucun effet sur les factures imprimées.</p>
+      <p class="muted jl-settings-hint">Réglages personnels. Le rôle Propriétaire/Employé reste automatique.</p>
     </section>
 
+    <details class="jl-settings-backup jl-settings-options" id="jlDashboardOptions">
+      <summary>📊 Tableau de bord <span class="muted">(personnaliser)</span></summary>
+      <div class="jl-settings-toggle-grid">
+        <label><input type="checkbox" data-jl-dashboard="notes" checked /> Dernières notes</label>
+        <label><input type="checkbox" data-jl-dashboard="monthly" checked /> Résultats mensuels</label>
+        <label><input type="checkbox" data-jl-dashboard="workorders" checked /> BT en cours</label>
+        <label><input type="checkbox" data-jl-dashboard="invoices" checked /> Dernières factures</label>
+      </div>
+      <p class="muted jl-settings-hint">Masque uniquement les blocs sur cet appareil, sans supprimer les données.</p>
+    </details>
+
+    <details class="jl-settings-backup jl-settings-options" id="jlPrintOptions">
+      <summary>🧾 Factures et soumissions <span class="muted">(options d'impression)</span></summary>
+      <div class="jl-settings-toggle-grid">
+        <label><input type="checkbox" id="jlPrintPartNumber" checked /> Afficher le # de pièce</label>
+      </div>
+      <p class="muted jl-settings-hint">Les prix coûtants et les profits internes restent toujours masqués à l'impression.</p>
+    </details>
+
     <details class="jl-settings-backup">
-      <summary>Sauvegarde / Restauration <span class="muted">(ouvrir les outils)</span></summary>
+      <summary>🔒 Sauvegardes et sécurité <span class="muted">(ouvrir)</span></summary>
+      <div class="muted jl-settings-hint">État : <strong id="jlBackupSyncStatus">à vérifier</strong></div>
       <div class="jl-settings-actions">
         <button id="btnExportData" type="button">📤 Exporter toutes les données</button>
         <input type="file" id="importBackupFile" style="display:none;" />
         <button id="btnImportData" type="button" class="ghost">📥 Importer un backup (.json)</button>
       </div>
-      <p class="muted jl-settings-hint">Les restaurations peuvent remplacer des données. Conserve toujours une sauvegarde avant d'importer.</p>
+      <p id="jlBackupAudit" class="muted jl-settings-hint">Export JSON : données du garage et soumissions. Pièces jointes : références seulement, fichiers binaires non inclus.</p>
+      <p id="jlBackupStatus" class="muted jl-settings-hint" role="status" aria-live="polite"></p>
     </details>
   </div>
 </div>
@@ -9289,6 +9311,41 @@ function initSettings(){
     apply(next);
     try{localStorage.setItem(key,next);}catch(_){}
   });
+})();
+
+// S09 TEST : préférences strictement locales et non financières.
+(function initJLPreferences(){
+  const key="jl-test-personal-options-v1";
+  const defaults={dashboard:{notes:true,monthly:true,workorders:true,invoices:true},printPartNumber:true};
+  let saved={};
+  try{saved=JSON.parse(localStorage.getItem(key)||"{}")||{};}catch(_){}
+  const settings={dashboard:{...defaults.dashboard,...(saved.dashboard||{})},printPartNumber:saved.printPartNumber!==false};
+  const save=()=>{try{localStorage.setItem(key,JSON.stringify(settings));}catch(_){}};
+  const applyDashboard=()=>{
+    const mapping={
+      notes:"#lastNotesBox",monthly:"#monthlyRevenueChart",
+      workorders:"#lastWorkOrdersBox",invoices:"#lastInvoicesBox"
+    };
+    for(const [key,selector] of Object.entries(mapping)){
+      const item=document.querySelector(selector);
+      const card=item?.closest(".card,.stat-card");
+      if(card)card.hidden=settings.dashboard[key]===false;
+    }
+  };
+  for(const checkbox of document.querySelectorAll("[data-jl-dashboard]")){
+    const key=checkbox.dataset.jlDashboard;
+    checkbox.checked=settings.dashboard[key]!==false;
+    checkbox.addEventListener("change",()=>{
+      settings.dashboard[key]=checkbox.checked;save();applyDashboard();
+    });
+  }
+  const partNumber=document.getElementById("jlPrintPartNumber");
+  if(partNumber){
+    partNumber.checked=settings.printPartNumber;
+    partNumber.addEventListener("change",()=>{settings.printPartNumber=partNumber.checked;save();});
+  }
+  window.jlPrintShouldShowPartNumber=()=>settings.printPartNumber;
+  applyDashboard();
 })();
 
   // ===================== APPLY DEFAULT RATE TO SERVICES =====================
