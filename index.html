@@ -241,6 +241,14 @@ resetInactivityTimer();
 #page-settings .jl-settings-hint{margin:6px 0 0}
 #page-settings .jl-settings-backup{margin-top:12px;padding:10px 12px;border:1px solid var(--border);border-radius:8px}
 #page-settings .jl-settings-backup summary{cursor:pointer;color:var(--accent);font-weight:700}
+#page-settings .jl-settings-fold{margin-top:8px}
+#page-settings .jl-settings-fold > summary{font-size:16px}
+#page-settings .jl-settings-fold[open] > summary{margin-bottom:12px}
+#page-settings .jl-settings-fold .jl-settings-grid{margin:0}
+#page-settings .jl-settings-rate-tools{margin-top:10px}
+#page-settings .jl-settings-rate-tools summary{font-size:12px;color:var(--muted);font-weight:400}
+#page-settings .jl-settings-rate-tools button{margin-top:8px}
+#page-settings #jlBackupAudit[hidden]{display:none}
 #page-settings .jl-settings-options{padding:8px 12px;margin-top:8px}
 #page-settings .jl-settings-toggle-grid{display:flex;flex-wrap:wrap;gap:8px 20px;padding:12px 4px 3px}
 #page-settings .jl-settings-toggle-grid label{display:inline-flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap}
@@ -2208,8 +2216,8 @@ button.link:hover{
     <div class="page" id="page-settings">
   <h2>Paramètres</h2>
   <div class="card jl-settings-card">
-    <section class="jl-settings-section" aria-labelledby="jlProfileSettingsTitle">
-      <h3 id="jlProfileSettingsTitle">Mon compte et apparence</h3>
+    <details class="jl-settings-backup jl-settings-options jl-settings-fold" id="jlProfileSettings" open>
+      <summary id="jlProfileSettingsTitle">👤 Mon compte et apparence</summary>
       <div class="jl-settings-profile">
         <label>Nom du garage
           <input id="settingGarageName" type="text" />
@@ -2224,21 +2232,20 @@ button.link:hover{
         <button id="jlThemeToggle" type="button" role="switch" aria-checked="false" aria-labelledby="jlThemeLabel" title="Passer en thème clair"><span class="jl-theme-knob" aria-hidden="true"></span></button>
         <span class="muted">Clair</span>
       </div>
-      <p class="muted jl-settings-hint">Réglages personnels. Le rôle Propriétaire/Employé reste automatique.</p>
-    </section>
+    </details>
 
-    <section class="jl-settings-section" aria-labelledby="jlGarageSettingsTitle">
-      <h3 id="jlGarageSettingsTitle">Taxes et main-d’œuvre</h3>
+    <details class="jl-settings-backup jl-settings-options jl-settings-fold" id="jlGarageSettings">
+      <summary id="jlGarageSettingsTitle">🧮 Taxes et main-d’œuvre</summary>
       <div class="jl-settings-grid jl-settings-tax-grid">
         <label>TPS (%)<input id="settingGST" type="number" step="0.01" /></label>
         <label>TVQ (%)<input id="settingQST" type="number" step="0.001" /></label>
         <label>Taux horaire ($/h)<input id="settingDefaultHourlyRate" type="number" step="0.01" placeholder="ex: 60" /></label>
       </div>
-      <div class="jl-settings-actions">
-        <button id="applyDefaultRateToServices" type="button" class="ghost" title="Modifie uniquement les services à taux horaire, sans toucher aux forfaits">Appliquer le taux aux services horaires</button>
-      </div>
-      <p class="muted jl-settings-hint">Taxes appliquées aux nouvelles factures; forfaits inchangés.</p>
-    </section>
+      <details class="jl-settings-rate-tools">
+        <summary>Modifier les tarifs des services existants</summary>
+        <button id="applyDefaultRateToServices" type="button" class="ghost" title="Action distincte : applique le taux indiqué aux services horaires existants, sans modifier les forfaits">Appliquer aux services existants</button>
+      </details>
+    </details>
 
     <div class="jl-settings-actions" style="margin:10px 0 16px">
       <button id="saveSettings" type="button">💾 Enregistrer les paramètres</button>
@@ -2253,7 +2260,6 @@ button.link:hover{
         <label><input type="checkbox" data-jl-dashboard="workorders" checked /> BT en cours</label>
         <label><input type="checkbox" data-jl-dashboard="invoices" checked /> Dernières factures</label>
       </div>
-      <p class="muted jl-settings-hint">Masque uniquement les blocs sur cet appareil, sans supprimer les données.</p>
     </details>
 
     <details class="jl-settings-backup jl-settings-options" id="jlPrintOptions">
@@ -2261,7 +2267,6 @@ button.link:hover{
       <div class="jl-settings-toggle-grid">
         <label><input type="checkbox" id="jlPrintPartNumber" checked /> Afficher le # de pièce</label>
       </div>
-      <p class="muted jl-settings-hint">Les prix coûtants et les profits internes restent toujours masqués à l'impression.</p>
     </details>
 
     <details class="jl-settings-backup">
@@ -2272,7 +2277,7 @@ button.link:hover{
         <input type="file" id="importBackupFile" style="display:none;" />
         <button id="btnImportData" type="button" class="ghost">📥 Importer un backup (.json)</button>
       </div>
-      <p id="jlBackupAudit" class="muted jl-settings-hint">Export JSON : données du garage et soumissions. Pièces jointes : références seulement, fichiers binaires non inclus.</p>
+      <p id="jlBackupAudit" class="muted jl-settings-hint" hidden>Export JSON : données du garage et soumissions. Pièces jointes : références seulement, fichiers binaires non inclus.</p>
       <p id="jlBackupStatus" class="muted jl-settings-hint" role="status" aria-live="polite"></p>
     </details>
   </div>
