@@ -3223,6 +3223,7 @@ function showPage(id){
   // logique par page
   if (id === "page-dashboard") {
     loadWorkOrders();
+    if(typeof renderDashboard==="function")renderDashboard();
   }
 
   if (id === "page-workorders") {
@@ -12264,6 +12265,11 @@ function dashboardOpenModule(page,filter=""){
 // Les soumissions sont séparées dans Supabase; ne pas inventer zéro
 // lorsqu'une lecture réseau échoue.
 let dashboardQuoteCheckAt=0,dashboardQuotePending=false;
+window.addEventListener("s08-quotes-refreshed",()=>{
+  dashboardQuoteCheckAt=0;
+  if(document.getElementById("page-dashboard")?.style.display!=="none")
+    void dashboardRefreshPendingQuotes();
+});
 async function dashboardRefreshPendingQuotes(){
   if(dashboardQuotePending||Date.now()-dashboardQuoteCheckAt<15000)return;
   if(typeof CLOUD_DATA_READY==="undefined"||!CLOUD_DATA_READY||
@@ -16448,6 +16454,8 @@ if (window.garageSupabase) {
       if(readError)throw readError;
       quotes=Array.isArray(data)?data:[];
       renderQuoteList();
+      // Actualisation directe du compteur Dashboard à chaque relecture des SO.
+      window.dispatchEvent(new Event("s08-quotes-refreshed"));
     }catch(err){
       console.warn("[S08] Liste des soumissions indisponible",err);
       get("s08QuoteCount").textContent="Liste indisponible — vérifier la connexion.";
