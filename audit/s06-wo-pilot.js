@@ -222,7 +222,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     qs("s06Start").disabled=app.busy||!!another||r?.status==="running"||r?.status==="posted";
     qs("s06Pause").disabled=app.busy||r?.status!=="running"||app.ownRunning!==r.id;
     qs("s06End").disabled=app.busy||!!another||!r||r.status!=="paused"||
-      Number(r.confirmed_ms)<18000;
+      Number(r.confirmed_ms)<=0;
     qs("s06Recover").hidden=!(r?.status==="running"&&app.ownRunning!==r.id);
     qs("s06Recover").disabled=app.busy;
     if(another)setMsg("Une autre minuterie est en cours. Ouvre son BT pour la gérer.");
@@ -493,8 +493,8 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
   async function finish(){
     const session=app.session,raw=qs("s06Rate").value,rate=Number(raw),
       desc=qs("s06Description").value.trim();
-    if(!session||session.status!=="paused"||Number(session.confirmed_ms)<18000)
-      throw Error("Il faut une minuterie en pause d'au moins 18 secondes.");
+    if(!session||session.status!=="paused"||Number(session.confirmed_ms)<=0)
+      throw Error("Il faut une minuterie en pause avec un temps confirmé supérieur à zéro.");
     if(!desc||desc.length>2000||raw===""||!Number.isFinite(rate)||rate<0||rate>100000)
       throw Error("Description et taux horaire valides requis.");
     if(!safeToPost())throw Error("Une sauvegarde locale est en cours ou en conflit.");
