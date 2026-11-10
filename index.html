@@ -14059,7 +14059,7 @@ function initLinksModule() {
     const button=document.getElementById("saveProfileDisplayName");
     const status=document.getElementById("profileDisplayNameStatus");
     if(!input||!button||!status)return;
-    const name=input.value.trim().replace(/\\s+/g," ");
+    const name=input.value.trim().replace(/\s+/g," ");
     if(!name||name.length>80){
       status.textContent="Entre un nom de 1 à 80 caractères.";return;
     }
