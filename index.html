@@ -12368,6 +12368,43 @@ async function dashboardRefreshPendingQuotes(){
   }finally{dashboardQuotePending=false;}
 }
 
+// Lignes cliquables sans HTML interpolé : titres provenant des données
+// affichés avec textContent, jamais interprétés comme du code.
+function jlDashboardFillList(id,items,emptyMessage){
+  const target=document.getElementById(id);if(!target)return;
+  target.replaceChildren();
+  if(!items.length){const p=document.createElement("span");p.className="muted";
+    p.textContent=emptyMessage;target.append(p);return;}
+  for(const item of items){
+    const row=document.createElement("button");row.type="button";
+    row.className="jl-dashboard-row";
+    const title=document.createElement("span");title.className="jl-dashboard-row-title";
+    const name=document.createElement("span");name.textContent=item.title||"";
+    title.append(name);
+    if(item.badge){
+      const tag=document.createElement("span");tag.className="jl-dashboard-tag";
+      tag.dataset.kind=item.kind||"";tag.textContent=item.badge;title.append(tag);
+    }
+    row.append(title);
+    if(item.subtitle){const subtitle=document.createElement("span");
+      subtitle.className="jl-dashboard-row-subtitle";subtitle.textContent=item.subtitle;
+      row.append(subtitle);}
+    if(item.detail){const detail=document.createElement("span");
+      detail.className="jl-dashboard-row-detail";detail.textContent=item.detail;
+      detail.title=item.detail;row.append(detail);}
+    if(typeof item.onClick==="function")row.addEventListener("click",item.onClick);
+    target.append(row);
+  }
+}
+function jlDashboardOpenInvoice(number){
+  showPage("page-invoice-list");
+  openInvoiceEditModal(number);
+}
+function jlDashboardOpenQuote(id){
+  showPage("page-quotes");
+  window.dispatchEvent(new CustomEvent("jl-dashboard-open-quote",{detail:{id}}));
+}
+
 function renderDashboard(){
   // 🔒 Source de vérité directe (dashboard = lecture seule)
 INVOICES = loadArrayFromStorage(STORAGE.invoices);
@@ -12535,102 +12572,70 @@ if ($("lastNotesBox")) {
 }
 
   
-    /* ===== 5 DERNIÈRES FACTURES ===== */
-if ($("lastInvoicesBox")) {
+    /* ===== Dernières factures : statut et solde en lecture seule ===== */
+const recentInvoices=(INVOICES||[]).filter(inv=>inv&&inv.archived!==true)
+  .sort((a,b)=>Date.parse(b.date||"")-Date.parse(a.date||"")).slice(0,5);
+jlDashboardFillList("lastInvoicesBox",recentInvoices.map(inv=>{
+  const linked=WORKORDERS.find(w=>String(w.number)===String(inv.workOrderNumber||inv.referenceWO||""));
+  const vehicle=String(inv.vehicle||linked?.vehicleLabel||"").trim();
+  const status=String(inv.status||"unpaid").toLowerCase();
+  const paid=Number(inv.paidAmount||0);
+  const total=Number(inv.total||0);
+  const balance=Math.max(0,total-(Number.isFinite(paid)?paid:0));
+  return {
+    title:"#"+String(inv.number||"—")+" · "+money(total)+" $",
+    subtitle:String(inv.customer||"Client inconnu")+(vehicle?" · "+vehicle:""),
+    detail:(inv.date?String(inv.date)+" · ":"")+"Solde : "+money(balance)+" $",
+    badge:status==="paid"?"Payée":status==="partial"?"Partielle":"Impayée",
+    kind:status==="paid"?"paid":status==="partial"?"partial":"overdue",
+    onClick:()=>jlDashboardOpenInvoice(inv.number)
+  };
+}),"Aucune facture enregistrée.");
 
-    const lastFive = [...activeInvoices]
-        .sort((a, b) => new Date(b.date) - new Date(a.date)) // plus récent → plus ancien
-        .slice(0, 5);
+/* ===== BT en cours : estimation pièces et main-d'œuvre, sans taxes ===== */
+const activeWO=WORKORDERS.filter(w=>w?.status==="en_cours")
+  .sort((a,b)=>Date.parse(b.date||"")-Date.parse(a.date||"")).slice(0,5);
+jlDashboardFillList("lastWorkOrdersBox",activeWO.map(wo=>{
+  const parts=(Array.isArray(wo.parts)?wo.parts:[]).reduce((total,p)=>
+    total+Number(p.qty||0)*Number(p.rate||0),0);
+  const labor=(Array.isArray(wo.labor)?wo.labor:[]).reduce((total,l)=>
+    total+s06LaborLineAmount(l),0);
+  const estimate=parts+labor;
+  const desc=String(wo.description||wo.problem||wo.desc||"").replace(/\s+/g," ").trim();
+  return {
+    title:"#"+String(wo.number||"—")+" · "+money(estimate)+" $ estimés",
+    subtitle:String(wo.clientName||"Client inconnu")+
+      (wo.vehicleLabel?" · "+String(wo.vehicleLabel):""),
+    detail:desc.length>95?desc.slice(0,95)+"…":desc,
+    onClick:()=>openWorkOrderFromDashboard(wo.id)
+  };
+}),"Aucun bon de travail en cours.");
 
-    $("lastInvoicesBox").innerHTML = "";
-
-    let html = "";
-
-    if (lastFive.length === 0) {
-        html = `<span style="color:var(--muted);">Aucune facture enregistrée.</span>`;
-    } else {
-        html += `<div style="display:flex;flex-direction:column;gap:6px;">`;
-
-        // ICI : affichage direct dans l’ordre trié
-        lastFive.forEach(inv => {
-            const linkedWO = WORKORDERS.find(wo =>
-              String(wo.number) === String(inv.workOrderNumber || inv.referenceWO || "")
-            );
-            const vehicleLabel = String(inv.vehicle || linkedWO?.vehicleLabel || "").trim();
-            html += `
-                <div 
-                    style="padding:6px; border:1px solid var(--border); border-radius:6px; cursor:pointer;"
-                    onclick="openFromDashboard('${inv.number}')"
-                >
-                    <b>#${inv.number}</b> — ${money(inv.total)} $
-                    <br><span class="muted">${inv.customer || "Client inconnu"}${vehicleLabel ? " • " + vehicleLabel : ""}</span>
-                </div>
-            `;
-        });
-
-        html += `</div>`;
-    }
-
-    $("lastInvoicesBox").innerHTML = html;
-}
-
-  
-/* ===== 5 DERNIERS BONS DE TRAVAIL (EN COURS SEULEMENT) ===== */
-if ($("lastWorkOrdersBox")) {
-
-  const activeWO = WORKORDERS
-    .filter(wo => wo.status === "en_cours")
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 5);
-
-  let html = "";
-
-  if (activeWO.length === 0) {
-    html = `<span style="color:var(--muted);">Aucun bon de travail en cours.</span>`;
-  } else {
-    html += `<div style="display:flex;flex-direction:column;gap:6px;">`;
-
-    activeWO.forEach(wo => {
-
-  const descPreview = (wo.description || wo.problem || "")
-    .replace(/\n+/g, " ")
-    .slice(0, 100);
-
-  html += `
-    <div
-      style="
-        padding:6px;
-        border:1px solid var(--border);
-        border-radius:6px;
-        cursor:pointer;
-      "
-      onclick="openWorkOrderFromDashboard(${wo.id})"
-    >
-      <div style="font-weight:600;">
-        ${wo.number}
-      </div>
-
-      <div class="muted" style="font-size:0.85rem;">
-        ${wo.clientName || ""}
-        ${wo.vehicleLabel ? "• " + wo.vehicleLabel : ""}
-      </div>
-
-      ${descPreview ? `
-        <div style="font-size:0.85rem; margin-top:4px; line-height:1.2;">
-          ${descPreview}${descPreview.length >= 100 ? "…" : ""}
-        </div>
-      ` : ""}
-    </div>
-  `;
-});
-
-    html += `</div>`;
-  }
-
-  $("lastWorkOrdersBox").innerHTML = html;
-}
-
-
+/* ===== Anciennes factures ouvertes : âge calendaire, pas une échéance légale ===== */
+const today=new Date();today.setHours(0,0,0,0);
+const datedUnpaid=activeInvoices.filter(inv=>
+  ["unpaid","pending","partial"].includes(String(inv.status||"unpaid").toLowerCase())
+).map(inv=>{
+  const d=String(inv.date||"").match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(!d)return null;
+  const invoiceDate=new Date(Number(d[1]),Number(d[2])-1,Number(d[3]));
+  if(invoiceDate.getFullYear()!==Number(d[1])||invoiceDate.getMonth()!==Number(d[2])-1||
+     invoiceDate.getDate()!==Number(d[3]))return null;
+  const days=Math.floor((Date.UTC(today.getFullYear(),today.getMonth(),today.getDate())-
+    Date.UTC(invoiceDate.getFullYear(),invoiceDate.getMonth(),invoiceDate.getDate()))/86400000);
+  return days>=15?{inv,days}:null;
+}).filter(Boolean).sort((a,b)=>b.days-a.days);
+jlDashboardFillList("jlDashboardOldInvoicesBox",datedUnpaid.slice(0,5).map(({inv,days})=>{
+  const paid=Number(inv.paidAmount||0);
+  const balance=Math.max(0,Number(inv.total||0)-(Number.isFinite(paid)?paid:0));
+  return {
+    title:"#"+String(inv.number||"—")+" · "+money(balance)+" $ à recevoir",
+    subtitle:String(inv.customer||"Client inconnu"),
+    detail:days+" jours depuis la facture",
+    badge:days>=30?"30 jours +":"15–29 jours",kind:"overdue",
+    onClick:()=>jlDashboardOpenInvoice(inv.number)
+  };
+}),"Aucune facture impayée de 15 jours ou plus.");
     /* === Mettre à jour les filtres (client & véhicule) === */
   if ($("filterClient")) {
       const selClient = $("filterClient");
@@ -16596,6 +16601,18 @@ if (window.garageSupabase) {
       saveStatus.textContent="Sauvegarde non confirmée : "+String(err?.message||err)+
         ". Ne ferme pas le brouillon, vérifie la liste avant de réessayer.";
     }finally{saving=false;saveButton.disabled=false;}
+  });
+  // Ouverture directe d'une soumission du Dashboard, après relecture serveur.
+  window.addEventListener("jl-dashboard-open-quote",async event=>{
+    const requested=String(event.detail?.id||"");
+    if(!requested)return;
+    await refreshQuotes();
+    const match=quotes.find(q=>String(q.id)===requested);
+    if(match)viewQuote(match);
+    else {
+      const feedback=get("s08QuoteCount");
+      if(feedback)feedback.textContent="Soumission introuvable ou lecture impossible.";
+    }
   });
   get("s08QuoteSearch").addEventListener("input",renderQuoteList);
   get("s08QuoteStatus").addEventListener("change",renderQuoteList);
