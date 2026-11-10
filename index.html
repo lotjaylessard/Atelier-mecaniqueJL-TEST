@@ -1376,11 +1376,11 @@ button.link:hover{
       <img src="./img/logov2.png"
            alt="Garage JL"
      style="height:32px;">
-      <h1 style="font-size:18px;">Garage-Atelier Mécanique J.L — Gestion</h1>
+      <h1 style="font-size:18px;">Garage-Atelier Mécanique J.L</h1>
     </div>
     <div style="display:flex;gap:10px;align-items:center;">
   <span id="headerGreeting" class="header-greeting">
-  Bonjour, Jeremy!
+  Bonjour!
 </span>
   <span id="cloudSyncIndicator" role="status" aria-live="polite" title="État de synchronisation du garage" style="font-size:12px;white-space:nowrap;border:1px solid #666;border-radius:16px;padding:5px 9px;color:#ccc;">☁ Cloud à vérifier</span>
 </div>
@@ -2838,6 +2838,7 @@ window.addEventListener("garage-supabase-ready", () => {
 
 let SUPABASE_USER = null;
 let ACTIVE_GARAGE_ID = null;
+let ACTIVE_GARAGE_MEMBER_ROLE = null;
 
 
   
@@ -3390,6 +3391,7 @@ async function supabaseLogin() {
 
   
 SUPABASE_USER = data.user;
+updateConnectedUserGreeting();
 
 // Le stockage sera configuré après identification du garage actif.
 
@@ -3400,6 +3402,7 @@ return true;
   
   async function loadActiveGarage() {
   ACTIVE_GARAGE_ID = null;
+  ACTIVE_GARAGE_MEMBER_ROLE = null;
 
   if (!SUPABASE_USER?.id) {
     console.error("Impossible de trouver le garage : utilisateur absent.");
@@ -3422,6 +3425,8 @@ return true;
   }
 
   ACTIVE_GARAGE_ID = data[0].garage_id;
+  ACTIVE_GARAGE_MEMBER_ROLE = String(data[0].role || "").toLowerCase();
+  updateConnectedUserGreeting();
 
   console.log("Garage actif identifié :", ACTIVE_GARAGE_ID);
   return true;
@@ -14013,14 +14018,28 @@ function initLinksModule() {
 }
 
 
+  // Nom affiché tel qu'enregistré dans Paramètres (sans suffixe ajouté).
   function updateGarageNameUI(){
-  const title = document.querySelector(".topbar h1");
-  if (title){
-    title.textContent = `${SETTINGS.garageName} — Gestion`;
+    const name=String(SETTINGS.garageName||"").trim()||"Garage";
+    const title=document.querySelector(".topbar h1");
+    if(title)title.textContent=name;
+    document.title=name;
   }
 
-  document.title = `${SETTINGS.garageName} — Gestion`;
-}
+  // Informations d'affichage uniquement : les autorisations restent gérées par Supabase.
+  function updateConnectedUserGreeting(){
+    const greeting=document.getElementById("headerGreeting");
+    if(!greeting)return;
+    if(!SUPABASE_USER?.id){greeting.textContent="Bonjour!";return;}
+    const metadata=SUPABASE_USER.user_metadata||{};
+    const displayName=[metadata.first_name,metadata.firstName,metadata.name,metadata.full_name,metadata.display_name]
+      .find(value=>typeof value==="string"&&value.trim())?.trim()
+      ||String(SUPABASE_USER.email||"").split("@")[0].replace(/[._-]+/g," ").trim()
+      ||"Utilisateur";
+    const roleLabel=ACTIVE_GARAGE_MEMBER_ROLE==="owner"?"Propriétaire"
+      :ACTIVE_GARAGE_MEMBER_ROLE==="employee"?"Employé":"";
+    greeting.textContent="Bonjour, "+(roleLabel?roleLabel+" ":"")+displayName+"!";
+  }
 
 
 function syncKmEverywhereFromWO(wo, newKm){
