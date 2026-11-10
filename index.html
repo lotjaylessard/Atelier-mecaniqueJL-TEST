@@ -9351,21 +9351,53 @@ function initSettings(){
 // S09 TEST : préférences strictement locales et non financières.
 (function initJLPreferences(){
   const key="jl-test-personal-options-v1";
-  const defaults={dashboard:{notes:true,monthly:true,workorders:true,invoices:true},printPartNumber:true};
+  const dashboardOrder=["notes","monthly","workorders","invoices","quotes","overdue"];
+  const titles={notes:"Dernières notes",monthly:"Résultats mensuels",workorders:"BT en cours",
+    invoices:"Dernières factures",quotes:"Soumissions à suivre",overdue:"Factures anciennes"};
+  const defaults={dashboard:{notes:true,monthly:true,workorders:true,invoices:true,quotes:true,overdue:true},printPartNumber:true};
   let saved={};
   try{saved=JSON.parse(localStorage.getItem(key)||"{}")||{};}catch(_){}
   const settings={dashboard:{...defaults.dashboard,...(saved.dashboard||{})},printPartNumber:saved.printPartNumber!==false};
+  // Ordre configurable par appareil, avec récupération des préférences existantes.
+  const savedOrder=Array.isArray(saved.dashboardOrder)?saved.dashboardOrder:[];
+  settings.dashboardOrder=[...new Set([...savedOrder.filter(k=>dashboardOrder.includes(k)),...dashboardOrder])];
   const save=()=>{try{localStorage.setItem(key,JSON.stringify(settings));}catch(_){}};
   const applyDashboard=()=>{
-    const mapping={
-      notes:"#lastNotesBox",monthly:"#monthlyRevenueChart",
-      workorders:"#lastWorkOrdersBox",invoices:"#lastInvoicesBox"
-    };
-    for(const [key,selector] of Object.entries(mapping)){
-      const item=document.querySelector(selector);
-      const card=item?.closest(".card,.stat-card");
-      if(card)card.hidden=settings.dashboard[key]===false;
+    const parent=document.getElementById("jlDashboardBlocks");
+    if(!parent)return;
+    for(const key of settings.dashboardOrder){
+      const block=parent.querySelector('[data-jl-dashboard-card="'+key+'"]');
+      if(!block)continue;
+      block.hidden=settings.dashboard[key]===false;
+      parent.appendChild(block); // déplacement visuel du DOM seulement
     }
+  };
+  const renderOrderControls=()=>{
+    const area=document.getElementById("jlDashboardOrderOptions");
+    if(!area)return;
+    area.replaceChildren();
+    settings.dashboardOrder.forEach((key,index)=>{
+      const row=document.createElement("div");
+      row.className="jl-dashboard-order-entry";
+      const label=document.createElement("span");
+      label.textContent=titles[key]||key;
+      row.append(label);
+      for(const [symbol,offset] of [["↑",-1],["↓",1]]){
+        const button=document.createElement("button");
+        button.type="button";button.className="ghost";
+        button.textContent=symbol;
+        button.disabled=index+offset<0||index+offset>=settings.dashboardOrder.length;
+        button.title=(offset===-1?"Monter ":"Descendre ")+(titles[key]||key);
+        button.addEventListener("click",()=>{
+          const next=settings.dashboardOrder.slice();
+          [next[index],next[index+offset]]=[next[index+offset],next[index]];
+          settings.dashboardOrder=next;
+          save();applyDashboard();renderOrderControls();
+        });
+        row.append(button);
+      }
+      area.append(row);
+    });
   };
   for(const checkbox of document.querySelectorAll("[data-jl-dashboard]")){
     const key=checkbox.dataset.jlDashboard;
@@ -9380,6 +9412,7 @@ function initSettings(){
     partNumber.addEventListener("change",()=>{settings.printPartNumber=partNumber.checked;save();});
   }
   window.jlPrintShouldShowPartNumber=()=>settings.printPartNumber;
+  renderOrderControls();
   applyDashboard();
 })();
 
