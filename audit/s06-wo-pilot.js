@@ -576,6 +576,28 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     qs("s06Pause").addEventListener("click",()=>guarded(pause));
     qs("s06Recover").addEventListener("click",()=>guarded(recover));
     qs("s06End").addEventListener("click",()=>guarded(showFinish));
+    // Le bouton Terminer du menu latéral doit aussi fonctionner en marche.
+    // Aucune note ni main-d'œuvre n'est écrite avant le clic Confirmer.
+    el.addEventListener("s06-sidebar-finish-request",event=>{
+      const request=event.detail;
+      if(!request||String(request.woId)!==String(app.woId)||
+         String(request.sessionId)!==String(app.session?.id))return;
+      guarded(async()=>{
+        if(app.session?.status==="running"){
+          await pause(); // confirmation atomique du temps par Supabase
+        }
+        if(app.session?.status!=="paused")
+          throw Error("La minuterie doit être en pause avant la confirmation.");
+        showFinish();
+        const form=qs("s06FinishForm");
+        if(form?.hidden)throw Error("Formulaire de fin introuvable.");
+        form.scrollIntoView({block:"center",behavior:"smooth"});
+        qs("s06Description")?.focus();
+        window.dispatchEvent(new CustomEvent("s06-timer-ack",{detail:{
+          action:"finish",sessionId:request.sessionId,status:"paused"
+        }}));
+      });
+    });
     qs("s06Confirm").addEventListener("click",()=>guarded(finish));
     qs("s06Cancel").addEventListener("click",()=>{
       qs("s06FinishForm").hidden=true;
