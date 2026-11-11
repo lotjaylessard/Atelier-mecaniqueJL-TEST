@@ -1919,7 +1919,6 @@ button.link:hover{
           <th data-module-sort="client" aria-sort="none"><button type="button" class="module-sort-button" onclick="setInvoiceSort('client')" title="Trier par Client">Client <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
           <th data-module-sort="total" aria-sort="none"><button type="button" class="module-sort-button" onclick="setInvoiceSort('total')" title="Trier par Total">Total <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
           <th data-module-sort="status" aria-sort="none"><button type="button" class="module-sort-button" onclick="setInvoiceSort('status')" title="Trier par Statut">Statut <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
-          <th></th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -9631,7 +9630,7 @@ function renderInvoiceList(){
   if (!sorted.length){
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" class="muted" style="text-align:center;padding:20px;">
+        <td colspan="5" class="muted" style="text-align:center;padding:20px;">
           Aucune facture ne correspond à la recherche ou au filtre.
         </td>
       </tr>
@@ -9671,17 +9670,6 @@ function renderInvoiceList(){
         }">
                     ${invoiceStatusLabel(inv)}
         </span>
-      </td>
-      <td style="text-align:right;">
-        ${
-          inv.status === "paid"
-            ? `<button class="ghost" onclick="archiveInvoice('${inv.number}')">
-                 Archiver
-               </button>`
-            : `<button class="ghost danger" onclick="deleteInvoice('${inv.number}')">
-                 Supprimer
-               </button>`
-        }
       </td>
     `;
 
@@ -13462,6 +13450,8 @@ ${inv.discount && inv.discount > 0 ? `
       </div>
     </div>
         <button class="ghost" onclick="printInvoice()">🖨 Imprimer</button>
+        ${inv.status==="paid" && !inv.archived ? '<button class="ghost" id="jlInvoiceArchiveDetail">Archiver</button>' :
+           ["unpaid","pending"].includes(inv.status) && !inv.archived ? '<button class="ghost danger" id="jlInvoiceDeleteDetail">Supprimer</button>' : ""}
     <button class="ghost" onclick="closeInvoiceModal()">Fermer</button>
 
   </div>
@@ -13572,6 +13562,32 @@ if (discountInput && discountType){
 
 
   renderInvoiceTotals(inv, content);
+
+  // Fiche facture : les actions ne figurent plus dans la liste.
+  content.querySelector("#jlInvoiceArchiveDetail")?.addEventListener("click",()=>{
+    if(inv.status!=="paid"||inv.archived)return;
+    archiveInvoice(inv.number);
+    if(inv.archived)closeInvoiceModal();
+  });
+  content.querySelector("#jlInvoiceDeleteDetail")?.addEventListener("click",()=>{
+    // Suppression de facture uniquement : ne jamais supprimer le BT lié.
+    const current=INVOICES.find(x=>String(x.number)===String(inv.number));
+    if(!current||!["unpaid","pending"].includes(current.status)||
+       Number(current.paidAmount||0)>0||
+       (Array.isArray(current.payments)&&current.payments.length)){
+      alert("Suppression bloquée : facture avec paiement ou statut non admissible.");
+      return;
+    }
+    if(!confirm("Supprimer uniquement la facture "+String(current.number)+
+      " ? Le bon de travail associé sera conservé."))return;
+    INVOICES=INVOICES.filter(x=>String(x.number)!==String(current.number));
+    saveInvoices();
+    closeInvoiceModal();
+    renderInvoiceList();
+    renderWorkOrders();
+    if(typeof renderHistoryTable==="function")renderHistoryTable();
+    if(typeof renderDashboard==="function")renderDashboard();
+  });
 
   // === AFFICHER LA MODAL ===
   modal.style.display = "flex";
