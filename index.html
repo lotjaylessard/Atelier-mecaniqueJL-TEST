@@ -9937,7 +9937,7 @@ if (btnEdit){
         invoice.paidDate)
       return refuse("Impossible de supprimer une facture payée, partielle, archivée ou ayant un historique de paiement.");
     if (!confirm("Supprimer uniquement la facture "+String(invoice.number)+
-        " ?\\n\\nLe bon de travail associé sera conservé. Cette action est irréversible."))return false;
+        " ?\n\nLe bon de travail associé sera conservé. Cette action est irréversible."))return false;
 
     const revision=CLOUD_CHANGE_REVISION;
     const expectedVersion=CLOUD_DATA_VERSION;
