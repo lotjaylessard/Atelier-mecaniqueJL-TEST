@@ -1763,6 +1763,7 @@ button.link:hover{
             <div class="s08-viewer-controls">
               <button type="button" id="s08ViewerMode" class="ghost" aria-pressed="false" aria-label="Passer en mode client" title="Passer en mode client">⋯</button>
               <button type="button" id="s08EditQuote" class="ghost" hidden>Modifier</button>
+              <button type="button" id="s08ReactivateQuote" class="ghost" hidden title="Remettre cette soumission en brouillon, sans modifier son numéro ni ses lignes">↺ Réactiver</button>
               <button type="button" id="s08MarkApproved" title="Enregistrer l'accord du client sans créer de BT">✓ Approuver</button>
               <button type="button" id="s08QuickApprove" class="ghost" title="Convertir la soumission approuvée en bon de travail" hidden>Créer BT</button>
               <button type="button" class="ghost" id="s08Preflight" hidden>Vérifier avant conversion</button>
@@ -16686,6 +16687,7 @@ if (window.garageSupabase) {
     // Une SO déjà convertie est en lecture seule : ne pas proposer une nouvelle approbation.
     const converted=q.status==="converted";
     get("s08EditQuote").hidden=!(["draft","sent"].includes(q.status)&&!d.approvalConfirmedAt);
+    get("s08ReactivateQuote").hidden=!(["declined","expired"].includes(q.status)&&!d.approvalConfirmedAt);
     get("s08Preflight").hidden=true;
     get("s08MarkApproved").hidden=q.status!=="sent"||!!d.approvalConfirmedAt;
     get("s08QuickApprove").hidden=!["draft","sent"].includes(q.status)||!d.approvalConfirmedAt;
@@ -16797,6 +16799,16 @@ if (window.garageSupabase) {
       opt.disabled=opt.value!==selectedQuote?.status&&!allowed.includes(opt.value);
     }
   }
+  get("s08ReactivateQuote").addEventListener("click",()=>{
+    const q=selectedQuote;
+    if(statusSaving||!q||!["declined","expired"].includes(q.status)||
+       q.content?.approvalConfirmedAt)return;
+    // Utiliser exactement la sauvegarde de statut existante (confirmation,
+    // contrôle de version Supabase, mise à jour puis rafraîchissement).
+    const choice=get("s08StatusChoice");
+    choice.value="draft";
+    choice.dispatchEvent(new Event("change"));
+  });
   get("s08StatusChoice").addEventListener("change",async()=>{
     const q=selectedQuote;
     const choice=get("s08StatusChoice");
@@ -16834,6 +16846,8 @@ if (window.garageSupabase) {
       // Revenir d'un refus ou d'une expiration permet à nouveau la préparation BT,
       // mais sans jamais créer de BT automatiquement.
       get("s08Preflight").hidden=true;
+      get("s08ReactivateQuote").hidden=!(["declined","expired"].includes(to)&&!selectedQuote.content?.approvalConfirmedAt);
+      get("s08EditQuote").hidden=!(["draft","sent"].includes(to)&&!selectedQuote.content?.approvalConfirmedAt);
       get("s08MarkApproved").hidden=to!=="sent"||!!selectedQuote.content?.approvalConfirmedAt;
       get("s08QuickApprove").hidden=!["draft","sent"].includes(to)||!selectedQuote.content?.approvalConfirmedAt;
       get("s08SchedulePanel").hidden=!["draft","sent"].includes(to)||!selectedQuote.content?.approvalConfirmedAt;
