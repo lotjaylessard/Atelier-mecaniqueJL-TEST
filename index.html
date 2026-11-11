@@ -7814,17 +7814,25 @@ const isPaid = invoice && invoice.status === "paid";
 
     `;
 
+    // Garder l'ouverture stable du BT (table.onclick de initWorkOrdersModule).
+    // Le bouton technique est invisible : la liste demeure sans colonne Actions.
+    const openControl=document.createElement("button");
+    openControl.type="button";
+    openControl.dataset.action="open";
+    openControl.hidden=true;
+    openControl.tabIndex=-1;
+    tr.cells[0].appendChild(openControl);
     tr.classList.add("jl-openable-row");
     tr.tabIndex=0;
     tr.setAttribute("role","button");
     tr.setAttribute("aria-label","Ouvrir le bon de travail "+String(wo.number||""));
     tr.addEventListener("click",event=>{
       if(event.target.closest("button,a,input,select"))return;
-      openWorkOrderDetail(wo);
+      openControl.click();
     });
     tr.addEventListener("keydown",event=>{
       if(event.target!==tr||!["Enter"," "].includes(event.key))return;
-      event.preventDefault();openWorkOrderDetail(wo);
+      event.preventDefault();openControl.click();
     });
     tbody.appendChild(tr);
   });
@@ -13074,9 +13082,14 @@ function renderMonthlyRevenueChart(){
 
   /* ===================== Ouvrir WO a partir du Dashboard ===================== */
 function openWorkOrderFromDashboard(id){
-  const wo=WORKORDERS.find(w=>String(w.id)===String(id));
-  if(wo) openWorkOrderDetail(wo);
-  else console.warn("[BT] Bon de travail introuvable pour l'ouverture.",id);
+  showPage("page-workorders");
+  setTimeout(()=>{
+    const row=Array.from(document.querySelectorAll("#woTable tbody tr[data-id]"))
+      .find(tr=>String(tr.dataset.id)===String(id));
+    const button=row?.querySelector('button[data-action="open"]');
+    if(button)button.click();
+    else console.warn("[BT] Bon de travail absent de la liste courante.",id);
+  },0);
 }
 
 
