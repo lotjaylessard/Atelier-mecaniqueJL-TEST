@@ -543,6 +543,11 @@ input[type="checkbox"]{
     #page-dashboard .jl-finance-caveat{font-size:12px;margin:10px 0 0}
     @media(max-width:900px){#page-dashboard .jl-finance-summary{grid-template-columns:repeat(2,minmax(0,1fr))}#page-dashboard .jl-finance-chart{grid-template-columns:repeat(12,minmax(58px,1fr))}}
     @media(max-width:480px){#page-dashboard .jl-finance-summary strong{font-size:14px}}
+    #page-quotes .s08-schedule-panel{border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:10px 0}
+    #page-quotes .s08-schedule-title{font-weight:700;color:var(--accent);margin-bottom:7px}
+    #page-quotes .s08-schedule-fields{display:flex;gap:9px;align-items:end;flex-wrap:wrap}
+    #page-quotes .s08-schedule-fields label{font-size:12px;min-width:120px}
+    #page-quotes .s08-schedule-fields input{max-width:165px;margin-top:4px}
     /* Dashboard cards */
     .stats-grid{
       display:grid;
@@ -1709,7 +1714,8 @@ button.link:hover{
             <h2 id="s08ViewTitle">Soumission</h2>
             <div class="s08-viewer-controls">
               <button type="button" id="s08ViewerMode" class="ghost" aria-pressed="false" aria-label="Passer en mode client" title="Passer en mode client">⋯</button>
-              <button type="button" id="s08QuickApprove" title="Approuver la soumission et créer un bon de travail">✓ Approuver</button>
+              <button type="button" id="s08MarkApproved" title="Enregistrer l'accord du client sans créer de BT">✓ Approuver</button>
+              <button type="button" id="s08QuickApprove" class="ghost" title="Convertir la soumission approuvée en bon de travail" hidden>Créer BT</button>
               <button type="button" class="ghost" id="s08Preflight" hidden>Vérifier avant conversion</button>
               <button type="button" class="primary" id="s08ViewPrint" title="Imprimer ou enregistrer la soumission en PDF">🖨️ Imprimer</button>
               <button type="button" class="ghost" id="s08ViewClose">Fermer</button>
@@ -1729,6 +1735,16 @@ button.link:hover{
               <span id="s08StatusResult" class="muted s08-status-feedback" role="status" aria-live="polite"></span>
             </div>
           </div>
+          <section id="s08SchedulePanel" class="s08-schedule-panel" hidden>
+            <div class="s08-schedule-title">📅 Planification du travail</div>
+            <div class="s08-schedule-fields">
+              <label>Date du rendez-vous <input id="s08ScheduleDate" type="date"></label>
+              <label>Heure <input id="s08ScheduleTime" type="time"></label>
+              <label>Durée estimée (min) <input id="s08ScheduleDuration" type="number" min="15" max="1440" step="15" value="60"></label>
+              <button type="button" id="s08SaveSchedule" class="ghost">Enregistrer le rendez-vous</button>
+            </div>
+            <div id="s08ScheduleFeedback" class="muted" role="status" aria-live="polite"></div>
+          </section>
           <p id="s08ConvertedBT" class="s08-converted-bt" hidden></p>
           <p id="s08PreflightResult" class="muted" role="status" aria-live="polite" hidden></p>
           <section id="s08LinkPanel" class="s08-link-panel" hidden aria-label="Préparation des liens client véhicule">
@@ -1750,7 +1766,7 @@ button.link:hover{
                   <button type="button" class="ghost" id="s08CheckSync" disabled>☁️ Vérifier la synchronisation</button>
                 </div>
               </details>
-              <button type="button" id="s08ConvertBT" disabled>✓ Approuver et créer BT</button>
+              <button type="button" id="s08ConvertBT" disabled>Créer le BT</button>
               <span id="s08LinkSaveStatus" role="status" aria-live="polite" class="muted"></span>
             </div>
             <div id="s08BTPreview" class="s08-bt-preview" hidden>
@@ -15751,7 +15767,7 @@ if (window.garageSupabase) {
     btn.disabled=!previewLinkReady();
     get("s08ServerDryRun").disabled=!previewLinkReady();
     get("s08CheckSync").disabled=!previewLinkReady();
-    get("s08ConvertBT").disabled=!previewLinkReady();
+    get("s08ConvertBT").disabled=!previewLinkReady()||!selectedQuote?.content?.approvalConfirmedAt;
     get("s08BTPreview").hidden=true;
     get("s08ServerDryRunStatus").textContent="";
     get("s08CheckSyncStatus").textContent="";
@@ -15879,11 +15895,11 @@ if (window.garageSupabase) {
   // indépendamment de la transaction. Toujours recharger l'état confirmé.
   let convertingQuote=false;
   get("s08ConvertBT")?.addEventListener("click",async()=>{
-    if(convertingQuote||!selectedQuote||!previewLinkReady())return;
+    if(convertingQuote||!selectedQuote||!selectedQuote.content?.approvalConfirmedAt||!previewLinkReady())return;
     const output=get("s08ConvertStatus"),button=get("s08ConvertBT");
     const quoteId=selectedQuote.id,quoteNumber=selectedQuote.quote_number;
-    if(!window.confirm("Approuver définitivement "+quoteNumber+
-      " et créer UN bon de travail ? La soumission ne pourra plus être convertie à nouveau."))return;
+    if(!window.confirm("Convertir la soumission approuvée "+quoteNumber+
+      " en UN seul bon de travail ? La conversion ne pourra pas être répétée."))return;
     convertingQuote=true;
     button.disabled=true;
     output.textContent="Vérification finale avant conversion…";
@@ -16266,7 +16282,7 @@ if (window.garageSupabase) {
     }
   }
   get("s08QuickApprove")?.addEventListener("click",async()=>{
-    if(automaticLinkBusy||!selectedQuote||!["draft","sent"].includes(selectedQuote.status))return;
+    if(automaticLinkBusy||!selectedQuote||!selectedQuote.content?.approvalConfirmedAt||!["draft","sent"].includes(selectedQuote.status))return;
     // Une SO déjà liée et valide peut être approuvée immédiatement.
     if(previewLinkReady()){updatePreviewButton();get("s08ConvertBT").click();return;}
     // S08 : la SO récente conserve déjà les IDs sélectionnés à sa création.
@@ -16322,7 +16338,15 @@ if (window.garageSupabase) {
     // Une SO déjà convertie est en lecture seule : ne pas proposer une nouvelle approbation.
     const converted=q.status==="converted";
     get("s08Preflight").hidden=true;
-    get("s08QuickApprove").hidden=!["draft","sent"].includes(q.status);
+    get("s08MarkApproved").hidden=!["draft","sent"].includes(q.status)||!!d.approvalConfirmedAt;
+    get("s08QuickApprove").hidden=!["draft","sent"].includes(q.status)||!d.approvalConfirmedAt;
+    const schedule=get("s08SchedulePanel");
+    schedule.hidden=!(["draft","sent"].includes(q.status)&&!!d.approvalConfirmedAt);
+    get("s08ScheduleDate").value=d.appointment?.date||"";
+    get("s08ScheduleTime").value=d.appointment?.time||"";
+    get("s08ScheduleDuration").value=d.appointment?.durationMinutes||60;
+    get("s08ScheduleFeedback").textContent=d.approvalConfirmedAt?
+      (d.appointment?.date?"Rendez-vous enregistré.":"Soumission approuvée — à planifier."):"";
     setStatusPill(get("s08ViewStatusBadge"),q.status);
     const editableStatus=["draft","sent","declined","expired"].includes(q.status);
     get("s08StatusPanel").hidden=!editableStatus;
@@ -16443,7 +16467,9 @@ if (window.garageSupabase) {
       // Revenir d'un refus ou d'une expiration permet à nouveau la préparation BT,
       // mais sans jamais créer de BT automatiquement.
       get("s08Preflight").hidden=true;
-      get("s08QuickApprove").hidden=!["draft","sent"].includes(to);
+      get("s08MarkApproved").hidden=!["draft","sent"].includes(to)||!!selectedQuote.content?.approvalConfirmedAt;
+      get("s08QuickApprove").hidden=!["draft","sent"].includes(to)||!selectedQuote.content?.approvalConfirmedAt;
+      get("s08SchedulePanel").hidden=!["draft","sent"].includes(to)||!selectedQuote.content?.approvalConfirmedAt;
       setStatusPill(get("s08ViewStatusBadge"),to);
       if(!["draft","sent"].includes(to))linkPanel.hidden=true;
       await refreshQuotes();
