@@ -1,15 +1,21 @@
--- TEST ONLY. Preparation du futur RPC atomique BT -> facture.
--- Fichier non deploie : aucun changement a la base tant que l'integration
--- client et les tests d'idempotence ne sont pas valides.
+-- Audit S08 - transaction BT -> facture, TEST seulement
+-- État : RPC serveur installée, MAIS PAS ENCORE CONNECTÉE AU BOUTON TERMINÉ.
+-- Fonction : public.s08_finalize_bt_invoice_atomic(...)
+-- Migration Supabase TEST : s08_bt_invoice_atomic_staged_rpc
 --
--- Contrat prevu :
--- * verrouiller la ligne garage_data FOR UPDATE
--- * verifier auth.uid(), user_id, garage_id et version
--- * retrouver UN SEUL BT en_cours par id et numero
--- * verifier qu'aucune facture ne pointe deja vers ce BT/numero
--- * verifier la facture preparee (non payee, sans historique)
--- * mettre a jour workorders + invoices + clients(km) dans UN update versionne
--- * renvoyer numero et nouvelle version; recharger les donnees confirmees
+-- Déjà vérifié :
+--   * la fonction existe dans TEST
+--   * SECURITY INVOKER ; execute accordé à authenticated, pas à anon
+--   * absence de session = appel refusé
+--   * verrou FOR UPDATE et contrôle version avant écriture
+--   * mise à jour BT, facture et KM dans le même UPDATE garage_data
 --
--- Attention : ce fichier est une specification de securite, pas encore
--- une migration executable. Le controle actuel dans index.html reste actif.
+-- Restant AVANT branchement :
+--   * comparer toutes les lignes et les totaux calculés à la source BT
+--   * tester dry-run avec dossier fictif et une vraie session TEST
+--   * tester double demande/concurrence et erreur après transaction
+--   * intégrer l'appel sans sauvegarde locale préalable
+--   * recharger l'état confirmé, verrouiller tout nouvel essai en cas de réponse ambiguë
+--   * vérifier que le calcul TPS/TVQ et les sessions minuteur sont inchangés
+--
+-- Ne PAS remplacer le code client actuel avant ces vérifications.
