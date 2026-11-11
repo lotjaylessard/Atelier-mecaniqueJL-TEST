@@ -16281,6 +16281,69 @@ if (window.garageSupabase) {
       button.disabled=false;
     }
   }
+  // Accord et rendez-vous sont des métadonnées dans le contenu JSONB,
+  // séparées du statut "converted", réservé à la transaction anti-doublon.
+  let schedulingWrite=false;
+  async function saveQuoteWorkflowChanges(patch){
+    if(schedulingWrite||!selectedQuote||!["draft","sent"].includes(selectedQuote.status))
+      throw Error("Soumission non modifiable ou enregistrement déjà en cours.");
+    schedulingWrite=true;
+    const q=selectedQuote;
+    try{
+      const {sb,garageId}=context();
+      const {data:auth,error:authError}=await sb.auth.getUser();
+      if(authError||!auth?.user?.id)throw Error("Session Supabase expirée.");
+      const newContent={...(q.content||{}),...patch};
+      const {data:updated,error}=await sb.from("garage_quotes")
+        .update({content:newContent,version:Number(q.version)+1,updated_at:new Date().toISOString()})
+        .eq("id",q.id).eq("garage_id",garageId).eq("user_id",auth.user.id)
+        .eq("status",q.status).eq("version",q.version)
+        .select("id,quote_number,status,version,content,created_at,converted_bt_id").maybeSingle();
+      if(error||!updated||Number(updated.version)!==Number(q.version)+1)
+        throw Error("Conflit de version : aucune modification confirmée. Rouvre la soumission.");
+      selectedQuote=updated;
+      await refreshQuotes();
+      viewQuote(updated);
+      return updated;
+    }finally{schedulingWrite=false;}
+  }
+  get("s08MarkApproved")?.addEventListener("click",async()=>{
+    const q=selectedQuote;
+    if(!q||q.status!=="sent"||q.content?.approvalConfirmedAt||schedulingWrite)return;
+    if(!confirm("Confirmer l'accord du client pour "+q.quote_number+
+      " ? Aucun BT ne sera créé; tu pourras ensuite fixer le rendez-vous."))return;
+    const button=get("s08MarkApproved");
+    button.disabled=true;
+    try{
+      await saveQuoteWorkflowChanges({approvalConfirmedAt:new Date().toISOString()});
+    }catch(error){
+      console.error("[Planning TEST] Approbation",error);
+      get("s08ScheduleFeedback").textContent="⚠ Approbation non confirmée : "+
+        String(error.message||error);
+      get("s08SchedulePanel").hidden=false;
+    }finally{button.disabled=false;}
+  });
+  get("s08SaveSchedule")?.addEventListener("click",async()=>{
+    const q=selectedQuote;
+    if(!q?.content?.approvalConfirmedAt||schedulingWrite)return;
+    const date=get("s08ScheduleDate").value;
+    const time=get("s08ScheduleTime").value;
+    const duration=Number(get("s08ScheduleDuration").value);
+    const feedback=get("s08ScheduleFeedback");
+    if((date&&!time)||(!date&&time)||
+       (date&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(date))||
+       (date&&(!Number.isInteger(duration)||duration<15||duration>1440))){
+      feedback.textContent="Choisis la date ET l'heure, ou vide les deux pour remettre à planifier. Durée : 15 à 1440 min.";
+      return;
+    }
+    const appointment=date?{date,time,durationMinutes:duration}:null;
+    const button=get("s08SaveSchedule");button.disabled=true;
+    feedback.textContent="Enregistrement Supabase…";
+    try{await saveQuoteWorkflowChanges({appointment});}
+    catch(error){
+      feedback.textContent="⚠ Rendez-vous non confirmé : "+String(error.message||error);
+    }finally{button.disabled=false;}
+  });
   get("s08QuickApprove")?.addEventListener("click",async()=>{
     if(automaticLinkBusy||!selectedQuote||!selectedQuote.content?.approvalConfirmedAt||!["draft","sent"].includes(selectedQuote.status))return;
     // Une SO déjà liée et valide peut être approuvée immédiatement.
@@ -16338,7 +16401,7 @@ if (window.garageSupabase) {
     // Une SO déjà convertie est en lecture seule : ne pas proposer une nouvelle approbation.
     const converted=q.status==="converted";
     get("s08Preflight").hidden=true;
-    get("s08MarkApproved").hidden=!["draft","sent"].includes(q.status)||!!d.approvalConfirmedAt;
+    get("s08MarkApproved").hidden=q.status!=="sent"||!!d.approvalConfirmedAt;
     get("s08QuickApprove").hidden=!["draft","sent"].includes(q.status)||!d.approvalConfirmedAt;
     const schedule=get("s08SchedulePanel");
     schedule.hidden=!(["draft","sent"].includes(q.status)&&!!d.approvalConfirmedAt);
@@ -16467,7 +16530,7 @@ if (window.garageSupabase) {
       // Revenir d'un refus ou d'une expiration permet à nouveau la préparation BT,
       // mais sans jamais créer de BT automatiquement.
       get("s08Preflight").hidden=true;
-      get("s08MarkApproved").hidden=!["draft","sent"].includes(to)||!!selectedQuote.content?.approvalConfirmedAt;
+      get("s08MarkApproved").hidden=to!=="sent"||!!selectedQuote.content?.approvalConfirmedAt;
       get("s08QuickApprove").hidden=!["draft","sent"].includes(to)||!selectedQuote.content?.approvalConfirmedAt;
       get("s08SchedulePanel").hidden=!["draft","sent"].includes(to)||!selectedQuote.content?.approvalConfirmedAt;
       setStatusPill(get("s08ViewStatusBadge"),to);
