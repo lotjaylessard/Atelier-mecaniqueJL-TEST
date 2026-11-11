@@ -9444,7 +9444,7 @@ function initSettings(){
 // S09 TEST : préférences strictement locales et non financières.
 (function initJLPreferences(){
   const key="jl-test-personal-options-v1";
-  const dashboardOrder=["notes","monthly","workorders","invoices","quotes","overdue","unplanned","calendar"];
+  const dashboardOrder=["calendar","unplanned","notes","monthly","workorders","invoices","quotes","overdue"];
   const titles={notes:"Dernières notes",monthly:"Résultats mensuels",workorders:"BT en cours",
     invoices:"Dernières factures",quotes:"Soumissions à suivre",overdue:"Factures anciennes",
     unplanned:"À planifier",calendar:"Calendrier"};
@@ -9454,7 +9454,12 @@ function initSettings(){
   const settings={dashboard:{...defaults.dashboard,...(saved.dashboard||{})},printPartNumber:saved.printPartNumber!==false};
   // Ordre configurable par appareil, avec récupération des préférences existantes.
   const savedOrder=Array.isArray(saved.dashboardOrder)?saved.dashboardOrder:[];
-  settings.dashboardOrder=[...new Set([...savedOrder.filter(k=>dashboardOrder.includes(k)),...dashboardOrder])];
+  // Pour les anciens réglages, les deux nouveaux blocs prioritaires apparaissent
+  // en premier UNE fois, puis l'ordre choisi par l'utilisateur est conservé.
+  const newPriority=["calendar","unplanned"].filter(k=>!savedOrder.includes(k));
+  settings.dashboardOrder=[...new Set([
+    ...newPriority,...savedOrder.filter(k=>dashboardOrder.includes(k)),...dashboardOrder
+  ])];
   const save=()=>{try{localStorage.setItem(key,JSON.stringify(settings));}catch(_){}};
   const applyDashboard=()=>{
     const parent=document.getElementById("jlDashboardBlocks");
@@ -16438,9 +16443,8 @@ if (window.garageSupabase) {
       await saveQuoteWorkflowChanges({approvalConfirmedAt:new Date().toISOString()});
     }catch(error){
       console.error("[Planning TEST] Approbation",error);
-      get("s08ScheduleFeedback").textContent="⚠ Approbation non confirmée : "+
+      get("s08StatusResult").textContent="⚠ Approbation non confirmée : "+
         String(error.message||error);
-      get("s08SchedulePanel").hidden=false;
     }finally{button.disabled=false;}
   });
   get("s08SaveSchedule")?.addEventListener("click",async()=>{
