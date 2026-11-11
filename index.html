@@ -7954,7 +7954,9 @@ const isPaid = invoice && invoice.status === "paid";
 }
 
   
-function finishWorkOrder(id){
+let finishingWorkOrder=false;
+async function finishWorkOrder(id){
+  if(finishingWorkOrder)return;
   // S04-F01 : protection contre une deuxieme cloture ou facture double.
   loadWorkOrders();
   loadInvoices();
@@ -8024,6 +8026,25 @@ if (errorMessage){
 }
 
   if (!confirm(`Terminer le bon de travail #${wo.number} et créer une facture ?`)) return;
+  finishingWorkOrder=true;
+  try{
+    // S08 : vérifier la version cloud en lecture seule avant de fermer le BT.
+    const expectedGarage=ACTIVE_GARAGE_ID,expectedUser=SUPABASE_USER?.id;
+    const expectedVersion=CLOUD_DATA_VERSION,expectedRevision=CLOUD_CHANGE_REVISION;
+    if(!sb||!expectedGarage||!expectedUser||!CLOUD_DATA_READY||
+       !Number.isSafeInteger(expectedVersion)||hasUnconfirmedCloudChanges()||
+       !CLOUD_LAST_CONFIRMED_SNAPSHOT||
+       !garageSnapshotsEquivalent(captureLocalGarageSnapshot(),CLOUD_LAST_CONFIRMED_SNAPSHOT))
+      throw Error("Synchronisation non confirmée : attends une sauvegarde cloud avant de fermer le BT.");
+    const {data:remote,error:remoteError}=await sb.from("garage_data")
+      .select("version").eq("garage_id",expectedGarage).single();
+    if(remoteError||!remote||remote.version!==expectedVersion)
+      throw Error("Données Supabase modifiées : actualise le garage avant de terminer ce BT.");
+    if(ACTIVE_GARAGE_ID!==expectedGarage||SUPABASE_USER?.id!==expectedUser||
+       CLOUD_CHANGE_REVISION!==expectedRevision||!CLOUD_DATA_READY||
+       hasUnconfirmedCloudChanges()||
+       !garageSnapshotsEquivalent(captureLocalGarageSnapshot(),CLOUD_LAST_CONFIRMED_SNAPSHOT))
+      throw Error("Données locales modifiées pendant la vérification : opération annulée.");
   // Recontroler apres la confirmation pour ne pas terminer deux fois le meme BT.
   if (wo.status !== "en_cours" ||
       INVOICES.some(inv => String(inv.workOrderNumber) === String(wo.number) ||
@@ -8103,6 +8124,12 @@ showPage("page-invoice-list");
 
 // 3) Ouvrir la facture en résumé (lecture seule) avec bouton Modifier
 openInvoiceEditModal(invoice.number);
+  }catch(error){
+    console.error("[S08] Fermeture BT bloquée",error);
+    alert("Fermeture du BT annulée : "+String(error?.message||error));
+  }finally{
+    finishingWorkOrder=false;
+  }
 }
 
   
