@@ -12480,10 +12480,22 @@ function jlCalendarRender(){
       const event=document.createElement("button");
       event.type="button";event.className="jl-calendar-appointment";
       const ap=q.content.appointment;
-      const car=q.content.vehicleLabel?" · "+q.content.vehicleLabel:"";
-      event.textContent=String(ap.time||"—")+" · "+String(q.content.clientName||"Client")+car;
-      event.title=String(q.quote_number||"SO")+" · "+String(q.content.description||"")+
-        " · "+String(ap.durationMinutes||60)+" min"+
+      const vehicle=String(q.content.vehicleLabel||"").trim().split(/\s+/).slice(0,4).join(" ");
+      const description=String(q.content.description||"").trim()||"Travail non précisé";
+      const heading=document.createElement("strong");
+      heading.textContent=String(ap.time||"—")+" · "+String(q.content.clientName||"Client");
+      const work=document.createElement("span");
+      work.textContent=description;
+      work.style.cssText="display:block;margin-top:3px;font-weight:600;color:var(--accent);";
+      event.append(heading,work);
+      if(vehicle){
+        const car=document.createElement("span");
+        car.textContent=vehicle;
+        car.style.cssText="display:block;margin-top:3px;opacity:.8";
+        event.append(car);
+      }
+      event.title=String(q.quote_number||"SO")+" · "+description+
+        " · "+String(q.content.vehicleLabel||"")+" · "+String(ap.durationMinutes||60)+" min"+
         (q.status==="converted"?" · BT créé":"");
       event.addEventListener("click",()=>jlDashboardOpenQuote(q.id));
       day.append(event);
