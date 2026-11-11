@@ -12422,47 +12422,121 @@ window.addEventListener("s08-quotes-refreshed",()=>{
   if(document.getElementById("page-dashboard")?.style.display!=="none")
     void dashboardRefreshPendingQuotes();
 });
+async // Le calendrier conserve seulement les rendez-vous confirmés par Supabase.
+let jlCalendarWeekShift=0, jlCalendarQuotes=[];
+function jlCalendarISO(date){
+  return date.getFullYear()+"-"+String(date.getMonth()+1).padStart(2,"0")+
+    "-"+String(date.getDate()).padStart(2,"0");
+}
+function jlCalendarStart(){
+  const today=new Date();
+  const result=new Date(today.getFullYear(),today.getMonth(),today.getDate());
+  result.setDate(result.getDate()-result.getDay()+jlCalendarWeekShift*7);
+  return result;
+}
+function jlCalendarRender(){
+  const target=document.getElementById("jlCalendarWeek");
+  if(!target)return;
+  const start=jlCalendarStart();
+  const end=new Date(start);end.setDate(end.getDate()+6);
+  const range=document.getElementById("jlCalendarRange");
+  if(range)range.textContent=start.toLocaleDateString("fr-CA",{day:"numeric",month:"short"})+
+    " – "+end.toLocaleDateString("fr-CA",{day:"numeric",month:"short",year:"numeric"});
+  target.replaceChildren();
+  const today=jlCalendarISO(new Date());
+  for(let n=0;n<7;n++){
+    const date=new Date(start);date.setDate(date.getDate()+n);
+    const key=jlCalendarISO(date);
+    const day=document.createElement("div");day.className="jl-calendar-day";
+    day.dataset.today=String(key===today);
+    const heading=document.createElement("strong");
+    heading.textContent=["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"][n]+" "+date.getDate();
+    day.append(heading);
+    const appointments=jlCalendarQuotes.filter(q=>q.content?.appointment?.date===key)
+      .sort((x,y)=>String(x.content.appointment.time).localeCompare(String(y.content.appointment.time)));
+    for(const q of appointments){
+      const event=document.createElement("button");
+      event.type="button";event.className="jl-calendar-appointment";
+      const ap=q.content.appointment;
+      const car=q.content.vehicleLabel?" · "+q.content.vehicleLabel:"";
+      event.textContent=String(ap.time||"—")+" · "+String(q.content.clientName||"Client")+car;
+      event.title=String(q.quote_number||"SO")+" · "+String(q.content.description||"")+
+        " · "+String(ap.durationMinutes||60)+" min"+
+        (q.status==="converted"?" · BT créé":"");
+      event.addEventListener("click",()=>jlDashboardOpenQuote(q.id));
+      day.append(event);
+    }
+    target.append(day);
+  }
+}
+function jlCalendarInit(){
+  if(document.getElementById("jlCalendarPrev")?.dataset.bound)return;
+  const prev=document.getElementById("jlCalendarPrev");
+  const next=document.getElementById("jlCalendarNext");
+  const today=document.getElementById("jlCalendarToday");
+  if(!prev||!next||!today)return;
+  prev.dataset.bound="1";
+  prev.addEventListener("click",()=>{jlCalendarWeekShift--;jlCalendarRender();});
+  next.addEventListener("click",()=>{jlCalendarWeekShift++;jlCalendarRender();});
+  today.addEventListener("click",()=>{jlCalendarWeekShift=0;jlCalendarRender();});
+}
 async function dashboardRefreshPendingQuotes(){
+  jlCalendarInit();
+  jlCalendarRender();
   if(dashboardQuotePending||Date.now()-dashboardQuoteCheckAt<15000)return;
   if(typeof CLOUD_DATA_READY==="undefined"||!CLOUD_DATA_READY||
      typeof ACTIVE_GARAGE_ID==="undefined"||!ACTIVE_GARAGE_ID)return;
   dashboardQuotePending=true;dashboardQuoteCheckAt=Date.now();
-  const el=$("statPendingQuotes");
+  const countEl=document.getElementById("statPendingQuotes");
   try{
     const db=window.garageSupabase;
     if(!db?.auth?.getUser||!db?.from)throw Error("Supabase indisponible");
     const {data:auth,error:authError}=await db.auth.getUser();
     if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
-    const {data:rows,count,error}=await db.from("garage_quotes")
-      .select("id,quote_number,created_at,status,content",{count:"exact"})
+    // Lire les deux statuts : la conversion garde le rendez-vous sur la SO
+    // d'origine, même si la date n'est pas encore copiée dans le BT.
+    const {data:rows,error}=await db.from("garage_quotes")
+      .select("id,quote_number,created_at,status,content")
       .eq("garage_id",ACTIVE_GARAGE_ID)
       .eq("user_id",auth.user.id)
-      .eq("status","sent")
+      .in("status",["sent","converted"])
       .order("created_at",{ascending:false})
-      .limit(5);
-    if(error||!Array.isArray(rows)||!Number.isSafeInteger(count))
-      throw Error("Soumissions non confirmées");
-    if(el){el.textContent=String(count);el.title="Soumissions envoyées en attente d'approbation";}
-    jlDashboardFillList("jlDashboardQuotesBox",rows.map(q=>{
-      const detail=q.content||{};
-      const amount=Number(detail.totalCents);
-      return {
-        title:String(q.quote_number||"SO")+" · "+
-          (Number.isFinite(amount)?money(amount/100)+" $":"Montant à vérifier"),
-        subtitle:String(detail.clientName||"Client inconnu")+
-          (detail.vehicleLabel?" · "+String(detail.vehicleLabel):""),
-        detail:String(q.created_at||"").slice(0,10),
-        badge:"Envoyée",kind:"partial",
-        onClick:()=>jlDashboardOpenQuote(q.id)
-      };
-    }),"Aucune soumission en attente d'approbation.");
+      .limit(500);
+    if(error||!Array.isArray(rows))throw Error("Soumissions non confirmées");
+    const unapproved=rows.filter(q=>q.status==="sent"&&!q.content?.approvalConfirmedAt);
+    const approved=rows.filter(q=>q.content?.approvalConfirmedAt);
+    jlCalendarQuotes=approved.filter(q=>q.content?.appointment?.date);
+    if(countEl){countEl.textContent=String(unapproved.length);
+      countEl.title="Soumissions envoyées non encore approuvées";}
+    const quoteItem=q=>{
+      const d=q.content||{};
+      return {title:String(q.quote_number||"SO"),
+        subtitle:String(d.clientName||"Client inconnu")+
+          (d.vehicleLabel?" · "+String(d.vehicleLabel):""),
+        detail:String(d.description||"").slice(0,110)||
+          "Montant : "+money(Number(d.totalCents||0)/100)+" $",
+        onClick:()=>jlDashboardOpenQuote(q.id)};
+    };
+    jlDashboardFillList("jlDashboardQuotesBox",unapproved.slice(0,5).map(quoteItem),
+      "Aucune soumission envoyée en attente d'accord.");
+    jlDashboardFillList("jlDashboardUnplanned",approved.filter(q=>
+      !q.content?.appointment?.date&&q.status!=="converted").slice(0,5).map(quoteItem),
+      "Aucune soumission approuvée à planifier.");
+    const status=document.getElementById("jlCalendarStatus");
+    if(status)status.textContent=rows.length>=500
+      ?"Affichage partiel : plus de 500 soumissions à vérifier."
+      :"Clique sur un rendez-vous pour ouvrir sa soumission. Date et heure modifiables dans la fiche avant conversion.";
+    jlCalendarRender();
   }catch(error){
-    if(el){el.textContent="—";el.title="Lecture des soumissions indisponible";}
-    const list=document.getElementById("jlDashboardQuotesBox");
-    if(list){const message=document.createElement("span");message.className="muted";
-      message.textContent="Impossible de vérifier les soumissions.";
-      list.replaceChildren(message);}
-    console.warn("[Dashboard TEST] Soumissions non vérifiées",error);
+    if(countEl){countEl.textContent="—";countEl.title="Lecture indisponible";}
+    for(const id of ["jlDashboardQuotesBox","jlDashboardUnplanned"]){
+      const box=document.getElementById(id);
+      if(box){const t=document.createElement("span");t.className="muted";
+        t.textContent="Lecture des soumissions indisponible.";box.replaceChildren(t);}
+    }
+    const status=document.getElementById("jlCalendarStatus");
+    if(status)status.textContent="Impossible de vérifier les rendez-vous sur Supabase.";
+    console.warn("[Dashboard TEST] Planification non vérifiée",error);
   }finally{dashboardQuotePending=false;}
 }
 
