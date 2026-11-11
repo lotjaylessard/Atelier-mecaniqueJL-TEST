@@ -12443,7 +12443,7 @@ window.addEventListener("s08-quotes-refreshed",()=>{
   if(document.getElementById("page-dashboard")?.style.display!=="none")
     void dashboardRefreshPendingQuotes();
 });
-async // Le calendrier conserve seulement les rendez-vous confirmés par Supabase.
+// Le calendrier conserve seulement les rendez-vous confirmés par Supabase.
 let jlCalendarWeekShift=0, jlCalendarQuotes=[];
 function jlCalendarISO(date){
   return date.getFullYear()+"-"+String(date.getMonth()+1).padStart(2,"0")+
