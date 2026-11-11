@@ -8038,6 +8038,21 @@ function openWorkOrderDetail(wo){
 
   detail.appendChild(backBar);
 
+  // Date importée depuis la soumission lors de la conversion atomique TEST.
+  // Lecture seule ici : la soumission demeure la source du rendez-vous.
+  const scheduled=wo.scheduledAppointment;
+  if(scheduled&&/^\\d{4}-\\d{2}-\\d{2}$/.test(String(scheduled.date||""))&&
+     /^\\d{2}:\\d{2}$/.test(String(scheduled.time||""))){
+    const appointmentInfo=document.createElement("div");
+    appointmentInfo.className="card";
+    appointmentInfo.style.padding="10px 14px";
+    appointmentInfo.style.marginBottom="12px";
+    appointmentInfo.textContent="📅 Rendez-vous prévu : "+scheduled.date+" à "+
+      scheduled.time+" (durée estimée : "+String(scheduled.durationMinutes||60)+
+      " min) · Soumission "+String(wo.sourceQuoteNumber||"");
+    detail.appendChild(appointmentInfo);
+  }
+
   // TEST #16A : lecture seule à l'ouverture. Ne pas modifier le BT.
   // Le kilométrage de repli sert uniquement à afficher le champ.
   let displayedVehicleKm = wo.vehicleKm;
