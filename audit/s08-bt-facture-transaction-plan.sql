@@ -19,3 +19,17 @@
 --   * vérifier que le calcul TPS/TVQ et les sessions minuteur sont inchangés
 --
 -- Ne PAS remplacer le code client actuel avant ces vérifications.
+
+-- État du contrôle suivant :
+-- La fonction de prévalidation supplémentaire
+-- public.s08_finalize_bt_invoice_validated(...) est installée sur TEST.
+-- Elle vérifie :
+--   client + véhicule du BT, quantités/tarifs/numéros/descriptions des pièces,
+--   heures/tarifs et montant des services, identifiants de minuteur,
+--   sous-total, rabais et réconciliation TPS + TVQ + total.
+-- Elle délègue à la fonction atomique staged APRÈS ces vérifications.
+-- Vérifications effectuées : privilège authenticated oui, anon non,
+-- SECURITY INVOKER et rejet de l'appel non authentifié.
+-- Attention : cette validation ne prouve PAS encore les taux TPS/TVQ
+-- configurés et n'a pas subi de scénario complet avec session authentifiée.
+-- Ne pas activer le bouton Terminé avant ces tests.
