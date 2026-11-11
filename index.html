@@ -1436,7 +1436,8 @@ button.link:hover{
 #page-quotes .s08-editor-heading{display:flex;align-items:start;justify-content:space-between;gap:12px;flex-wrap:wrap}
 #page-quotes .s08-field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 14px}
 #page-quotes .s08-field-grid label,#page-quotes .s08-line-add label{min-width:0}
-#page-quotes .s08-line-add{display:grid;grid-template-columns:95px minmax(180px,1fr) 105px 110px 110px 110px minmax(160px,max-content);gap:10px;align-items:end}
+#page-quotes .s08-line-add{display:grid;grid-template-columns:120px minmax(180px,1fr) 130px 130px 130px 130px minmax(180px,max-content);gap:10px;align-items:end}
+#page-quotes .s08-line-add.s08-without-part{grid-template-columns:120px minmax(180px,1fr) 130px 130px minmax(180px,max-content)}
 #page-quotes .s08-line-add input,#page-quotes .s08-line-add select{box-sizing:border-box;width:100%}
 #page-quotes .s08-line-add button{margin-bottom:0;white-space:nowrap}
 #page-quotes .s08-editor-lines{overflow-x:auto;max-width:100%}
@@ -1726,7 +1727,7 @@ button.link:hover{
           </table>
         </div>
         <div class="s08-total"><strong>Total estimé (avant taxes) : <span id="s08DraftTotal">0,00 $</span></strong></div>
-        <p class="muted s08-garage-only" style="text-align:right;margin:4px 0 0;font-size:12px">Interne uniquement — coût total des pièces : <strong id="s08PartsCostTotal">0,00 $</strong> · Profit brut estimé sur les pièces : <strong id="s08PartsProfitTotal">0,00 $</strong> (main-d’œuvre exclue).</p>
+        <p class="muted s08-garage-only" style="text-align:right;margin:4px 0 0;font-size:12px">Interne uniquement — coût total des pièces : <strong id="s08PartsCostTotal">0,00 $</strong> · Profit brut estimé (pièces + main-d’œuvre) : <strong id="s08PartsProfitTotal">0,00 $</strong> (sans frais généraux).</p>
         <p class="muted" style="margin:6px 0 0">Taxes applicables en sus. Après l’enregistrement, impression et approbation sont disponibles dans la fiche de la soumission.</p>
         <p id="s08SaveStatus" role="status" aria-live="polite" class="muted"></p>
         <div class="s08-editor-buttons">
@@ -15624,6 +15625,7 @@ if (window.garageSupabase) {
     const part=get("s08LineType").value==="part";
     get("s08CostLabel").hidden=!part;
     get("s08PartNumberLabel").hidden=!part;
+    get("s08LineType").closest(".s08-line-add")?.classList.toggle("s08-without-part",!part);
     get("s08LinePartNumber").disabled=!part;
     get("s08LineCost").disabled=!part;
   }
@@ -15654,11 +15656,11 @@ if (window.garageSupabase) {
         line.description,part?(line.number||"—"):"—",String(line.qty),
         part?fmt(unitCost/100):"—",fmt(line.priceCents/100),
         fmt(line.amountCents/100),
-        part?fmt(profitCents/100):"—"
+        line.type==="labor"||part?fmt(profitCents/100):"—"
       ];
       values.forEach((val,i)=>{
         const cell=document.createElement("td");cell.textContent=val;
-        if(i===7&&part)cell.classList.add(profitCents<0?"s08-profit-negative":profitCents>0?"s08-profit-positive":"s08-profit-neutral");
+        if(i===7&&(part||line.type==="labor"))cell.classList.add(profitCents<0?"s08-profit-negative":profitCents>0?"s08-profit-positive":"s08-profit-neutral");
         if([1,3,5].includes(i)||(part&&[2,4].includes(i))){
           cell.tabIndex=0;cell.setAttribute("role","button");
           cell.title="Cliquer pour modifier cette ligne";
@@ -15677,7 +15679,7 @@ if (window.garageSupabase) {
     }
     total.textContent=fmt(lines.reduce((sum,line)=>sum+line.amountCents,0)/100);
     const cost=lines.filter(l=>l.type==="part").reduce((sum,l)=>sum+Math.round((Number(l.costCents)||0)*l.qty),0);
-    const revenue=lines.filter(l=>l.type==="part").reduce((sum,l)=>sum+l.amountCents,0);
+    const revenue=lines.filter(l=>l.type==="part"||l.type==="labor").reduce((sum,l)=>sum+l.amountCents,0);
     get("s08PartsCostTotal").textContent=fmt(cost/100);
     get("s08PartsProfitTotal").textContent=fmt((revenue-cost)/100);
   }
@@ -16583,13 +16585,13 @@ if (window.garageSupabase) {
         type,line.description||"",isPart?(line.number||"—"):"—",
         String(line.qty??""),isPart?fmtQuote(costCents):"—",
         fmtQuote(Number(line.priceCents||0)),fmtQuote(Number(line.amountCents||0)),
-        isPart?fmtQuote(profitCents):"—"
+        isPart||line.type==="labor"?fmtQuote(profitCents):"—"
       ];
       values.forEach((value,index)=>{
         const td=document.createElement("td");
         td.textContent=value;
         if(index===4||index===7)td.classList.add("s08-internal-col");
-        if(index===7&&isPart)td.classList.add(profitCents<0?"s08-profit-negative":profitCents>0?"s08-profit-positive":"s08-profit-neutral");
+        if(index===7&&(isPart||line.type==="labor"))td.classList.add(profitCents<0?"s08-profit-negative":profitCents>0?"s08-profit-positive":"s08-profit-neutral");
         tr.append(td);
       });
       target.append(tr);
