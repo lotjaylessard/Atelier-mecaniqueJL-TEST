@@ -1745,6 +1745,7 @@ button.link:hover{
             <h2 id="s08ViewTitle">Soumission</h2>
             <div class="s08-viewer-controls">
               <button type="button" id="s08ViewerMode" class="ghost" aria-pressed="false" aria-label="Passer en mode client" title="Passer en mode client">⋯</button>
+              <button type="button" id="s08EditQuote" class="ghost" hidden>Modifier</button>
               <button type="button" id="s08MarkApproved" title="Enregistrer l'accord du client sans créer de BT">✓ Approuver</button>
               <button type="button" id="s08QuickApprove" class="ghost" title="Convertir la soumission approuvée en bon de travail" hidden>Créer BT</button>
               <button type="button" class="ghost" id="s08Preflight" hidden>Vérifier avant conversion</button>
@@ -15448,6 +15449,7 @@ if (window.garageSupabase) {
   if(!editor||!start||!cancel||!add||!tbody||!total)return;
   let lines=[];
   let saving=false;
+  let editingQuote=null;
   let quotes=[];
   const get=id=>document.getElementById(id);
   // Mode client : ne masque jamais les champs du formulaire de création.
@@ -15751,6 +15753,7 @@ if (window.garageSupabase) {
   }
   start.addEventListener("click",()=>{
     if(!editor.hidden)return;
+    editingQuote=null;
     editor.hidden=false;
     if(quotesListCard)quotesListCard.hidden=true;
     populateCatalogs();
@@ -15760,13 +15763,22 @@ if (window.garageSupabase) {
     clientLookup?.focus();
   });
   function closeQuoteDraft(askBeforeDiscard=true){
-    if(askBeforeDiscard && (lines.length || [ "s08ClientName","s08ClientPhone","s08ClientEmail","s08VehicleLabel","s08QuoteDescription"].some(id=>get(id)?.value.trim()))){
-      if(!confirm("Fermer et perdre ce brouillon non enregistré ?"))return;
+    if(askBeforeDiscard && (editingQuote || lines.length || [ "s08ClientName","s08ClientPhone","s08ClientEmail","s08VehicleLabel","s08QuoteDescription"].some(id=>get(id)?.value.trim()))){
+      if(!confirm("Fermer et perdre les modifications non enregistrées ?"))return;
     }
     lines=[];render();
+    editingQuote=null;
+    editor.querySelector(".s08-editor-heading h3").textContent="Nouvelle soumission — brouillon temporaire";
+    editor.querySelector(".s08-editor-heading p").textContent="Aucun numéro SO attribué avant la sauvegarde. Aucune incidence sur les clients, les véhicules, les pièces ou les BT.";
+    editor.querySelector(".s08-client-fast").hidden=false;
+    editor.querySelector(".s08-client-fast").style.display="grid";
+    get("s08SaveQuote").textContent="💾 Enregistrer la soumission";
+    get("s08CancelQuote").textContent="Fermer le brouillon";
+    get("s08SaveStatus").textContent="";
     editor.querySelectorAll("input,textarea").forEach(el=>el.value="");
     get("s08LineQty").value="1";get("s08LinePrice").value="0";get("s08LineCost").value="0";get("s08LinePartNumber").value="";
     get("s08CatalogPart").value="";get("s08CatalogService").value="";
+    get("s08LineType").value="part";updateCostVisibility();
     selectedFastClientId="";
     clearClientFields();
     closeClientResults();
@@ -15826,6 +15838,43 @@ if (window.garageSupabase) {
   const viewer=get("s08QuoteViewer"),viewClose=get("s08ViewClose");
   let returnFocus=null;
   let selectedQuote=null;
+  get("s08EditQuote").addEventListener("click",()=>{
+    const q=selectedQuote;
+    if(saving||!editor.hidden||!q||!["draft","sent"].includes(q.status)||q.content?.approvalConfirmedAt)return;
+    const d=q.content||{};
+    if(!Array.isArray(d.lines))return;
+    editingQuote=q;
+    populateCatalogs();
+    lines=d.lines.map(l=>({...l}));
+    for(const [id,val] of Object.entries({
+      s08ClientName:d.clientName||"",s08ClientPhone:d.clientPhone||"",
+      s08ClientEmail:d.clientEmail||"",s08VehicleLabel:d.vehicleLabel||"",
+      s08QuoteDescription:d.description||""
+    }))get(id).value=String(val);
+    selectedFastClientId=String(d.linkedClientId||"");
+    get("s08SelectedClientDetails").hidden=false;
+    get("s08SelectedClientName").textContent=d.clientName||"—";
+    get("s08SelectedClientPhone").textContent=d.clientPhone||"—";
+    get("s08SelectedClientEmail").textContent=d.clientEmail||"—";
+    get("s08SelectedVehicleName").textContent=d.vehicleLabel||"—";
+    editor.querySelector(".s08-client-fast").hidden=true;
+    editor.querySelector(".s08-client-fast").style.display="none";
+    get("s08ManualVehicleWrap").hidden=true;
+    editor.querySelector(".s08-editor-heading h3").textContent="Modifier "+q.quote_number;
+    editor.querySelector(".s08-editor-heading p").textContent="Client et véhicule conservés. Modifie les travaux et les lignes; le numéro de soumission reste identique.";
+    get("s08CancelQuote").textContent="Annuler les modifications";
+    saveButton.textContent="💾 Enregistrer les modifications";
+    saveStatus.textContent=q.status==="sent"?"Soumission déjà envoyée : transmets la version corrigée au client.":"";
+    get("s08LineDescription").value="";
+    get("s08LineQty").value="1";get("s08LinePrice").value="0";get("s08LineCost").value="0";
+    get("s08LinePartNumber").value="";get("s08LineType").value="part";updateCostVisibility();
+    render();
+    closeViewer();
+    editor.hidden=false;
+    if(quotesListCard)quotesListCard.hidden=true;
+    start.disabled=true;start.textContent="Modification en cours";
+    get("s08QuoteDescription").focus();
+  });
   function closeViewer(){
     viewer.hidden=true;
     returnFocus?.focus?.();
@@ -16540,6 +16589,7 @@ if (window.garageSupabase) {
     value("s08ViewMeta",String(q.created_at||"").slice(0,10)); // Le statut est déjà affiché dans la pastille colorée.
     // Une SO déjà convertie est en lecture seule : ne pas proposer une nouvelle approbation.
     const converted=q.status==="converted";
+    get("s08EditQuote").hidden=!(["draft","sent"].includes(q.status)&&!d.approvalConfirmedAt);
     get("s08Preflight").hidden=true;
     get("s08MarkApproved").hidden=q.status!=="sent"||!!d.approvalConfirmedAt;
     get("s08QuickApprove").hidden=!["draft","sent"].includes(q.status)||!d.approvalConfirmedAt;
@@ -16754,12 +16804,12 @@ if (window.garageSupabase) {
     if(!Number.isSafeInteger(totalCents)||totalCents<0){
       saveStatus.textContent="Total invalide.";return;
     }
-    const content={clientName,vehicleLabel,
+    const content={...(editingQuote?.content||{}),clientName,vehicleLabel,
       clientPhone:get("s08ClientPhone").value.trim(),clientEmail:get("s08ClientEmail").value.trim(),
       description:get("s08QuoteDescription").value.trim(),lines:lines.map(l=>({...l})),totalCents};
     // S08-F11 : le client ET son véhicule ont déjà été choisis dans l'éditeur.
     // Conserver leurs IDs dans la soumission pour ne jamais les redemander.
-    const chosenClient=clientsForQuote().find(c=>String(c.id)===selectedFastClientId);
+    const chosenClient=editingQuote?null:clientsForQuote().find(c=>String(c.id)===selectedFastClientId);
     const chosenVehicle=chosenClient?.vehicles?.find(v=>String(v.id)===vehicleChoice.value);
     if(chosenClient&&chosenVehicle&&
        clientNameForQuote(chosenClient)===clientName&&
@@ -16783,13 +16833,23 @@ if (window.garageSupabase) {
       const {sb,garageId}=context();
       const {data:auth,error:authError}=await sb.auth.getUser();
       if(authError||!auth?.user?.id)throw Error("Session expirée.");
-      const {data:row,error:writeError}=await sb.from("garage_quotes")
-        .insert({garage_id:garageId,user_id:auth.user.id,status:"draft",content})
-        .select("id,quote_number,user_id,garage_id,content,status,created_at,version,converted_bt_id").single();
+      const existing=editingQuote;
+      if(existing&&(existing.content?.approvalConfirmedAt||!["draft","sent"].includes(existing.status)))
+        throw Error("Soumission déjà approuvée ou non modifiable.");
+      const query=existing
+        ?sb.from("garage_quotes").update({
+            content,version:Number(existing.version)+1,updated_at:new Date().toISOString()
+          }).eq("id",existing.id).eq("garage_id",garageId).eq("user_id",auth.user.id)
+            .eq("version",existing.version).eq("status",existing.status)
+        :sb.from("garage_quotes").insert({garage_id:garageId,user_id:auth.user.id,status:"draft",content});
+      const {data:row,error:writeError}=await query
+        .select("id,quote_number,user_id,garage_id,content,status,created_at,version,converted_bt_id").maybeSingle();
       if(writeError)throw writeError;
       if(!row||row.user_id!==auth.user.id||row.garage_id!==garageId||
-         !/^SO-\d{4,}$/.test(row.quote_number)||row.content?.totalCents!==totalCents)
-        throw Error("Confirmation ambiguë. Vérifie la liste avant un nouvel essai.");
+         !/^SO-\d{4,}$/.test(row.quote_number)||row.content?.totalCents!==totalCents||
+         (existing&&(row.id!==existing.id||row.quote_number!==existing.quote_number||
+           Number(row.version)!==Number(existing.version)+1||row.status!==existing.status)))
+        throw Error("Confirmation ambiguë ou conflit de version. Recharge la soumission avant de réessayer.");
       // Ouvrir la fiche uniquement après confirmation serveur; ne pas répéter l'insertion.
       closeQuoteDraft(false);
       await refreshQuotes();
