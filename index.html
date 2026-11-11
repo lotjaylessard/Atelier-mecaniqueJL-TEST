@@ -16621,7 +16621,7 @@ if (window.garageSupabase) {
         link.type="button";link.className="ghost";
         link.textContent=btNumber;
         link.title="Ouvrir directement ce bon de travail";
-        link.style.cssText="font:inherit;font-weight:700;text-decoration:underline;padding:3px 6px;color:inherit";
+        link.style.cssText="font:inherit;font-weight:700;text-decoration:underline;padding:0;border:0;outline-offset:3px;box-shadow:none;background:transparent;color:inherit;cursor:pointer";
         link.addEventListener("click",()=>{
           closeViewer();
           openWorkOrderFromDashboard(bt.id);
