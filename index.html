@@ -1635,6 +1635,7 @@ button.link:hover{
             <option value="">Tous les statuts</option>
             <option value="draft">Brouillon</option>
             <option value="sent">Envoyée</option>
+            <option value="approved">Approuvée</option>
             <option value="converted">Convertie en BT</option>
             <option value="declined">Refusée</option>
             <option value="expired">Expirée</option>
@@ -16514,8 +16515,8 @@ if (window.garageSupabase) {
     get("s08ScheduleDuration").value=d.appointment?.durationMinutes||60;
     get("s08ScheduleFeedback").textContent=d.approvalConfirmedAt?
       (d.appointment?.date?"Rendez-vous enregistré.":"Soumission approuvée — à planifier."):"";
-    setStatusPill(get("s08ViewStatusBadge"),q.status);
-    const editableStatus=["draft","sent","declined","expired"].includes(q.status);
+    setStatusPill(get("s08ViewStatusBadge"),q.status==="sent"&&d.approvalConfirmedAt?"approved":q.status);
+    const editableStatus=["draft","sent","declined","expired"].includes(q.status)&&!d.approvalConfirmedAt;
     get("s08StatusPanel").hidden=!editableStatus;
     get("s08StatusChoice").value=editableStatus?q.status:"draft";
     updateStatusControl();
@@ -16590,7 +16591,7 @@ if (window.garageSupabase) {
   let statusSaving=false;
   function updateStatusControl(){
     const choice=get("s08StatusChoice");
-    choice.disabled=statusSaving;
+    choice.disabled=statusSaving||!!selectedQuote?.content?.approvalConfirmedAt;
     // Afficher seulement les transitions autorisées, en gardant la valeur actuelle.
     const allowed=statusTransitions[selectedQuote?.status]||[];
     for(const opt of choice.options){
@@ -16600,7 +16601,7 @@ if (window.garageSupabase) {
   get("s08StatusChoice").addEventListener("change",async()=>{
     const q=selectedQuote;
     const choice=get("s08StatusChoice");
-    if(statusSaving||!q||!statusTransitions[q.status])return;
+    if(statusSaving||!q||q.content?.approvalConfirmedAt||!statusTransitions[q.status])return;
     const to=choice.value;
     if(to===q.status)return;
     if(!statusTransitions[q.status].includes(to)){choice.value=q.status;return;}
@@ -16655,7 +16656,8 @@ if (window.garageSupabase) {
     if(!list)return;
     const search=(get("s08QuoteSearch").value||"").toLocaleLowerCase("fr");
     const filter=get("s08QuoteStatus").value;
-    const rows=quotes.filter(q=>(!filter||q.status===filter)&&
+    const rows=quotes.filter(q=>(!filter||
+      (filter==="approved"?q.status==="sent"&&!!q.content?.approvalConfirmedAt:q.status===filter))&&
       [q.quote_number,q.content?.clientName,q.content?.vehicleLabel,q.content?.description]
         .join(" ").toLocaleLowerCase("fr").includes(search));
     get("s08QuoteCount").textContent=rows.length+" soumission"+(rows.length===1?"":"s")+" affichée"+(rows.length===1?"":"s");
@@ -16672,7 +16674,7 @@ if (window.garageSupabase) {
         const td=document.createElement("td");td.textContent=val;tr.append(td);
       }
       const statusCell=document.createElement("td"),pill=document.createElement("span");
-      pill.className="s08-status-pill";setStatusPill(pill,q.status);
+      pill.className="s08-status-pill";setStatusPill(pill,q.status==="sent"&&d.approvalConfirmedAt?"approved":q.status);
       statusCell.append(pill);tr.append(statusCell);
       // Une ligne = une soumission : clic ou clavier pour consulter, sans colonne Actions.
       tr.classList.add("s08-quote-openable");
