@@ -8033,16 +8033,8 @@ if (errorMessage){
   }
 
 
-  // 1) Marquer le WO comme terminé
-  wo.status = "termine";
-  wo.completedAt = new Date().toISOString();
-  saveWorkOrders();
-
-// 🔄 Mettre à jour le KM du véhicule
-if (veh){
-  veh.km = currentKm;
-  saveClients();
-}
+  // Préparer la facture AVANT de changer le statut du BT.
+  // Si sa construction échoue, le BT reste en cours et aucun état partiel n'est sauvegardé.
 
 // 2️⃣ Construire la facture PRO depuis le WO
 const invoice = {
@@ -8092,9 +8084,18 @@ invoice.subTotal = invoice.items.reduce(
 // et les corrections ulterieures utilisent la base taxable seule.
 recalcInvoice(invoice);
 
-
+  // La facture est prête : enregistrer maintenant le BT et sa facture.
+  // Garder les deux sauvegardes synchrones pour qu'une seule synchro cloud
+  // différée voie normalement les deux changements ensemble.
+  wo.status = "termine";
+  wo.completedAt = new Date().toISOString();
   INVOICES.push(invoice);
+  saveWorkOrders();
   saveInvoices();
+  if (veh){
+    veh.km = currentKm;
+    saveClients();
+  }
 
  renderWorkOrders();
 if (typeof renderInvoiceList === "function") renderInvoiceList();
