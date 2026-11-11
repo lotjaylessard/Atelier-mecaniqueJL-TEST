@@ -1448,6 +1448,11 @@ button.link:hover{
 #page-quotes .s08-editor-buttons{display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
 @media(max-width:1000px){#page-quotes .s08-line-add{grid-template-columns:repeat(2,minmax(0,1fr))}#page-quotes .s08-line-add label:nth-child(2){grid-column:span 2}#page-quotes .s08-line-add button{grid-column:span 2}}
 
+
+/* TEST — ouverture des BT et factures par clic sur leur ligne. */
+#woTable tbody tr.jl-openable-row,#invoiceListTable tbody tr.jl-openable-row{cursor:pointer}
+#woTable tbody tr.jl-openable-row:hover,#invoiceListTable tbody tr.jl-openable-row:hover{background:rgba(245,197,66,.08)}
+#woTable tbody tr.jl-openable-row:focus-visible,#invoiceListTable tbody tr.jl-openable-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1879,7 +1884,6 @@ button.link:hover{
               <th data-wo-sort="description" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('description')" title="Trier par Description" style="padding:4px 6px;white-space:nowrap;">Description <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
               <th data-wo-sort="status" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('status')" title="Trier par Statut" style="padding:4px 6px;white-space:nowrap;">Statut <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
               <th data-wo-sort="total" aria-sort="none"><button type="button" class="ghost" onclick="setWorkOrderSort('total')" title="Trier par Total estimé" style="padding:4px 6px;white-space:nowrap;">Total estimé <span class="wo-sort-arrow" aria-hidden="true">↕</span></button></th>
-              <th></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -7713,7 +7717,7 @@ function renderWorkOrders(){
     if(counter) counter.textContent = "0 bon de travail affiché";
     tbody.innerHTML = `
       <tr>
-        <td colspan="9" class="muted">Aucun bon de travail pour le moment.</td>
+        <td colspan="8" class="muted">Aucun bon de travail pour le moment.</td>
       </tr>`;
     return;
   }
@@ -7807,38 +7811,26 @@ const isPaid = invoice && invoice.status === "paid";
         </span>
       </td>
       <td>${money((wo.parts || []).reduce((sum,part)=>sum+Number(part.qty||0)*Number(part.rate||0),0) + (wo.labor || []).reduce((sum,line)=>sum+s06LaborLineAmount(line),0))} $</td>
-      <td>
-  <button class="ghost" data-action="open">Ouvrir</button>
 
-  ${
-    wo.status === "en_cours" && !invoice
-      ? `
-        <button class="ghost" onclick="finishWorkOrder(${wo.id})">
-          ✅ Terminé
-        </button>
-
-        <button class="ghost danger" onclick="deleteWorkOrder(${wo.id})">
-          🗑 Supprimer
-        </button>
-      `
-      : ""
-  }
-</td>
     `;
 
+    tr.classList.add("jl-openable-row");
+    tr.tabIndex=0;
+    tr.setAttribute("role","button");
+    tr.setAttribute("aria-label","Ouvrir le bon de travail "+String(wo.number||""));
+    tr.addEventListener("click",event=>{
+      if(event.target.closest("button,a,input,select"))return;
+      openWorkOrderDetail(wo);
+    });
+    tr.addEventListener("keydown",event=>{
+      if(event.target!==tr||!["Enter"," "].includes(event.key))return;
+      event.preventDefault();openWorkOrderDetail(wo);
+    });
     tbody.appendChild(tr);
   });
   if (!tbody.children.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="muted">Aucun bon de travail ne correspond à la recherche.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="muted">Aucun bon de travail ne correspond à la recherche.</td></tr>';
   }
-
-  tbody.querySelectorAll("button[data-action='open']").forEach(btn=>{
-    btn.onclick = () => {
-      const id = btn.closest("tr").dataset.id;
-      const wo = WORKORDERS.find(w => String(w.id) === String(id));
-      if (wo) openWorkOrderDetail(wo);
-    };
-  });
 }
 
   
@@ -9673,10 +9665,6 @@ function renderInvoiceList(){
         </span>
       </td>
       <td style="text-align:right;">
-        <button class="ghost" onclick="openInvoiceEditModal('${inv.number}')">
-          Ouvrir
-        </button>
-
         ${
           inv.status === "paid"
             ? `<button class="ghost" onclick="archiveInvoice('${inv.number}')">
@@ -9689,6 +9677,18 @@ function renderInvoiceList(){
       </td>
     `;
 
+    tr.classList.add("jl-openable-row");
+    tr.tabIndex=0;
+    tr.setAttribute("role","button");
+    tr.setAttribute("aria-label","Ouvrir la facture "+String(inv.number||""));
+    tr.addEventListener("click",event=>{
+      if(event.target.closest("button,a,input,select"))return;
+      openInvoiceEditModal(inv.number);
+    });
+    tr.addEventListener("keydown",event=>{
+      if(event.target!==tr||!["Enter"," "].includes(event.key))return;
+      event.preventDefault();openInvoiceEditModal(inv.number);
+    });
     tbody.appendChild(tr);
   });
 }
@@ -13074,12 +13074,9 @@ function renderMonthlyRevenueChart(){
 
   /* ===================== Ouvrir WO a partir du Dashboard ===================== */
 function openWorkOrderFromDashboard(id){
-  showPage("page-workorders");
-
-  setTimeout(() => {
-    const btn = document.querySelector(`tr[data-id="${id}"] button[data-action="open"]`);
-    if (btn) btn.click();
-  }, 0);
+  const wo=WORKORDERS.find(w=>String(w.id)===String(id));
+  if(wo) openWorkOrderDetail(wo);
+  else console.warn("[BT] Bon de travail introuvable pour l'ouverture.",id);
 }
 
 
