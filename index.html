@@ -8040,6 +8040,19 @@ if (errorMessage){
       .select("version").eq("garage_id",expectedGarage).single();
     if(remoteError||!remote||remote.version!==expectedVersion)
       throw Error("Données Supabase modifiées : actualise le garage avant de terminer ce BT.");
+    // Contrôle serveur indépendant : statut exact du BT et absence de facture
+    // déjà liée. Cette RPC est en lecture seule et ne crée rien.
+    const {data:check,error:checkError}=await sb.rpc("s08_check_bt_invoice_preflight",{
+      p_garage_id:expectedGarage,
+      p_workorder_id:String(wo.id),
+      p_workorder_number:String(wo.number),
+      p_expected_version:expectedVersion
+    });
+    if(checkError||!check?.ok||check.workOrderNumber!==String(wo.number)||
+       check.invoiceNumber!==String(btToInvoiceNumber(wo.number))||
+       check.garageVersion!==expectedVersion)
+      throw Error("Vérification serveur BT/facture refusée : "+
+        String(checkError?.message||"réponse non conforme")+". Aucune facture créée.");
     if(ACTIVE_GARAGE_ID!==expectedGarage||SUPABASE_USER?.id!==expectedUser||
        CLOUD_CHANGE_REVISION!==expectedRevision||!CLOUD_DATA_READY||
        hasUnconfirmedCloudChanges()||
