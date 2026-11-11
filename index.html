@@ -16610,9 +16610,27 @@ if (window.garageSupabase) {
     get("s08DiagnosticTools").open=false;
     const btInfo=get("s08ConvertedBT");
     btInfo.hidden=!converted;
-    btInfo.textContent=converted
-      ? "✓ Convertie en bon de travail : "+String(q.converted_bt_id||"numéro à vérifier")
-      : "";
+    btInfo.replaceChildren();
+    if(converted){
+      btInfo.append(document.createTextNode("✓ Convertie en bon de travail : "));
+      const btNumber=String(q.converted_bt_id||"").trim();
+      const bt=btNumber&&typeof WORKORDERS!=="undefined"&&Array.isArray(WORKORDERS)
+        ?WORKORDERS.find(w=>String(w.number)===btNumber):null;
+      if(bt&&typeof openWorkOrderFromDashboard==="function"){
+        const link=document.createElement("button");
+        link.type="button";link.className="ghost";
+        link.textContent=btNumber;
+        link.title="Ouvrir directement ce bon de travail";
+        link.style.cssText="font:inherit;font-weight:700;text-decoration:underline;padding:3px 6px;color:inherit";
+        link.addEventListener("click",()=>{
+          closeViewer();
+          openWorkOrderFromDashboard(bt.id);
+        });
+        btInfo.append(link);
+      }else{
+        btInfo.append(document.createTextNode(btNumber||"Numéro à vérifier"));
+      }
+    }
     value("s08ViewClient",d.clientName);
     value("s08ViewPhone",d.clientPhone);
     value("s08ViewEmail",d.clientEmail);
