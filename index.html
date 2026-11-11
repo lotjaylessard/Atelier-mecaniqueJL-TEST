@@ -14561,7 +14561,15 @@ function syncKmEverywhereFromWO(wo, newKm){
 
   
 function woConvertToInvoice(wo) {
-  const number = nextInvoiceNumber();
+  const source=String(wo.sourceQuoteNumber||"");
+  const linked= /^SO-[A-Z0-9]{1,12}-\d{4}-\d{2}-\d{2}-\d{4,}$/.test(source)
+    ?"FA-"+source.slice(3):"";
+  // Ne pas créer de facture en double pour un même dossier.
+  if(linked && INVOICES.some(i=>String(i.number)===linked)){
+    alert("La facture "+linked+" existe déjà. Ouvre la facture existante.");
+    return;
+  }
+  const number = linked || nextInvoiceNumber();
 
   const invoice = {
     number,
@@ -16864,7 +16872,7 @@ if (window.garageSupabase) {
         .select("id,quote_number,user_id,garage_id,content,status,created_at,version,converted_bt_id").maybeSingle();
       if(writeError)throw writeError;
       if(!row||row.user_id!==auth.user.id||row.garage_id!==garageId||
-         !/^SO-\d{4,}$/.test(row.quote_number)||row.content?.totalCents!==totalCents||
+         !/^SO-(?:\d{4,}|[A-Z0-9]{1,12}-\d{4}-\d{2}-\d{2}-\d{4,})$/.test(row.quote_number)||row.content?.totalCents!==totalCents||
          (existing&&(row.id!==existing.id||row.quote_number!==existing.quote_number||
            Number(row.version)!==Number(existing.version)+1||row.status!==existing.status)))
         throw Error("Confirmation ambiguë ou conflit de version. Recharge la soumission avant de réessayer.");
