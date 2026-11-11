@@ -1483,6 +1483,76 @@ button.link:hover{
   #page-workorders #woListCard #woTable{min-width:820px}
 }
 
+/* S08 — harmonisation des en-têtes BT, SO et Factures.
+   CSS limité aux tableaux de listes : aucune modification des fiches. */
+#page-workorders #woListCard #woTable th button.ghost{
+  display:flex;align-items:center;justify-content:center;text-align:center!important;gap:4px;
+}
+#page-quotes .s08-quotes-table #s08QuotesTable{
+  width:100%;table-layout:fixed;border-collapse:collapse;
+}
+#page-quotes .s08-quotes-table #s08QuotesTable th,
+#page-quotes .s08-quotes-table #s08QuotesTable td{
+  min-width:0;padding:9px 6px;vertical-align:middle;line-height:1.3;
+}
+#page-quotes .s08-quotes-table #s08QuotesTable th{padding:7px 4px}
+#page-quotes .s08-quotes-table #s08QuotesTable th .module-sort-button{
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  gap:4px;width:100%;min-width:0;white-space:normal;line-height:1.2;
+  padding:5px 3px;font-size:12px;
+}
+#page-quotes .s08-quotes-table #s08QuotesTable th:nth-child(1){width:16%}
+#page-quotes .s08-quotes-table #s08QuotesTable th:nth-child(2){width:11%}
+#page-quotes .s08-quotes-table #s08QuotesTable th:nth-child(3){width:15%}
+#page-quotes .s08-quotes-table #s08QuotesTable th:nth-child(4){width:18%}
+#page-quotes .s08-quotes-table #s08QuotesTable th:nth-child(5){width:19%}
+#page-quotes .s08-quotes-table #s08QuotesTable th:nth-child(6){width:12%}
+#page-quotes .s08-quotes-table #s08QuotesTable th:nth-child(7){width:9%}
+#page-quotes .s08-quotes-table #s08QuotesTable td:first-child{
+  font-size:12px;white-space:normal;overflow-wrap:anywhere;
+}
+#page-quotes .s08-quotes-table #s08QuotesTable td:nth-child(4),
+#page-quotes .s08-quotes-table #s08QuotesTable td:nth-child(5){
+  max-width:none;overflow-wrap:anywhere;
+}
+#page-quotes .s08-quotes-table #s08QuotesTable td:nth-child(6){
+  white-space:nowrap;font-size:12px;font-variant-numeric:tabular-nums;
+}
+#page-quotes .s08-quotes-table #s08QuotesTable .s08-status-pill{
+  max-width:100%;padding:5px 8px;white-space:normal;overflow-wrap:anywhere;text-align:center;
+}
+#page-invoice-list #invoiceListTable{
+  width:100%;table-layout:fixed;border-collapse:collapse;
+}
+#page-invoice-list #invoiceListTable th,
+#page-invoice-list #invoiceListTable td{
+  min-width:0;padding:9px 7px;vertical-align:middle;line-height:1.3;overflow-wrap:anywhere;
+}
+#page-invoice-list #invoiceListTable th{padding:7px 4px}
+#page-invoice-list #invoiceListTable th .module-sort-button{
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  gap:4px;width:100%;min-width:0;padding:5px 4px;font-size:12px;line-height:1.2;white-space:normal;
+}
+#page-invoice-list #invoiceListTable th:nth-child(1){width:25%}
+#page-invoice-list #invoiceListTable th:nth-child(2){width:17%}
+#page-invoice-list #invoiceListTable th:nth-child(3){width:30%}
+#page-invoice-list #invoiceListTable th:nth-child(4){width:14%}
+#page-invoice-list #invoiceListTable th:nth-child(5){width:14%}
+#page-invoice-list #invoiceListTable td:first-child{font-size:12px;font-weight:650;overflow-wrap:anywhere}
+#page-invoice-list #invoiceListTable td.invoice-total{
+  white-space:nowrap;font-size:12px;font-variant-numeric:tabular-nums;
+}
+#page-invoice-list #invoiceListTable .status-badge{
+  max-width:100%;white-space:normal;overflow-wrap:anywhere;padding:5px 8px;
+}
+@media(max-width:950px){
+  #page-quotes .s08-quotes-table #s08QuotesTable{min-width:850px}
+}
+@media(max-width:650px){
+  #page-invoice-list #invoiceListTable{min-width:570px}
+  #page-invoice-list .card:has(#invoiceListTable){overflow-x:auto}
+}
+
 /* TEST — ouverture des BT et factures par clic sur leur ligne. */
 #woTable tbody tr.jl-openable-row,#invoiceListTable tbody tr.jl-openable-row{cursor:pointer}
 #woTable tbody tr.jl-openable-row:hover,#invoiceListTable tbody tr.jl-openable-row:hover{background:rgba(245,197,66,.08)}
