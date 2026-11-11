@@ -1644,6 +1644,8 @@ button.link:hover{
           <button id="s08NewQuote" type="button" title="Préparer une soumission temporaire (non enregistrée)">➕ Nouvelle soumission</button>
           <input id="s08QuoteSearch" type="search" placeholder="🔎 Rechercher : # SO, client, véhicule, description..." aria-label="Rechercher une soumission">
           <select id="s08QuoteStatus" aria-label="Filtrer les soumissions par statut">
+            <option value="active" selected>Soumissions actives</option>
+            <option value="archived">Archivées (refusées / expirées)</option>
             <option value="">Tous les statuts</option>
             <option value="draft">Brouillon</option>
             <option value="sent">Envoyée</option>
@@ -16883,8 +16885,13 @@ if (window.garageSupabase) {
     });
     const search=(get("s08QuoteSearch").value||"").toLocaleLowerCase("fr");
     const filter=get("s08QuoteStatus").value;
-    const rows=quotes.filter(q=>(!filter||
-      (filter==="approved"?q.status==="sent"&&!!q.content?.approvalConfirmedAt:q.status===filter))&&
+    const rows=quotes.filter(q=>(
+      filter==="active"?!["declined","expired"].includes(q.status):
+      filter==="archived"?["declined","expired"].includes(q.status):
+      !filter||(
+        filter==="approved"?q.status==="sent"&&!!q.content?.approvalConfirmedAt:q.status===filter
+      )
+    )&&
       [q.quote_number,q.content?.clientName,q.content?.vehicleLabel,q.content?.description]
         .join(" ").toLocaleLowerCase("fr").includes(search));
     const direction=quoteSortDirection==="asc"?1:-1;
