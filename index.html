@@ -8547,6 +8547,7 @@ const statusLabel =
       <span class="status-badge status-${wo.status}">${statusLabel}</span>
     </div>
     ${woContactHtml(wo)}
+    <div id="jlWoDocumentLinks" class="no-print" style="display:none;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 12px;"></div>
     <label for="woKmInput" style="display:block;font-weight:bold;">Kilométrage</label>
     <div style="display:flex;gap:8px;align-items:center;margin:6px 0 12px;">
       <input id="woKmInput" type="number" min="0" value="${woKmDisplay.value ?? ""}" placeholder="KM non renseigné"
@@ -8724,6 +8725,34 @@ const statusLabel =
   </div>
 `;
 
+
+    // Navigation BT → SO / Facture, sans changer la fiche BT existante.
+    const relatedDocs=detail.querySelector("#jlWoDocumentLinks");
+    if(relatedDocs){
+      const sourceId=String(wo.sourceQuoteId||"").trim();
+      const associatedInvoice=INVOICES.find(i=>String(i.workOrderNumber)===String(wo.number));
+      const makeDocLink=(prefix,number,fn)=>{
+        const button=document.createElement("button");
+        button.type="button";button.className="ghost";
+        button.textContent=prefix+" "+number;
+        button.title="Ouvrir "+prefix.toLowerCase()+" liée";
+        button.style.cssText="border:0;background:transparent;box-shadow:none;padding:2px 0;text-decoration:underline;color:var(--accent);font-weight:600";
+        button.addEventListener("click",fn);
+        relatedDocs.append(button);
+      };
+      if(sourceId && /^SO-/.test(String(wo.sourceQuoteNumber||""))){
+        makeDocLink("Soumission",String(wo.sourceQuoteNumber),()=>{
+          jlDashboardOpenQuote(sourceId);
+        });
+      }
+      if(associatedInvoice){
+        makeDocLink("Facture",String(associatedInvoice.number),()=>{
+          showPage("page-invoice-list");
+          openInvoiceEditModal(associatedInvoice.number);
+        });
+      }
+      relatedDocs.style.display=relatedDocs.children.length?"flex":"none";
+    }
 
     // Bind boutons (safe) — DOIT ÊTRE DANS LE SCOPE DE wo
 const btnAddPart  = $("woAddPart");
@@ -13185,7 +13214,7 @@ content.innerHTML = `
     </div>
     <div style="text-align:right;">
       <div style="font-weight:bold;">${SETTINGS.garageName || ""}</div>
-      <div class="muted">Bon de travail : ${escapeHTML(String(inv.workOrderNumber || inv.referenceWO || "-"))}</div>
+      <div class="muted">Bon de travail : <span id="jlInvoiceLinkedBtNumber">${escapeHTML(String(inv.workOrderNumber || inv.referenceWO || "-"))}</span></div>
     </div>
   </div>
 
@@ -13562,6 +13591,26 @@ if (discountInput && discountType){
 
 
   renderInvoiceTotals(inv, content);
+
+  // Lien facture → BT : conserve l'ouverture moderne (pas l'ancien renderer).
+  const invoiceBtNumber=String(inv.workOrderNumber||inv.referenceWO||"").trim();
+  const invoiceBt=WORKORDERS.find(w=>String(w.number)===invoiceBtNumber);
+  const invoiceBtLabel=content.querySelector("#jlInvoiceLinkedBtNumber");
+  if(invoiceBt && invoiceBtLabel){
+    const button=document.createElement("button");
+    button.type="button";button.className="ghost no-print";
+    button.textContent=invoiceBtNumber;
+    button.style.cssText="border:0;background:transparent;box-shadow:none;padding:0;text-decoration:underline;color:var(--accent);font:inherit;cursor:pointer";
+    button.addEventListener("click",()=>{
+      closeInvoiceModal();
+      const search=document.getElementById("woSearch");
+      const status=document.getElementById("woStatusFilter");
+      if(search)search.value="";
+      if(status)status.value="";
+      openWorkOrderFromDashboard(invoiceBt.id);
+    });
+    invoiceBtLabel.replaceChildren(button);
+  }
 
   // Fiche facture : les actions ne figurent plus dans la liste.
   content.querySelector("#jlInvoiceArchiveDetail")?.addEventListener("click",()=>{
