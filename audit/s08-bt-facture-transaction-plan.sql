@@ -1,0 +1,15 @@
+-- TEST ONLY. Preparation du futur RPC atomique BT -> facture.
+-- Fichier non deploie : aucun changement a la base tant que l'integration
+-- client et les tests d'idempotence ne sont pas valides.
+--
+-- Contrat prevu :
+-- * verrouiller la ligne garage_data FOR UPDATE
+-- * verifier auth.uid(), user_id, garage_id et version
+-- * retrouver UN SEUL BT en_cours par id et numero
+-- * verifier qu'aucune facture ne pointe deja vers ce BT/numero
+-- * verifier la facture preparee (non payee, sans historique)
+-- * mettre a jour workorders + invoices + clients(km) dans UN update versionne
+-- * renvoyer numero et nouvelle version; recharger les donnees confirmees
+--
+-- Attention : ce fichier est une specification de securite, pas encore
+-- une migration executable. Le controle actuel dans index.html reste actif.
