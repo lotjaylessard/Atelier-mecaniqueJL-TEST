@@ -1258,7 +1258,11 @@ button.link:hover{
 #page-quotes .s08-quotes-table{max-width:100%;overflow-x:auto}
 #page-quotes #s08QuotesTable{width:100%;border-collapse:collapse}
 #page-quotes #s08QuotesTable th{background:#333;color:var(--accent);font-size:13px;text-align:left;white-space:nowrap;padding:12px 8px}
-#page-quotes #s08QuotesTable td{padding:16px 8px}
+#page-quotes #s08QuotesTable td{padding:9px 7px}
+#page-quotes #s08QuotesTable th{padding:7px 5px;vertical-align:middle}
+#page-quotes #s08QuotesTable th .module-sort-button{font-size:12px;padding:5px;max-width:100%}
+#page-quotes #s08QuotesTable td:first-child{white-space:nowrap;font-size:12px}
+#page-quotes #s08QuotesTable td:nth-child(4),#page-quotes #s08QuotesTable td:nth-child(5){max-width:230px;overflow-wrap:anywhere;line-height:1.35}
 #page-quotes .s08-quote-empty{text-align:center}
 
 
@@ -1652,7 +1656,13 @@ button.link:hover{
         <div class="module-result-count" id="s08QuoteCount" role="status" aria-live="polite">0 soumission affichée</div>
         <div class="s08-quotes-table" role="region" aria-label="Liste des soumissions">
           <table id="s08QuotesTable">
-            <thead><tr><th># SO</th><th>Date</th><th>Client</th><th>Véhicule</th><th>Description</th><th>Montant estimé</th><th>Statut</th></tr></thead>
+            <thead><tr><th data-s08-sort="number"><button type="button" class="module-sort-button" aria-label="Trier par # SO"># SO <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+<th data-s08-sort="date"><button type="button" class="module-sort-button" aria-label="Trier par Date">Date <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+<th data-s08-sort="client"><button type="button" class="module-sort-button" aria-label="Trier par Client">Client <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+<th data-s08-sort="vehicle"><button type="button" class="module-sort-button" aria-label="Trier par Véhicule">Véhicule <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+<th data-s08-sort="description"><button type="button" class="module-sort-button" aria-label="Trier par Description">Description <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+<th data-s08-sort="total"><button type="button" class="module-sort-button" aria-label="Trier par Montant estimé">Montant estimé <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+<th data-s08-sort="status"><button type="button" class="module-sort-button" aria-label="Trier par Statut">Statut <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th></tr></thead>
             <tbody><tr><td colspan="7" class="muted s08-quote-empty">Aucune soumission enregistrée.</td></tr></tbody>
           </table>
         </div>
@@ -16839,14 +16849,51 @@ if (window.garageSupabase) {
       updateStatusControl();
     }
   });
+  let quoteSortKey="date",quoteSortDirection="desc";
+  const quoteSortKeys=["number","date","client","vehicle","description","total","status"];
+  function quoteSortValue(q,key){
+    const d=q.content||{};
+    switch(key){
+      case "number":return String(q.quote_number||"");
+      case "date":return String(q.created_at||"");
+      case "client":return String(d.clientName||"");
+      case "vehicle":return String(d.vehicleLabel||"");
+      case "description":return String(d.description||"");
+      case "total":return Number(d.totalCents)||0;
+      case "status":return q.status==="sent"&&d.approvalConfirmedAt?"Approuvée":({draft:"Brouillon",sent:"Envoyée",converted:"Convertie",declined:"Refusée",expired:"Expirée"}[q.status]||String(q.status||""));
+      default:return "";
+    }
+  }
+  get("s08QuotesTable").querySelectorAll("th[data-s08-sort]").forEach(th=>{
+    th.querySelector("button")?.addEventListener("click",()=>{
+      const key=th.dataset.s08Sort;
+      if(!quoteSortKeys.includes(key))return;
+      if(quoteSortKey===key)quoteSortDirection=quoteSortDirection==="asc"?"desc":"asc";
+      else{quoteSortKey=key;quoteSortDirection=["date","total"].includes(key)?"desc":"asc";}
+      renderQuoteList();
+    });
+  });
   function renderQuoteList(){
     if(!list)return;
+    get("s08QuotesTable").querySelectorAll("th[data-s08-sort]").forEach(th=>{
+      const active=th.dataset.s08Sort===quoteSortKey;
+      th.setAttribute("aria-sort",active?(quoteSortDirection==="asc"?"ascending":"descending"):"none");
+      const arrow=th.querySelector(".module-sort-arrow");
+      if(arrow)arrow.textContent=active?(quoteSortDirection==="asc"?"▲":"▼"):"↕";
+    });
     const search=(get("s08QuoteSearch").value||"").toLocaleLowerCase("fr");
     const filter=get("s08QuoteStatus").value;
     const rows=quotes.filter(q=>(!filter||
       (filter==="approved"?q.status==="sent"&&!!q.content?.approvalConfirmedAt:q.status===filter))&&
       [q.quote_number,q.content?.clientName,q.content?.vehicleLabel,q.content?.description]
         .join(" ").toLocaleLowerCase("fr").includes(search));
+    const direction=quoteSortDirection==="asc"?1:-1;
+    rows.sort((a,b)=>{
+      const av=quoteSortValue(a,quoteSortKey),bv=quoteSortValue(b,quoteSortKey);
+      const cmp=typeof av==="number"&&typeof bv==="number"
+        ?av-bv:String(av).localeCompare(String(bv),"fr",{numeric:true,sensitivity:"base"});
+      return cmp*direction||String(a.id).localeCompare(String(b.id));
+    });
     get("s08QuoteCount").textContent=rows.length+" soumission"+(rows.length===1?"":"s")+" affichée"+(rows.length===1?"":"s");
     list.replaceChildren();
     if(!rows.length){
