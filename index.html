@@ -8338,6 +8338,7 @@ function applyClosedWOControls(wo,detail){
   if (finishBtn) finishBtn.style.display = isEditing ? "" : "none";
   detail.querySelectorAll("button").forEach(button=>{
     if (button === editBtn || button === finishBtn ||
+      button.closest("#jlWoDocumentLinks") ||
       button.textContent.includes("Retour") || button.textContent.includes("Copier")) return;
     // Jamais reterminer/supprimer le BT termine ni redemarrer son compteur.
     if (button.textContent.includes("Terminé") || button.textContent.includes("Supprimer") ||
