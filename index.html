@@ -548,6 +548,17 @@ input[type="checkbox"]{
     #page-quotes .s08-schedule-fields{display:flex;gap:9px;align-items:end;flex-wrap:wrap}
     #page-quotes .s08-schedule-fields label{font-size:12px;min-width:120px}
     #page-quotes .s08-schedule-fields input{max-width:165px;margin-top:4px}
+    #page-dashboard .jl-calendar-heading{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+    #page-dashboard .jl-calendar-heading h3{margin:0}
+    #page-dashboard .jl-calendar-actions{display:flex;gap:7px;align-items:center;font-size:13px}
+    #page-dashboard .jl-calendar-actions button{padding:5px 10px}
+    #page-dashboard .jl-calendar-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin-top:10px}
+    #page-dashboard .jl-calendar-day{border:1px solid var(--border);border-radius:7px;min-height:100px;padding:6px;min-width:0}
+    #page-dashboard .jl-calendar-day>strong{display:block;font-size:12px;margin-bottom:6px}
+    #page-dashboard .jl-calendar-day[data-today="true"]{border-color:var(--accent)}
+    #page-dashboard .jl-calendar-appointment{display:block;width:100%;text-align:left;border:1px solid var(--border);border-radius:5px;padding:5px;margin:4px 0;background:rgba(245,197,66,.10);font-size:11px;color:inherit;cursor:pointer;overflow-wrap:anywhere}
+    #page-dashboard .jl-calendar-appointment:hover{border-color:var(--accent)}
+    @media(max-width:700px){#page-dashboard .jl-calendar-week{grid-template-columns:repeat(2,minmax(0,1fr))}}
     /* Dashboard cards */
     .stats-grid{
       display:grid;
@@ -1589,6 +1600,22 @@ button.link:hover{
         <section data-jl-dashboard-card="workorders" class=""><div class="stat-card"><div class="stat-label">Bons de travail en cours</div><div id="lastWorkOrdersBox" class="jl-dashboard-list"></div></div></section>
         <section data-jl-dashboard-card="invoices" class=""><div class="stat-card"><div class="stat-label">Dernières factures</div><div id="lastInvoicesBox" class="jl-dashboard-list"></div></div></section>
         <section data-jl-dashboard-card="quotes" class=""><div class="stat-card"><div class="stat-label">Soumissions à suivre <span id="jlQuoteLoading" class="muted"></span></div><div id="jlDashboardQuotesBox" class="jl-dashboard-list" aria-live="polite">Chargement…</div></div></section>
+        <section data-jl-dashboard-card="unplanned"><div class="stat-card">
+          <div class="stat-label">📋 Soumissions approuvées — à planifier</div>
+          <div id="jlDashboardUnplanned" class="jl-dashboard-list">Chargement…</div>
+        </div></section>
+        <section data-jl-dashboard-card="calendar" class="jl-dashboard-wide"><div class="card">
+          <div class="jl-calendar-heading"><h3>📅 Calendrier des travaux</h3>
+            <div class="jl-calendar-actions">
+              <button id="jlCalendarPrev" class="ghost" type="button" aria-label="Semaine précédente">‹</button>
+              <span id="jlCalendarRange"></span>
+              <button id="jlCalendarToday" class="ghost" type="button">Aujourd'hui</button>
+              <button id="jlCalendarNext" class="ghost" type="button" aria-label="Semaine suivante">›</button>
+            </div>
+          </div>
+          <div id="jlCalendarWeek" class="jl-calendar-week" aria-label="Calendrier dimanche à samedi"></div>
+          <p class="muted" id="jlCalendarStatus" style="font-size:12px;margin-top:8px">Les rendez-vous sont liés aux soumissions approuvées.</p>
+        </div></section>
         <section data-jl-dashboard-card="overdue" class=""><div class="stat-card"><div class="stat-label">Factures anciennes impayées (15 jours et +)</div><div id="jlDashboardOldInvoicesBox" class="jl-dashboard-list"></div></div></section>
       </div>
 
@@ -2290,6 +2317,8 @@ button.link:hover{
         <label><input type="checkbox" data-jl-dashboard="invoices" checked /> Dernières factures</label>
         <label><input type="checkbox" data-jl-dashboard="quotes" checked /> Soumissions à suivre</label>
         <label><input type="checkbox" data-jl-dashboard="overdue" checked /> Factures anciennes impayées</label>
+        <label><input type="checkbox" data-jl-dashboard="unplanned" checked /> À planifier</label>
+        <label><input type="checkbox" data-jl-dashboard="calendar" checked /> Calendrier hebdomadaire</label>
       </div>
       <div class="jl-dashboard-order-settings">
         <div class="muted">Ordre des blocs (↑ ↓)</div>
@@ -9399,10 +9428,11 @@ function initSettings(){
 // S09 TEST : préférences strictement locales et non financières.
 (function initJLPreferences(){
   const key="jl-test-personal-options-v1";
-  const dashboardOrder=["notes","monthly","workorders","invoices","quotes","overdue"];
+  const dashboardOrder=["notes","monthly","workorders","invoices","quotes","overdue","unplanned","calendar"];
   const titles={notes:"Dernières notes",monthly:"Résultats mensuels",workorders:"BT en cours",
-    invoices:"Dernières factures",quotes:"Soumissions à suivre",overdue:"Factures anciennes"};
-  const defaults={dashboard:{notes:true,monthly:true,workorders:true,invoices:true,quotes:true,overdue:true},printPartNumber:true};
+    invoices:"Dernières factures",quotes:"Soumissions à suivre",overdue:"Factures anciennes",
+    unplanned:"À planifier",calendar:"Calendrier"};
+  const defaults={dashboard:{notes:true,monthly:true,workorders:true,invoices:true,quotes:true,overdue:true,unplanned:true,calendar:true},printPartNumber:true};
   let saved={};
   try{saved=JSON.parse(localStorage.getItem(key)||"{}")||{};}catch(_){}
   const settings={dashboard:{...defaults.dashboard,...(saved.dashboard||{})},printPartNumber:saved.printPartNumber!==false};
