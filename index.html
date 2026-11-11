@@ -16457,7 +16457,7 @@ if (window.garageSupabase) {
     const duration=Number(get("s08ScheduleDuration").value);
     const feedback=get("s08ScheduleFeedback");
     if((date&&!time)||(!date&&time)||
-       (date&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(date))||
+       (date&&!/^\d{4}-\d{2}-\d{2}$/.test(date))||
        (date&&(!Number.isInteger(duration)||duration<15||duration>1440))){
       feedback.textContent="Choisis la date ET l'heure, ou vide les deux pour remettre à planifier. Durée : 15 à 1440 min.";
       return;
