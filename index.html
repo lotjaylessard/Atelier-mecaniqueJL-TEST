@@ -8026,7 +8026,8 @@ if (errorMessage){
   if (!confirm(`Terminer le bon de travail #${wo.number} et créer une facture ?`)) return;
   // Recontroler apres la confirmation pour ne pas terminer deux fois le meme BT.
   if (wo.status !== "en_cours" ||
-      INVOICES.some(inv => String(inv.workOrderNumber) === String(wo.number))) {
+      INVOICES.some(inv => String(inv.workOrderNumber) === String(wo.number) ||
+        String(inv.number) === String(btToInvoiceNumber(wo.number)))) {
     alert("Ce bon de travail a deja ete termine ou facture.");
     return;
   }
