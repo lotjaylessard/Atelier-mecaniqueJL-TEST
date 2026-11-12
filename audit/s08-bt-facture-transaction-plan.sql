@@ -33,3 +33,18 @@
 -- Attention : cette validation ne prouve PAS encore les taux TPS/TVQ
 -- configurés et n'a pas subi de scénario complet avec session authentifiée.
 -- Ne pas activer le bouton Terminé avant ces tests.
+
+-- AUDIT S08 (12 novembre 2026) :
+-- Vulnérabilité détectée : la RPC "atomic" était directement exécutable par
+-- authenticated, contournant la RPC de validation. Les deux fonctions
+-- préparatoires sont maintenant privées d'EXECUTE pour authenticated et anon,
+-- vérifié par has_function_privilege(...)=false.
+-- Le bouton existant n'appelle AUCUNE de ces deux RPC : comportement inchangé.
+-- Ne réautoriser aucune RPC d'écriture avant d'avoir fusionné la validation
+-- dans l'unique fonction atomique callable, y compris vérification des taux
+-- TPS/TVQ, du détail de chaque ligne et de la version sous verrou FOR UPDATE.
+-- Une RPC de validation qui délègue à une seconde RPC directement appelable
+-- ne suffit pas comme frontière de sécurité.
+-- Migration de permissions à conserver au déploiement :
+REVOKE EXECUTE ON FUNCTION public.s08_finalize_bt_invoice_atomic(uuid,text,text,bigint,jsonb,boolean) FROM authenticated,service_role;
+REVOKE EXECUTE ON FUNCTION public.s08_finalize_bt_invoice_validated(uuid,text,text,bigint,jsonb,boolean) FROM authenticated,service_role;
