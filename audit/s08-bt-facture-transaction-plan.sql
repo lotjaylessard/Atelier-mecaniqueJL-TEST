@@ -106,3 +106,13 @@ REVOKE EXECUTE ON FUNCTION public.s08_finalize_bt_invoice_validated(uuid,text,te
 -- par l'application. Le bouton Terminé n'est PAS connecté.
 -- Étape suivante : scénarios fictifs authentifiés, taux exacts, test
 -- minuterie, et concurrence/double clic AVANT activation.
+
+-- Vérification de sûreté complémentaire :
+-- La fonction unique staged traitait auparavant p_dry_run=NULL comme une
+-- demande d'écriture (IF NULL ne passe pas dans la branche dry-run).
+-- Migration TEST s08_unified_staged_dry_run_null_fail_closed :
+--   IF p_dry_run IS DISTINCT FROM false THEN
+-- Ainsi TRUE/NULL simulent, et seul FALSE explicite permettrait l'écriture.
+-- Test logique SQL effectué pour TRUE/NULL/FALSE; la fonction n'a PAS été
+-- exécutée sur un dossier réel. Après migration, authenticated/anon EXECUTE
+-- restent false. Le bouton Terminé demeure inchangé.
