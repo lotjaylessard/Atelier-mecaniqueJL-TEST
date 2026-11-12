@@ -57,3 +57,22 @@ REVOKE EXECUTE ON FUNCTION public.s08_finalize_bt_invoice_validated(uuid,text,te
 -- Vérification de permissions après CREATE OR REPLACE :
 --   authenticated EXECUTE = false ; anon EXECUTE = false.
 -- Le bouton Terminé et les dossiers restent inchangés.
+
+-- Audit calculs isolés (aucune mutation garage_data) :
+--   pièce qty=2, tarif=45 -> 90 : conforme
+--   main d'oeuvre 1.5 h, tarif=90 -> 135 : conforme
+--   total volontairement faux 134 -> rejet par la comparaison
+--   Québec TPS=5 %, TVQ=9.975 %, sous-total=100 -> 5.00 / 9.98 / 114.98
+--   rabais=20 sur 100 -> TPS 4.00 / TVQ 7.98 / total 91.98
+--   taxes désactivées -> total 100
+-- Ces résultats testent les calculs SQL seuls, PAS l'exécution RPC complète.
+--
+-- BLOQUANTS RESTANTS :
+-- 1) s08_finalize_bt_invoice_validated (SECURITY INVOKER) délègue à
+--    s08_finalize_bt_invoice_atomic dont EXECUTE a été retiré à authenticated.
+--    Il faut fusionner validation et mutation dans UNE fonction callable.
+-- 2) Contrôler les taux et options TPS/TVQ effectivement enregistrés côté serveur,
+--    pas seulement la somme des taxes fournies par le navigateur.
+-- 3) Vérifier en scénario authentifié fictif : identité client/véhicule, minuteur,
+--    idempotence, concurrence, réponse ambiguë et réhydratation.
+-- Garder les RPC staged inaccessibles et le bouton actuel inchangé.
