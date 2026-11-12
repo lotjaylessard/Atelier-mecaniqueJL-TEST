@@ -48,3 +48,12 @@
 -- Migration de permissions à conserver au déploiement :
 REVOKE EXECUTE ON FUNCTION public.s08_finalize_bt_invoice_atomic(uuid,text,text,bigint,jsonb,boolean) FROM authenticated,service_role;
 REVOKE EXECUTE ON FUNCTION public.s08_finalize_bt_invoice_validated(uuid,text,text,bigint,jsonb,boolean) FROM authenticated,service_role;
+
+-- Audit 2026-11-12 : correction validée dans Supabase TEST.
+-- La RPC staged s08_finalize_bt_invoice_atomic utilisait deux motifs avec
+-- un antislash double avant le point décimal, rejetant des valeurs valides
+-- telles que 1.5. Remplacés par [.] dans les deux contrôles de kilométrage.
+-- Tests SQL : 1.5 accepté, 1 accepté, 1x5 rejeté.
+-- Vérification de permissions après CREATE OR REPLACE :
+--   authenticated EXECUTE = false ; anon EXECUTE = false.
+-- Le bouton Terminé et les dossiers restent inchangés.
