@@ -76,3 +76,19 @@ REVOKE EXECUTE ON FUNCTION public.s08_finalize_bt_invoice_validated(uuid,text,te
 -- 3) Vérifier en scénario authentifié fictif : identité client/véhicule, minuteur,
 --    idempotence, concurrence, réponse ambiguë et réhydratation.
 -- Garder les RPC staged inaccessibles et le bouton actuel inchangé.
+
+-- Audit S08 : validation TPS/TVQ renforcée sur Supabase TEST.
+-- Migration : s08_stage_validate_invoice_tax_rates.
+-- La RPC préparatoire s08_finalize_bt_invoice_validated lit maintenant
+-- les taux gst et qst depuis g.data.settings, et refuse les montants
+-- de taxes de la facture qui ne concordent pas avec la base taxable.
+-- TPS et TVQ sont calculées indépendamment sur le sous-total taxable;
+-- applyGST=false et applyQST=false désactivent séparément chaque taxe.
+-- Les taux absents ou invalides entraînent le refus de la validation.
+-- Tests SQL isolés : 100 CAD -> TPS 5,00 / TVQ 9,98; TPS 8,00 refusée
+-- pour un taux de 5 %.
+-- Vérification après migration : authenticated et anon ne peuvent toujours
+-- exécuter ni s08_finalize_bt_invoice_validated ni s08_finalize_bt_invoice_atomic.
+-- IMPORTANT : la RPC validée délègue toujours à la RPC atomique inaccessible
+-- aux utilisateurs. Elle reste STAGED et non utilisable dans le site.
+-- Aucun test de bout en bout authentifié ni concurrence effectué.
