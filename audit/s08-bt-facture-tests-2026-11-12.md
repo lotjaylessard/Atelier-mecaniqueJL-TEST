@@ -50,7 +50,7 @@ Une nouvelle simulation fictive après cette migration a vérifié la réussite 
 
 - **Test de deux requêtes concurrentes effectué en environnement isolé** : une seule transaction a réussi, la deuxième a été rejetée sur la version devenue périmée; une seule facture enregistrée. Réaliser tout de même l'essai de bout en bout via deux navigateurs authentifiés avant l'activation.
 - **Pas encore de test PostgREST / RLS avec une authentification client réelle**.
-- **KM saisi au moment de terminer un BT** : le navigateur peut actuellement utiliser une nouvelle valeur locale alors que la fonction unifiée compare la facture au KM persisté du BT. Il faut concevoir le passage et la vérification du kilométrage final dans la même transaction, ou forcer une sauvegarde cloud préalable, sans créer de conflit.
+- **KM saisi au moment de terminer un BT** : le serveur accepte désormais le KM final explicite fourni dans la facture et le conserve atomiquement dans le BT et le véhicule, après contrôle anti-régression. Il reste à adapter et vérifier le parcours navigateur (sans sauvegarde locale préalable).
 - Vérification de compatibilité nécessaire pour les BT hérités : lecture seule sur TEST a compté 6 BT en cours, dont 1 sans `vehicleKm` stocké (aucun sans `clientId` ou `vehicleId`).
 - **Après la RPC** : le navigateur devra recharger l'état serveur confirmé, ne pas effectuer d'anciennes sauvegardes locales asynchrones et traiter une réponse réseau ambiguë sans rejouer une création à l'aveugle.
 - **Le bouton « Terminé » reste inchangé**. Ne pas ouvrir les permissions des RPC ni basculer le bouton tant que ces points ne sont pas résolus.
@@ -71,3 +71,16 @@ Deux appels distincts à la même RPC, avec la même version attendue (7), ont �
 - Le schéma de test et les données fictives ont ensuite été intégralement supprimés. Confirmation SQL : `isolated_fixture_removed=true`.
 
 Ce résultat valide la protection contre les deux demandes concurrentes au niveau du SQL. Il ne teste pas encore les déconnexions réseau du navigateur, l'exécution via PostgREST avec RLS, ni la récupération après une réponse ambiguë.
+
+## Complément : kilométrage final atomique
+
+Migration TEST : `s08_staged_atomic_invoice_final_km_saved_to_bt`.
+
+- La fonction staged accepte `p_invoice.vehicleKm` comme **KM final validé**, même si `wo.vehicleKm` est absent ou ancien dans le document cloud.
+- Le nouveau kilométrage est écrit à la fois dans `workorders[].vehicleKm` et dans `clients[].vehicles[].km`, avec la facture, pendant **un seul UPDATE**.
+- Elle refuse les KM nuls/invalides et une valeur inférieure au dernier KM du véhicule.
+- Test sur copie de la vraie fonction dans `pg_temp` : BT initial sans champ KM, véhicule 1500 km, facture à 1550 km → succès, BT 1550, véhicule 1550, 1 facture, version 5→6.
+- Contre-test : tentative de 1450 km contre 1500 km → refus `Odometer decreased`.
+- Essais entièrement fictifs et annulés par `ROLLBACK`, sans changement aux dossiers existants.
+
+**À faire :** passage client JS sur le nouvel appel atomique, après vérification Chrome et RLS authentifié. Le bouton existant reste inchangé.
