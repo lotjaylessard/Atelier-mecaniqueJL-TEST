@@ -116,3 +116,16 @@ REVOKE EXECUTE ON FUNCTION public.s08_finalize_bt_invoice_validated(uuid,text,te
 -- Test logique SQL effectué pour TRUE/NULL/FALSE; la fonction n'a PAS été
 -- exécutée sur un dossier réel. Après migration, authenticated/anon EXECUTE
 -- restent false. Le bouton Terminé demeure inchangé.
+
+-- Audit complementaire, fonction unifiee staged :
+-- Migration TEST s08_unified_staged_part_total_and_initial_discount_guards.
+-- Ajout du contrôle du total de CHAQUE ligne de pièce (quantité x tarif),
+-- comme celui deja present pour la main d'oeuvre.
+-- Ajout d'un refus de rabais au moment de la conversion automatique BT->FA;
+-- les rabais se font plus tard dans l'edition ordinaire de facture.
+-- Vérification réalisée : les deux gardes sont présentes en base,
+-- p_dry_run=NULL reste simulation; authenticated/anon EXECUTE restent false.
+-- PAS de simulation transactionnelle avec utilisateur authentifié :
+-- bloqué volontairement avant de toucher aux données existantes.
+-- Il reste des tests de vraie session TEST sur dossiers entièrement fictifs,
+-- des tests d'idempotence/concurrence et contrôle de récupération après RPC.
