@@ -129,3 +129,13 @@ REVOKE EXECUTE ON FUNCTION public.s08_finalize_bt_invoice_validated(uuid,text,te
 -- bloqué volontairement avant de toucher aux données existantes.
 -- Il reste des tests de vraie session TEST sur dossiers entièrement fictifs,
 -- des tests d'idempotence/concurrence et contrôle de récupération après RPC.
+
+-- Audit S08 : garde contre identifiants dupliqués.
+-- Migration TEST s08_unified_staged_invoice_id_and_bt_number_uniqueness.
+-- Nouvelle RPC staged unifiée : refuse si le numéro de BT correspond à
+-- plusieurs BT; refuse un identifiant de facture absent/non numérique ou
+-- déjà utilisé par une facture existante (même si son numéro est différent).
+-- Garde existante par numéro de facture et workOrderNumber conservée.
+-- Après déploiement : contrôles vérifiés présents en SQL,
+-- authenticated/anon EXECUTE toujours false, dry-run NULL protégé.
+-- Aucun scénario de course authentifié exécuté; bouton inchangé.
