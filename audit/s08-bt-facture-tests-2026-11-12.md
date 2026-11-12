@@ -48,7 +48,7 @@ Une nouvelle simulation fictive après cette migration a vérifié la réussite 
 
 ## Points bloquants avant activation
 
-- **Pas encore de test de deux connexions simultanées** contre un même enregistrement réellement partagé : le test de second appel ci-dessus valide le *rejeu séquentiel*, pas une vraie course entre deux transactions.
+- **Test de deux requêtes concurrentes effectué en environnement isolé** : une seule transaction a réussi, la deuxième a été rejetée sur la version devenue périmée; une seule facture enregistrée. Réaliser tout de même l'essai de bout en bout via deux navigateurs authentifiés avant l'activation.
 - **Pas encore de test PostgREST / RLS avec une authentification client réelle**.
 - **KM saisi au moment de terminer un BT** : le navigateur peut actuellement utiliser une nouvelle valeur locale alors que la fonction unifiée compare la facture au KM persisté du BT. Il faut concevoir le passage et la vérification du kilométrage final dans la même transaction, ou forcer une sauvegarde cloud préalable, sans créer de conflit.
 - Vérification de compatibilité nécessaire pour les BT hérités : lecture seule sur TEST a compté 6 BT en cours, dont 1 sans `vehicleKm` stocké (aucun sans `clientId` ou `vehicleId`).
@@ -58,3 +58,16 @@ Une nouvelle simulation fictive après cette migration a vérifié la réussite 
 ## Protection de la production
 
 Seul Supabase TEST et le dépôt TEST ont été utilisés. Les fonctions préparatoires ne sont pas exécutables par l'application. Ce rapport n'est pas une confirmation de mise en production.
+
+## Complément : test de concurrence réelle en sandbox isolée
+
+Pour tester deux connexions séparées, un schéma SQL privé temporaire `s08_isolated_test_1112` a été créé dans Supabase TEST avec une table **entièrement fictive**, une copie de la RPC unifiée et un identifiant de session simulé. Aucune table métier n'a été modifiée.
+
+Deux appels distincts à la même RPC, avec la même version attendue (7), ont été envoyés **en parallèle** :
+
+- **Appel 1 :** réussi, version 8, facture FA-RACE-1112 créée.
+- **Appel 2 :** refusé (`Garage missing or version changed`).
+- Contrôle après les deux appels : **version 8, une seule facture, BT terminé, KM 1500**.
+- Le schéma de test et les données fictives ont ensuite été intégralement supprimés. Confirmation SQL : `isolated_fixture_removed=true`.
+
+Ce résultat valide la protection contre les deux demandes concurrentes au niveau du SQL. Il ne teste pas encore les déconnexions réseau du navigateur, l'exécution via PostgREST avec RLS, ni la récupération après une réponse ambiguë.
