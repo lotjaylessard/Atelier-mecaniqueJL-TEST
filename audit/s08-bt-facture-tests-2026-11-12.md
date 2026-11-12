@@ -84,3 +84,16 @@ Migration TEST : `s08_staged_atomic_invoice_final_km_saved_to_bt`.
 - Essais entièrement fictifs et annulés par `ROLLBACK`, sans changement aux dossiers existants.
 
 **À faire :** passage client JS sur le nouvel appel atomique, après vérification Chrome et RLS authentifié. Le bouton existant reste inchangé.
+
+## Préparation du branchement navigateur (non activée)
+
+Commit `0957322f` : le fichier `index.html` de la branche TEST contient désormais un chemin client atomique **désactivé par défaut** (`S08_BT_ATOMIC_TEST_ENABLED = false`). Le comportement existant du bouton `Terminé` n'est donc pas modifié.
+
+Ce chemin prépare la facture avec le calcul actuel, vérifie la synchronisation, effectue la RPC en simulation, revalide le contexte puis effectue la RPC d'écriture. Il empêche les anciennes sauvegardes locales pendant l'opération, recharge l'état Supabase confirmé et contrôle la présence de la nouvelle facture et du BT terminé. En cas de réponse ambiguë, aucun second essai automatique n'est déclenché.
+
+**Vérifications en place :**
+- Fichier relu depuis GitHub après commit : nouvelle fonction, drapeau `false` et appel conditionnel présents.
+- Permissions Supabase contrôlées une seconde fois : toutes les fonctions préparatoires d'écriture restent interdites à `authenticated` et `anon`.
+- Correction SQL du KM final testée sur un BT fictif n'ayant aucun KM initial (KM final 1550, véhicule initial 1500) et contre-test de régression (1450 refusé), avec `ROLLBACK`.
+
+**Restent obligatoires avant activation :** validation du script et du comportement dans Chrome/Codespace, confirmation réelle de la connexion RLS à la RPC, et tests d'intégration UI avec un BT fictif. Ne pas activer simplement le drapeau sans accorder et tester explicitement les droits d'exécution de la seule RPC unifiée; ne jamais donner accès aux deux anciennes RPC.
