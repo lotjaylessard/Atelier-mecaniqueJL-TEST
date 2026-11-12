@@ -7954,6 +7954,96 @@ const isPaid = invoice && invoice.status === "paid";
 }
 
   
+// S08 staging : mode atomique volontairement DESACTIVE jusqu'aux tests
+// d'integration avec session authentifiee et validation Chrome.
+// Ne PAS activer simplement en passant true sans valider les permissions RPC.
+const S08_BT_ATOMIC_TEST_ENABLED = false;
+
+async function s08FinishWorkOrderAtomicTest({
+  wo, invoice, expectedGarage, expectedUser, expectedVersion, expectedRevision
+}) {
+  // Tous les controles de preflight du bouton ont deja ete executes.
+  if (!S08_BT_ATOMIC_TEST_ENABLED) throw Error("Mode atomique TEST non active.");
+  if (!CLOUD_DATA_READY || !sb || !expectedGarage || !expectedUser ||
+      !Number.isSafeInteger(expectedVersion) || hasUnconfirmedCloudChanges() ||
+      CLOUD_CHANGE_REVISION !== expectedRevision ||
+      SUPABASE_USER?.id !== expectedUser || ACTIVE_GARAGE_ID !== expectedGarage ||
+      CLOUD_DATA_VERSION !== expectedVersion ||
+      !garageSnapshotsEquivalent(captureLocalGarageSnapshot(), CLOUD_LAST_CONFIRMED_SNAPSHOT)) {
+    throw Error("Etat local non confirme avant la transaction atomique.");
+  }
+  const args = {
+    p_garage_id: expectedGarage,
+    p_workorder_id: String(wo.id),
+    p_workorder_number: String(wo.number),
+    p_expected_version: expectedVersion,
+    p_invoice: invoice
+  };
+  const { data: dry, error: dryError } = await sb.rpc(
+    "s08_finalize_bt_invoice_unified_staged", {...args, p_dry_run: true}
+  );
+  if (dryError || dry?.dryRun !== true ||
+      dry?.workOrderNumber !== String(wo.number) ||
+      dry?.invoiceNumber !== String(invoice.number) ||
+      dry?.garageVersion !== expectedVersion) {
+    throw Error("Simulation atomique refusee : " +
+      String(dryError?.message || "reponse non conforme"));
+  }
+  if (!CLOUD_DATA_READY || hasUnconfirmedCloudChanges() ||
+      CLOUD_CHANGE_REVISION !== expectedRevision ||
+      SUPABASE_USER?.id !== expectedUser || ACTIVE_GARAGE_ID !== expectedGarage ||
+      CLOUD_DATA_VERSION !== expectedVersion ||
+      !garageSnapshotsEquivalent(captureLocalGarageSnapshot(), CLOUD_LAST_CONFIRMED_SNAPSHOT)) {
+    throw Error("Modifications locales pendant la simulation : operation interrompue.");
+  }
+  // Les sauvegardes locales ne doivent pas ecraser une version serveur plus recente.
+  CLOUD_DATA_READY = false;
+  let attempted = false;
+  try {
+    attempted = true;
+    const { data: saved, error: saveError } = await sb.rpc(
+      "s08_finalize_bt_invoice_unified_staged", {...args, p_dry_run: false}
+    );
+    if (saveError) throw saveError;
+    if (saved?.dryRun !== false ||
+        saved?.workOrderNumber !== String(wo.number) ||
+        saved?.invoiceNumber !== String(invoice.number) ||
+        saved?.garageVersion !== expectedVersion + 1) {
+      throw Error("Reponse atomique ambigue : verifier le cloud avant tout nouvel essai.");
+    }
+    if (SUPABASE_USER?.id !== expectedUser || ACTIVE_GARAGE_ID !== expectedGarage) {
+      throw Error("Contexte utilisateur/garage modifie apres l'operation serveur.");
+    }
+    if (!(await loadCloudData())) {
+      throw Error("Facture creee mais actualisation cloud non confirmee.");
+    }
+    const storedInvoice = INVOICES.find(x =>
+      String(x.number) === String(invoice.number) &&
+      String(x.workOrderNumber) === String(wo.number)
+    );
+    const storedWO = WORKORDERS.find(x =>
+      String(x.id) === String(wo.id) && x.status === "termine"
+    );
+    if (!storedInvoice || !storedWO) {
+      throw Error("Transaction non visible apres rechargement : ne pas recommencer.");
+    }
+    renderWorkOrders();
+    if (typeof renderInvoiceList === "function") renderInvoiceList();
+    showPage("page-invoice-list");
+    openInvoiceEditModal(storedInvoice.number);
+  } catch (error) {
+    // Une coupure reseau peut masquer une transaction deja validee.
+    // Relire le serveur ; ne JAMAIS creer une seconde facture automatiquement.
+    if (attempted && SUPABASE_USER?.id === expectedUser &&
+        ACTIVE_GARAGE_ID === expectedGarage) {
+      try { await loadCloudData(); } catch (readError) { console.error(readError); }
+    }
+    throw Error("Finalisation atomique non confirmee. Verifie le BT et la facture "
+      + "apres actualisation avant toute nouvelle tentative. " +
+      String(error?.message || error));
+  }
+}
+
 let finishingWorkOrder=false;
 async function finishWorkOrder(id){
   if(finishingWorkOrder)return;
@@ -8117,6 +8207,15 @@ invoice.subTotal = invoice.items.reduce(
 // Evite une TVQ calculee sur TPS+montant alors que le resume
 // et les corrections ulterieures utilisent la base taxable seule.
 recalcInvoice(invoice);
+
+  // S08 : preparation de l'integration atomique en TEST uniquement.
+  // La branche reste inactive pendant les tests Chrome/authentification.
+  if (S08_BT_ATOMIC_TEST_ENABLED) {
+    await s08FinishWorkOrderAtomicTest({
+      wo, invoice, expectedGarage, expectedUser, expectedVersion, expectedRevision
+    });
+    return;
+  }
 
   // La facture est prête : enregistrer maintenant le BT et sa facture.
   // Garder les deux sauvegardes synchrones pour qu'une seule synchro cloud
