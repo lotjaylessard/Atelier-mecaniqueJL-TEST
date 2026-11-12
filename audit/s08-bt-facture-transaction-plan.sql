@@ -92,3 +92,17 @@ REVOKE EXECUTE ON FUNCTION public.s08_finalize_bt_invoice_validated(uuid,text,te
 -- IMPORTANT : la RPC validée délègue toujours à la RPC atomique inaccessible
 -- aux utilisateurs. Elle reste STAGED et non utilisable dans le site.
 -- Aucun test de bout en bout authentifié ni concurrence effectué.
+
+-- Audit S08 : nouvelle RPC unique de staging, déployée dans Supabase TEST :
+--   public.s08_finalize_bt_invoice_unified_staged(...)
+-- Les validations de lignes et de TPS/TVQ ainsi que la mutation atomique
+-- sont physiquement dans UNE fonction PL/pgSQL, sans appel de la RPC atomic.
+-- La section d'écriture recontrôle la version avec SELECT FOR UPDATE.
+-- TESTS EXECUTÉS : fonction compilée; tax guard / FOR UPDATE / UPDATE
+-- vérifiés; SECURITY INVOKER; EXECUTE interdit à authenticated et anon;
+-- appel non authentifié rejeté.
+-- IMPORTANT : ce n'est pas un test de bout en bout avec session client.
+-- Les fonctions anciennes et la nouvelle sont toujours non exécutables
+-- par l'application. Le bouton Terminé n'est PAS connecté.
+-- Étape suivante : scénarios fictifs authentifiés, taux exacts, test
+-- minuterie, et concurrence/double clic AVANT activation.
