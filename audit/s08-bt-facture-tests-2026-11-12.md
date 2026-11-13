@@ -140,3 +140,23 @@ Ce chemin prépare la facture avec le calcul actuel, vérifie la synchronisation
 **Portée et limite :** ces tests couvrent réellement le code JavaScript extrait, les protections SQL et un rôle authentifié fictif, mais **pas** le fonctionnement complet du fichier HTML rendu dans Chrome avec une connexion utilisateur réelle, ni les vrais appels REST Supabase depuis le navigateur.
 
 **Dernier blocage nécessitant un environnement utilisateur :** Chrome/Codespace connecté au garage TEST (jamais production). Ne pas activer `S08_BT_ATOMIC_TEST_ENABLED` avant tests d'acceptation et autorisation contrôlée de la seule RPC unifiée.
+
+## Validation du BT test Mazda Miata depuis Chrome — 12 novembre 2026
+
+L'utilisateur a présenté la fiche du BT fictif `BT-TF-2026-11-03-1` (TEST FACTURE, Mazda Miata 1999) avec 2 lignes minuteur : 2,21 CAD et 97,93 CAD, soit 100,14 CAD avant taxes.
+
+Contrôle lecture seule en Supabase TEST : le BT était toujours en cours, sans facture, `vehicleKm` absent dans l'ancien BT et `vehicleId` enregistré ne correspondait plus à la seule Mazda Miata présente dans les véhicules du client. Le modèle, l'année et le client étaient cohérents. Aucun autre véhicule n'était présent sur cette fiche client.
+
+Réparation **ciblée uniquement sur le BT fictif** :
+- Transaction SQL protégée par version CAS `310`, `SELECT FOR UPDATE`, unicité du numéro BT et du véhicule, correspondance client + année + marque + modèle, statut `en_cours` et absence de facture.
+- Seul `workorders[BT-TF-2026-11-03-1].vehicleId` a été remis vers l'identifiant de l'unique véhicule existant de ce client.
+- Version cloud passée de **310 à 311**. Aucune facture ni ligne de main-d'œuvre, pièce, note, paramètre ou kilométrage n'a été modifié.
+- Nouvelle vérification : BT toujours `en_cours`, nombre de factures 0, KM enregistré dans le BT toujours absent (ancien format), véhicule lié à 12 500 km.
+
+**Validation de la RPC staged sur le véritable BT TEST, sans écriture :**
+- Création du JSON de simulation avec les deux lignes minuteur exactes et les montants TPS/TVQ calculés depuis les paramètres du garage.
+- Simulation `p_dry_run=true` réussie sur la version cloud **311**.
+- Test supplémentaire avec le rôle SQL `authenticated` et le sujet de la session du garage simulé en transaction : les droits `EXECUTE` n'ont été accordés que dans `BEGIN ... ROLLBACK`; la lecture RLS du garage et l'appel de la RPC en simulation ont réussi.
+- Après `ROLLBACK`, contrôle confirmé : `authenticated=false`, `anon=false` pour **les trois fonctions d'écriture préparatoires**.
+
+**Prochaine étape côté navigateur :** l'utilisateur doit actualiser Chrome pour récupérer le changement cloud version 311 **sans modifier/sauvegarder son ancienne page avant**. Vérifier le badge Synchronisé et le BT. Le clic `Terminé` n'est toujours pas autorisé dans l'essai atomique désactivé. Tests visuels navigateur de la RPC atomique avec écriture à faire seulement après activation contrôlée et vérification des permissions de la seule fonction unifiée.
