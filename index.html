@@ -13962,10 +13962,16 @@ if (discountInput && discountType){
   }
 
   // Fiche facture : les actions ne figurent plus dans la liste.
-  content.querySelector("#jlInvoiceArchiveDetail")?.addEventListener("click",()=>{
+  content.querySelector("#jlInvoiceArchiveDetail")?.addEventListener("click",async event=>{
     if(inv.status!=="paid"||inv.archived)return;
-    archiveInvoice(inv.number);
-    if(inv.archived)closeInvoiceModal();
+    const button=event.currentTarget;
+    button.disabled=true;
+    try {
+      const archived=await archiveInvoice(inv.number);
+      if(archived)closeInvoiceModal();
+    } finally {
+      button.disabled=false;
+    }
   });
   content.querySelector("#jlInvoiceDeleteDetail")?.addEventListener("click",()=>{
     void deleteInvoice(inv.number);
@@ -15333,39 +15339,86 @@ clone.querySelectorAll("h3").forEach(h=>{
 }
 
 
-function archiveInvoice(number){
-  const inv = INVOICES.find(i => String(i.number) === String(number));
-  if (!inv) return;
+/* AUDIT ARCHIVES TEST : archivage atomique apres verification de version cloud.
+   Aucun changement local avant confirmation Supabase. */
+async function archiveInvoice(number){
+  const refuse=message=>{alert(message);return false;};
+  if(!SUPABASE_USER?.id||!ACTIVE_GARAGE_ID||!CLOUD_DATA_READY||
+     CLOUD_SYNC_FAILED||CLOUD_SYNC_IN_PROGRESS||CLOUD_SYNC_DIRTY||
+     CLOUD_SYNC_PENDING||cloudSyncTimer!==null)
+    return refuse("Archivage bloqué : synchronisation cloud non confirmée.");
+  const local=captureLocalGarageSnapshot();
+  if(!CLOUD_LAST_CONFIRMED_SNAPSHOT||
+     !garageSnapshotsEquivalent(local,CLOUD_LAST_CONFIRMED_SNAPSHOT))
+    return refuse("Archivage bloqué : modifications locales non confirmées.");
+  const invoice=local.invoices.find(i=>String(i.number)===String(number));
+  if(!invoice)return refuse("Facture introuvable.");
+  if(invoice.archived===true)return refuse("Cette facture est déjà archivée.");
+  if(invoice.status!=="paid")return refuse("Seules les factures payées peuvent être archivées.");
+  const anomaly=invoicePaymentMismatch(invoice);
+  if(anomaly)return refuse("Archivage bloqué : "+anomaly+"\\nAucune donnée modifiée.");
+  if(!confirm("Archiver la facture "+String(invoice.number)+" ?"))return false;
 
-  if (inv.status !== "paid"){
-    alert("Seules les factures payées peuvent être archivées.");
-    return;
+  const revision=CLOUD_CHANGE_REVISION,expectedVersion=CLOUD_DATA_VERSION;
+  const garageId=ACTIVE_GARAGE_ID,userId=SUPABASE_USER.id;
+  if(!Number.isSafeInteger(expectedVersion))return refuse("Version cloud invalide.");
+  CLOUD_SYNC_IN_PROGRESS=true;
+  try{
+    const {data:row,error:readError}=await sb.from("garage_data")
+      .select("data,version").eq("garage_id",garageId).maybeSingle();
+    if(readError||!row||row.version!==expectedVersion||
+       !Array.isArray(row.data?.invoices))
+      throw Error("Version cloud modifiée : archivage annulé.");
+    if(CLOUD_CHANGE_REVISION!==revision||ACTIVE_GARAGE_ID!==garageId||
+       SUPABASE_USER?.id!==userId||
+       !garageSnapshotsEquivalent(captureLocalGarageSnapshot(),local))
+      throw Error("Modifications locales simultanées : archivage annulé.");
+    const remote=row.data.invoices.find(i=>String(i.number)===String(number));
+    if(!remote||!garageSnapshotsEquivalent(remote,invoice))
+      throw Error("Facture différente dans le cloud : archivage annulé.");
+    if(remote.archived===true||remote.status!=="paid")
+      throw Error("Le statut de la facture a changé : archivage refusé.");
+    const remoteAnomaly=invoicePaymentMismatch(remote);
+    if(remoteAnomaly)throw Error("Archivage bloqué : "+remoteAnomaly);
+
+    const next=structuredClone(row.data);
+    const target=next.invoices.find(i=>String(i.number)===String(number));
+    target.archived=true;
+    target.archivedDate=new Date().toLocaleDateString("fr-CA");
+    const {data:written,error:writeError}=await sb.from("garage_data")
+      .update({data:next,version:expectedVersion+1,updated_at:new Date().toISOString()})
+      .eq("garage_id",garageId).eq("version",expectedVersion)
+      .select("garage_id,version");
+    if(writeError||!Array.isArray(written)||written.length!==1||
+       written[0].garage_id!==garageId||written[0].version!==expectedVersion+1)
+      throw Error("Archivage non confirmé dans Supabase.");
+    CLOUD_DATA_VERSION=expectedVersion+1;
+    if(CLOUD_CHANGE_REVISION!==revision||ACTIVE_GARAGE_ID!==garageId||
+       SUPABASE_USER?.id!==userId||
+       !garageSnapshotsEquivalent(captureLocalGarageSnapshot(),local)){
+      preserveFailedCloudSnapshot("Archivage confirmé, modifications locales simultanées",captureLocalGarageSnapshot());
+      CLOUD_DATA_READY=false;
+      throw Error("Archivage cloud confirmé, mais modifications locales simultanées : copie de récupération conservée. Ne recharge pas avant de la télécharger.");
+    }
+    clearTimeout(cloudSyncTimer);
+    cloudSyncTimer=null;
+    CLOUD_SYNC_PENDING=false;
+    hydrateLocalFromCloud(next);
+    CLOUD_SYNC_DIRTY=false;
+    CLOUD_SYNC_FAILED=false;
+    renderInvoiceList();
+    renderWorkOrders();
+    renderHistoryTable();
+    renderDashboard();
+    return true;
+  }catch(error){
+    console.error("[AUDIT TEST] Archivage non confirmé",error);
+    return refuse(String(error?.message||error));
+  }finally{
+    CLOUD_SYNC_IN_PROGRESS=false;
   }
-
-  // AUDIT FIABILITÉ : une facture payée dont les montants ne concordent
-  // pas reste consultable, mais ne peut pas être archivée automatiquement.
-  const paymentMismatch = invoicePaymentMismatch(inv);
-  if (paymentMismatch) {
-    alert("Archivage bloqué : " + paymentMismatch + "\nAucune donnée modifiée. Vérifie les montants avant d'archiver.");
-    return;
-  }
-
-  if (!confirm(`Archiver la facture ${inv.number} ?`)) return;
-
-  inv.archived = true;
-  inv.archivedDate = new Date().toLocaleDateString("fr-CA");
-
-  saveInvoices();
-
-  // 🔄 AJOUT CRUCIAL 👇
-  INVOICES = loadArrayFromStorage(STORAGE.invoices);
-
-  renderInvoiceList();
-  renderHistoryTable();
-  renderDashboard();
 }
 
-  
 function invoicePaymentMethodLabel(method) {
   const labels = {
     cash: "Comptant",
