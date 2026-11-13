@@ -24,7 +24,7 @@ BEGIN
       IF invoice_number IS NULL OR pg_catalog.btrim(invoice_number)='' THEN
         RETURN false;
       END IF;
-      SELECT count(*), pg_catalog.max(value)
+      SELECT count(*), (pg_catalog.array_agg(value))[1]
       INTO match_count,replacement
       FROM pg_catalog.jsonb_array_elements(p_after->'invoices') value
       WHERE value->>'number'=invoice_number;
