@@ -81,10 +81,14 @@ function inSandbox(fn){
  const root=mkdtempSync(join(tmpdir(),'s08-restore-'));
  try{return fn(root);}finally{rmSync(root,{recursive:true,force:true});}
 }
-function expectFailure(mutator,errorMessage){
+function expectFailure(mutator,errorMessage,{keepOldDigest=false}={}){
  inSandbox(root=>{
    const b=makeBackup(),objects={...files};
    mutator(b,objects);
+   if(!keepOldDigest){
+     const unsigned={...b}; delete unsigned.integrity;
+     b.integrity={algorithm:'SHA-256',digest:sha(Buffer.from(JSON.stringify(unsigned)))};
+   }
    assert.throws(()=>verifyAndStage(b,objects,root),errorMessage);
    assert.equal(existsSync(join(root,'u1')),false,'failed validation must not stage partial files');
  });
@@ -122,4 +126,4 @@ test('corrupt checksum blocked',()=>expectFailure(b=>{
 
 test('tampered backup JSON digest is rejected before file staging',()=>expectFailure(b=>{
  b.data.notes[0].body='tampered note';
-},/backup JSON checksum mismatch/));
+},/backup JSON checksum mismatch/,{keepOldDigest:true}));
