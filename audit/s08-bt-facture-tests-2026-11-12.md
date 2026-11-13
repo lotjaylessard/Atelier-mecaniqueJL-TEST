@@ -249,3 +249,21 @@ Préparation TEST exclusivement :
 - Acceptation navigateur à venir : `git pull origin s08/soumissions`, recharger Chrome, ouvrir le BT fictif, confirmer 12 500 km et statut Synchronisé, cliquer une seule fois sur Terminé; vérifier alerte de récupération puis facture `FA-S08-2026-11-12-1` d'environ 51,74 $.
 
 **Mesure impérative après l'essai :** vérifier le serveur, désactiver `S08_BT_ATOMIC_TEST_ENABLED` et l'injection, révoquer EXECUTE à authenticated, puis confirmer toutes permissions interdites.
+
+## Résultat du pilote d'accusé de réception perdu — 12 novembre 2026 ~20:42 Québec
+
+Capture utilisateur : dialogue « Facture confirmée sur Supabase après interruption de connexion. Aucune deuxième facture n'a été créée. » affiché après le clic Terminé sur `BT-S08-2026-11-12-1`. Le badge en arrière-plan indique temporairement « Cloud indisponible » alors que le dialogue JavaScript bloque le rendu régulier. À revérifier lorsque la boîte de dialogue est fermée; ne pas confondre le badge affiché pendant l'alerte synchrone avec une panne Supabase.
+
+Vérification immédiatement après le test côté Supabase TEST :
+- Garage version **316** (avant : 315).
+- `BT-S08-2026-11-12-1` : statut `termine`, KM `12500`, `completedAt=2026-11-13T01:42:25.993Z`.
+- Une seule facture liée : `FA-S08-2026-11-12-1`, impayée, 0,5 h × 90 $ = 45,00 $, TPS 2,25 $, TVQ 4,49 $, total **51,74 $**, kilométrage 12500.
+- Kilométrage de la fiche véhicule 12500, inchangé.
+
+Retrait immédiat du mode pilote :
+- Migration `s08_close_successful_network_ack_pilot` : EXECUTE révoqué à `authenticated` sur RPC atomique.
+- Commit `e1635d31` : `S08_BT_ATOMIC_TEST_ENABLED=false` et `S08_BT_TEST_LOSE_ACK_AFTER_SUCCESS=false` dans `index.html`.
+- Vérification SQL : les trois RPC S08 interdites à `authenticated` et `anon`.
+- **Aucune intervention sur la production.**
+
+Conclusion précise : la simulation d'un accusé de réception perdu **après une écriture effectivement réussie** a passé l'essai navigateur et serveur. Ce n'est pas un test de coupure Internet physique. La généralisation de l'activation atomique n'est pas encore réalisée; garder les permissions fermées jusqu'au prochain plan d'activation générale TEST.
