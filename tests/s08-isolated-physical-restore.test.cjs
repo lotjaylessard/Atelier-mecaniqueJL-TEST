@@ -14,7 +14,7 @@ const files = {
   'u1/g1/workorder/report.pdf': Buffer.from('FAKE-PDF-BYTES-002')
 };
 function makeBackup() {
-  return {
+  const backup = {
     format:'atelier-test-full-data-v2',garageId:'g1',userId:'u1',cloudVersion:9,
     data:{
       clients:[{id:'c1',vehicles:[{id:'v1',km:12000}]}],
@@ -30,11 +30,17 @@ function makeBackup() {
       files:Object.entries(files).map(([path,bytes])=>({path,size:bytes.length,sha256:sha(bytes)}))
     }
   };
+  backup.integrity={algorithm:'SHA-256',digest:sha(Buffer.from(JSON.stringify(backup)))};
+  return backup;
 }
 function verifyAndStage(backup, downloaded, destination) {
   if(backup?.format!=='atelier-test-full-data-v2' ||
      backup?.userId!=='u1' || backup?.garageId!=='g1')
     throw Error('wrong backup identity or format');
+  const unsigned={...backup}; delete unsigned.integrity;
+  if(backup.integrity?.algorithm!=='SHA-256' ||
+     backup.integrity.digest!==sha(Buffer.from(JSON.stringify(unsigned))))
+    throw Error('backup JSON checksum mismatch');
   const required=['clients','invoices','workorders','notes','links','parts','services'];
   if(!required.every(k=>Array.isArray(backup.data?.[k])) ||
      !backup.data.settings || !Number.isSafeInteger(backup.data.invoiceCounter) ||
@@ -113,3 +119,7 @@ test('foreign Storage path blocked',()=>expectFailure(b=>{
 test('corrupt checksum blocked',()=>expectFailure(b=>{
  b.attachments.files[0].sha256='0'.repeat(64);
 },/physical file corrupt/));
+
+test('tampered backup JSON digest is rejected before file staging',()=>expectFailure(b=>{
+ b.data.notes[0].body='tampered note';
+},/backup JSON checksum mismatch/));
