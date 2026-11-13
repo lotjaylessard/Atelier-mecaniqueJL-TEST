@@ -8062,15 +8062,15 @@ async function finishWorkOrder(id){
   // 🔄 Forcer lecture directe du champ KM (sécuritaire)
 const kmInput = document.getElementById("woVehicleKmInput");
 
-if (kmInput){
-  wo.vehicleKm = Number(kmInput.value || 0);
-}
+// Ne pas modifier le BT en memoire avant confirmation de la synchro.
+// Le KM final pourra etre inclus dans la facture et applique atomiquement.
+const enteredKm = kmInput ? Number(kmInput.value || 0) : Number(wo.vehicleKm || 0);
 
 // ==========================
 // 🔒 VALIDATION KM OBLIGATOIRE
 // ==========================
 
-const currentKm = Number(wo.vehicleKm || 0);
+const currentKm = enteredKm;
 
 // 🔎 Trouver le véhicule EXACTEMENT comme openWorkOrderDetail
 let previousKm = 0;
@@ -8167,7 +8167,7 @@ const invoice = {
   workOrderNumber: wo.number,
   customer: wo.clientName,
   vehicle: wo.vehicleLabel,
-  vehicleKm: wo.vehicleKm || null,
+  vehicleKm: currentKm || null,
   date: new Date().toLocaleDateString("fr-CA"),
   items: [],
   status: "unpaid",     // unpaid | partial | paid
@@ -8220,6 +8220,7 @@ recalcInvoice(invoice);
   // La facture est prête : enregistrer maintenant le BT et sa facture.
   // Garder les deux sauvegardes synchrones pour qu'une seule synchro cloud
   // différée voie normalement les deux changements ensemble.
+  wo.vehicleKm = currentKm;
   wo.status = "termine";
   wo.completedAt = new Date().toISOString();
   INVOICES.push(invoice);
