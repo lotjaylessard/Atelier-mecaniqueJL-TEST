@@ -14266,6 +14266,17 @@ if($('btnPrint')){
    L'ancien import ecrasait des donnees du garage sans confirmation de version :
    il est bloque jusqu'a la mise en place d'une restauration atomique verifiee.
 */
+/* Empreinte SHA-256 locale : détecte la corruption accidentelle du JSON.
+   Ce contrôle n'est pas une signature d'authenticité et ne donne aucun droit d'écriture. */
+async function garageBackupDigest(payload){
+  if(typeof crypto==="undefined"||!crypto.subtle||typeof TextEncoder==="undefined")
+    throw Error("Vérification d'intégrité indisponible dans ce navigateur sécurisé.");
+  const content={...payload};
+  delete content.integrity;
+  const bytes=new TextEncoder().encode(JSON.stringify(content));
+  const digest=await crypto.subtle.digest("SHA-256",bytes);
+  return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,"0")).join("");
+}
 async function exportAllData(){
   const button=$("btnExportData"),feedback=$("jlBackupStatus");
   if(button)button.disabled=true;
@@ -14358,6 +14369,7 @@ async function exportAllData(){
         "Historique des versions Supabase et sessions de connexion non inclus"
       ]
     };
+    payload.integrity={algorithm:"SHA-256",digest:await garageBackupDigest(payload)};
     const json=JSON.stringify(payload,null,2);
     const check=JSON.parse(json);
     if(keys.some(key=>check.data[key].length!==cloud.data[key].length)||
@@ -14593,6 +14605,27 @@ async function importAllData(json){
     return;
   }
   const warnings=[...inspection.warnings];
+  if(json.integrity!==undefined){
+    if(!json.integrity||json.integrity.algorithm!=="SHA-256"||
+       typeof json.integrity.digest!=="string"||
+       !/^[0-9a-f]{64}$/.test(json.integrity.digest)){
+      tell("⚠ Empreinte de sauvegarde invalide. Inspection interrompue, aucune donnée modifiée.");
+      return;
+    }
+    try{
+      const calculated=await garageBackupDigest(json);
+      if(calculated!==json.integrity.digest){
+        tell("⚠ Fichier modifié ou corrompu (empreinte SHA-256 différente). Inspection interrompue.");
+        return;
+      }
+    }catch(error){
+      tell("⚠ Intégrité du fichier non vérifiable : "+String(error?.message||error)+
+        ". Inspection interrompue, aucune donnée modifiée.");
+      return;
+    }
+  }else{
+    warnings.push("Ancienne sauvegarde sans empreinte d'intégrité : authenticité et intégrité non vérifiées.");
+  }
   if(!ACTIVE_GARAGE_ID||json.garageId!==ACTIVE_GARAGE_ID)
     warnings.push("Fichier d'un autre garage ou garage courant non identifié.");
   if(!SUPABASE_USER?.id||json.userId!==SUPABASE_USER.id)
