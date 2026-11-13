@@ -14543,6 +14543,15 @@ async function inspectGarageBackupCloud(json){
   }
   if(changedPaid)warnings.push(changedPaid+
     " facture(s) avec paiement ou archive seraient différentes du cloud : restauration interdite.");
+  const savedInvoiceNumbers=new Set(json.data.invoices.map(inv=>String(inv.number)));
+  const missingProtected=[...seen.entries()].filter(([number,current])=>
+    !savedInvoiceNumbers.has(number)&&
+    (current.status==="paid"||current.archived===true||
+     Number(current.paidAmount||0)>0||
+     (Array.isArray(current.payments)&&current.payments.length>0))).length;
+  if(missingProtected)
+    warnings.push(missingProtected+
+      " facture(s) payée(s), partielle(s) ou archivée(s) du cloud sont absentes du fichier : restauration interdite.");
   // Soumissions stockées séparément : inspection paginée, lecture seule.
   const remoteQuotes=[],pageSize=200;
   for(let offset=0;offset<100000;offset+=pageSize){
