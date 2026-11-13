@@ -14313,8 +14313,29 @@ async function exportAllData(){
       if(rows.length<limit)break;
       if(offset+limit>=100000)throw Error("Trop de soumissions : export interrompu plutôt que tronqué.");
     }
+    // AUDIT BACKUP : deuxième lecture des soumissions pour détecter une
+    // modification pendant la pagination initiale, sans écraser de données.
+    const quoteIds=new Set(quotes.map(q=>String(q.id)));
+    if(quoteIds.size!==quotes.length)
+      throw Error("Soumissions dupliquées durant la pagination : export interrompu.");
+    const verifiedQuotes=[];
+    for(let offset=0;offset<100000;offset+=limit){
+      const {data:rows,error}=await sb.from("garage_quotes")
+        .select("id,garage_id,user_id,quote_number,status,content,created_at,version,converted_bt_id")
+        .eq("garage_id",garageId).eq("user_id",userId)
+        .order("created_at",{ascending:true}).order("id",{ascending:true})
+        .range(offset,offset+limit-1);
+      if(error||!Array.isArray(rows))throw Error("Revérification des soumissions impossible.");
+      verifiedQuotes.push(...rows);
+      if(rows.length<limit)break;
+      if(offset+limit>=100000)throw Error("Limite de vérification des soumissions atteinte.");
+    }
+    if(!garageSnapshotsEquivalent(quotes,verifiedQuotes))
+      throw Error("Soumissions modifiées pendant l'export : recommence la sauvegarde.");
     if(CLOUD_SYNC_IN_PROGRESS||CLOUD_SYNC_DIRTY||CLOUD_SYNC_PENDING||
-       CLOUD_SYNC_FAILED||CLOUD_DATA_VERSION!==version||ACTIVE_GARAGE_ID!==garageId){
+       CLOUD_SYNC_FAILED||CLOUD_DATA_VERSION!==version||ACTIVE_GARAGE_ID!==garageId||
+       SUPABASE_USER?.id!==userId||
+       !garageSnapshotsEquivalent(captureLocalGarageSnapshot(),local)){
       throw Error("Les données ont changé pendant l'export. Réessaie.");
     }
     const {data:finalVersion,error:versionError}=await sb.from("garage_data")
