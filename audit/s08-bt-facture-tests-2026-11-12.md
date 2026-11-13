@@ -198,3 +198,17 @@ Mesures de clôture du pilote immédiatement après vérification :
 - Le bouton `Terminé` des autres BT n'a pas été migré à la RPC atomique, et **la production n'a pas été touchée**.
 
 **Prochaine phase éventuelle** : validation supplémentaire des scénarios de reprise UI (réseau, autres BT fictifs), puis plan d'activation générale TEST et seulement après revue indépendante de sécurité/production. Ne pas conclure que les tests sur tous les BT sont finis à partir de ce seul pilote.
+
+## Récupération après réponse RPC ambiguë — tests automatisés après le premier pilote réel
+
+- Commit `bdaf69ac` : `s08FinishWorkOrderAtomicTest` contient désormais une fonction locale `s08OpenConfirmedInvoice` qui ne réussit qu'après avoir trouvé simultanément la facture attendue **et** le BT terminé dans l'état cloud rechargé.
+- En cas de perte de réponse de la RPC d'écriture, le client relit le cloud sans deuxième écriture. Si le serveur a bien enregistré la facture, l'interface ouvre celle-ci et avertit que l'enregistrement a été récupéré; sinon, elle maintient l'état incertain et exige une vérification avant de recommencer.
+- Les protections préexistantes de sauvegarde d'une copie des modifications locales non synchronisées ont été conservées.
+- Commit `49546a24` : ajout du test réexécutable `audit/s08-bt-atomic-recovery.test.cjs`, qui extrait la **vraie fonction JS** d'`index.html` et simule les réponses serveur avec des données fictives.
+- **7 scénarios exécutés avec succès en V8** : fonctionnement normal; RPC écrite mais accusé de réception perdu; accusé perdu sans écriture serveur; simulation refusée; synchronisation locale en attente; modification locale en plein appel (exactement une copie de récupération et zéro rechargement destructeur); rechargement réseau impossible.
+- Aucun de ces scénarios n'appelle véritablement Supabase : test local de la logique JS et des effets de bord, pas test Chrome de coupure physique.
+- Commit `8884dfd0` : suppression du message périmé « tests serveur/concurrence encore requis » à la fin du test arithmétique, puisque ces tests ont été réalisés et documentés.
+
+**Statut sécurisé après ces modifications** : le drapeau d'activation demeure `false`; l'autorisation SQL `EXECUTE` de la RPC unifiée demeure révoquée pour `authenticated` et `anon`. Aucun nouveau BT/facture créé en base.
+
+**Avant extension à l'ensemble de TEST** : tester le redémarrage du navigateur pendant/après un appel réseau sur un BT *fictif indépendant*, réexaminer l'autorisation de la RPC (actuellement limitée au BT pilote déjà terminé), et activer le chemin général uniquement après vérification d'authentification/RLS et des comportements de toutes les catégories de BT. Ne pas activer en production.
