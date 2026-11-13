@@ -8090,28 +8090,27 @@ const enteredKm = kmInput ? Number(kmInput.value || 0) : Number(wo.vehicleKm || 
 
 const currentKm = enteredKm;
 
-// 🔎 Trouver le véhicule EXACTEMENT comme openWorkOrderDetail
+// S08 : identifier d'abord le client et le vehicule par leurs IDs.
+// Les homonymes et vehicules portant le meme libelle ne doivent pas
+// faire valider ni modifier le kilometrage du mauvais dossier.
 let previousKm = 0;
-
-const client = CLIENTS.find(c =>
-  c.name === wo.clientName
-);
-
-let veh = null;
-
-if (client && Array.isArray(client.vehicles)){
-  veh = client.vehicles.find(v =>
-    `${v.year} ${v.make} ${v.model}` === wo.vehicleLabel
-  );
-
-  if (veh && veh.km){
-    previousKm = Number(veh.km);
-  }
+const client = CLIENTS.find(c => String(c.id) === String(wo.clientId));
+const veh = client && Array.isArray(client.vehicles)
+  ? client.vehicles.find(v => String(v.id) === String(wo.vehicleId))
+  : null;
+if (!client || !veh) {
+  alert("Client ou vehicule lie au BT introuvable. Recharge les donnees avant de terminer.");
+  return;
+}
+previousKm = Number(veh.km || 0);
+if (!Number.isFinite(previousKm) || previousKm < 0) {
+  alert("Kilometrage du vehicule invalide. Fermeture du BT annulee.");
+  return;
 }
 
 let errorMessage = null;
 
-if (!currentKm || currentKm <= 0){
+if (!Number.isFinite(currentKm) || currentKm <= 0){
   errorMessage = "Vous devez entrer un kilométrage valide.";
 }
 else if (currentKm < previousKm){
