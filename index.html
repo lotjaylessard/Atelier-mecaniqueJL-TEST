@@ -14485,6 +14485,10 @@ function inspectGarageBackup(json){
     );
     if(!garageSnapshotsEquivalent(refs,json.attachments.files))
       issues.push("Inventaire des pièces jointes différent des références des BT.");
+    // Un inventaire peut être cohérent avec des BT tout en contenant
+    // des chemins Storage vides, donc des fichiers impossibles à retrouver.
+    if(refs.some(ref=>typeof ref.path!=="string"||!ref.path.trim()))
+      issues.push("Référence de pièce jointe sans chemin Storage valide.");
   }
   const warnings=[];
   if(Array.isArray(data.invoices)&&Array.isArray(data.workorders)){
