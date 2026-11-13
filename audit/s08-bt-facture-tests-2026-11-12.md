@@ -97,3 +97,13 @@ Ce chemin prépare la facture avec le calcul actuel, vérifie la synchronisation
 - Correction SQL du KM final testée sur un BT fictif n'ayant aucun KM initial (KM final 1550, véhicule initial 1500) et contre-test de régression (1450 refusé), avec `ROLLBACK`.
 
 **Restent obligatoires avant activation :** validation du script et du comportement dans Chrome/Codespace, confirmation réelle de la connexion RLS à la RPC, et tests d'intégration UI avec un BT fictif. Ne pas activer simplement le drapeau sans accorder et tester explicitement les droits d'exécution de la seule RPC unifiée; ne jamais donner accès aux deux anciennes RPC.
+
+## Audit de préparation Chrome — corrections ciblées supplémentaires
+
+- Commit `f9067be1` : lecture du KM du formulaire dans une variable locale, sans toucher au BT en mémoire avant le contrôle de version/cloud. La facture préparatoire contient le KM final; sur l'ancien chemin le KM du BT n'est changé qu'après les contrôles. Cela évite de faire échouer la vérification de snapshot simplement parce que le mécanicien modifie le KM en terminant.
+- Commit `c45b20be` : le futur chemin atomique désactivé sauvegarde une copie de récupération des modifications locales apparues pendant la RPC **avant** de réhydrater l'état Supabase. Il interdit alors le rechargement automatique qui effacerait ces modifications. Cette protection couvre également le chemin d'erreur réseau.
+- Vérification statique après commit : `S08_BT_ATOMIC_TEST_ENABLED=false`, préparation KM sans mutation précoce, inclusion du KM final dans la facture, copie de récupération et rechargement sécurisé présents; les trois RPC d'écriture sont toujours interdites à `authenticated` et `anon`.
+
+**Limite de validation :** pas de session Chrome/Codespace accessible dans l'outil de cette conversation. Tests visuels et PostgREST avec JWT réel non exécutés. Ne pas décrire cette préparation comme une activation ou une validation complète du navigateur.
+
+**Étape UI à exécuter lorsqu'une session Chrome TEST est disponible :** faire l'essai avec BT fictif, changer le KM juste avant Terminé, vérifier le statut cloud/sauvegardes, essayer double clic et un autre onglet, contrôler l'absence de doublon et le rechargement après interruption réseau; seulement ensuite décider du déverrouillage de la RPC unifiée.
