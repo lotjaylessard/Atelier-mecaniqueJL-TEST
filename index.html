@@ -14464,9 +14464,33 @@ function inspectGarageBackup(json){
     if(!garageSnapshotsEquivalent(refs,json.attachments.files))
       issues.push("Inventaire des pièces jointes différent des références des BT.");
   }
+  const warnings=[];
+  if(Array.isArray(data.invoices)&&Array.isArray(data.workorders)){
+    const btNumbers=new Set(data.workorders.map(wo=>String(wo?.number??"")));
+    const orphanCount=data.invoices.filter(inv=>
+      typeof inv?.workOrderNumber==="string"&&inv.workOrderNumber.trim()!=""&&
+      !btNumbers.has(inv.workOrderNumber)).length;
+    if(orphanCount)warnings.push(orphanCount+" facture(s) liées à un BT absent du fichier.");
+    const archivedUnpaid=data.invoices.filter(inv=>inv?.archived===true&&inv.status!=="paid").length;
+    if(archivedUnpaid)warnings.push(archivedUnpaid+" facture(s) archivées non payées.");
+    const unusualPayments=data.invoices.filter(inv=>{
+      if(!inv||typeof inv!=="object")return false;
+      const paid=Number(inv.paidAmount??0),total=Number(inv.total);
+      const payments=Array.isArray(inv.payments)?inv.payments:[];
+      const amounts=payments.map(p=>Number(p?.amount));
+      const sum=amounts.reduce((a,b)=>a+b,0);
+      return (inv.status==="paid"||inv.status==="partial"||inv.archived===true)&&
+        (![total,paid,...amounts].every(Number.isFinite)||
+        amounts.some(v=>v<0)||paid<0||paid>total+0.009||
+        (payments.length>0&&Math.abs(sum-paid)>0.009)||
+        (payments.length===0&&paid>0.009)||
+        (inv.status==="paid"&&Math.abs(total-paid)>0.009));
+    }).length;
+    if(unusualPayments)warnings.push(unusualPayments+" facture(s) avec incohérence de paiement à examiner.");
+  }
   const summary=keys.map(key=>key+": "+(Array.isArray(data[key])?data[key].length:"manquant"))
     .join(" · ")+" · soumissions : "+(Array.isArray(json.quotes)?json.quotes.length:"manquantes");
-  return {valid:issues.length===0,issues,summary};
+  return {valid:issues.length===0,issues,warnings,summary};
 }
 function importAllData(json){
   const feedback=$("jlBackupStatus");
@@ -14476,11 +14500,16 @@ function importAllData(json){
     tell("⚠ Inspection refusée (aucune donnée modifiée) : "+inspection.issues.join(" "));
     return;
   }
-  const sameGarage=typeof ACTIVE_GARAGE_ID!=="undefined" &&
-    json.garageId===ACTIVE_GARAGE_ID;
-  tell("✓ Structure vérifiée, inspection seulement (aucune restauration) : "+
+  const warnings=[...inspection.warnings];
+  if(!ACTIVE_GARAGE_ID||json.garageId!==ACTIVE_GARAGE_ID)
+    warnings.push("Fichier d'un autre garage ou garage courant non identifié.");
+  if(!SUPABASE_USER?.id||json.userId!==SUPABASE_USER.id)
+    warnings.push("Sauvegarde d'un autre compte ou session non identifiée.");
+  if(Number.isSafeInteger(CLOUD_DATA_VERSION)&&json.cloudVersion<CLOUD_DATA_VERSION)
+    warnings.push("Sauvegarde plus ancienne que la version cloud courante.");
+  tell("✓ Format vérifié, inspection seulement (aucune restauration) : "+
     inspection.summary+
-    (sameGarage?".":" · ATTENTION : ce fichier concerne un autre garage ou le garage courant n'est pas identifié.")+
+    (warnings.length?" · ⚠ "+warnings.join(" "):" · Aucune anomalie détectée par ces contrôles.")+
     " Soumissions du compte sauvegardé seulement; fichiers physiques joints exclus. La restauration reste désactivée.");
 }
 $("btnExportData")?.addEventListener("click",exportAllData);
