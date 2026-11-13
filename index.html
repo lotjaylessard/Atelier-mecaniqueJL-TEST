@@ -14381,21 +14381,75 @@ async function exportAllData(){
 
 // L'import automatique précédent écrasait les collections et perdait les notes/BT.
 // Un fichier peut être choisi pour inspection seulement, sans aucune écriture.
+/* AUDIT RESTAURATION TEST : inspection strictement en lecture seule.
+   Une sauvegarde reconnue n'autorise jamais une restauration automatique. */
+function inspectGarageBackup(json){
+  const issues=[];
+  const record=value=>value!==null && typeof value==="object" && !Array.isArray(value);
+  if(!record(json)||json.format!=="atelier-test-full-data-v2")
+    return {valid:false,issues:["Format de sauvegarde incompatible ou ancien."],summary:""};
+  if(!record(json.data))issues.push("Données du garage absentes ou invalides.");
+  const keys=["clients","invoices","workorders","notes","links","parts","services"];
+  const data=record(json.data)?json.data:{};
+  for(const key of keys){
+    if(!Array.isArray(data[key]))issues.push("Section manquante ou invalide : "+key);
+  }
+  if(!record(data.settings))issues.push("Paramètres manquants ou invalides.");
+  if(!Number.isSafeInteger(data.invoiceCounter)||data.invoiceCounter<0)
+    issues.push("Compteur de factures invalide.");
+  if(!Array.isArray(json.quotes))issues.push("Soumissions manquantes ou invalides.");
+  if(!record(json.attachments)||json.attachments.bucket!=="wo-files"||
+     !Array.isArray(json.attachments.files))
+    issues.push("Inventaire des références de pièces jointes manquant ou invalide.");
+  if(typeof json.garageId!=="string"||!json.garageId.trim()||
+     typeof json.userId!=="string"||!json.userId.trim()||
+     !Number.isSafeInteger(json.cloudVersion)||json.cloudVersion<0)
+    issues.push("Identification ou version de sauvegarde invalide.");
+  if(!Number.isFinite(Date.parse(json.createdAt||"")))
+    issues.push("Date de sauvegarde invalide.");
+  if(Array.isArray(json.quotes)){
+    const seen=new Set();
+    for(const quote of json.quotes){
+      if(!record(quote)||typeof quote.id!=="string"||!quote.id||
+         typeof quote.quote_number!=="string"||!quote.quote_number||
+         typeof quote.status!=="string"||!quote.status||
+         !record(quote.content)||!Number.isSafeInteger(quote.version)||quote.version<0||
+         quote.garage_id!==json.garageId||quote.user_id!==json.userId){
+        issues.push("Soumission avec identification, contenu ou version invalide.");break;
+      }
+      if(seen.has(quote.id)){
+        issues.push("Identifiant de soumission en double.");break;
+      }
+      seen.add(quote.id);
+    }
+  }
+  if(Array.isArray(json.attachments?.files)&&Array.isArray(data.workorders)){
+    const refs=data.workorders.flatMap(wo=>
+      (Array.isArray(wo?.attachments)?wo.attachments:[]).map(att=>({
+        workorder:wo.number||wo.id||"",name:att.name||"",path:att.path||"",type:att.type||""
+      }))
+    );
+    if(!garageSnapshotsEquivalent(refs,json.attachments.files))
+      issues.push("Inventaire des pièces jointes différent des références des BT.");
+  }
+  const summary=keys.map(key=>key+": "+(Array.isArray(data[key])?data[key].length:"manquant"))
+    .join(" · ")+" · soumissions : "+(Array.isArray(json.quotes)?json.quotes.length:"manquantes");
+  return {valid:issues.length===0,issues,summary};
+}
 function importAllData(json){
   const feedback=$("jlBackupStatus");
-  const tell=text=>{if(feedback)feedback.textContent=text;};
-  if(!json||typeof json!=="object"){
-    tell("Fichier invalide. Aucune donnée modifiée.");return;
+  const tell=message=>{if(feedback)feedback.textContent=message;};
+  const inspection=inspectGarageBackup(json);
+  if(!inspection.valid){
+    tell("⚠ Inspection refusée (aucune donnée modifiée) : "+inspection.issues.join(" "));
+    return;
   }
-  if(json.format==="atelier-test-full-data-v2" && json.data){
-    const summary=["clients","invoices","workorders","notes","links","parts","services"]
-      .map(key=>key+": "+(Array.isArray(json.data[key])?json.data[key].length:"manquant")).join(" · ");
-    tell("Inspection seulement (aucune restauration) : "+summary+
-      " · soumissions : "+(Array.isArray(json.quotes)?json.quotes.length:"manquantes")+
-      ". L'importation sécurisée n'est pas encore disponible.");
-  }else{
-    tell("Ancien format de sauvegarde détecté. Restauration bloquée : il peut manquer les notes ou les BT.");
-  }
+  const sameGarage=typeof ACTIVE_GARAGE_ID!=="undefined" &&
+    json.garageId===ACTIVE_GARAGE_ID;
+  tell("✓ Structure vérifiée, inspection seulement (aucune restauration) : "+
+    inspection.summary+
+    (sameGarage?".":" · ATTENTION : ce fichier concerne un autre garage ou le garage courant n'est pas identifié.")+
+    " Les fichiers physiques joints ne sont pas compris. La restauration reste désactivée.");
 }
 $("btnExportData")?.addEventListener("click",exportAllData);
 $("btnImportData")?.addEventListener("click",()=>$("importBackupFile")?.click());
