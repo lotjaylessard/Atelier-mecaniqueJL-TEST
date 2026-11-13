@@ -16,7 +16,7 @@ WHERE d.garage_id IS NOT NULL AND w.wo->>'status'='en_cours'
   AND NOT EXISTS (
     SELECT 1 FROM pg_catalog.jsonb_array_elements(d.data->'invoices') inv
     WHERE inv->>'workOrderNumber'=w.wo->>'number'
-      OR inv->>'number'=('FA'||pg_catalog.substring(w.wo->>'number' from 3))
+      OR inv->>'number'=('FA'||substring(w.wo->>'number' from 3))
   )
 LIMIT 1;
 
