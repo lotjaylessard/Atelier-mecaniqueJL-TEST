@@ -8,8 +8,8 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const begin = html.indexOf('async function s08FinishWorkOrderAtomicTest({');
 const end = html.indexOf('let finishingWorkOrder=false;', begin);
 assert.ok(begin !== -1 && end > begin, 'Fonction S08 introuvable dans le code TEST');
-assert.match(html, /const S08_BT_ATOMIC_TEST_ENABLED = false;/,
-  'Les tests exigent un mode atomique desactive par defaut');
+assert.match(html, /const S08_BT_ATOMIC_TEST_ENABLED = true;/,
+  'Les tests ciblent la branche atomique generalisee en TEST');
 
 const source = html.slice(begin, end);
 const factory = new Function('env', 'with(env){' + source + ';return s08FinishWorkOrderAtomicTest;}');
@@ -24,7 +24,8 @@ function fakeGarage(mode) {
   let local = copy(baseline);
   const calls=[], alerts=[], backups=[], events=[];
   const env = {
-    S08_BT_ATOMIC_TEST_ENABLED:true, S08_BT_ATOMIC_TEST_WORKORDER_NUMBER:'BT-FICTIF',
+    S08_BT_ATOMIC_TEST_ENABLED:true, S08_BT_ATOMIC_TEST_GARAGE_ID:'g',
+    S08_BT_ATOMIC_TEST_USER_ID:'u',
     CLOUD_DATA_READY:true,CLOUD_DATA_VERSION:2,CLOUD_CHANGE_REVISION:3,
     CLOUD_LAST_CONFIRMED_SNAPSHOT:copy(baseline),
     SUPABASE_USER:{id:'u'},ACTIVE_GARAGE_ID:'g',INVOICES:[],WORKORDERS:[],
