@@ -235,3 +235,17 @@ Il reste pour l'activation générale TEST un scénario navigateur réel d'inter
 - Nouveau script GitHub réexécutable `audit/s08-active-bt-readiness.sql` (commit `fadc8c7c`) : audit purement SELECT. Après lecture et exécution du fichier depuis GitHub : **5 sur 5 `structure_ready=true`**, version du garage 314.
 
 **Important :** la compatibilité structurelle en SQL ne prouve pas les effets UI d'une coupure de réseau physique. Le prochain jalon reste un essai Chrome de reprise, idéalement sur un dossier fictif dédié, puis l'activation générale du mécanisme atomique dans TEST; on ne touche pas à la production avant les tests complets de fiabilité et un accord explicite.
+
+## Pilote navigateur — récupération après accusé de réception simulé perdu (12 novembre 2026)
+
+Préparation TEST exclusivement :
+- Nouveau BT **100 % fictif** `BT-S08-2026-11-12-1` créé dans le garage TEST, pour le client fictif TEST FACTURE et la Mazda Miata déjà utilisés pour les tests. Une ligne de main-d'œuvre fictive 0,5 h × 90 $ = 45,00 $ avant taxes, KM 12 500. Aucune facture créée à cette étape. Garage version 314 → 315.
+- Migration `s08_test_network_recovery_restrict_rpc_to_new_fictitious_bt` : la RPC unifiée restreint le compte, le garage, le **nouvel ID BT** `1794530099001` et le **nouveau numéro** `BT-S08-2026-11-12-1`. Les autres BT restent interdits sur ce nouveau chemin.
+- Simulation SQL dry-run avec rôle `authenticated` et vrai dossier fictif réussie en transaction `ROLLBACK`.
+- Migration `s08_test_enable_one_fictitious_network_recovery_rpc` : seule la fonction unifiée restreinte reçoit EXECUTE pour authenticated; deux anciennes RPC et anon restent bloquées.
+- Commit `54508b55` sur `index.html` : branche atomique activée uniquement pour `BT-S08-2026-11-12-1`. Injection temporaire `S08_BT_TEST_LOSE_ACK_AFTER_SUCCESS=true` : **une fois** que le serveur a validé et répondu succès, le client lance une erreur fictive « accusé réseau perdu » pour exercer la récupération. Le serveur ne reçoit **aucune seconde écriture**; le navigateur doit relire le cloud, retrouver le BT terminé et une facture, afficher un avertissement et ouvrir la facture.
+- Cette simulation exerce le cas d'une **réponse perdue**, mais **ne constitue pas une vraie coupure physique du réseau**. Ne jamais demander de couper Internet ou de recharger pendant la transaction.
+- Syntaxe des 5 scripts JS contrôlée sans erreur; droits RPC et enregistrement avant essai vérifiés (version 315, BT en cours, zéro facture).
+- Acceptation navigateur à venir : `git pull origin s08/soumissions`, recharger Chrome, ouvrir le BT fictif, confirmer 12 500 km et statut Synchronisé, cliquer une seule fois sur Terminé; vérifier alerte de récupération puis facture `FA-S08-2026-11-12-1` d'environ 51,74 $.
+
+**Mesure impérative après l'essai :** vérifier le serveur, désactiver `S08_BT_ATOMIC_TEST_ENABLED` et l'injection, révoquer EXECUTE à authenticated, puis confirmer toutes permissions interdites.
