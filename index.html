@@ -14390,12 +14390,12 @@ async function exportAllData(){
     const blob=new Blob([json],{type:"application/json"});
     const url=URL.createObjectURL(blob);
     const link=document.createElement("a");
-    link.href=url;link.download="garage_TEST_complet_"+new Date().toISOString().slice(0,10)+".json";
+    link.href=url;link.download="garage_TEST_donnees_sans_fichiers_"+new Date().toISOString().slice(0,10)+".json";
     document.body.appendChild(link);link.click();link.remove();
     setTimeout(()=>URL.revokeObjectURL(url),60000);
     info("✓ JSON créé : "+check.data.notes.length+" notes, "+check.data.workorders.length+
       " BT, "+quotes.length+" soumissions. ATTENTION : "+attachments.length+
-      " pièce(s) jointe(s) référencée(s), fichiers NON inclus. Soumissions du compte connecté SEULEMENT.");
+      " pièce(s) jointe(s) référencée(s), fichiers NON inclus. Conserve les fichiers joints séparément. Soumissions du compte connecté SEULEMENT.");
   }catch(error){
     console.error("[TEST] Export bloqué :",error);
     info("⚠ "+(error?.message||"Export impossible."));
