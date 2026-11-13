@@ -225,3 +225,13 @@ Mesures de clôture du pilote immédiatement après vérification :
 À exécuter dans Codespace après `git pull` seulement si une vérification manuelle est nécessaire : `node audit/s08-bt-double-submit.test.cjs`. La nouvelle transaction atomique reste **désactivée** pour les comptes, et la production est inchangée.
 
 Il reste pour l'activation générale TEST un scénario navigateur réel d'interruption de réseau sur un **nouveau** dossier fictif, ainsi que la revue des cas de BT historiques et des anciennes fonctions; aucun test automatique ne peut prouver seul l'intégration utilisateur réelle.
+
+## Vérification globale des BT actifs avant prochain jalon
+
+- Vérification de l'état TEST actuel **en lecture seule** : 5 BT en cours; pour chacun : numéro unique, client et véhicule liés, aucun doublon de facture, tableaux pièces/main-d'œuvre valides, paramètres de taxes lisibles.
+- Audit des lignes : pièces, heures, taux et lignes issues du minuteur vérifiés; aucune quantité/tarif/minuteur mal formé détecté dans ces 5 BT.
+- **5 simulations de facturation SQL réussies**, une pour chaque BT actif, en utilisant une copie temporaire du corps réel de la RPC unifiée, avec l'ancienne limite au BT pilote désactivée **uniquement dans la copie transactionnelle**. Pour chaque BT : construction d'une facture fictive, deux taxes indépendantes et `p_dry_run=true`; aucun appel d'écriture.
+- Ces simulations ont été exécutées dans une transaction `BEGIN ... ROLLBACK`; la RPC installée sur Supabase TEST et ses permissions restent inchangées.
+- Nouveau script GitHub réexécutable `audit/s08-active-bt-readiness.sql` (commit `fadc8c7c`) : audit purement SELECT. Après lecture et exécution du fichier depuis GitHub : **5 sur 5 `structure_ready=true`**, version du garage 314.
+
+**Important :** la compatibilité structurelle en SQL ne prouve pas les effets UI d'une coupure de réseau physique. Le prochain jalon reste un essai Chrome de reprise, idéalement sur un dossier fictif dédié, puis l'activation générale du mécanisme atomique dans TEST; on ne touche pas à la production avant les tests complets de fiabilité et un accord explicite.
