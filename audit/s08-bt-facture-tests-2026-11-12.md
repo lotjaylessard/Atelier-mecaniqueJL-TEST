@@ -107,3 +107,36 @@ Ce chemin prépare la facture avec le calcul actuel, vérifie la synchronisation
 **Limite de validation :** pas de session Chrome/Codespace accessible dans l'outil de cette conversation. Tests visuels et PostgREST avec JWT réel non exécutés. Ne pas décrire cette préparation comme une activation ou une validation complète du navigateur.
 
 **Étape UI à exécuter lorsqu'une session Chrome TEST est disponible :** faire l'essai avec BT fictif, changer le KM juste avant Terminé, vérifier le statut cloud/sauvegardes, essayer double clic et un autre onglet, contrôler l'absence de doublon et le rechargement après interruption réseau; seulement ensuite décider du déverrouillage de la RPC unifiée.
+
+## Série de tests sans navigateur connecté (exécutée avant la validation finale)
+
+**Cible :** dernière version `index.html` de `s08/soumissions`, avec la nouvelle transaction toujours désactivée.
+
+### Exécution directe du JavaScript réel du dépôt, avec objets fictifs
+
+- Extraction et analyse syntaxique des blocs `<script>` du fichier : les quatre blocs classiques inline (dont le principal) se compilent avec le parseur ECMAScript V8. Le bloc contenant des `import` est un module et ne doit pas être analysé comme script classique.
+- Extraction de la vraie fonction `finishWorkOrder`, exécutée dans un contexte de test à données fictives : **5 scénarios réussis**.
+  1. Deux clients homonymes : le véhicule est identifié par `clientId/vehicleId`, pas par son nom.
+  2. Véhicule lié introuvable : bouton bloqué.
+  3. KM inférieur à celui de la fiche véhicule : bloqué.
+  4. KM non fini (`Infinity`) : bloqué.
+  5. Facture existante pour le même BT : bloqué.
+  Dans tous les cas, le BT en mémoire n'a pas été modifié prématurément.
+- Extraction de la vraie fonction `s08FinishWorkOrderAtomicTest`, exécutée avec des appels Supabase simulés : **5 scénarios réussis**.
+  1. Simulation puis écriture réussies → un seul rechargement et ouverture de facture.
+  2. Simulation refusée → aucune tentative d'écriture.
+  3. Réponse réseau ambiguë → relecture cloud, pas de seconde création.
+  4. Note locale non synchronisée arrivée pendant l'écriture → copie de récupération, aucun rechargement destructeur.
+  5. Synchronisation déjà en attente → aucun appel RPC.
+- Un double enregistrement de copie de récupération a été découvert dans le cas 4. **Correction commit `685d1b5c`** : une seule copie enregistrée malgré le passage par `catch`. Contre-test direct de la fonction : 1 copie, 0 recharge, 2 appels (simulation + écriture).
+- **Correction commit `1d9d5584`** : la validation KM du bouton utilise maintenant les vrais identifiants client/véhicule; aucune recherche ambiguë par nom ou modèle.
+
+### RLS / permissions en transaction annulée
+
+- Test de rôle `authenticated` avec sujet JWT entièrement fictif et droit `EXECUTE` accordé **uniquement dans une transaction SQL temporaire**, puis `ROLLBACK`.
+- Le rôle fictif n'a pas pu lire les données d'un garage absent/non lié : RPC refusée.
+- Vérification après `ROLLBACK` : les trois RPC préparatoires de facturation restent interdites à `authenticated` et `anon`. Aucune permission n'a été laissée ouverte.
+
+**Portée et limite :** ces tests couvrent réellement le code JavaScript extrait, les protections SQL et un rôle authentifié fictif, mais **pas** le fonctionnement complet du fichier HTML rendu dans Chrome avec une connexion utilisateur réelle, ni les vrais appels REST Supabase depuis le navigateur.
+
+**Dernier blocage nécessitant un environnement utilisateur :** Chrome/Codespace connecté au garage TEST (jamais production). Ne pas activer `S08_BT_ATOMIC_TEST_ENABLED` avant tests d'acceptation et autorisation contrôlée de la seule RPC unifiée.
