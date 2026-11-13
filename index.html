@@ -7957,7 +7957,7 @@ const isPaid = invoice && invoice.status === "paid";
 // S08 PILOTE TEST : actif UNIQUEMENT pour un BT fictif identifie.
 // Supabase impose EN PLUS une liste blanche stricte (garage, utilisateur, BT).
 // Conserver l'ancien fonctionnement pour tous les autres BT.
-const S08_BT_ATOMIC_TEST_ENABLED = true;
+const S08_BT_ATOMIC_TEST_ENABLED = false;
 const S08_BT_ATOMIC_TEST_WORKORDER_NUMBER = "BT-TF-2026-11-03-1";
 
 async function s08FinishWorkOrderAtomicTest({
