@@ -14,4 +14,4 @@ const cases=[
  ['rabais plafonné',[{qty:1,rate:20}],{discount:100},{discount:20,total:0}],
 ];
 for(const [name,items,options,expected] of cases){const actual=totals(items,options);for(const [key,value]of Object.entries(expected))assert.equal(actual[key],value,name+' / '+key);console.log('OK',name,actual.total);}
-console.log('6 scénarios arithmétiques TEST réussis ; tests serveur/concurrence encore requis.');
+console.log('6 scénarios arithmétiques TEST réussis ; consulter audit/s08-bt-facture-tests-2026-11-12.md pour les essais serveur et concurrence déjà réalisés.');
