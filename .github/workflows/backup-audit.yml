@@ -8,12 +8,14 @@ on:
       - index.html
       - tests/backup-audit.test.cjs
       - tests/invoice-archive-audit.test.cjs
+      - tests/backup-integrity.test.cjs
       - .github/workflows/backup-audit.yml
   pull_request:
     paths:
       - index.html
       - tests/backup-audit.test.cjs
       - tests/invoice-archive-audit.test.cjs
+      - tests/backup-integrity.test.cjs
       - .github/workflows/backup-audit.yml
   workflow_dispatch:
 
@@ -33,4 +35,4 @@ jobs:
         with:
           node-version: '22'
       - name: Exécuter les tests de régression
-        run: node --test tests/backup-audit.test.cjs tests/invoice-archive-audit.test.cjs
+        run: node --test tests/backup-audit.test.cjs tests/invoice-archive-audit.test.cjs tests/backup-integrity.test.cjs
