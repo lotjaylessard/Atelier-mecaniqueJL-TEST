@@ -57,7 +57,11 @@ BEGIN
       IF (old_inv-'payments'-'paidAmount'-'status'-'paidDate'-'paymentMethod')
          <>(new_inv-'payments'-'paidAmount'-'status'-'paidDate'-'paymentMethod')
       THEN RETURN false; END IF;
-      IF new_inv->>'status' NOT IN ('partial','paid') THEN RETURN false; END IF;
+      IF new_inv->>'status' IS NULL OR new_inv->>'status' NOT IN ('partial','paid') THEN RETURN false; END IF;
+      IF new_inv->>'status'='partial' AND (
+        old_inv->>'paidDate' IS DISTINCT FROM new_inv->>'paidDate' OR
+        old_inv->>'paymentMethod' IS DISTINCT FROM new_inv->>'paymentMethod'
+      ) THEN RETURN false; END IF;
       IF pg_catalog.jsonb_typeof(old_inv->'payments')<>'array'
         OR pg_catalog.jsonb_typeof(new_inv->'payments')<>'array'
       THEN RETURN false; END IF;
