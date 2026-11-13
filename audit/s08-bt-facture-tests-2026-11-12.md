@@ -267,3 +267,23 @@ Retrait immédiat du mode pilote :
 - **Aucune intervention sur la production.**
 
 Conclusion précise : la simulation d'un accusé de réception perdu **après une écriture effectivement réussie** a passé l'essai navigateur et serveur. Ce n'est pas un test de coupure Internet physique. La généralisation de l'activation atomique n'est pas encore réalisée; garder les permissions fermées jusqu'au prochain plan d'activation générale TEST.
+
+## Confirmation finale de synchronisation et passage au jalon suivant
+
+L'utilisateur a confirmé qu'après fermeture de la fenêtre de récupération de facture, l'indicateur est revenu à **« ✓ Synchronisé »**. Cela clôt la vérification de bout en bout du **pilote contrôlé d'accusé réseau perdu** : transaction serveur valide, une seule facture, récupération client et retour de l'indicateur de synchronisation.
+
+Nouvelle vérification de sécurité effectuée ensuite :
+- `index.html` : `S08_BT_ATOMIC_TEST_ENABLED=false` et `S08_BT_TEST_LOSE_ACK_AFTER_SUCCESS=false`.
+- Supabase TEST : les 3 RPC de finalisation S08 refusent toujours `EXECUTE` à `authenticated` et `anon`.
+- La route habituelle de finalisation reste active pour les BT non pilotes : **la bascule générale n'a pas été effectuée**.
+
+### Conditions pour une activation générale maîtrisée dans TEST
+
+1. Modifier l'interface afin que la fermeture atomique soit choisie de façon explicite pour les garages/BT admissibles, plutôt que par le numéro unique d'un BT de pilote. Supprimer l'injection de faute du code actif après archivage du test.
+2. Réviser la barrière SQL actuellement réservée à un seul BT fictif; les accès doivent rester limités par `auth.uid()`, `garage_id`, RLS, version CAS et le verrou transactionnel. Ne pas donner de permission générale avant ces contrôles.
+3. Vérifier la compatibilité complète du corps réel des factures: tarifs, rabais, TPS/TVQ, minuteurs, pièces, informations de paiement et snapshots cloud.
+4. Préparer une migration réversible sur TEST, avec contrôle des signatures et rôles, puis n'ouvrir que la RPC unifiée; les deux anciennes RPC restent bloquées.
+5. Essayer sur un nouveau BT fictif complet (pièce + service + minuteur) puis sur un BT ancien aux conditions particulières si nécessaire, sans utiliser de vrais dossiers clients pour des essais destructifs.
+6. Une fois ces étapes réussies, la généralisation TEST peut être évaluée. **Ne pas toucher production** avant un audit séparé et une validation explicite.
+
+Le chantier « pilote BT→facture et récupération après accusé perdu » est validé. Le chantier « activation générale TEST » reste distinct et non terminé. Ces deux statuts doivent rester distingués.
