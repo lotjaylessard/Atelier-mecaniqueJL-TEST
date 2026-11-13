@@ -14492,7 +14492,47 @@ function inspectGarageBackup(json){
     .join(" · ")+" · soumissions : "+(Array.isArray(json.quotes)?json.quotes.length:"manquantes");
   return {valid:issues.length===0,issues,warnings,summary};
 }
-function importAllData(json){
+/* Prévalidation supplémentaire : requêtes Supabase exclusivement en lecture.
+   Ne jamais interpréter une version identique comme une permission de restaurer. */
+async function inspectGarageBackupCloud(json){
+  if(!sb||!SUPABASE_USER?.id||!ACTIVE_GARAGE_ID||!CLOUD_DATA_READY||
+     CLOUD_SYNC_FAILED||CLOUD_SYNC_IN_PROGRESS||CLOUD_SYNC_PENDING||
+     CLOUD_SYNC_DIRTY||cloudSyncTimer!==null)
+    throw Error("Session ou synchronisation non confirmée : vérification cloud impossible.");
+  const garageId=ACTIVE_GARAGE_ID,userId=SUPABASE_USER.id;
+  if(json.garageId!==garageId||json.userId!==userId)
+    throw Error("Le garage ou le compte du fichier ne correspond pas à la session.");
+  const {data:auth,error:authError}=await sb.auth.getUser();
+  if(authError||auth?.user?.id!==userId)
+    throw Error("Identité Supabase non confirmée.");
+  const {data:cloud,error:readError}=await sb.from("garage_data")
+    .select("data,version").eq("garage_id",garageId).maybeSingle();
+  if(readError||!cloud||!cloud.data||!Number.isSafeInteger(cloud.version))
+    throw Error("Données ou version cloud indisponibles.");
+  if(ACTIVE_GARAGE_ID!==garageId||SUPABASE_USER?.id!==userId)
+    throw Error("Compte ou garage changé pendant la vérification.");
+  const warnings=[];
+  if(json.cloudVersion<cloud.version)
+    warnings.push("La sauvegarde est plus ancienne que le cloud (fichier v"+
+      json.cloudVersion+", cloud v"+cloud.version+").");
+  else if(json.cloudVersion>cloud.version)
+    warnings.push("La sauvegarde porte une version plus récente que le cloud actuel.");
+  else if(!garageSnapshotsEquivalent(json.data,cloud.data))
+    warnings.push("Même version, mais contenu du garage différent : conflit potentiel.");
+  const seen=new Map((Array.isArray(cloud.data.invoices)?cloud.data.invoices:[])
+    .filter(x=>x?.number).map(x=>[String(x.number),x]));
+  let changedPaid=0;
+  for(const inv of json.data.invoices){
+    const current=seen.get(String(inv.number));
+    if(current&&(current.status==="paid"||current.archived===true||
+       Number(current.paidAmount||0)>0||Array.isArray(current.payments)&&current.payments.length>0) &&
+       !garageSnapshotsEquivalent(inv,current))changedPaid++;
+  }
+  if(changedPaid)warnings.push(changedPaid+
+    " facture(s) avec paiement ou archive seraient différentes du cloud : restauration interdite.");
+  return warnings;
+}
+async function importAllData(json){
   const feedback=$("jlBackupStatus");
   const tell=message=>{if(feedback)feedback.textContent=message;};
   const inspection=inspectGarageBackup(json);
@@ -14505,11 +14545,14 @@ function importAllData(json){
     warnings.push("Fichier d'un autre garage ou garage courant non identifié.");
   if(!SUPABASE_USER?.id||json.userId!==SUPABASE_USER.id)
     warnings.push("Sauvegarde d'un autre compte ou session non identifiée.");
-  if(Number.isSafeInteger(CLOUD_DATA_VERSION)&&json.cloudVersion<CLOUD_DATA_VERSION)
-    warnings.push("Sauvegarde plus ancienne que la version cloud courante.");
-  tell("✓ Format vérifié, inspection seulement (aucune restauration) : "+
-    inspection.summary+
-    (warnings.length?" · ⚠ "+warnings.join(" "):" · Aucune anomalie détectée par ces contrôles.")+
+  tell("Inspection locale vérifiée. Contrôle cloud en lecture seule…");
+  try{
+    warnings.push(...await inspectGarageBackupCloud(json));
+  }catch(error){
+    warnings.push("Contrôle cloud non confirmé : "+String(error?.message||error));
+  }
+  tell("✓ Inspection seulement (aucune restauration) : "+inspection.summary+
+    (warnings.length?" · ⚠ "+warnings.join(" "):" · Aucun écart détecté par les contrôles réalisés.")+
     " Soumissions du compte sauvegardé seulement; fichiers physiques joints exclus. La restauration reste désactivée.");
 }
 $("btnExportData")?.addEventListener("click",exportAllData);
@@ -14517,8 +14560,8 @@ $("btnImportData")?.addEventListener("click",()=>$("importBackupFile")?.click())
 $("importBackupFile")?.addEventListener("change",async event=>{
   const file=event.target.files?.[0];
   if(!file)return;
-  try{importAllData(JSON.parse(await file.text()));}
-  catch(error){const feedback=$("jlBackupStatus");if(feedback)feedback.textContent="Fichier JSON invalide. Aucune donnée modifiée.";}
+  try{await importAllData(JSON.parse(await file.text()));}
+  catch(error){const feedback=$("jlBackupStatus");if(feedback)feedback.textContent="Fichier JSON invalide ou inspection interrompue. Aucune donnée modifiée.";}
   event.target.value="";
 });
 // Affiche les indicateurs sans revendiquer une sauvegarde cloud non confirmée.
