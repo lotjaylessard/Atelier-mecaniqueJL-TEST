@@ -7999,16 +7999,20 @@ async function s08FinishWorkOrderAtomicTest({
   // Les sauvegardes locales ne doivent pas ecraser une version serveur plus recente.
   // Les edits locaux faits pendant la transaction doivent etre preserves
   // AVANT toute rehydratation, sinon ils seraient ecrases silencieusement.
+  let s08RecoveryBackupSaved = false;
   const s08SafeAtomicReload = async () => {
     const localNow = captureLocalGarageSnapshot();
     if (SUPABASE_USER?.id !== expectedUser || ACTIVE_GARAGE_ID !== expectedGarage) {
       throw Error("Contexte change : rechargement du mauvais garage bloque.");
     }
     if (!garageSnapshotsEquivalent(localNow, CLOUD_LAST_CONFIRMED_SNAPSHOT)) {
-      preserveFailedCloudSnapshot(
-        "Modifications locales pendant la fermeture atomique : restauration automatique bloquee",
-        localNow
-      );
+      if (!s08RecoveryBackupSaved) {
+        preserveFailedCloudSnapshot(
+          "Modifications locales pendant la fermeture atomique : restauration automatique bloquee",
+          localNow
+        );
+        s08RecoveryBackupSaved = true;
+      }
       throw Error("Modifications locales detectees : copie de recuperation creee. "
         + "Ne ferme pas la page avant de verifier les donnees.");
     }
