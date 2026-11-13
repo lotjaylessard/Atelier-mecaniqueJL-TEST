@@ -14530,6 +14530,36 @@ async function inspectGarageBackupCloud(json){
   }
   if(changedPaid)warnings.push(changedPaid+
     " facture(s) avec paiement ou archive seraient différentes du cloud : restauration interdite.");
+  // Soumissions stockées séparément : inspection paginée, lecture seule.
+  const remoteQuotes=[],pageSize=200;
+  for(let offset=0;offset<100000;offset+=pageSize){
+    const {data:rows,error}=await sb.from("garage_quotes")
+      .select("id,garage_id,user_id,quote_number,status,content,created_at,updated_at,version,converted_bt_id")
+      .eq("garage_id",garageId).eq("user_id",userId)
+      .order("created_at",{ascending:true}).order("id",{ascending:true})
+      .range(offset,offset+pageSize-1);
+    if(error||!Array.isArray(rows))throw Error("Soumissions cloud non vérifiables.");
+    remoteQuotes.push(...rows);
+    if(rows.length<pageSize)break;
+    if(offset+pageSize>=100000)throw Error("Limite de vérification des soumissions atteinte.");
+  }
+  const byId=new Map(remoteQuotes.map(q=>[String(q.id),q]));
+  const savedIds=new Set(json.quotes.map(q=>String(q.id)));
+  let missing=0,changed=0;
+  for(const q of json.quotes){
+    const current=byId.get(String(q.id));
+    if(!current)missing++;
+    else if(!garageSnapshotsEquivalent(q,current))changed++;
+  }
+  const newer=remoteQuotes.filter(q=>!savedIds.has(String(q.id))).length;
+  if(missing||changed||newer)
+    warnings.push("Soumissions : "+missing+" absente(s) du cloud, "+
+      changed+" différente(s), "+newer+" présente(s) seulement dans le cloud.");
+  const {data:final,error:finalError}=await sb.from("garage_data")
+    .select("version").eq("garage_id",garageId).maybeSingle();
+  if(finalError||!final||final.version!==cloud.version||
+     ACTIVE_GARAGE_ID!==garageId||SUPABASE_USER?.id!==userId)
+    throw Error("Version ou session changée durant l'inspection.");
   return warnings;
 }
 async function importAllData(json){
