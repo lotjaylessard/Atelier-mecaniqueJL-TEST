@@ -160,3 +160,17 @@ Réparation **ciblée uniquement sur le BT fictif** :
 - Après `ROLLBACK`, contrôle confirmé : `authenticated=false`, `anon=false` pour **les trois fonctions d'écriture préparatoires**.
 
 **Prochaine étape côté navigateur :** l'utilisateur doit actualiser Chrome pour récupérer le changement cloud version 311 **sans modifier/sauvegarder son ancienne page avant**. Vérifier le badge Synchronisé et le BT. Le clic `Terminé` n'est toujours pas autorisé dans l'essai atomique désactivé. Tests visuels navigateur de la RPC atomique avec écriture à faire seulement après activation contrôlée et vérification des permissions de la seule fonction unifiée.
+
+## Pilote BT → facture activé sur TEST — portée strictement limitée
+
+- Migration `s08_test_pilot_scoped_unified_invoice_to_fictitious_bt` : la seule RPC unifiée refuse tout appel dont le compte, le garage, l'ID de BT ou le numéro de BT ne correspondent pas au dossier fictif `BT-TF-2026-11-03-1`.
+- Migration `s08_enable_scoped_test_pilot_rpc_for_authenticated` : `EXECUTE` autorisé à `authenticated` **uniquement** sur la RPC unifiée munie de cette barrière. Les deux anciennes RPC restent inaccessibles et `anon` reste interdit.
+- Vérification sous rôle `authenticated` : dossier différent → erreur `S08 TEST pilot restricted...`; dossier pilote réel → simulation `p_dry_run=true` réussie sans aucune écriture; changements d'autorisations temporaires antérieurs annulés.
+- Commit `60a1dbf7` : `S08_BT_ATOMIC_TEST_ENABLED=true` dans `index.html` TEST, mais **seulement pour ce numéro de BT**. Les autres BT conservent l'ancien comportement. La fonction client refuse également de s'exécuter sur un autre numéro de BT.
+- Après commit : analyse syntaxique de 5 scripts JS classiques inline sans erreur; vérification SQL de la présence de la barrière, permissions `authenticated=true` uniquement sur la RPC unifiée, `anon=false` partout, anciennes RPC fermées.
+
+**Aucun clic de fermeture effectué lors de l'activation** : le BT test doit rester `en_cours` et sans facture jusqu'à l'essai guidé depuis Chrome.
+
+**Acceptation attendue dans Chrome TEST** : `git pull` sur `s08/soumissions`, rafraîchir le navigateur, ouvrir `BT-TF-2026-11-03-1` (TEST FACTURE, Mazda Miata 1999), vérifier l'état Synchronisé et 12 500 km, puis appuyer une seule fois sur Terminé et accepter la confirmation. Vérifier la facture, les deux montants de minuteur, la TPS/TVQ, l'état du BT, le KM enregistré et absence de doublon après rafraîchissement. En cas d'erreur, ne pas cliquer de nouveau; collecter capture du message et inspecter état serveur d'abord.
+
+**Important :** ce pilote ne vaut pas activation générale ni autorisation de production.
