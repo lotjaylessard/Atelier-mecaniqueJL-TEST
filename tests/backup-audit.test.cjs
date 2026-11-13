@@ -45,6 +45,13 @@ test('refuse un numéro de BT absent',()=>assert.ok(issue(change(x=>delete x.dat
 test('refuse une soumission d’un autre garage',()=>assert.ok(issue(change(x=>x.quotes[0].garage_id='autre'),'Soumission')));
 test('refuse des numéros de soumission en double',()=>assert.ok(issue(change(x=>x.quotes.push({...copy(q),id:'q2'})),'Numéro de soumission')));
 test('refuse des références de pièce jointe incohérentes',()=>assert.ok(issue(change(x=>x.data.workorders[0].attachments.push({name:'a',path:'a'})),'pièces jointes')));
+test('refuse une pièce jointe sans chemin Storage',()=>{
+  const invalid=change(x=>{
+    x.data.workorders[0].attachments.push({name:'document.pdf',path:'',type:'application/pdf'});
+    x.attachments.files.push({workorder:'BT-1',name:'document.pdf',path:'',type:'application/pdf'});
+  });
+  assert.ok(issue(invalid,'sans chemin Storage'));
+});
 test('avertit sur facture archivée non payée',()=>assert.ok(warning(change(x=>x.data.invoices[0].status='unpaid'),'archivées non payées')));
 test('avertit sur un paiement incohérent',()=>assert.ok(warning(change(x=>x.data.invoices[0].paidAmount=51),'incohérence de paiement')));
 test('avertit sur une facture reliée à BT inexistant',()=>assert.ok(warning(change(x=>x.data.invoices[0].workOrderNumber='BT-999'),'BT absent')));
