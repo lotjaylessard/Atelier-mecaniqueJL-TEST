@@ -212,3 +212,16 @@ Mesures de clôture du pilote immédiatement après vérification :
 **Statut sécurisé après ces modifications** : le drapeau d'activation demeure `false`; l'autorisation SQL `EXECUTE` de la RPC unifiée demeure révoquée pour `authenticated` et `anon`. Aucun nouveau BT/facture créé en base.
 
 **Avant extension à l'ensemble de TEST** : tester le redémarrage du navigateur pendant/après un appel réseau sur un BT *fictif indépendant*, réexaminer l'autorisation de la RPC (actuellement limitée au BT pilote déjà terminé), et activer le chemin général uniquement après vérification d'authentification/RLS et des comportements de toutes les catégories de BT. Ne pas activer en production.
+
+## Tests supplémentaires — double clic, prévalidation et état local
+
+- Nouveau test réexécutable : `audit/s08-bt-double-submit.test.cjs`, commit `54278b4a`.
+- La suite extrait le vrai code `finishWorkOrder` de `index.html`; les dépendances et le serveur sont simulés et **aucune donnée réelle n'est modifiée**.
+- **3 scénarios exécutés avec succès en V8** :
+  1. Deux clics quasi simultanés sur `Terminé` pendant une attente du serveur : **une seule confirmation et une seule vérification cloud**, second clic ignoré. Si la version cloud a changé, refus propre, KM en mémoire inchangé et verrou libéré.
+  2. Modification/sauvegarde locale non confirmée : blocage avant tout contrôle réseau et aucun changement de KM.
+  3. Kilométrage non valide (valeur non finie) : refus avant confirmation et aucun changement de BT.
+
+À exécuter dans Codespace après `git pull` seulement si une vérification manuelle est nécessaire : `node audit/s08-bt-double-submit.test.cjs`. La nouvelle transaction atomique reste **désactivée** pour les comptes, et la production est inchangée.
+
+Il reste pour l'activation générale TEST un scénario navigateur réel d'interruption de réseau sur un **nouveau** dossier fictif, ainsi que la revue des cas de BT historiques et des anciennes fonctions; aucun test automatique ne peut prouver seul l'intégration utilisateur réelle.
