@@ -106,3 +106,16 @@ test('respecte une annulation de confirmation',async()=>{
   assert.equal(await s.invoke(),false);
   assert.equal(s.record().writes,0);
 });
+
+test('refuse les numéros de facture dupliqués dans les données locales',async()=>{
+  const s=scenario({local:d=>d.invoices.push(copy(d.invoices[0]))});
+  assert.equal(await s.invoke(),false);
+  assert.equal(s.record().writes,0);
+  assert.equal(s.record().hydrations,0);
+});
+test('refuse les numéros de facture dupliqués dans le cloud',async()=>{
+  const s=scenario({remote:d=>d.invoices.push(copy(d.invoices[0]))});
+  assert.equal(await s.invoke(),false);
+  assert.equal(s.record().writes,0);
+  assert.equal(s.record().hydrations,0);
+});
