@@ -14353,6 +14353,7 @@ async function exportAllData(){
       attachments:{bucket:"wo-files",files:attachments,bytesIncluded:false},
       limitations:[
         "Fichiers physiques joints aux BT non inclus : chemins/references uniquement",
+        "Soumissions du compte connecte uniquement : les soumissions d autres membres ne sont pas incluses",
         "Profils utilisateurs et autorisations Supabase non inclus",
         "Historique des versions Supabase et sessions de connexion non inclus"
       ]
@@ -14372,7 +14373,7 @@ async function exportAllData(){
     setTimeout(()=>URL.revokeObjectURL(url),60000);
     info("✓ JSON créé : "+check.data.notes.length+" notes, "+check.data.workorders.length+
       " BT, "+quotes.length+" soumissions. ATTENTION : "+attachments.length+
-      " pièce(s) jointe(s) référencée(s), fichiers NON inclus.");
+      " pièce(s) jointe(s) référencée(s), fichiers NON inclus. Soumissions du compte connecté SEULEMENT.");
   }catch(error){
     console.error("[TEST] Export bloqué :",error);
     info("⚠ "+(error?.message||"Export impossible."));
@@ -14480,7 +14481,7 @@ function importAllData(json){
   tell("✓ Structure vérifiée, inspection seulement (aucune restauration) : "+
     inspection.summary+
     (sameGarage?".":" · ATTENTION : ce fichier concerne un autre garage ou le garage courant n'est pas identifié.")+
-    " Les fichiers physiques joints ne sont pas compris. La restauration reste désactivée.");
+    " Soumissions du compte sauvegardé seulement; fichiers physiques joints exclus. La restauration reste désactivée.");
 }
 $("btnExportData")?.addEventListener("click",exportAllData);
 $("btnImportData")?.addEventListener("click",()=>$("importBackupFile")?.click());
