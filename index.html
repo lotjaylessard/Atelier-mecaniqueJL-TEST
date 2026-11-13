@@ -7954,16 +7954,19 @@ const isPaid = invoice && invoice.status === "paid";
 }
 
   
-// S08 staging : mode atomique volontairement DESACTIVE jusqu'aux tests
-// d'integration avec session authentifiee et validation Chrome.
-// Ne PAS activer simplement en passant true sans valider les permissions RPC.
-const S08_BT_ATOMIC_TEST_ENABLED = false;
+// S08 PILOTE TEST : actif UNIQUEMENT pour un BT fictif identifie.
+// Supabase impose EN PLUS une liste blanche stricte (garage, utilisateur, BT).
+// Conserver l'ancien fonctionnement pour tous les autres BT.
+const S08_BT_ATOMIC_TEST_ENABLED = true;
+const S08_BT_ATOMIC_TEST_WORKORDER_NUMBER = "BT-TF-2026-11-03-1";
 
 async function s08FinishWorkOrderAtomicTest({
   wo, invoice, expectedGarage, expectedUser, expectedVersion, expectedRevision
 }) {
   // Tous les controles de preflight du bouton ont deja ete executes.
-  if (!S08_BT_ATOMIC_TEST_ENABLED) throw Error("Mode atomique TEST non active.");
+  if (!S08_BT_ATOMIC_TEST_ENABLED ||
+      String(wo?.number) !== S08_BT_ATOMIC_TEST_WORKORDER_NUMBER)
+    throw Error("Mode atomique reserve au BT fictif pilote.");
   if (!CLOUD_DATA_READY || !sb || !expectedGarage || !expectedUser ||
       !Number.isSafeInteger(expectedVersion) || hasUnconfirmedCloudChanges() ||
       CLOUD_CHANGE_REVISION !== expectedRevision ||
@@ -8231,7 +8234,8 @@ recalcInvoice(invoice);
 
   // S08 : preparation de l'integration atomique en TEST uniquement.
   // La branche reste inactive pendant les tests Chrome/authentification.
-  if (S08_BT_ATOMIC_TEST_ENABLED) {
+  if (S08_BT_ATOMIC_TEST_ENABLED &&
+      String(wo.number) === S08_BT_ATOMIC_TEST_WORKORDER_NUMBER) {
     await s08FinishWorkOrderAtomicTest({
       wo, invoice, expectedGarage, expectedUser, expectedVersion, expectedRevision
     });
