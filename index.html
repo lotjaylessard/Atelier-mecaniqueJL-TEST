@@ -14304,7 +14304,7 @@ async function exportAllData(){
     const quotes=[];const limit=200;
     for(let offset=0;offset<100000;offset+=limit){
       const {data:rows,error}=await sb.from("garage_quotes")
-        .select("id,garage_id,user_id,quote_number,status,content,created_at,version,converted_bt_id")
+        .select("id,garage_id,user_id,quote_number,status,content,created_at,updated_at,version,converted_bt_id")
         .eq("garage_id",garageId).eq("user_id",userId)
         .order("created_at",{ascending:true}).order("id",{ascending:true})
         .range(offset,offset+limit-1);
@@ -14321,7 +14321,7 @@ async function exportAllData(){
     const verifiedQuotes=[];
     for(let offset=0;offset<100000;offset+=limit){
       const {data:rows,error}=await sb.from("garage_quotes")
-        .select("id,garage_id,user_id,quote_number,status,content,created_at,version,converted_bt_id")
+        .select("id,garage_id,user_id,quote_number,status,content,created_at,updated_at,version,converted_bt_id")
         .eq("garage_id",garageId).eq("user_id",userId)
         .order("created_at",{ascending:true}).order("id",{ascending:true})
         .range(offset,offset+limit-1);
