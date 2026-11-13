@@ -14374,9 +14374,19 @@ async function exportAllData(){
     const check=JSON.parse(json);
     if(keys.some(key=>check.data[key].length!==cloud.data[key].length)||
        check.quotes.length!==quotes.length||
-       check.attachments.files.length!==attachments.length){
-      throw Error("Vérification du contenu exporté échouée.");
+       check.attachments.files.length!==attachments.length||
+       check.integrity?.digest!==await garageBackupDigest(check)){
+      throw Error("Vérification du contenu ou de l'empreinte exportée échouée.");
     }
+    // Une dernière lecture confirme que le JSON correspond encore à la
+    // version du garage vérifiée avant la création du fichier.
+    const {data:latest,error:latestError}=await sb.from("garage_data")
+      .select("version").eq("garage_id",garageId).maybeSingle();
+    if(latestError||latest?.version!==version||CLOUD_DATA_VERSION!==version||
+       ACTIVE_GARAGE_ID!==garageId||SUPABASE_USER?.id!==userId||
+       CLOUD_SYNC_DIRTY||CLOUD_SYNC_PENDING||CLOUD_SYNC_IN_PROGRESS||
+       !garageSnapshotsEquivalent(captureLocalGarageSnapshot(),local))
+      throw Error("Le garage a changé avant le téléchargement. Export annulé.");
     const blob=new Blob([json],{type:"application/json"});
     const url=URL.createObjectURL(blob);
     const link=document.createElement("a");
