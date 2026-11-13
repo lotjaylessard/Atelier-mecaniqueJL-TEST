@@ -3196,16 +3196,26 @@ function invoiceMayEditFinancials(inv){
 function invoicePaymentMismatch(inv){
   if (!inv || !invoiceHasPaymentActivity(inv)) return null;
   const total = Number(inv.total);
-  const paid = Number(inv.paidAmount || 0);
+  const paid = Number(inv.paidAmount ?? 0);
   const payments = Array.isArray(inv.payments) ? inv.payments : [];
-  const history = payments.reduce((sum,p)=>sum+Number(p.amount || 0),0);
-  if (![total,paid,history].every(Number.isFinite)) return "Montants de paiement invalides.";
+  const amounts = payments.map(p=>Number(p?.amount));
+  if (![total,paid,...amounts].every(Number.isFinite) ||
+      total <= 0 || paid < 0 || amounts.some(amount=>amount <= 0))
+    return "Montants de paiement invalides.";
+  const history = amounts.reduce((sum,amount)=>sum+amount,0);
   if (paid > total + 0.009 || history > total + 0.009)
     return "Les paiements dépassent le total de la facture.";
+  if (payments.length === 0 && paid > 0.009)
+    return "Montant reçu sans historique de paiement.";
   if (payments.length && Math.abs(history-paid) > 0.009)
     return "Le cumul des paiements diffère du montant payé enregistré.";
-  if (String(inv.status) === "paid" && Math.abs(paid-total) > 0.009)
+  const status = String(inv.status || "").toLowerCase();
+  if (status === "paid" && Math.abs(paid-total) > 0.009)
     return "La facture est marquée payée, mais son total diffère du montant reçu.";
+  if (status === "partial" && (paid <= 0 || paid >= total - 0.009))
+    return "Le statut partiel ne correspond pas au solde de la facture.";
+  if (["unpaid","pending","draft"].includes(status) && paid > 0.009)
+    return "La facture a reçu un paiement, mais son statut indique impayée.";
   return null;
 }
 
