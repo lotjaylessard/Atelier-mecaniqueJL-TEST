@@ -15332,6 +15332,14 @@ function archiveInvoice(number){
     return;
   }
 
+  // AUDIT FIABILITÉ : une facture payée dont les montants ne concordent
+  // pas reste consultable, mais ne peut pas être archivée automatiquement.
+  const paymentMismatch = invoicePaymentMismatch(inv);
+  if (paymentMismatch) {
+    alert("Archivage bloqué : " + paymentMismatch + "\nAucune donnée modifiée. Vérifie les montants avant d'archiver.");
+    return;
+  }
+
   if (!confirm(`Archiver la facture ${inv.number} ?`)) return;
 
   inv.archived = true;
