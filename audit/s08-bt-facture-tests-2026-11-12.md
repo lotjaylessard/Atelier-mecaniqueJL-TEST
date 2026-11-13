@@ -174,3 +174,27 @@ Réparation **ciblée uniquement sur le BT fictif** :
 **Acceptation attendue dans Chrome TEST** : `git pull` sur `s08/soumissions`, rafraîchir le navigateur, ouvrir `BT-TF-2026-11-03-1` (TEST FACTURE, Mazda Miata 1999), vérifier l'état Synchronisé et 12 500 km, puis appuyer une seule fois sur Terminé et accepter la confirmation. Vérifier la facture, les deux montants de minuteur, la TPS/TVQ, l'état du BT, le KM enregistré et absence de doublon après rafraîchissement. En cas d'erreur, ne pas cliquer de nouveau; collecter capture du message et inspecter état serveur d'abord.
 
 **Important :** ce pilote ne vaut pas activation générale ni autorisation de production.
+
+## Test navigateur pilote effectivement réussi — 12 novembre 2026, ~20:11 (Québec)
+
+L'utilisateur a effectué `Terminé` sur le seul BT fictif autorisé `BT-TF-2026-11-03-1` depuis Chrome/Codespace TEST. Le premier contrôle du KM avait échoué car `finishWorkOrder` cherchait l'ancien champ DOM `woVehicleKmInput` tandis que le formulaire actuel utilise `woKmInput`. Correctif ciblé dans `index.html`, commit `e9298e7e`, validé en test JS avant le nouvel essai.
+
+Après actualisation, le dialogue de confirmation s'est affiché et l'utilisateur a confirmé. Chrome a immédiatement ouvert la facture `FA-TF-2026-11-03-1` : 2 lignes minuteur (2,21 + 97,93 CAD), sous-total 100,14, TPS 5,01, TVQ 9,99, total **115,14 CAD**, statut impayée.
+
+Lecture directe en base Supabase TEST **après** fermeture :
+- Version du garage : **314** (avant : 313).
+- BT : `termine`, `vehicleKm=12500`, `completedAt=2026-11-13T01:11:36.027Z`.
+- Nombre de factures liées : **exactement 1**.
+- Facture : `FA-TF-2026-11-03-1`, statut `unpaid`, KM 12500, sous-total 100,14, TPS 5,01, TVQ 9,99, total 115,14.
+- Lignes minuteur et leurs `timerSessionId` et `confirmedMs` ont été conservés intacts.
+- Fiche véhicule liée : KM 12500.
+
+**Le premier essai réel de transaction atomique est donc réussi et confirmé serveur + interface, sans duplication.**
+
+Mesures de clôture du pilote immédiatement après vérification :
+- Migration TEST `s08_close_completed_fictitious_bt_pilot_rpc` : révocation `EXECUTE` à `authenticated` sur la RPC unifiée.
+- Commit `f330d46e` : `S08_BT_ATOMIC_TEST_ENABLED=false` dans `index.html` TEST.
+- Contrôle post-changement : les trois RPC préparatoires sont interdites à `authenticated` et `anon`, drapeau client désactivé.
+- Le bouton `Terminé` des autres BT n'a pas été migré à la RPC atomique, et **la production n'a pas été touchée**.
+
+**Prochaine phase éventuelle** : validation supplémentaire des scénarios de reprise UI (réseau, autres BT fictifs), puis plan d'activation générale TEST et seulement après revue indépendante de sécurité/production. Ne pas conclure que les tests sur tous les BT sont finis à partir de ce seul pilote.
