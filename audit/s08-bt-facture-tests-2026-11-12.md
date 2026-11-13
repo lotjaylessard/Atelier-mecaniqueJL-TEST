@@ -287,3 +287,26 @@ Nouvelle vérification de sécurité effectuée ensuite :
 6. Une fois ces étapes réussies, la généralisation TEST peut être évaluée. **Ne pas toucher production** avant un audit séparé et une validation explicite.
 
 Le chantier « pilote BT→facture et récupération après accusé perdu » est validé. Le chantier « activation générale TEST » reste distinct et non terminé. Ces deux statuts doivent rester distingués.
+
+## Activation générale de la fermeture atomique — GARAGE TEST UNIQUEMENT
+
+L'essai réel de création atomique normale, puis l'essai de réponse réseau simulée perdue, ont tous deux été réussis et vérifiés dans Supabase et Chrome. L'utilisateur a confirmé le retour du badge « Synchronisé ».
+
+**Déploiement contrôlé sur le seul garage TEST autorisé :**
+- Migration `s08_test_scope_atomic_finalization_to_one_test_garage` : la RPC `public.s08_finalize_bt_invoice_unified_staged` est désormais ouverte aux BT en cours du seul garage TEST `3fef6492-83d9-40d3-813c-93b8c0f685a3`, pour son propriétaire autorisé; la restriction au numéro de BT fictif est levée. Vérification interne toujours obligatoire : `auth.uid()`, garage, propriétaire, arrays, client, véhicule, version CAS, statut, absence de facture, calcul taxes et lignes, kilométrage, verrou `FOR UPDATE`.
+- Commit `efb4622f` : le bouton `Terminé` route désormais TOUS les BT de ce garage TEST par la RPC atomique; les autres garages conservent leur chemin existant. Injection de faux accusé de réception retirée. La production n'est pas modifiée.
+- Commit `454a1d17` : tests de récupération adaptés au passage de la limitation par numéro de BT à la limitation par garage propriétaire.
+- Validation des 5 BT encore en cours : **5 simulations authentifiées réussies** sur le corps réel de la RPC; pas d'écriture dans les tests.
+- Validation d'une **écriture atomique complète** sur l'un des BT contenant pièce + main-d'œuvre + minuteur, dans une transaction SQL `BEGIN ... ROLLBACK` : après contrôle interne, un seul BT terminé et une seule facture; ROLLBACK confirmé ensuite : version cloud toujours 316, 5 BT encore en cours, aucune facture ajoutée.
+- Test avec un autre sujet JWT authentifié : accès refusé par la barrière explicite du garage TEST.
+- Tests du véritable JavaScript actuel en V8 : **7 récupérations + 3 protections du bouton = 10/10**, plus cinq blocs `script` validés syntaxiquement.
+- Migration `s08_enable_atomic_all_bts_test_garage_only` : `EXECUTE` accordé à `authenticated` **uniquement** sur `s08_finalize_bt_invoice_unified_staged`. Contrôle SQL final : `authenticated=true` uniquement sur cette RPC, `anon=false` partout; les deux anciennes RPC restent interdites.
+- La sauvegarde atomique ne s'active dans Chrome qu'après `git pull origin s08/soumissions` et rafraîchissement du navigateur TEST.
+- **Ne pas utiliser la production pour les essais**, ne pas déclencher de fermeture de BT réels simplement pour tester la nouvelle fonction.
+
+**Retour arrière si un problème apparaît :**
+1. Révoquer en priorité `EXECUTE` à `authenticated` sur la RPC unifiée.
+2. Remettre `S08_BT_ATOMIC_TEST_ENABLED=false` dans `index.html` de TEST (commit sur la branche).
+3. Inspecter les données cloud avant de tenter toute reprise; ne jamais relancer la création d'une facture sur un BT déjà terminé.
+
+**Attention :** cette activation reste strictement une version de vérification du garage TEST, pas une généralisation à d'autres comptes ou à la production. Les autres modules font partie d'une étape d'audit distincte.
