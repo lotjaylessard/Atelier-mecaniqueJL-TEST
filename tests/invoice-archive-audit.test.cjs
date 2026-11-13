@@ -26,7 +26,7 @@ function scenario(overrides={}){
   const anomaly=inv=>inv.paidAmount!==inv.total?'Paiement différent du total':null;
   const sb={from:()=>({
     select:()=>({eq:()=>({maybeSingle:async()=>{
-      if(overrides.concurrentLocal)revision++;
+      if(overrides.concurrentLocal)local.notes=[{id:'concurrent'}];
       return{data:{data:copy(remote),version:overrides.stale?5:4},error:null};
     }})}),
     update:body=>({eq:()=>({eq:()=>({select:async()=>{
