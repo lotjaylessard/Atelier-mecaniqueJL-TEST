@@ -8021,6 +8021,23 @@ async function s08FinishWorkOrderAtomicTest({
     }
     return loadCloudData();
   };
+  // Seule la lecture effective de la facture + du BT termine prouve
+  // qu'une reponse reseau perdue correspond a une operation reussie.
+  const s08OpenConfirmedInvoice = () => {
+    const storedInvoice = INVOICES.find(x =>
+      String(x.number) === String(invoice.number) &&
+      String(x.workOrderNumber) === String(wo.number)
+    );
+    const storedWO = WORKORDERS.find(x =>
+      String(x.id) === String(wo.id) && x.status === "termine"
+    );
+    if (!storedInvoice || !storedWO) return false;
+    renderWorkOrders();
+    if (typeof renderInvoiceList === "function") renderInvoiceList();
+    showPage("page-invoice-list");
+    openInvoiceEditModal(storedInvoice.number);
+    return true;
+  };
   CLOUD_DATA_READY = false;
   let attempted = false;
   try {
@@ -8041,27 +8058,27 @@ async function s08FinishWorkOrderAtomicTest({
     if (!(await s08SafeAtomicReload())) {
       throw Error("Facture creee mais actualisation cloud non confirmee.");
     }
-    const storedInvoice = INVOICES.find(x =>
-      String(x.number) === String(invoice.number) &&
-      String(x.workOrderNumber) === String(wo.number)
-    );
-    const storedWO = WORKORDERS.find(x =>
-      String(x.id) === String(wo.id) && x.status === "termine"
-    );
-    if (!storedInvoice || !storedWO) {
+    if (!s08OpenConfirmedInvoice()) {
       throw Error("Transaction non visible apres rechargement : ne pas recommencer.");
     }
-    renderWorkOrders();
-    if (typeof renderInvoiceList === "function") renderInvoiceList();
-    showPage("page-invoice-list");
-    openInvoiceEditModal(storedInvoice.number);
   } catch (error) {
     // Une coupure reseau peut masquer une transaction deja validee.
     // Relire le serveur ; ne JAMAIS creer une seconde facture automatiquement.
     if (attempted && SUPABASE_USER?.id === expectedUser &&
         ACTIVE_GARAGE_ID === expectedGarage) {
-      try { await s08SafeAtomicReload(); }
-      catch (readError) { console.error("[S08] Recuperation locale conservee", readError); }
+      try {
+        const reloaded = await s08SafeAtomicReload();
+        if (reloaded && s08OpenConfirmedInvoice()) {
+          // La RPC a pu reussir meme si son accusé de reception s'est perdu.
+          // Ne pas annoncer d'echec ni autoriser un nouvel essai dans ce cas.
+          console.warn("[S08] Facture confirmee sur serveur apres reponse reseau ambigue");
+          alert("Facture confirmee sur Supabase apres interruption de connexion. "
+            + "Aucune deuxieme facture n'a ete creee.");
+          return;
+        }
+      } catch (readError) {
+        console.error("[S08] Verification serveur non concluante", readError);
+      }
     }
     throw Error("Finalisation atomique non confirmee. Verifie le BT et la facture "
       + "apres actualisation avant toute nouvelle tentative. " +
