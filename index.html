@@ -14587,6 +14587,25 @@ async function inspectGarageBackupCloud(json){
     if(rows.length<pageSize)break;
     if(offset+pageSize>=100000)throw Error("Limite de vérification des soumissions atteinte.");
   }
+  // Éviter un faux résultat « confirmé » si des soumissions changent
+  // pendant la lecture paginée. La vérification reste en lecture seule.
+  const quoteIds=new Set(remoteQuotes.map(q=>String(q.id)));
+  if(quoteIds.size!==remoteQuotes.length)
+    throw Error("Soumissions dupliquées durant l'inspection.");
+  const confirmedQuotes=[];
+  for(let offset=0;offset<100000;offset+=pageSize){
+    const {data:rows,error}=await sb.from("garage_quotes")
+      .select("id,garage_id,user_id,quote_number,status,content,created_at,updated_at,version,converted_bt_id")
+      .eq("garage_id",garageId).eq("user_id",userId)
+      .order("created_at",{ascending:true}).order("id",{ascending:true})
+      .range(offset,offset+pageSize-1);
+    if(error||!Array.isArray(rows))throw Error("Deuxième lecture des soumissions impossible.");
+    confirmedQuotes.push(...rows);
+    if(rows.length<pageSize)break;
+    if(offset+pageSize>=100000)throw Error("Limite de revérification des soumissions atteinte.");
+  }
+  if(!garageSnapshotsEquivalent(remoteQuotes,confirmedQuotes))
+    throw Error("Soumissions modifiées pendant l'inspection : relance la vérification.");
   const byId=new Map(remoteQuotes.map(q=>[String(q.id),q]));
   const savedIds=new Set(json.quotes.map(q=>String(q.id)));
   let missing=0,changed=0;
