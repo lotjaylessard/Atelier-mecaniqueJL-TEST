@@ -14423,6 +14423,37 @@ function inspectGarageBackup(json){
       seen.add(quote.id);
     }
   }
+  // Prévalidation métier : les entrées structurées doivent être des objets.
+  // N'altérer ni les montants ni les statuts des anciennes factures.
+  for(const key of ["clients","invoices","workorders","parts","services","notes","links"]){
+    if(Array.isArray(data[key]) && data[key].some(item=>!record(item)))
+      issues.push("Entrée non structurée dans : "+key);
+  }
+  for(const [key,identifier] of [["invoices","number"],["workorders","number"]]){
+    if(!Array.isArray(data[key]))continue;
+    const ids=new Set();
+    for(const item of data[key]){
+      if(!record(item)||item[identifier]===undefined||
+         item[identifier]===null||String(item[identifier]).trim()===""){
+        issues.push("Identifiant manquant dans : "+key);break;
+      }
+      const id=String(item[identifier]);
+      if(ids.has(id)){
+        issues.push("Identifiant en double dans : "+key);break;
+      }
+      ids.add(id);
+    }
+  }
+  if(Array.isArray(json.quotes)){
+    const numbers=new Set();
+    for(const quote of json.quotes){
+      if(!record(quote))break;
+      if(numbers.has(quote.quote_number)){
+        issues.push("Numéro de soumission en double.");break;
+      }
+      numbers.add(quote.quote_number);
+    }
+  }
   if(Array.isArray(json.attachments?.files)&&Array.isArray(data.workorders)){
     const refs=data.workorders.flatMap(wo=>
       (Array.isArray(wo?.attachments)?wo.attachments:[]).map(att=>({
