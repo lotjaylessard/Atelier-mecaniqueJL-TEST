@@ -14519,6 +14519,19 @@ async function inspectGarageBackupCloud(json){
     warnings.push("La sauvegarde porte une version plus récente que le cloud actuel.");
   else if(!garageSnapshotsEquivalent(json.data,cloud.data))
     warnings.push("Même version, mais contenu du garage différent : conflit potentiel.");
+  // Aperçu non destructif des écarts entre modules, sans copie ni fusion.
+  const sections=["clients","invoices","workorders","notes","links","parts","services"];
+  for(const key of sections){
+    const saved=Array.isArray(json.data[key])?json.data[key]:[];
+    const current=Array.isArray(cloud.data[key])?cloud.data[key]:[];
+    if(!garageSnapshotsEquivalent(saved,current))
+      warnings.push("Module "+key+" différent : fichier "+saved.length+
+        " élément(s), cloud "+current.length+" élément(s).");
+  }
+  if(!garageSnapshotsEquivalent(json.data.settings,cloud.data.settings))
+    warnings.push("Paramètres du garage différents du cloud.");
+  if(json.data.invoiceCounter!==cloud.data.invoiceCounter)
+    warnings.push("Compteur de factures différent du cloud.");
   const seen=new Map((Array.isArray(cloud.data.invoices)?cloud.data.invoices:[])
     .filter(x=>x?.number).map(x=>[String(x.number),x]));
   let changedPaid=0;
