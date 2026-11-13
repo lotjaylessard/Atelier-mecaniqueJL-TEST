@@ -15662,8 +15662,10 @@ async function archiveInvoice(number){
   if(!CLOUD_LAST_CONFIRMED_SNAPSHOT||
      !garageSnapshotsEquivalent(local,CLOUD_LAST_CONFIRMED_SNAPSHOT))
     return refuse("Archivage bloqué : modifications locales non confirmées.");
-  const invoice=local.invoices.find(i=>String(i.number)===String(number));
-  if(!invoice)return refuse("Facture introuvable.");
+  const candidates=local.invoices.filter(i=>String(i?.number)===String(number));
+  if(candidates.length!==1)
+    return refuse("Archivage bloqué : numéro de facture absent ou dupliqué.");
+  const invoice=candidates[0];
   if(invoice.archived===true)return refuse("Cette facture est déjà archivée.");
   if(invoice.status!=="paid")return refuse("Seules les factures payées peuvent être archivées.");
   const anomaly=invoicePaymentMismatch(invoice);
@@ -15684,8 +15686,11 @@ async function archiveInvoice(number){
        SUPABASE_USER?.id!==userId||
        !garageSnapshotsEquivalent(captureLocalGarageSnapshot(),local))
       throw Error("Modifications locales simultanées : archivage annulé.");
-    const remote=row.data.invoices.find(i=>String(i.number)===String(number));
-    if(!remote||!garageSnapshotsEquivalent(remote,invoice))
+    const remoteCandidates=row.data.invoices.filter(i=>String(i?.number)===String(number));
+    if(remoteCandidates.length!==1)
+      throw Error("Facture absente ou dupliquée dans le cloud : archivage annulé.");
+    const remote=remoteCandidates[0];
+    if(!garageSnapshotsEquivalent(remote,invoice))
       throw Error("Facture différente dans le cloud : archivage annulé.");
     if(remote.archived===true||remote.status!=="paid")
       throw Error("Le statut de la facture a changé : archivage refusé.");
@@ -15693,7 +15698,7 @@ async function archiveInvoice(number){
     if(remoteAnomaly)throw Error("Archivage bloqué : "+remoteAnomaly);
 
     const next=structuredClone(row.data);
-    const target=next.invoices.find(i=>String(i.number)===String(number));
+    const target=next.invoices.find(i=>String(i?.number)===String(number));
     target.archived=true;
     target.archivedDate=new Date().toLocaleDateString("fr-CA");
     const {data:written,error:writeError}=await sb.from("garage_data")
