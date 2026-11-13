@@ -82,3 +82,34 @@ test('signale une facture payée absente du fichier',async()=>{
   const warnings=await cloudInspect({save:old});
   assert.ok(warnings.some(w=>w.includes('restauration interdite')));
 });
+
+test('signale la modification d’une facture payée dans la sauvegarde',async()=>{
+  const changed=change(x=>{x.data.invoices[0].paidAmount=49});
+  const warnings=await cloudInspect({save:changed});
+  assert.ok(warnings.some(w=>w.includes('restauration interdite')));
+});
+test('signale une soumission absente du cloud',async()=>{
+  const warnings=await cloudInspect({quotes1:[],quotes2:[]});
+  assert.ok(warnings.some(w=>w.includes('1 absente(s) du cloud')));
+});
+test('signale une soumission plus récente que le fichier',async()=>{
+  const extra={...q,id:'q2',quote_number:'SO-2'};
+  const warnings=await cloudInspect({quotes1:[q,extra],quotes2:[q,extra]});
+  assert.ok(warnings.some(w=>w.includes('1 présente(s) seulement dans le cloud')));
+});
+test('refuse une soumission nouvellement ajoutée entre les lectures',async()=>{
+  const extra={...q,id:'q2',quote_number:'SO-2'};
+  await assert.rejects(cloudInspect({quotes1:[q],quotes2:[q,extra]}),/Soumissions modifiées/);
+});
+test('l’export reste en lecture seule et vérifie l’empreinte',()=>{
+  const exportCode=extract('async function exportAllData(){',"// L'import automatique précédent");
+  assert.ok(exportCode.includes('garageBackupDigest(check)'));
+  assert.ok(exportCode.includes('const {data:latest,error:latestError}'));
+  assert.equal(/\.(?:update|insert|delete|upsert)\s*\(/.test(exportCode),false);
+});
+test('la restauration automatique demeure désactivée',()=>{
+  const importCode=extract('async function importAllData(json){',
+    '$("btnExportData")?.addEventListener("click",exportAllData);');
+  assert.equal(/\.(?:update|insert|delete|upsert)\s*\(/.test(importCode),false);
+  assert.ok(importCode.includes('La restauration reste désactivée'));
+});
