@@ -14598,23 +14598,37 @@ async function importAllData(json){
   if(!SUPABASE_USER?.id||json.userId!==SUPABASE_USER.id)
     warnings.push("Sauvegarde d'un autre compte ou session non identifiée.");
   tell("Inspection locale vérifiée. Contrôle cloud en lecture seule…");
+  let cloudConfirmed=false;
   try{
     warnings.push(...await inspectGarageBackupCloud(json));
+    cloudConfirmed=true;
   }catch(error){
     warnings.push("Contrôle cloud non confirmé : "+String(error?.message||error));
   }
-  tell("✓ Inspection seulement (aucune restauration) : "+inspection.summary+
-    (warnings.length?" · ⚠ "+warnings.join(" "):" · Aucun écart détecté par les contrôles réalisés.")+
+  const heading=cloudConfirmed
+    ?(warnings.length?"⚠ Inspection avec avertissements":"✓ Inspection confirmée")
+    :"⚠ Inspection incomplète (cloud non confirmé)";
+  tell(heading+" — aucune restauration : "+inspection.summary+
+    (warnings.length?" · "+warnings.join(" "):" · Aucun écart détecté par les contrôles réalisés.")+
     " Soumissions du compte sauvegardé seulement; fichiers physiques joints exclus. La restauration reste désactivée.");
 }
 $("btnExportData")?.addEventListener("click",exportAllData);
 $("btnImportData")?.addEventListener("click",()=>$("importBackupFile")?.click());
 $("importBackupFile")?.addEventListener("change",async event=>{
-  const file=event.target.files?.[0];
+  const input=event.currentTarget;
+  const file=input.files?.[0];
   if(!file)return;
-  try{await importAllData(JSON.parse(await file.text()));}
-  catch(error){const feedback=$("jlBackupStatus");if(feedback)feedback.textContent="Fichier JSON invalide ou inspection interrompue. Aucune donnée modifiée.";}
-  event.target.value="";
+  input.disabled=true;
+  try{
+    const content=await file.text();
+    await importAllData(JSON.parse(content));
+  }catch(error){
+    const feedback=$("jlBackupStatus");
+    if(feedback)feedback.textContent="⚠ Fichier JSON invalide ou inspection interrompue. Aucune donnée modifiée.";
+  }finally{
+    input.value="";
+    input.disabled=false;
+  }
 });
 // Affiche les indicateurs sans revendiquer une sauvegarde cloud non confirmée.
 function updateJLBackupStatus(){
