@@ -8084,8 +8084,10 @@ async function finishWorkOrder(id){
     return;
   }
 
-  // 🔄 Forcer lecture directe du champ KM (sécuritaire)
-const kmInput = document.getElementById("woVehicleKmInput");
+  // Lire le champ affiché dans la fiche BT actuelle.
+// L'ancien champ woVehicleKmInput reste pour compatibilité des anciens rendus.
+const kmInput = document.getElementById("woKmInput")
+  || document.getElementById("woVehicleKmInput");
 
 // Ne pas modifier le BT en memoire avant confirmation de la synchro.
 // Le KM final pourra etre inclus dans la facture et applique atomiquement.
@@ -8127,8 +8129,6 @@ else if (currentKm < previousKm){
 }
 
 if (errorMessage){
-
-  const kmInput = document.getElementById("woVehicleKmInput");
 
   if (kmInput){
     kmInput.style.border = "2px solid #ff4d4d";
