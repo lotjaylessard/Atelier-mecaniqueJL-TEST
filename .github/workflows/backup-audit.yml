@@ -1,0 +1,34 @@
+name: Audit sauvegardes TEST
+
+on:
+  push:
+    branches:
+      - s08/soumissions
+    paths:
+      - index.html
+      - tests/backup-audit.test.cjs
+      - .github/workflows/backup-audit.yml
+  pull_request:
+    paths:
+      - index.html
+      - tests/backup-audit.test.cjs
+      - .github/workflows/backup-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup-audit:
+    name: Vérifier les sauvegardes sans écriture
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Télécharger la branche TEST
+        uses: actions/checkout@v4
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exécuter les tests de régression
+        run: node --test tests/backup-audit.test.cjs
