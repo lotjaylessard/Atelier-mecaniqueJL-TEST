@@ -43,3 +43,19 @@ Le téléchargement se fait depuis le compte authentifié, sans permission
 supplémentaire et sans modification des fichiers du cloud. L'outil ne
 restaure rien et ne supprime rien. Les tests automatisés utilisent des
 fichiers FICTIFS ; aucune sauvegarde réelle n'a été effectuée par CI.
+
+VERIFIER UNE SAUVEGARDE ET SA RESTAURATION ISOLEE (NOUVEAU)
+----------------------------------------------------------
+Une fois la sauvegarde physique terminée et COMPLETE, glisser le dossier
+« garage-s08-physical-... » sur le fichier
+« Verifier-S08-Sauvegarde-Windows.bat » du dossier extrait.
+
+Le vérificateur Python contrôle les fichiers, leurs empreintes SHA-256,
+les données JSON, notes, soumissions et références de pièces jointes,
+puis recopie les éléments dans un dossier TEMPORAIRE séparé pour simuler
+leur restauration. Ce dossier temporaire est supprimé après le test.
+L'inscription PASS confirme uniquement cette vérification locale ;
+aucune donnée n'est réimportée dans Supabase.
+
+Si le vérificateur indique FAIL, CONSERVER la sauvegarde et son dossier,
+et relever le message sans supprimer les fichiers originaux.
