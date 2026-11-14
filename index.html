@@ -17609,7 +17609,7 @@ if (window.garageSupabase) {
   function s09PreviewSchedule(){
     const date=scheduleDate.value,time=scheduleTime.value,duration=Number(scheduleDuration.value);
     const label=get("s09ScheduleSummary");
-    const validTime=/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(time);
+    const validTime=/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time);
     if(!date||!validTime||!Number.isInteger(duration)||duration<15||duration>1440){
       label.textContent="Choisis une date, une heure et une durée (15 à 1440 min).";
     }else{
