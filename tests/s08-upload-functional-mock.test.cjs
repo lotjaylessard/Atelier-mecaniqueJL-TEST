@@ -13,15 +13,16 @@ const end=html.indexOf('function renderWorkOrderAttachments(wo){',start);
 assert.ok(start>=0 && end>start,'BT attachment code anchors missing');
 const source=html.slice(start,end);
 
-async function runCase({cloudReady=true,serverVersion=5,storageError=false,fileName='test.pdf',fileSize=50,accountSwapsOnUpload=false}={}){
+async function runCase({cloudReady=true,serverVersion=5,storageError=false,fileName='test.pdf',fileSize=50,accountSwapsOnUpload=false,locksDuringUpload=false}={}){
   const calls={uploads:0,saves:0,alerts:[],versions:0};
   const local={clients:[],invoices:[],workorders:[],notes:[],links:[],parts:[],services:[],settings:{},invoiceCounter:0};
   const wo={id:'w1',number:'BT-01',clientName:'Test',vehicleLabel:'Auto',attachments:[]};
   const input={disabled:false,files:[{name:fileName,size:fileSize,type:'application/pdf'}],value:'file'};
   const recovered=[];
+  let locked=false;
   const sandbox={
     document:{getElementById:id=>id==='woFileInput'?input:id==='woAttachmentsList'?{}:null},
-    isWorkOrderLocked:()=>false,
+    isWorkOrderLocked:()=>locked,
     renderWorkOrderAttachments:()=>{},
     SUPABASE_USER:{id:'u1'},ACTIVE_GARAGE_ID:'g1',
     CLOUD_DATA_READY:cloudReady,
@@ -38,6 +39,7 @@ async function runCase({cloudReady=true,serverVersion=5,storageError=false,fileN
       storage:{from:()=>({upload:async()=>{
         calls.uploads++;
         if(accountSwapsOnUpload)sandbox.SUPABASE_USER.id='new-user';
+        if(locksDuringUpload)locked=true;
         return storageError?{error:{message:'storage denied'}}:{error:null};
       }})}
     },
@@ -94,5 +96,15 @@ test('account change during Storage upload preserves recovery without wrong BT l
  assert.equal(recovered[0].value.userId,'u1');
  assert.equal(recovered[0].value.garageId,'g1');
  assert.match(recovered[0].value.storagePath,/^u1\/clients\//);
+ assert.ok(calls.alerts.length>0);
+});
+
+test('BT becoming paid-locked during upload leaves an explicit recovery entry',async()=>{
+ const {calls,wo,recovered}=await runCase({locksDuringUpload:true});
+ assert.equal(calls.uploads,1);
+ assert.equal(calls.saves,0);
+ assert.equal(wo.attachments.length,0);
+ assert.equal(recovered.length,1);
+ assert.equal(recovered[0].value.workOrderNumber,'BT-01');
  assert.ok(calls.alerts.length>0);
 });
