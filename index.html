@@ -17622,7 +17622,7 @@ if (window.garageSupabase) {
   let s09BookingsToken=0,s09BookingsDate="",s09Bookings=null,s09BookingsPartial=false;
   const s09BookingsBox=get("s09ScheduleDayBookings");
   function s09MinuteOfDay(time){
-    const m=/^([01]\\d|2[0-3]):([0-5]\\d)$/.exec(String(time||""));
+    const m=/^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(time||""));
     return m?Number(m[1])*60+Number(m[2]):null;
   }
   function s09DisplayBookings(){
