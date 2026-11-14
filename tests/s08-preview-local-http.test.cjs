@@ -32,7 +32,9 @@ test('standalone S08 preview launcher serves actual HTML and scripts over loopba
   assert.ok(origin,'S08 preview did not start on loopback: '+errors.slice(0,250));
   const paths=['/login.html','/index.html',
     '/audit/s06-live-test.js','/audit/s06-wo-pilot.js',
-    '/audit/s06-sidebar-persistent.js'];
+    '/audit/s06-sidebar-persistent.js',
+    '/audit/s08-physical-backup.html',
+    '/audit/s08-physical-backup.js'];
   for(const pathname of paths){
     const response=await fetch(origin+pathname,{signal:AbortSignal.timeout(3500)});
     assert.equal(response.status,200,pathname+' must be present in preview ZIP');
