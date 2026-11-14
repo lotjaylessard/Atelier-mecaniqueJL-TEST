@@ -152,6 +152,20 @@ async function backup(client,rootFolder,progress=()=>{}){
  const completed=new Set(manifest.files.map(f=>f.path));
  manifest.unresolvedReferences=refs.filter(p=>!completed.has(p));
  try{
+  // Another account may have replaced the session while files were downloading.
+  const finalUser=await client.auth.getUser();
+  if(finalUser.error || finalUser.data?.user?.id!==uid)
+   manifest.failed.push({path:"auth",error:"Compte différent à la fin de l'export"});
+  const latestQuotes=await pageRows((from,to)=>client.from("garage_quotes")
+   .select("id,user_id,version").eq("user_id",uid)
+   .order("created_at",{ascending:true}).range(from,to));
+  const quoteVersions=new Map(quotes.map(q=>[q.id,String(q.version)]));
+  if(latestQuotes.length!==quotes.length ||
+    latestQuotes.some(q=>q.user_id!==uid||
+      quoteVersions.get(q.id)!==String(q.version)))
+   manifest.failed.push({path:"garage_quotes",error:"Les soumissions ont changé pendant l'export"});
+  // Verify that all referenced BT paths were saved, including old shared files.
+ 
   const versions=await pageRows((from,to)=>client.from("garage_data")
    .select("garage_id,version,user_id").eq("user_id",uid).range(from,to));
   const original=new Map(garages.map(g=>[g.garage_id,String(g.version)]));
