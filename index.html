@@ -2852,6 +2852,7 @@ const filePath =
           console.error("[S08] Copie locale de récupération indisponible",recoveryError);
           window.__garageEmergencyAttachment = recovery;
         }
+        showUnlinkedAttachmentRecoveryNotice();
         alert("Fichier envoyé, mais compte, garage ou verrouillage du BT modifié pendant l'envoi. " +
               "Aucune référence ajoutée au BT. Une trace de récupération a été conservée localement. " +
               "Ne ferme pas cette page avant d'avoir vérifié ton compte et récupéré le fichier.");
@@ -4290,6 +4291,78 @@ function restoreCloudRecoveryBanner() {
     showCloudRecoveryBanner(matches[0].key);
     console.warn(`${matches.length} copie(s) de recuperation TEST detectee(s). Aucune restauration automatique.`);
   }
+}
+
+// S08 : notice d'inventaire uniquement, sans restauration implicite.
+// Un objet non rattaché reste dans Storage. Le JSON exporté ne contient PAS ses octets.
+function showUnlinkedAttachmentRecoveryNotice(){
+  if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID) return;
+  const prefix = `${TEST_STORAGE_PREFIX}_${ACTIVE_GARAGE_ID}_unlinked_attachment_`;
+  const records = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++){
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(prefix)) continue;
+      try {
+        const entry = JSON.parse(localStorage.getItem(key) || "null");
+        if (entry?.format !== "atelier-test-unlinked-attachment-v1" ||
+            entry.userId !== SUPABASE_USER.id ||
+            entry.garageId !== ACTIVE_GARAGE_ID ||
+            entry.storageBucket !== "wo-files" ||
+            typeof entry.storagePath !== "string" ||
+            !entry.storagePath.startsWith(SUPABASE_USER.id + "/")) continue;
+        records.push(entry);
+      } catch (_) { /* Ne jamais supprimer une entrée illisible. */ }
+    }
+  } catch (error) {
+    console.warn("[S08] Inventaire local des pièces jointes indisponible",error);
+  }
+
+  const existing = document.getElementById("s08UnlinkedAttachmentNotice");
+  if (!records.length) {
+    if (existing) existing.remove();
+    return;
+  }
+  const box = existing || document.createElement("div");
+  box.id = "s08UnlinkedAttachmentNotice";
+  box.style.cssText = "position:fixed;top:12px;right:12px;z-index:20001;max-width:340px;" +
+    "padding:10px;border:1px solid #80b9e5;border-radius:8px;background:#17334b;" +
+    "color:#fff;box-shadow:0 5px 18px #0006;font-size:13px";
+  box.replaceChildren();
+
+  const description = document.createElement("div");
+  description.textContent = `${records.length} fichier(s) envoyé(s) mais non confirmé(s) dans un BT. ` +
+    "Les fichiers physiques peuvent toujours être dans Storage. " +
+    "Exporter les références et vérifier le compte avant toute récupération.";
+  box.appendChild(description);
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = "Exporter les références JSON";
+  button.style.marginTop = "8px";
+  button.onclick = () => {
+    // Inventaire en lecture seule : pas de téléchargement d'octets,
+    // de suppression Storage, de mutation du BT ou de fusion automatique.
+    const payload = {
+      format:"atelier-test-unlinked-attachments-inventory-v1",
+      createdAt:new Date().toISOString(),
+      userId:SUPABASE_USER.id,
+      garageId:ACTIVE_GARAGE_ID,
+      containsFileBytes:false,
+      entries:records
+    };
+    const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],
+      {type:"application/json"}));
+    const a=document.createElement("a");
+    a.href=url;
+    a.download=`atelier-test-pieces-jointes-a-verifier-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  };
+  box.appendChild(button);
+  if (!existing) document.body.appendChild(box);
 }
 
 function showCloudRecoveryBanner(key) {
@@ -16058,6 +16131,7 @@ configureGarageStorage(ACTIVE_GARAGE_ID);
 
 // Montrer les sauvegardes de cet utilisateur meme apres rechargement.
 restoreCloudRecoveryBanner();
+showUnlinkedAttachmentRecoveryNotice();
 
 const cloudLoaded = await loadCloudData();
   
