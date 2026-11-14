@@ -45,6 +45,16 @@ jobs:
           set -e
           cat "$RUNNER_TEMP/s08-chromium-login.log"
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+      - name: Execute real offline Chromium physical backup UI smoke
+        id: chromium_physical
+        shell: bash
+        run: |
+          set +e
+          node tests/s08-physical-backup-chromium.cjs > "$RUNNER_TEMP/s08-chromium-physical.log" 2>&1
+          code=$?
+          set -e
+          cat "$RUNNER_TEMP/s08-chromium-physical.log"
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
       - name: Execute offline tests and capture verdict
         id: node_tests
         if: always()
@@ -56,24 +66,27 @@ jobs:
           set -e
           cat "$RUNNER_TEMP/s08-node-tests.log"
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
-          S08_TEST_EXIT_CODE="$code" S08_CHROMIUM_EXIT_CODE="${{ steps.chromium_smoke.outputs.exit_code }}" S08_LOGIN_CHROMIUM_EXIT_CODE="${{ steps.chromium_login.outputs.exit_code }}" node - <<'NODE'
+          S08_TEST_EXIT_CODE="$code" S08_CHROMIUM_EXIT_CODE="${{ steps.chromium_smoke.outputs.exit_code }}" S08_LOGIN_CHROMIUM_EXIT_CODE="${{ steps.chromium_login.outputs.exit_code }}" S08_PHYSICAL_CHROMIUM_EXIT_CODE="${{ steps.chromium_physical.outputs.exit_code }}" node - <<'NODE'
           const fs = require('node:fs');
           const log = fs.readFileSync(process.env.RUNNER_TEMP + '/s08-node-tests.log', 'utf8');
           const count = key => Number((log.match(new RegExp('^# ' + key + ' (\\d+)$', 'm')) || [])[1] || 0);
           const exitCode = Number(process.env.S08_TEST_EXIT_CODE);
           const browserExitCode = Number(process.env.S08_CHROMIUM_EXIT_CODE);
           const loginBrowserExitCode = Number(process.env.S08_LOGIN_CHROMIUM_EXIT_CODE);
+          const physicalBrowserExitCode = Number(process.env.S08_PHYSICAL_CHROMIUM_EXIT_CODE);
           const report = {
             source_commit: process.env.GITHUB_SHA,
             workflow_run_id: process.env.GITHUB_RUN_ID,
             workflow_run_attempt: process.env.GITHUB_RUN_ATTEMPT,
             node_version: process.version,
-            result: exitCode === 0 && browserExitCode === 0 && loginBrowserExitCode === 0 ? 'PASS' : 'FAIL',
+            result: exitCode === 0 && browserExitCode === 0 && loginBrowserExitCode === 0 && physicalBrowserExitCode === 0 ? 'PASS' : 'FAIL',
             exit_code: exitCode,
             chromium_offline_exit_code: browserExitCode,
             chromium_offline_result: browserExitCode === 0 ? 'PASS' : 'FAIL',
             chromium_login_exit_code: loginBrowserExitCode,
             chromium_login_result: loginBrowserExitCode === 0 ? 'PASS' : 'FAIL',
+            chromium_physical_exit_code: physicalBrowserExitCode,
+            chromium_physical_result: physicalBrowserExitCode === 0 ? 'PASS' : 'FAIL',
             tests: count('tests'),
             passed: count('pass'),
             failed: count('fail'),
@@ -124,5 +137,5 @@ jobs:
             git push origin HEAD:refs/heads/s08/soumissions
           fi
       - name: Fail workflow on Node or Chromium regression
-        if: ${{ steps.node_tests.outputs.exit_code != '0' || steps.chromium_smoke.outputs.exit_code != '0' || steps.chromium_login.outputs.exit_code != '0' }}
+        if: ${{ steps.node_tests.outputs.exit_code != '0' || steps.chromium_smoke.outputs.exit_code != '0' || steps.chromium_login.outputs.exit_code != '0' || steps.chromium_physical.outputs.exit_code != '0' }}
         run: exit 1
