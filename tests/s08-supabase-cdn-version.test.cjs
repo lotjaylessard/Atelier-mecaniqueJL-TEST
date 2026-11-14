@@ -16,3 +16,9 @@ test('Supabase JS ESM and UMD use the same exact pinned stable version',()=>{
  assert.doesNotMatch(html,/\/npm\/@supabase\/supabase-js\/+esm/);
  assert.doesNotMatch(html,/\/npm\/@supabase\/supabase-js@2["']/);
 });
+
+test('login page Supabase SDK is pinned to the same version',()=>{
+ const login=fs.readFileSync(path.join(__dirname,'..','login.html'),'utf8');
+ assert.match(login,/https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2\.119\.0\/\+esm/);
+ assert.doesNotMatch(login,/\/npm\/@supabase\/supabase-js\/\+esm/);
+});
