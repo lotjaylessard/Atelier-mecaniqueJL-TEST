@@ -11600,13 +11600,10 @@ function renderClientModal(id){
           <div style="flex:1;min-width:150px;"><label>VIN</label><input id="vehVin" /></div>
           <div style="flex:1;min-width:80px;"><label>KM</label><input id="vehKm" type="number" /></div>
         </div>
-        <details style="margin-top:10px;border:1px solid var(--border);border-radius:7px;padding:8px;">
-          <summary style="cursor:pointer;font-weight:600;">Autres informations (facultatif)</summary>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-            <div style="flex:1;min-width:140px;"><label>Carburant</label><select id="vehFuel"><option value="">—</option><option>Essence</option><option>Diesel</option><option>Hybride</option><option>Électrique</option><option>Autre</option></select></div>
-            <div style="flex:1;min-width:160px;"><label>Dimension des pneus</label><input id="vehTireSize" placeholder="Ex. 215/65R17" /></div>
-          </div>
-        </details>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+          <div style="flex:1;min-width:140px;"><label>Carburant</label><select id="vehFuel"><option value="">—</option><option>Essence</option><option>Diesel</option><option>Hybride</option><option>Électrique</option><option>Autre</option></select></div>
+          <div style="flex:1;min-width:160px;"><label>Dimension des pneus</label><input id="vehTireSize" placeholder="Ex. 215/65R17" /></div>
+        </div>
         <label style="margin-top:6px;">Notes véhicule</label>
         <textarea id="vehNotes"></textarea>
         <button id="clientAddVehicleBtn" type="button" style="margin-top:6px;">Ajouter véhicule</button>
@@ -16677,7 +16674,21 @@ if (window.garageSupabase) {
   document.addEventListener("client:created",event=>{
     if(editor.hidden || !event.detail)return;
     selectClientForQuote(event.detail);
-    get("s08ClientLookupInfo").textContent="Nouveau client enregistré. Ferme sa fiche puis choisis son véhicule ou saisis-le manuellement.";
+    get("s08ClientLookupInfo").textContent="Client enregistré. Ajoute son véhicule dans la fiche ouverte : il sera sélectionné automatiquement dans la soumission.";
+  });
+  // S09 : le modal client fournit l'ID canonique du véhicule qui vient d'être
+  // enregistré. Ne jamais sélectionner un véhicule sur la base d'un nom similaire.
+  document.addEventListener("client:vehicle-saved",event=>{
+    if(editor.hidden || !event.detail || !selectedFastClientId)return;
+    const {clientId,vehicleId}=event.detail;
+    if(String(clientId)!==String(selectedFastClientId))return;
+    const c=clientsForQuote().find(item=>String(item.id)===String(clientId));
+    const v=c?.vehicles?.find(item=>String(item.id)===String(vehicleId));
+    if(!c||!v)return;
+    selectClientForQuote(c);
+    vehicleChoice.value=String(vehicleId);
+    vehicleChoice.dispatchEvent(new Event("change"));
+    get("s08ClientLookupInfo").textContent="✓ Nouveau véhicule enregistré et sélectionné automatiquement.";
   });
   function prefill(kind){
     const select=get(kind==="part"?"s08CatalogPart":"s08CatalogService");
