@@ -6950,8 +6950,12 @@ function saveManualPart(){
   const cost = Number($("woManualPartCost").value) || 0;
   const rate = Number($("woManualPartRate").value);
 
-  if (!name || qty <= 0 || rate < 0){
-    alert("Informations de la pièce incomplètes.");
+  // Prix de vente 0,00 $ autorisé (travail personnel / geste commercial).
+  // Refuser explicitement les valeurs non numériques, négatives ou les quantités nulles.
+  if (!name || !Number.isFinite(qty) || qty <= 0 ||
+      !Number.isFinite(cost) || cost < 0 ||
+      !Number.isFinite(rate) || rate < 0){
+    alert("Informations de la pièce invalides : quantité positive, coûtant et vente à 0,00 $ ou plus.");
     return;
   }
 
@@ -7177,7 +7181,7 @@ function jlWoInitNotes(wo){
     scheduleCloudSync();
     editing.id=null;field.value="";field.placeholder="Diagnostic, réparation, observation...";
     button.textContent="💾 Enregistrer";
-    if(status)status.textContent="Note enregistrée localement — synchronisation cloud en cours.";
+    if(status)status.textContent="Note enregistrée localement. Vérifie l’indicateur cloud avant de fermer le BT.";
     render();
   };
   button.onclick=save;
@@ -7632,8 +7636,9 @@ if (manualLaborSave){
     const hours = Number(document.getElementById("woManualLaborHours").value);
     const rate = Number(document.getElementById("woManualLaborRate").value);
 
+    // Les heures restent positives; un taux nul est un prix de vente valide.
     if (!desc || !Number.isFinite(hours) || hours <= 0 || !Number.isFinite(rate) || rate < 0){
-      return alert("Informations du service incomplètes.");
+      return alert("Service invalide : heures positives et taux à 0,00 $ ou plus.");
     }
 
     wo.labor.push({
