@@ -1,6 +1,6 @@
 {
   "checked_url": "https://lotjaylessard.github.io/Atelier-mecaniqueJL-TEST/",
-  "checked_at": "2026-11-14T02:29:54.287Z",
+  "checked_at": "2026-11-14T02:30:50.273Z",
   "source_branch": "s08/soumissions",
   "source_sha256": "61f7c6c7a1fe9e5e7aaa96c77e3e5165916b923a770326d5bc11f8cb8da5ef5d",
   "result": "MISMATCH",
@@ -9,6 +9,8 @@
   "http_status": 200,
   "live_sha256": "83484d3bcb1f4c6dc2572f27a1ad7b6aa0d0d32706cb9f0ae2fdbd405f804ef3",
   "same_as_s08": false,
+  "main_sha256": "83484d3bcb1f4c6dc2572f27a1ad7b6aa0d0d32706cb9f0ae2fdbd405f804ef3",
+  "same_as_main": true,
   "s08_recovery_marker_present": false,
   "test_supabase_project_present": true
 }
