@@ -3983,6 +3983,8 @@ let cloudSyncTimer = null;
 
 
   function blockCloudSyncForLogout() {
+  // Ne pas laisser visible l'inventaire d'un compte après déconnexion.
+  document.getElementById("s08UnlinkedAttachmentNotice")?.remove();
   // Bloquer immédiatement toute nouvelle sauvegarde
   CLOUD_DATA_READY = false;
 
