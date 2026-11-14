@@ -1,0 +1,22 @@
+GARAGE ATELIER MÉCANIQUE J.L. — APERÇU ISOLÉ S08
+
+Cet ensemble provient de la branche TEST s08/soumissions, et non de main.
+La page principale de GitHub Pages reste inchangée.
+
+Windows : extraire tout le ZIP dans le même dossier, puis double-cliquer
+« Demarrer-S08-TEST-Windows.bat ». Le navigateur s'ouvre sur un port local.
+Python 3 doit être installé; appuyer sur Ctrl+C pour fermer le serveur.
+
+Cet aperçu utilise Supabase TEST (nraijzsodgojkpyigefu) : utiliser seulement
+le compte TEST et des clients, véhicules, factures et BT FICTIFS.
+Ne pas utiliser un compte ni des documents de production.
+
+Les tests Chromium automatisés utilisent une fausse authentification ; une
+connexion réelle et le test des octets des pièces jointes restent à faire.
+Aucune restauration automatique des données/fichiers réels n'est activée.
+
+La même origine localhost doit être conservée pendant un test de session.
+Le serveur utilise toujours le port 8765 pour conserver le même stockage Chrome.
+Si le port est occupé, fermer le serveur local précédent avant de relancer.
+La fermeture du serveur n'efface pas le stockage navigateur : un profil
+Chrome distinct est recommandé pour isoler les données de TEST.
