@@ -2821,6 +2821,34 @@ const filePath =
         continue;
       }
 
+      // S08 : un upload a réussi, mais la session a pu changer pendant
+      // l'attente réseau. Ne JAMAIS lier l'objet à un autre compte/garage.
+      if (SUPABASE_USER?.id !== expectedUser ||
+          ACTIVE_GARAGE_ID !== expectedGarage ||
+          !CLOUD_DATA_READY || CLOUD_SYNC_FAILED) {
+        const recovery = {
+          format: "atelier-test-unlinked-attachment-v1",
+          createdAt: new Date().toISOString(),
+          userId: expectedUser,
+          garageId: expectedGarage,
+          workOrderId: String(wo.id),
+          workOrderNumber: String(wo.number),
+          storageBucket: "wo-files",
+          storagePath: filePath,
+          fileName: file.name
+        };
+        try {
+          const key = `${TEST_STORAGE_PREFIX}_${expectedGarage}_unlinked_attachment_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+          localStorage.setItem(key, JSON.stringify(recovery));
+        } catch (recoveryError) {
+          console.error("[S08] Copie locale de récupération indisponible",recoveryError);
+          window.__garageEmergencyAttachment = recovery;
+        }
+        alert("Fichier envoyé, mais session ou garage modifié pendant l'envoi. " +
+              "Aucune référence ajoutée au BT. Une trace de récupération a été conservée localement. " +
+              "Ne ferme pas cette page avant d'avoir vérifié ton compte et récupéré le fichier.");
+        break;
+      }
 
       wo.attachments = wo.attachments || [];
 
