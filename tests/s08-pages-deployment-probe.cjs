@@ -43,6 +43,14 @@ function get(address,redirects=0){
    else{
      output.live_sha256=digest(r.html);
      output.same_as_s08=output.source_sha256===output.live_sha256;
+     // Compare with public raw main without touching Pages configuration.
+     try {
+       const main=await get('https://raw.githubusercontent.com/lotjaylessard/Atelier-mecaniqueJL-TEST/main/index.html');
+       if(main.status===200){
+         output.main_sha256=digest(main.html);
+         output.same_as_main=output.live_sha256===output.main_sha256;
+       } else output.main_fetch_status=main.status;
+     }catch(error){output.main_comparison_error=String(error.message||error).slice(0,120);}
      output.s08_recovery_marker_present=r.html.includes('function showUnlinkedAttachmentRecoveryNotice(){');
      output.test_supabase_project_present=r.html.includes('nraijzsodgojkpyigefu.supabase.co');
      output.result=output.same_as_s08?'MATCH':'MISMATCH';
