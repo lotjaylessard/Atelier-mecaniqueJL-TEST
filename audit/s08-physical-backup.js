@@ -156,6 +156,12 @@ async function backup(client,rootFolder,progress=()=>{}){
   const finalUser=await client.auth.getUser();
   if(finalUser.error || finalUser.data?.user?.id!==uid)
    manifest.failed.push({path:"auth",error:"Compte différent à la fin de l'export"});
+  // A file added/removed while exporting must not silently disappear
+  // from a backup marked COMPLETE.
+  const ownedAfter=await listOwned(client,uid);
+  if(ownedAfter.length!==owned.length ||
+     ownedAfter.some((path,index)=>path!==owned[index]))
+   manifest.failed.push({path:"wo-files",error:"L'inventaire Storage a changé pendant l'export"});
   const latestQuotes=await pageRows((from,to)=>client.from("garage_quotes")
    .select("id,user_id,version").eq("user_id",uid)
    .order("created_at",{ascending:true}).range(from,to));
