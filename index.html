@@ -7123,7 +7123,9 @@ function jlWoRenderNotes(wo){
   const cards=entries.map(note=>{
     const own=!!actor&&String(note.authorId)===actor.id;
     const id=escapeHTML(String(note.id||""));
-    const name=escapeHTML(String(note.authorName||"Employé"));
+    // Le profil peut changer de nom : pour le compte connecté, afficher son nom actuel
+    // en se basant sur l'ID immuable, sans réattribuer la note à un autre compte.
+    const name=escapeHTML(String(own?actor.name:(note.authorName||"Employé")));
     const body=escapeHTML(String(note.text||""));
     const changed=note.updatedAt?" · Modifiée "+escapeHTML(jlWoDate(note.updatedAt)):"";
     return '<div class="card" data-jl-note-id="'+id+'" style="margin:8px 0;padding:12px">'
@@ -7179,6 +7181,13 @@ function jlWoInitNotes(wo){
     render();
   };
   button.onclick=save;
+  // Entrée enregistre; Maj+Entrée permet une note de plusieurs lignes.
+  // La touche en composition (IME) ne doit pas déclencher l'enregistrement.
+  field.onkeydown=e=>{
+    if(e.key!=="Enter"||e.shiftKey||e.isComposing||e.keyCode===229)return;
+    e.preventDefault();
+    if(!e.repeat)save();
+  };
   list.onclick=e=>{
     const target=e.target.closest("[data-jl-note-edit]");
     if(!target||!allowed())return;
