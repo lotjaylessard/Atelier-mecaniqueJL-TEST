@@ -43,7 +43,7 @@ function makeDirectory(){
  }
  return {root:folder(),files};
 }
-function setup({downloadFails=false,versionChanges=false}={}){
+function setup({downloadFails=false,versionChanges=false,storageChanges=false}={}){
  const windows={};
  const sandbox={window:windows,crypto,TextEncoder,Uint8Array,ArrayBuffer,Set,Map,Date,JSON};
  vm.runInNewContext(script,sandbox);
@@ -56,6 +56,7 @@ function setup({downloadFails=false,versionChanges=false}={}){
     ]}],invoices:[],links:[],parts:[],services:[],settings:{},invoiceCounter:1}};
  const quotes=[{user_id:'u1',garage_id:'g1',id:'q1',quote_number:'S-1',version:1}];
  const downloaded=[],calls=[];
+ let ownerListChecks=0;
  const client={
    auth:{getUser:async()=>({data:{user:{id:'u1'}},error:null})},
    from(table){
@@ -80,9 +81,15 @@ function setup({downloadFails=false,versionChanges=false}={}){
       assert.equal(bucket,'wo-files');
       return {
        async list(prefix){
-        if(prefix==='u1')return {data:[{name:'clients',id:null,metadata:null}]};
+        if(prefix==='u1'){
+          ownerListChecks++;
+          return {data:[{name:'clients',id:null,metadata:null}]};
+        }
         if(prefix==='u1/clients')return {data:[{name:'example',id:null,metadata:null}]};
-        if(prefix==='u1/clients/example')return {data:[{name:'a.txt',id:'file1',metadata:{size:5}}]};
+        if(prefix==='u1/clients/example')return {data:[
+          {name:'a.txt',id:'file1',metadata:{size:5}},
+          ...(storageChanges&&ownerListChecks>1?[{name:'new.txt',id:'file2',metadata:{size:3}}]:[])
+        ]};
         return {data:[]};
        },
        async download(path){
@@ -149,4 +156,12 @@ test('standalone page requires active TEST session and folder permission',()=>{
  assert.match(html,/nraijzsodgojkpyigefu\.supabase\.co/);
  assert.doesNotMatch(html,/feeapfylfzlvgnqtglnh\.supabase\.co/);
  assert.match(html,/@supabase\/supabase-js@2\.119\.0/);
+});
+
+test('Storage object added while exporting prevents COMPLETE status',async()=>{
+ const {backup,client}=setup({storageChanges:true});
+ const {root}=makeDirectory();
+ const result=await backup.backup(client,root);
+ assert.equal(result.status,'INCOMPLETE');
+ assert.ok(result.failed.some(e=>e.path==='wo-files'));
 });
