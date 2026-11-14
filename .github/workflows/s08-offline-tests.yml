@@ -10,6 +10,7 @@ on:
       - 'start-s08-preview.py'
       - 'Demarrer-S08-TEST-Windows.bat'
       - 'LISEZ-MOI-S08-TEST.txt'
+      - 'Verifier-S08-Sauvegarde-Windows.bat'
       - '.github/workflows/s08-offline-tests.yml'
   workflow_dispatch:
 jobs:
@@ -113,6 +114,8 @@ jobs:
             audit/s06-sidebar-persistent.js
             audit/s08-physical-backup.html
             audit/s08-physical-backup.js
+            audit/s08-verify-physical-backup.py
+            Verifier-S08-Sauvegarde-Windows.bat
       - name: Probe public GitHub Pages deployment parity
         if: always()
         shell: bash
