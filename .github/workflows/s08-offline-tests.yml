@@ -64,6 +64,19 @@ jobs:
           fs.mkdirSync('audit', { recursive: true });
           fs.writeFileSync('audit/s08-ci-latest.json', JSON.stringify(report, null, 2) + '\n');
           NODE
+      - name: Package isolated S08 browser preview (no deployment)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: garage-s08-preview-${{ github.sha }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            index.html
+            login.html
+            audit/s06-live-test.js
+            audit/s06-wo-pilot.js
+            audit/s06-sidebar-persistent.js
       - name: Probe public GitHub Pages deployment parity
         if: always()
         shell: bash
