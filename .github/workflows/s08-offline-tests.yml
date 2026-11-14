@@ -64,6 +64,11 @@ jobs:
           fs.mkdirSync('audit', { recursive: true });
           fs.writeFileSync('audit/s08-ci-latest.json', JSON.stringify(report, null, 2) + '\n');
           NODE
+      - name: Probe public GitHub Pages deployment parity
+        if: always()
+        shell: bash
+        run: |
+          node tests/s08-pages-deployment-probe.cjs
       - name: Publish test attestation on TEST branch
         if: always()
         shell: bash
@@ -74,7 +79,7 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add audit/s08-ci-latest.json
+          git add audit/s08-ci-latest.json audit/s08-pages-deployment.json
           if git diff --cached --quiet; then
             echo 'No attestation changes to commit'
           else
