@@ -2852,7 +2852,8 @@ const filePath =
           console.error("[S08] Copie locale de récupération indisponible",recoveryError);
           window.__garageEmergencyAttachment = recovery;
         }
-        showUnlinkedAttachmentRecoveryNotice();
+        if (typeof showUnlinkedAttachmentRecoveryNotice === "function")
+          showUnlinkedAttachmentRecoveryNotice();
         alert("Fichier envoyé, mais compte, garage ou verrouillage du BT modifié pendant l'envoi. " +
               "Aucune référence ajoutée au BT. Une trace de récupération a été conservée localement. " +
               "Ne ferme pas cette page avant d'avoir vérifié ton compte et récupéré le fichier.");
