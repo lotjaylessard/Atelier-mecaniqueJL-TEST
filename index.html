@@ -13140,6 +13140,7 @@ function jlCalendarStart(){
 }
 
 let jlCalendarNotes=[],jlCalendarNotesLoaded=false,jlCalendarNotesRequest=0;
+let jlCalendarNotesRetryAt=0;
 let jlCalendarSelectedDate="",jlDayNoteSaving=false;
 function jlCalendarNotesFor(date){
   return jlCalendarNotes.filter(n=>n.note_date===date)
@@ -13343,6 +13344,10 @@ async function dashboardRefreshPendingQuotes(){
   if(dashboardQuotePending||Date.now()-dashboardQuoteCheckAt<15000)return;
   if(typeof CLOUD_DATA_READY==="undefined"||!CLOUD_DATA_READY||
      typeof ACTIVE_GARAGE_ID==="undefined"||!ACTIVE_GARAGE_ID)return;
+  if(!jlCalendarNotesLoaded&&Date.now()>=jlCalendarNotesRetryAt){
+    jlCalendarNotesRetryAt=Date.now()+15000;
+    void jlCalendarLoadNotes();
+  }
   dashboardQuotePending=true;dashboardQuoteCheckAt=Date.now();
   const countEl=document.getElementById("statPendingQuotes");
   try{
