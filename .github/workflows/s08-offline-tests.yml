@@ -6,6 +6,7 @@ on:
     paths:
       - 'tests/**'
       - 'index.html'
+      - 'login.html'
       - '.github/workflows/s08-offline-tests.yml'
   workflow_dispatch:
 jobs:
