@@ -562,14 +562,18 @@ input[type="checkbox"]{
     @media(max-width:850px){#page-dashboard .jl-calendar-heading{grid-template-columns:1fr auto}#page-dashboard .jl-calendar-heading h3{grid-column:1}#page-dashboard #jlCalendarRange{grid-column:1/-1;grid-row:2}#page-dashboard .jl-calendar-actions{grid-column:2;grid-row:1}}
     #page-dashboard .jl-calendar-actions button{padding:5px 10px}
     #page-dashboard .jl-calendar-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin-top:10px}
-    #page-dashboard .jl-calendar-day{border:1px solid var(--border);border-radius:7px;min-height:100px;padding:6px;min-width:0}
+    #page-dashboard .jl-calendar-day{border:1px solid var(--border);border-radius:7px;height:170px;padding:6px;min-width:0;min-height:0;display:flex;flex-direction:column;gap:5px;overflow:hidden;box-sizing:border-box;cursor:pointer}
     #page-dashboard .jl-calendar-day>strong{display:block;font-size:12px;margin-bottom:6px}
     #page-dashboard .jl-calendar-day[data-today="true"]{border-color:var(--accent)}
-    #page-dashboard .jl-calendar-appointment{display:block;width:100%;text-align:left;border:1px solid var(--border);border-radius:5px;padding:5px;margin:4px 0;background:rgba(245,197,66,.10);font-size:11px;color:inherit;cursor:pointer;overflow-wrap:anywhere}
+    #page-dashboard .jl-calendar-appointment{display:block;flex:0 0 auto;width:100%;text-align:left;border:1px solid var(--border);border-radius:5px;padding:5px;margin:0;background:rgba(245,197,66,.10);font-size:11px;color:inherit;cursor:pointer;overflow:hidden;max-height:53px;line-height:15px}
+    #page-dashboard .jl-calendar-appointment strong,#page-dashboard .jl-calendar-appointment span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #page-dashboard .jl-calendar-appointment span{margin-top:2px!important}
     #page-dashboard .jl-calendar-appointment:hover{border-color:var(--accent)}
     #page-dashboard .jl-calendar-day-open{border:0;background:transparent;color:inherit;font-weight:700;padding:2px;cursor:pointer}
     #page-dashboard .jl-calendar-day-open:hover{color:var(--accent);text-decoration:underline}
-    #page-dashboard .jl-calendar-day-note{border-left:2px solid var(--accent);padding:4px 6px;font-size:11px;margin-top:5px;overflow-wrap:anywhere;background:rgba(245,197,66,.06)}
+    #page-dashboard .jl-calendar-day-note{flex:0 0 auto;border-left:2px solid var(--accent);padding:4px 6px;font-size:11px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;background:rgba(245,197,66,.06)}
+    #page-dashboard .jl-calendar-day-more{display:block;flex:0 0 auto;width:100%;border:0;background:transparent;color:var(--accent);padding:3px 2px;font-size:11px;font-weight:700;text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #page-dashboard .jl-calendar-day-more:hover{text-decoration:underline}
     #page-dashboard .jl-day-agenda{border:1px solid var(--border);border-radius:9px;padding:14px;margin-top:12px}
     #page-dashboard .jl-day-agenda[hidden]{display:none}
     #page-dashboard .jl-day-agenda-head,.jl-day-note-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -13291,7 +13295,11 @@ function jlCalendarRender(){
     });
     const appointments=jlCalendarQuotes.filter(q=>q.content?.appointment?.date===key)
       .sort((x,y)=>String(x.content.appointment.time).localeCompare(String(y.content.appointment.time)));
-    for(const q of appointments){
+    const dayNotes=jlCalendarNotesFor(key);
+    // Deux aperçus maximum par jour : le détail complet reste toujours dans la fiche.
+    const visibleAppointments=appointments.slice(0,2);
+    const visibleNotes=dayNotes.slice(0,Math.max(0,2-visibleAppointments.length));
+    for(const q of visibleAppointments){
       const event=document.createElement("button");
       event.type="button";event.className="jl-calendar-appointment";
       const ap=q.content.appointment;
@@ -13315,10 +13323,18 @@ function jlCalendarRender(){
       event.addEventListener("click",()=>jlDashboardOpenQuote(q.id));
       day.append(event);
     }
-    for(const n of jlCalendarNotesFor(key)){
+    for(const n of visibleNotes){
       const note=document.createElement("div");note.className="jl-calendar-day-note";
       note.textContent="📝 "+String(n.note_text||"").slice(0,90);
       note.title=String(n.note_text||"");day.append(note);
+    }
+    const hiddenCount=appointments.length+dayNotes.length-visibleAppointments.length-visibleNotes.length;
+    if(hiddenCount>0){
+      const more=document.createElement("button");
+      more.type="button";more.className="jl-calendar-day-more";
+      more.textContent="+"+hiddenCount+" autre"+(hiddenCount>1?"s":"")+" · Voir la journée";
+      more.addEventListener("click",()=>jlCalendarOpenDay(key));
+      day.append(more);
     }
     target.append(day);
   }
