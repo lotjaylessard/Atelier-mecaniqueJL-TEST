@@ -1,0 +1,12 @@
+{
+  "source_commit": "2ad3988e6bbf54ce905510a8c32aaa8178fb64cc",
+  "workflow_run_id": "43545421436",
+  "workflow_run_attempt": "1",
+  "node_version": "v22.23.4",
+  "result": "PASS",
+  "exit_code": 0,
+  "tests": 79,
+  "passed": 79,
+  "failed": 0,
+  "scope": "offline Node tests only; no authenticated Chrome or physical Storage restore"
+}
