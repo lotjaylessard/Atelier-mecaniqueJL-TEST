@@ -20,3 +20,26 @@ Le serveur utilise toujours le port 8765 pour conserver le même stockage Chrome
 Si le port est occupé, fermer le serveur local précédent avant de relancer.
 La fermeture du serveur n'efface pas le stockage navigateur : un profil
 Chrome distinct est recommandé pour isoler les données de TEST.
+
+SAUVEGARDE PHYSIQUE DES PIECES JOINTES (NOUVEAU, TEST SEULEMENT)
+----------------------------------------------------------------
+1. Démarrer le site S08 avec Demarrer-S08-TEST-Windows.bat.
+2. Se connecter au compte Supabase TEST dans la même adresse locale.
+3. Dans le navigateur Chrome/Edge, ouvrir :
+   http://127.0.0.1:8765/audit/s08-physical-backup.html
+4. Cliquer sur « Choisir un dossier et sauvegarder ».
+5. Sélectionner un dossier PRIVE de votre ordinateur, protégé contre
+   les accès non autorisés : il contiendra les données du garage et les
+   octets des pièces jointes.
+6. Vérifier le fichier manifest.json produit. COMPLETE signifie que
+   tous les fichiers énumérés ont été téléchargés et vérifiés avec SHA-256,
+   et que les versions du garage n'ont pas changé pendant l'export.
+   INCOMPLETE signifie qu'il faut analyser les erreurs et recommencer.
+7. Le fichier garage-data.json inclut clients, notes, BT, factures,
+   paramètres et soumissions du compte connecté. Ne pas diffuser
+   ce dossier de sauvegarde et le conserver chiffré si possible.
+
+Le téléchargement se fait depuis le compte authentifié, sans permission
+supplémentaire et sans modification des fichiers du cloud. L'outil ne
+restaure rien et ne supprime rien. Les tests automatisés utilisent des
+fichiers FICTIFS ; aucune sauvegarde réelle n'a été effectuée par CI.
