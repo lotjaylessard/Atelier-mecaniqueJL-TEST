@@ -1,6 +1,6 @@
 {
-  "source_commit": "9664f956bf748a1663cd221f4dc8d6bf47cdd0ab",
-  "workflow_run_id": "43551191804",
+  "source_commit": "8f816f5904211500883ca9fe8b20af77b14288a4",
+  "workflow_run_id": "43551227097",
   "workflow_run_attempt": "1",
   "node_version": "v22.23.4",
   "result": "FAIL",
@@ -11,8 +11,8 @@
   "chromium_login_result": "PASS",
   "chromium_physical_exit_code": 0,
   "chromium_physical_result": "PASS",
-  "tests": 95,
-  "passed": 94,
+  "tests": 103,
+  "passed": 102,
   "failed": 1,
   "scope": "offline Node tests and real Chromium with fake data; NO authenticated Chrome and NO physical Storage restore"
 }
