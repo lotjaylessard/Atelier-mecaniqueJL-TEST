@@ -98,6 +98,8 @@ jobs:
             audit/s06-live-test.js
             audit/s06-wo-pilot.js
             audit/s06-sidebar-persistent.js
+            audit/s08-physical-backup.html
+            audit/s08-physical-backup.js
       - name: Probe public GitHub Pages deployment parity
         if: always()
         shell: bash
