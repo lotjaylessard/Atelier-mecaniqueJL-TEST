@@ -2744,6 +2744,13 @@ function initWorkOrderAttachments(wo){
 
   input.onchange = async function(){
 
+    // Un BT peut avoir été facturé puis verrouillé depuis son affichage.
+    if (isWorkOrderLocked(wo)) {
+      alert("Pièce jointe non envoyée : ce BT est verrouillé par une facture payée.");
+      this.value = "";
+      return;
+    }
+
     // S08: refuse l'upload sans session cloud valide pour limiter les
     // fichiers Storage orphelins si les références du BT ne peuvent se synchroniser.
     if (!sb || !SUPABASE_USER?.id || !ACTIVE_GARAGE_ID ||
@@ -2825,7 +2832,8 @@ const filePath =
       // l'attente réseau. Ne JAMAIS lier l'objet à un autre compte/garage.
       if (SUPABASE_USER?.id !== expectedUser ||
           ACTIVE_GARAGE_ID !== expectedGarage ||
-          !CLOUD_DATA_READY || CLOUD_SYNC_FAILED) {
+          !CLOUD_DATA_READY || CLOUD_SYNC_FAILED ||
+          isWorkOrderLocked(wo)) {
         const recovery = {
           format: "atelier-test-unlinked-attachment-v1",
           createdAt: new Date().toISOString(),
@@ -2844,7 +2852,7 @@ const filePath =
           console.error("[S08] Copie locale de récupération indisponible",recoveryError);
           window.__garageEmergencyAttachment = recovery;
         }
-        alert("Fichier envoyé, mais session ou garage modifié pendant l'envoi. " +
+        alert("Fichier envoyé, mais compte, garage ou verrouillage du BT modifié pendant l'envoi. " +
               "Aucune référence ajoutée au BT. Une trace de récupération a été conservée localement. " +
               "Ne ferme pas cette page avant d'avoir vérifié ton compte et récupéré le fichier.");
         break;
