@@ -2755,6 +2755,39 @@ function initWorkOrderAttachments(wo){
       return;
     }
 
+    // S08 : confirmer localement le snapshot et la version serveur AVANT
+    // d'envoyer des octets vers Storage (qui n'est pas transactionnel avec le BT).
+    const expectedGarage = ACTIVE_GARAGE_ID;
+    const expectedUser = SUPABASE_USER.id;
+    const expectedVersion = CLOUD_DATA_VERSION;
+    const expectedRevision = CLOUD_CHANGE_REVISION;
+    const localBeforeUpload = captureLocalGarageSnapshot();
+    if (!Number.isSafeInteger(expectedVersion) ||
+        !CLOUD_LAST_CONFIRMED_SNAPSHOT ||
+        !garageSnapshotsEquivalent(localBeforeUpload,CLOUD_LAST_CONFIRMED_SNAPSHOT)) {
+      alert("Pièce jointe non envoyée : données locales non confirmées dans le cloud.");
+      this.value = "";
+      return;
+    }
+    try {
+      const {data:current,error:checkError} = await sb.from("garage_data")
+        .select("version").eq("garage_id",expectedGarage).maybeSingle();
+      if (checkError || !current || current.version !== expectedVersion ||
+          ACTIVE_GARAGE_ID !== expectedGarage ||
+          SUPABASE_USER?.id !== expectedUser ||
+          CLOUD_CHANGE_REVISION !== expectedRevision ||
+          !CLOUD_DATA_READY || CLOUD_SYNC_IN_PROGRESS || CLOUD_SYNC_DIRTY ||
+          CLOUD_SYNC_PENDING || CLOUD_SYNC_FAILED || cloudSyncTimer !== null ||
+          !garageSnapshotsEquivalent(captureLocalGarageSnapshot(),localBeforeUpload)) {
+        throw new Error("Version cloud ou session modifiée avant l'envoi.");
+      }
+    } catch (checkError) {
+      console.warn("[S08] Prévalidation Storage refusée :",checkError);
+      alert("Pièce jointe non envoyée : vérification de la version cloud impossible ou périmée.");
+      this.value = "";
+      return;
+    }
+
     const files = Array.from(this.files);
 
     for (const file of files){
