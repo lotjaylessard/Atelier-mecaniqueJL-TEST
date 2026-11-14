@@ -4299,6 +4299,8 @@ function restoreCloudRecoveryBanner() {
 function showUnlinkedAttachmentRecoveryNotice(){
   if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID) return;
   const prefix = `${TEST_STORAGE_PREFIX}_${ACTIVE_GARAGE_ID}_unlinked_attachment_`;
+  const noticeUserId = SUPABASE_USER.id;
+  const noticeGarageId = ACTIVE_GARAGE_ID;
   const records = [];
   try {
     for (let i = 0; i < localStorage.length; i++){
@@ -4342,6 +4344,11 @@ function showUnlinkedAttachmentRecoveryNotice(){
   button.textContent = "Exporter les références JSON";
   button.style.marginTop = "8px";
   button.onclick = () => {
+    if (SUPABASE_USER?.id !== noticeUserId ||
+        ACTIVE_GARAGE_ID !== noticeGarageId) {
+      alert("Compte ou garage modifié : reconnecte-toi au bon compte pour exporter ces références.");
+      return;
+    }
     // Inventaire en lecture seule : pas de téléchargement d'octets,
     // de suppression Storage, de mutation du BT ou de fusion automatique.
     const payload = {
