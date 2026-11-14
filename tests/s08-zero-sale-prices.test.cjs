@@ -63,7 +63,7 @@ test('invoice correctly uses free hourly and free fixed-price service',()=>{
  assert.equal(fixed.rate,0);
 });
 test('manual WO part and labor require positive quantity but accept zero sale rate',()=>{
- assert.match(html,/!name \|\| !Number\.isFinite\(qty\) \|\| qty <= 0 \|\| !Number\.isFinite\(rate\) \|\| rate < 0/);
+ assert.match(html,/!name \|\| !Number\.isFinite\(qty\) \|\| qty <= 0 \|\|\s*!Number\.isFinite\(cost\) \|\| cost < 0 \|\|\s*!Number\.isFinite\(rate\) \|\| rate < 0/);
  assert.match(html,/!desc \|\| !Number\.isFinite\(hours\) \|\| hours <= 0 \|\| !Number\.isFinite\(rate\) \|\| rate < 0/);
 });
 test('manual invoice labor accepts zero and rejects negative',()=>{
