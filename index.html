@@ -1903,6 +1903,7 @@ button.link:hover{
               <span id="s09ScheduleSummary" class="s09-schedule-summary" aria-live="polite"></span>
               <button type="button" id="s08SaveSchedule" class="ghost">Enregistrer le rendez-vous</button>
             </div>
+            <div id="s09ScheduleDayBookings" class="muted" role="status" aria-live="polite" style="font-size:12px;margin-top:8px"></div>
             <div id="s08ScheduleFeedback" class="muted" role="status" aria-live="polite"></div>
           </section>
           <p id="s08ConvertedBT" class="s08-converted-bt" hidden></p>
@@ -17616,7 +17617,88 @@ if (window.garageSupabase) {
     const endTime=String(Math.floor(finish/60)%24).padStart(2,"0")+":"+String(finish%60).padStart(2,"0");
     label.textContent="Fin estimée : "+endTime+(finish>=1440?" (lendemain)":"");
   }
-  [scheduleDate,scheduleTime,scheduleDuration].forEach(el=>el?.addEventListener("input",s09PreviewSchedule));
+  // Rendez-vous de la date sélectionnée : consultation Supabase en lecture seule.
+  // Pas de blocage automatique : une plage peut chevaucher volontairement une autre.
+  let s09BookingsToken=0,s09BookingsDate="",s09Bookings=null,s09BookingsPartial=false;
+  const s09BookingsBox=get("s09ScheduleDayBookings");
+  function s09MinuteOfDay(time){
+    const m=/^([01]\\d|2[0-3]):([0-5]\\d)$/.exec(String(time||""));
+    return m?Number(m[1])*60+Number(m[2]):null;
+  }
+  function s09DisplayBookings(){
+    s09BookingsBox.replaceChildren();
+    const date=scheduleDate.value;
+    if(!date)return;
+    if(s09BookingsDate!==date||!Array.isArray(s09Bookings))return;
+    if(!s09Bookings.length){
+      s09BookingsBox.textContent=s09BookingsPartial?
+        "Liste partielle : aucun autre rendez-vous trouvé parmi les résultats chargés.":
+        "Aucun autre rendez-vous trouvé pour cette journée.";
+      return;
+    }
+    const heading=document.createElement("strong");
+    heading.textContent=s09Bookings.length+" autre(s) rendez-vous prévu(s) cette journée"+
+      (s09BookingsPartial?" (liste partielle)":"")+" :";
+    s09BookingsBox.append(heading);
+    const list=document.createElement("div");
+    list.style.cssText="display:flex;flex-direction:column;gap:4px;margin-top:5px";
+    const start=s09MinuteOfDay(scheduleTime.value),duration=Number(scheduleDuration.value);
+    const valid=start!==null&&Number.isInteger(duration)&&duration>=15&&duration<=1440;
+    let conflicts=0;
+    for(const q of s09Bookings){
+      const ap=q.content.appointment,otherStart=s09MinuteOfDay(ap.time);
+      const otherDuration=Number(ap.durationMinutes)||60;
+      const conflict=valid&&otherStart!==null&&start<otherStart+otherDuration&&otherStart<start+duration;
+      if(conflict)conflicts++;
+      const line=document.createElement("div");
+      line.style.cssText="padding:4px 7px;border:1px solid var(--border);border-radius:5px";
+      if(conflict)line.style.borderColor="var(--accent)";
+      line.textContent=(conflict?"⚠ Chevauchement · ":"")+
+        String(ap.time||"—")+" · "+String(q.quote_number||"SO")+" · "+
+        String(q.content.clientName||"Client")+" · "+otherDuration+" min";
+      list.append(line);
+    }
+    s09BookingsBox.append(list);
+    if(conflicts){
+      const warning=document.createElement("div");
+      warning.style.cssText="margin-top:6px;color:var(--accent);font-weight:600";
+      warning.textContent="⚠ "+conflicts+" rendez-vous chevauche(nt) cette plage. Vérifie avant d'enregistrer.";
+      s09BookingsBox.append(warning);
+    }
+  }
+  async function s09LoadBookings(){
+    const date=scheduleDate.value,token=++s09BookingsToken;
+    s09BookingsDate=date;s09Bookings=null;s09BookingsPartial=false;
+    s09BookingsBox.textContent=date?"Vérification des rendez-vous de cette journée…":"";
+    if(!date)return;
+    try{
+      if(!ACTIVE_GARAGE_ID||!CLOUD_DATA_READY)throw Error("Données cloud indisponibles");
+      const db=window.garageSupabase;
+      if(!db?.auth?.getUser||!db?.from)throw Error("Supabase indisponible");
+      const {data:auth,error:authError}=await db.auth.getUser();
+      if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
+      const {data:rows,error}=await db.from("garage_quotes")
+        .select("id,quote_number,status,content")
+        .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id)
+        .in("status",["draft","sent","converted"])
+        .order("created_at",{ascending:false}).limit(500);
+      if(error||!Array.isArray(rows))throw Error("Lecture des rendez-vous refusée");
+      if(token!==s09BookingsToken||scheduleDate.value!==date)return;
+      s09BookingsPartial=rows.length>=500;
+      s09Bookings=rows.filter(q=>String(q.id)!==String(selectedQuote?.id)&&
+        q.content?.approvalConfirmedAt&&q.content?.appointment?.date===date)
+        .sort((a,b)=>String(a.content.appointment.time||"").localeCompare(String(b.content.appointment.time||"")));
+      s09DisplayBookings();
+    }catch(error){
+      if(token!==s09BookingsToken||scheduleDate.value!==date)return;
+      s09BookingsBox.textContent="⚠ Impossible de vérifier les autres rendez-vous. Consulte le calendrier avant d'enregistrer.";
+      console.warn("[Planning TEST] Rendez-vous du jour non vérifiés",error);
+    }
+  }
+  scheduleDate?.addEventListener("input",()=>{s09PreviewSchedule();void s09LoadBookings();});
+  [scheduleTime,scheduleDuration].forEach(el=>el?.addEventListener("input",()=>{
+    s09PreviewSchedule();s09DisplayBookings();
+  }));
   get("s08SaveSchedule")?.addEventListener("click",async()=>{
     const q=selectedQuote;
     if(!q?.content?.approvalConfirmedAt||schedulingWrite)return;
@@ -17705,6 +17787,8 @@ if (window.garageSupabase) {
     get("s08ScheduleTime").value=d.appointment?.time||"";
     get("s08ScheduleDuration").value=d.appointment?.durationMinutes||60;
     s09PreviewSchedule();
+    if(!schedule.hidden)void s09LoadBookings();
+    else {++s09BookingsToken;s09BookingsBox.textContent="";}
     get("s08ScheduleFeedback").textContent=d.approvalConfirmedAt?
       (d.appointment?.date?"Rendez-vous enregistré.":"Soumission approuvée — à planifier."):"";
     setStatusPill(get("s08ViewStatusBadge"),q.status==="sent"&&d.approvalConfirmedAt?"approved":q.status);
