@@ -35,3 +35,14 @@ test('locked BT disables file input and never sets upload handler',()=>{
  assert.match(source,/input\.disabled = locked/);
  assert.match(source,/if \(locked\) return/);
 });
+
+test('upload preflight reads cloud version before Storage operation',()=>{
+ const marker=source.indexOf('const expectedVersion = CLOUD_DATA_VERSION;');
+ const server=source.indexOf('.select("version").eq("garage_id",expectedGarage).maybeSingle()',marker);
+ const upload=source.indexOf('.upload(filePath, file)',marker);
+ assert.ok(marker>=0 && server>marker && upload>server);
+ assert.ok(source.slice(marker,upload).includes('current.version !== expectedVersion'));
+ assert.ok(source.slice(marker,upload).includes('garageSnapshotsEquivalent(localBeforeUpload,CLOUD_LAST_CONFIRMED_SNAPSHOT)'));
+ assert.ok(source.slice(marker,upload).includes('CLOUD_CHANGE_REVISION !== expectedRevision'));
+ assert.ok(source.slice(marker,upload).includes('SUPABASE_USER?.id !== expectedUser'));
+});
