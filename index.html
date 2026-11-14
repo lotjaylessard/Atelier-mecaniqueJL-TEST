@@ -6076,7 +6076,10 @@ function addServiceToCurrentWO(serviceId){
   let hours = 1;
   let rate = 0;
 
-  if (srv.priceFixed > 0){
+  if (Number(srv.hours) > 0 && Number.isFinite(Number(srv.rate)) && Number(srv.rate) >= 0){
+    hours = Number(srv.hours);
+    rate = Number(srv.rate);
+  } else if (Number.isFinite(Number(srv.priceFixed)) && Number(srv.priceFixed) >= 0){
     hours = 1;
     rate = Number(srv.priceFixed);
   } else if (srv.hours > 0 && srv.rate > 0){
@@ -7402,7 +7405,7 @@ function woAddLaborLine(wo) {
         // Forfait : 1 "unité" à prix fixe
         hours = 1;
         rate = Number(srv.priceFixed || 0);
-      } else if (srv.hours > 0 && srv.rate > 0) {
+      } else if (srv.hours > 0 && Number.isFinite(Number(srv.rate)) && Number(srv.rate) >= 0) {
         // Tarif horaire
         hours = Number(srv.hours || 0);
         rate = Number(srv.rate || 0);
@@ -7516,7 +7519,7 @@ if (manualLaborSave){
     const hours = Number(document.getElementById("woManualLaborHours").value);
     const rate = Number(document.getElementById("woManualLaborRate").value);
 
-    if (!desc || hours <= 0 || rate <= 0){
+    if (!desc || !Number.isFinite(hours) || hours <= 0 || !Number.isFinite(rate) || rate < 0){
       return alert("Informations du service incomplètes.");
     }
 
@@ -9309,7 +9312,7 @@ if (saveManualBtn){
     const qty = Number(document.getElementById("woManualPartQty").value);
     const rate = Number(document.getElementById("woManualPartRate").value);
 
-    if (!name || qty <= 0 || rate <= 0){
+    if (!name || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(rate) || rate < 0){
       return alert("Informations de la pièce incomplètes.");
     }
 
@@ -9903,7 +9906,7 @@ function initSettings(){
         if(rate!==previousRate){
           loadServices();
           SERVICES.forEach(service=>{
-            if(service && Number(service.priceFixed || 0)<=0 &&
+            if(service && Number(service.hours)>0 && Number(service.priceFixed || 0)<=0 &&
                Number(service.rate)!==rate){
               service.rate=rate;
               updatedServices++;
@@ -10553,7 +10556,7 @@ if($('addLabor')){
     const desc=$('laborDesc').value.trim();
     const hours=Number($('laborHours').value)||0;
     const rate=Number($('laborRate').value)||0;
-    if(!desc || hours<=0 || rate<=0) return alert("Infos main-d'œuvre incomplètes");
+    if(!desc || !Number.isFinite(hours) || hours<=0 || !Number.isFinite(rate) || rate<0) return alert("Infos main-d'œuvre incomplètes");
     items.push({type:"Main-d'œuvre",desc,qty:hours,rate});
     $('laborDesc').value='';
     $('laborHours').value='';
@@ -12306,8 +12309,10 @@ function addServiceToInvoice(s){
   let desc=s.name;
   if(s.desc) desc+=" — "+s.desc;
   let item;
-  if(s.priceFixed>0){
-    item={type:"Service",desc,qty:1,rate:s.priceFixed};
+  if(s.hours>0 && Number.isFinite(Number(s.rate)) && Number(s.rate)>=0){
+    item={type:"Service (horaire)",desc,qty:s.hours,rate:s.rate};
+  }else if(Number.isFinite(Number(s.priceFixed)) && Number(s.priceFixed)>=0){
+    item={type:"Service",desc,qty:1,rate:Number(s.priceFixed)};
   }else if(s.hours>0 && s.rate>0){
     item={type:"Service (horaire)",desc,qty:s.hours,rate:s.rate};
   }else{
@@ -16572,7 +16577,7 @@ if (window.garageSupabase) {
     const entry=(kind==="part"?catalogParts:catalogServices)[index];
     if(!entry)return;
     const fixed=Number(entry.priceFixed);
-    const hourly=kind==="service" && !(fixed>0);
+    const hourly=kind==="service" && Number(entry.hours)>0 && Number.isFinite(Number(entry.rate)) && Number(entry.rate)>=0;
     const qty=hourly?Number(entry.hours):1;
     const price=kind==="part"?Number(entry.price):hourly?Number(entry.rate):fixed;
     if(!Number.isFinite(price)||price<0||!Number.isFinite(qty)||qty<=0){
