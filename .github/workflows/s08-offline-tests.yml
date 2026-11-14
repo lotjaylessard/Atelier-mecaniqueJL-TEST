@@ -7,6 +7,9 @@ on:
       - 'tests/**'
       - 'index.html'
       - 'login.html'
+      - 'start-s08-preview.py'
+      - 'Demarrer-S08-TEST-Windows.bat'
+      - 'LISEZ-MOI-S08-TEST.txt'
       - '.github/workflows/s08-offline-tests.yml'
   workflow_dispatch:
 jobs:
@@ -89,6 +92,9 @@ jobs:
           path: |
             index.html
             login.html
+            start-s08-preview.py
+            Demarrer-S08-TEST-Windows.bat
+            LISEZ-MOI-S08-TEST.txt
             audit/s06-live-test.js
             audit/s06-wo-pilot.js
             audit/s06-sidebar-persistent.js
