@@ -2744,9 +2744,27 @@ function initWorkOrderAttachments(wo){
 
   input.onchange = async function(){
 
+    // S08: refuse l'upload sans session cloud valide pour limiter les
+    // fichiers Storage orphelins si les références du BT ne peuvent se synchroniser.
+    if (!sb || !SUPABASE_USER?.id || !ACTIVE_GARAGE_ID ||
+        !CLOUD_DATA_READY || CLOUD_SYNC_FAILED ||
+        CLOUD_SYNC_IN_PROGRESS || CLOUD_SYNC_PENDING || CLOUD_SYNC_DIRTY ||
+        cloudSyncTimer !== null) {
+      alert("Pièce jointe non envoyée : attends la synchronisation cloud du garage.");
+      this.value = "";
+      return;
+    }
+
     const files = Array.from(this.files);
 
     for (const file of files){
+      // Le nom affiché est conservé; seuls les noms dangereux sont refusés.
+      if (!file || !file.name || file.name === "." || file.name === ".." ||
+          /[\\/\\\\]/.test(file.name) || !Number.isSafeInteger(file.size) ||
+          file.size <= 0) {
+        alert("Fichier ignoré : nom invalide ou fichier vide.");
+        continue;
+      }
 
       const safeClient  = sanitize(wo.clientName);
       const safeVehicle = sanitize(wo.vehicleLabel);
