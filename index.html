@@ -6598,6 +6598,7 @@ function persistActiveWO(wo){
   woTimerBackupClear();
   const notesField=document.getElementById("woNotes");
   if(notesField)notesField.value=wo.notes;
+  jlWoRenderNotes(wo);
   const display=document.getElementById("woTimerDisplay");
   if(display)display.textContent="⏱ 00:00:00";
   woRenderLines(wo);
@@ -7090,6 +7091,109 @@ function validateAndUpdateVehicleKM(wo){
   return true;
 }
 
+
+
+/* Notes BT S09 - historique independant, les anciennes notes .notes restent intactes.
+   ATTENTION: verification d'autorisation cote client uniquement; faire valider
+   le controle d'acces serveur avant migration multi-employes. */
+function jlWoNoteAuthor(){
+  const user=SUPABASE_USER;
+  if(!user?.id)return null;
+  const m=user.user_metadata||{};
+  const name=[m.display_name,m.full_name,m.first_name,m.name].find(v=>typeof v==="string"&&v.trim())
+    ||String(user.email||"").split("@")[0].replace(/[._-]+/g," ").trim()||"Employé";
+  return {id:String(user.id),name:String(name).trim().slice(0,100)};
+}
+function jlWoNotes(wo){
+  if(!Array.isArray(wo.technicalNoteEntries))wo.technicalNoteEntries=[];
+  return wo.technicalNoteEntries;
+}
+function jlWoDate(iso){
+  const d=new Date(iso);
+  return Number.isNaN(d.getTime())?"Date inconnue":d.toLocaleString("fr-CA",
+    {timeZone:"America/Toronto",year:"numeric",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+}
+function jlWoRenderNotes(wo){
+  const list=document.getElementById("jlWoNotesHistory");
+  if(!list)return;
+  const actor=jlWoNoteAuthor();
+  const entries=jlWoNotes(wo).slice().sort((a,b)=>
+    String(b.createdAt||"").localeCompare(String(a.createdAt||"")) ||
+    String(b.id||"").localeCompare(String(a.id||"")));
+  const cards=entries.map(note=>{
+    const own=!!actor&&String(note.authorId)===actor.id;
+    const id=escapeHTML(String(note.id||""));
+    const name=escapeHTML(String(note.authorName||"Employé"));
+    const body=escapeHTML(String(note.text||""));
+    const changed=note.updatedAt?" · Modifiée "+escapeHTML(jlWoDate(note.updatedAt)):"";
+    return '<div class="card" data-jl-note-id="'+id+'" style="margin:8px 0;padding:12px">'
+      +'<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><b>'+name+'</b>'
+      +'<span class="muted" style="font-size:12px">'+escapeHTML(jlWoDate(note.createdAt))+changed+'</span></div>'
+      +'<div style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px">'+body+'</div>'
+      +(own&&woCanEditNotes(wo)?'<button type="button" class="ghost" data-jl-note-edit="'+id+'" style="margin-top:6px">✏️ Modifier</button>':'')
+      +'</div>';
+  });
+  // Les notes originales n'ont pas d'auteur individuel connu : ne jamais en inventer un.
+  if(String(wo.notes||"").trim())cards.push(
+    '<div class="card" style="margin:8px 0;padding:12px"><b>Anciennes notes techniques</b>'
+    +'<div class="muted" style="font-size:12px">Historique antérieur au nouveau module</div>'
+    +'<div style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px">'
+    +escapeHTML(wo.notes)+'</div></div>');
+  list.innerHTML=cards.join("")||'<div class="muted">Aucune note enregistrée.</div>';
+  const count=document.getElementById("jlWoNotesCount");
+  if(count)count.textContent=entries.length+" note"+(entries.length>1?"s":"")+(String(wo.notes||"").trim()?" + anciennes notes":"");
+}
+function jlWoInitNotes(wo){
+  const field=document.getElementById("jlWoNewNote");
+  const button=document.getElementById("jlWoSaveNote");
+  const list=document.getElementById("jlWoNotesHistory");
+  if(!field||!button||!list)return;
+  const editing={id:null};
+  const allowed=()=>woCanEditNotes(wo)&&CLOUD_DATA_READY&&!CLOUD_SYNC_FAILED&&!!jlWoNoteAuthor();
+  const status=document.getElementById("jlWoNotesStatus");
+  const render=()=>{jlWoRenderNotes(wo);field.disabled=!allowed();button.disabled=!allowed();};
+  const save=()=>{
+    if(!allowed()){if(status)status.textContent="Sauvegarde indisponible : vérifie la connexion et les droits.";return;}
+    const actor=jlWoNoteAuthor(),value=field.value.trim();
+    if(!value){if(status)status.textContent="Écris une note avant d’enregistrer.";return;}
+    const notes=jlWoNotes(wo);
+    const now=new Date().toISOString();
+    if(editing.id){
+      const entry=notes.find(n=>String(n.id)===editing.id);
+      if(!entry||String(entry.authorId)!==actor.id){if(status)status.textContent="Modification non autorisée.";return;}
+      if(entry.text!==value){
+        if(!Array.isArray(entry.revisions))entry.revisions=[];
+        entry.revisions.push({text:entry.text,changedAt:now});
+        entry.text=value;entry.updatedAt=now;
+      }
+    }else{
+      const id=globalThis.crypto?.randomUUID?.()||
+        ("note-"+Date.now()+"-"+Math.random().toString(36).slice(2));
+      notes.push({id,authorId:actor.id,authorName:actor.name,createdAt:now,text:value,revisions:[]});
+    }
+    localStorage.setItem(STORAGE.workorders,JSON.stringify(WORKORDERS));
+    scheduleCloudSync();
+    editing.id=null;field.value="";field.placeholder="Diagnostic, réparation, observation...";
+    button.textContent="💾 Enregistrer";
+    if(status)status.textContent="Note enregistrée localement — synchronisation cloud en cours.";
+    render();
+  };
+  button.onclick=save;
+  list.onclick=e=>{
+    const target=e.target.closest("[data-jl-note-edit]");
+    if(!target||!allowed())return;
+    const id=target.getAttribute("data-jl-note-edit");
+    const actor=jlWoNoteAuthor();
+    const entry=jlWoNotes(wo).find(n=>String(n.id)===id);
+    if(!entry||String(entry.authorId)!==actor.id)return;
+    editing.id=id;field.value=String(entry.text||"");
+    field.placeholder="Corriger la note...";
+    button.textContent="💾 Enregistrer la correction";
+    if(status)status.textContent="Correction de votre note, date originale conservée.";
+    field.focus();
+  };
+  render();
+}
 
 let woTechnicalNotesSyncTimer = null;
 let woTechnicalNotesBlockedNoticeShown = false;
@@ -8812,7 +8916,7 @@ function applyClosedWOControls(wo,detail){
     // UNIQUEMENT en mode correction de la facture impayee.
     // Le KM, la description historique et les fichiers restent verrouilles.
     const financialField = Boolean(el.closest("#woManualPartBox, #woManualLaborBox"));
-    const allowedNote = el.id === "woNotes" && woCanEditNotes(wo);
+    const allowedNote = el.id === "jlWoNewNote" && woCanEditNotes(wo);
     el.disabled = !(allowedNote || (isEditing && financialField));
   });
   const editBtn = detail.querySelector("#woEditClosedBtn");
@@ -8822,7 +8926,8 @@ function applyClosedWOControls(wo,detail){
   detail.querySelectorAll("button").forEach(button=>{
     if (button === editBtn || button === finishBtn ||
       button.closest("#jlWoDocumentLinks") ||
-      button.textContent.includes("Retour") || button.textContent.includes("Copier")) return;
+      button.textContent.includes("Retour") || button.textContent.includes("Copier") ||
+      (button.closest("#jlWoNotesPanel") && woCanEditNotes(wo))) return;
     // Jamais reterminer/supprimer le BT termine ni redemarrer son compteur.
     if (button.textContent.includes("Terminé") || button.textContent.includes("Supprimer") ||
         button.id?.startsWith("woTimer") || button.closest("#woAttachmentsList")) {
@@ -9166,17 +9271,20 @@ const statusLabel =
   </div>
 
 
-<!-- NOTES TECHNIQUES -->
-<div class="card">
+<!-- NOTES TECHNIQUES S09 : saisie en haut, historique décroissant -->
+<div class="card" id="jlWoNotesPanel">
   <h3>📝 Notes techniques</h3>
-  <textarea
-    id="woNotes"
-    placeholder="Décris le diagnostic, les réparations effectuées, observations, etc."
-    style="min-height:140px;"
-  ></textarea>
-  <div class="muted" style="margin-top:6px;">
-    Ces notes sont sauvegardées automatiquement pour ce bon de travail.
+  <label for="jlWoNewNote">Nouvelle note</label>
+  <textarea id="jlWoNewNote" placeholder="Diagnostic, réparation, observation..."
+    style="min-height:85px;margin-top:6px;"></textarea>
+  <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+    <button type="button" id="jlWoSaveNote">💾 Enregistrer</button>
   </div>
+  <div class="muted" id="jlWoNotesStatus" style="font-size:12px;margin-top:6px;"></div>
+  <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:14px">
+    <b>Historique des notes</b><span class="muted" id="jlWoNotesCount"></span>
+  </div>
+  <div id="jlWoNotesHistory"></div>
 </div>
 
 
@@ -9349,29 +9457,8 @@ if (cancelManualBtn){
     
     // TEST #336 : minuteur partage entre les ouvertures du formulaire BT.
 // La sauvegarde locale reste immediate ; seule la demande cloud est differee.
-// === NOTES TECHNIQUES DU BON DE TRAVAIL ===
-const notesField = document.getElementById("woNotes");
-if (notesField){
-  notesField.value = wo.notes || "";
-
-  notesField.oninput = () => {
-    if (!woCanEditNotes(wo)) return;
-    wo.notes = notesField.value;
-    // TEST #336 : conserver immediatement la saisie localement,
-    // mais ne demander une synchronisation qu'apres une pause de frappe.
-    localStorage.setItem(STORAGE.workorders, JSON.stringify(WORKORDERS));
-    clearTimeout(woTechnicalNotesSyncTimer);
-    woTechnicalNotesSyncTimer = setTimeout(() => {
-      woTechnicalNotesSyncTimer = null;
-      if (CLOUD_DATA_READY && !CLOUD_SYNC_FAILED) {
-        scheduleCloudSync();
-      } else if (!woTechnicalNotesBlockedNoticeShown) {
-        woTechnicalNotesBlockedNoticeShown = true;
-        console.warn('[TEST #336] Notes conservees localement ; synchronisation bloquee apres conflit. Copie de recuperation precedente a conserver.');
-      }
-    }, 1000);
-  };
-}
+// === NOTES TECHNIQUES STRUCTURÉES DU BON DE TRAVAIL ===
+jlWoInitNotes(wo);
 
 initWorkOrderSaveButton();
   // Les notes restent modifiables meme sur facture partiellement payee.
