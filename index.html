@@ -1592,11 +1592,11 @@ button.link:hover{
 #page-schedule .jl-schedule-swatch.private{background:#48ad7d}
 #page-schedule .jl-schedule-weekdays,#page-schedule .jl-schedule-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
 #page-schedule .jl-schedule-weekdays{text-align:center;font-size:12px;font-weight:700;padding-bottom:5px}
-#page-schedule .jl-schedule-day{height:clamp(58px,calc((100dvh - 320px)/6),90px);min-height:0;min-width:0;overflow:hidden;display:flex;flex-direction:column;gap:4px;box-sizing:border-box;padding:6px;border:1px solid var(--border);border-radius:7px;cursor:pointer}
+#page-schedule .jl-schedule-day{height:clamp(85px,calc((100dvh - 300px)/6),102px);min-height:0;min-width:0;overflow:hidden;display:flex;flex-direction:column;gap:4px;box-sizing:border-box;padding:6px;border:1px solid var(--border);border-radius:7px;cursor:pointer}
 #page-schedule .jl-schedule-day[data-outside="true"]{background:rgba(128,128,128,.035);cursor:default;opacity:.36}
 #page-schedule .jl-schedule-day[data-today="true"]{border-color:#e2af36}
 #page-schedule .jl-schedule-day[data-selected="true"]{outline:2px solid #75b6ff;outline-offset:-2px;background:rgba(93,169,255,.08)}
-#page-schedule .jl-schedule-mini{min-height:0;line-height:13px;padding-top:2px;padding-bottom:2px}
+#page-schedule .jl-schedule-mini{min-height:0;line-height:12px;padding-top:1px;padding-bottom:1px}
 #page-schedule .jl-schedule-day-button{border:0;background:transparent;text-align:left;color:inherit;cursor:pointer;padding:0;font-size:12px;font-weight:700}
 #page-schedule .jl-schedule-mini{flex:0 0 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;padding:3px 5px;border-radius:3px;color:inherit}
 #page-schedule .jl-schedule-mini.work{background:rgba(239,97,97,.13);border-left:3px solid #ef6161}
@@ -1619,6 +1619,7 @@ button.link:hover{
 #page-schedule #jlScheduleEventEditor[hidden],#page-schedule #jlScheduleEventConflict[hidden]{display:none}
 #page-schedule .jl-schedule-event-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 #page-schedule .jl-schedule-event-fields label{display:flex;flex-direction:column;gap:4px;min-width:0}
+#page-schedule .jl-schedule-event-fields .jl-schedule-time-field[hidden]{display:none!important}
 #page-schedule .jl-schedule-event-fields input:not([type="checkbox"]),#page-schedule .jl-schedule-event-fields select{width:100%;box-sizing:border-box}
 #page-schedule .jl-schedule-event-wide{grid-column:1/-1}
 #page-schedule .jl-schedule-all-day{flex-direction:row!important;align-items:center}
@@ -1630,7 +1631,7 @@ button.link:hover{
 #page-schedule #jlScheduleNoteText{width:100%;min-height:65px;margin-top:6px}
 @media(max-width:780px){
  #page-schedule .jl-schedule-weekdays,#page-schedule .jl-schedule-month-grid{gap:2px}
- #page-schedule .jl-schedule-day{height:clamp(51px,calc((100dvh - 300px)/6),76px);padding:3px;gap:2px}
+ #page-schedule .jl-schedule-day{height:clamp(82px,calc((100dvh - 300px)/6),92px);padding:3px;gap:2px}
  #page-schedule .jl-schedule-mini{font-size:9px;padding:2px}
  #page-schedule .jl-schedule-more{font-size:9px}
 }
