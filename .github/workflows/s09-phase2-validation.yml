@@ -1,0 +1,35 @@
+name: S09 Horaire phase 2 validation TEST
+on:
+  push:
+    branches:
+      - feature/notes-bt-historique
+    paths:
+      - 'index.html'
+      - 'tests/s09-*.test.cjs'
+      - '.github/workflows/s09-phase2-validation.yml'
+  workflow_dispatch:
+jobs:
+  s09-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate all S09 regression tests
+        run: node --test tests/s09-*.test.cjs
+      - name: Validate HTML inline JavaScript syntax
+        run: |
+          node - <<'NODE'
+          const fs=require('fs'),vm=require('vm');
+          const html=fs.readFileSync('index.html','utf8');
+          const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(s=>s.trim());
+          for(const [i,code] of scripts.entries()){
+            try{new vm.Script(code,{filename:'inline-'+i+'.js'});}
+            catch(e){console.error('Syntax error in inline script',i);throw e;}
+          }
+          console.log('Validated',scripts.length,'inline scripts');
+          NODE
