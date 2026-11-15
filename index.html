@@ -13307,9 +13307,15 @@ function jlScheduleEventsFor(date){
     .sort((a,b)=>Number(b.all_day)-Number(a.all_day)||
       String(a.start_time||"").localeCompare(String(b.start_time||"")));
 }
-function jlScheduleEventLabel(e){
+function jlScheduleEventLabel(e,date=""){
   const type={closed:"Atelier fermé",reserved:"Période réservée",unavailable:"Indisponibilité"};
-  const prefix=e.all_day?"Toute la journée":String(e.start_time||"").slice(0,5)+"–"+String(e.end_time||"").slice(0,5);
+  let prefix="Toute la journée";
+  if(!e.all_day){
+    const start=String(e.start_time||"").slice(0,5),end=String(e.end_time||"").slice(0,5);
+    if(e.start_date===e.end_date)prefix=start+"–"+end;
+    else if(date===e.start_date)prefix="Dès "+start;
+    else if(date===e.end_date)prefix="Jusqu'à "+end;
+  }
   return prefix+" · "+String(e.title||type[e.event_type]||"Événement");
 }
 function jlScheduleNotesFor(date){
@@ -13362,7 +13368,7 @@ function jlScheduleDayRender(){
     const row=document.createElement("div");
     row.className="jl-schedule-full-item "+(e.visibility==="private"?"private":"workshop");
     const edit=document.createElement("button");edit.type="button";
-    edit.textContent=(e.visibility==="private"?"🔒 Personnel · ":"🏭 Atelier · ")+jlScheduleEventLabel(e)+
+    edit.textContent=(e.visibility==="private"?"🔒 Personnel · ":"🏭 Atelier · ")+jlScheduleEventLabel(e,date)+
       (e.start_date!==e.end_date?" ("+e.start_date+" au "+e.end_date+")":"");
     edit.title=e.user_id===jlScheduleEventUserId?"Modifier cet événement":"Événement partagé en lecture seule";
     edit.addEventListener("click",()=>{if(e.user_id===jlScheduleEventUserId)jlScheduleOpenEventForm(e);});
@@ -13415,7 +13421,7 @@ function jlScheduleRender(){
     for(const event of visibleEvents){
       const el=document.createElement("div");el.className="jl-schedule-mini "+
         (event.visibility==="private"?"private":"workshop");
-      el.textContent=jlScheduleEventLabel(event);
+      el.textContent=jlScheduleEventLabel(event,date);
       el.title=String(event.title||"");
       cell.append(el);
     }
