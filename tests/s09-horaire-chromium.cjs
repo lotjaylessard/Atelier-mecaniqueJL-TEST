@@ -8,11 +8,11 @@ const css=extract('/* S09 : Agenda mensuel TEST','/* TEST — ouverture des BT')
 const render=extract('function jlScheduleRender(){','async function jlScheduleLoad(){');
 const helpers=extract('function jlScheduleJobsFor(date){','function jlScheduleText(container,content,className){');
 const fixture=[
-"const jlScheduleShift=0,jlScheduleSelected='';",
+"const jlScheduleShift=0,jlScheduleSelected='';let month=10;",
 "const jlScheduleQuotes=[{id:'so1',content:{appointment:{date:'2026-11-13',time:'09:00'},clientName:'A'}},{id:'so2',content:{appointment:{date:'2026-11-13',time:'10:15'},clientName:'B'}}];",
 "const jlScheduleNotes=[1,2,3,4].map(n=>({note_date:'2026-11-13',note_text:'note '+n,created_at:'2026-11-13T00:00:0'+n+'Z'}));",
 "const jlScheduleEvents=[];let opened='';",
-"function jlScheduleMonthStart(){return new Date(2026,10,1);}",
+"function jlScheduleMonthStart(){return new Date(2026,month,1);}",
 "function jlCalendarISO(d){return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}",
 "function jlScheduleISO(d){return jlCalendarISO(d);}",
 "function jlScheduleDayRender(){}",
@@ -23,16 +23,23 @@ const check=[
 "try {",
 "jlScheduleRender();",
 "const cells=[...document.querySelectorAll('.jl-schedule-day')];",
-"if(cells.length!==42)throw Error('Expected 42 cells; found '+cells.length);",
+"if(cells.length!==35)throw Error('Expected 35 November cells; found '+cells.length);",
 "const day=cells.find(x=>x.querySelector('.jl-schedule-day-button')?.textContent==='13');",
 "if(!day)throw Error('Nov 13 missing');",
-"if(day.querySelectorAll('.jl-schedule-mini').length!==2)throw Error('Expected two previews');",
+"if(day.querySelectorAll('.jl-schedule-mini').length!==3)throw Error('Expected 3 November previews');",
 "const more=day.querySelector('.jl-schedule-more');",
-"if(more?.textContent!=='+4 autres')throw Error('Expected +4 autres, got '+more?.textContent);",
+"if(more?.textContent!=='+3 autres')throw Error('Expected +3 autres, got '+more?.textContent);",
 "const box=day.getBoundingClientRect(),button=more.getBoundingClientRect();",
 "if(button.bottom>box.bottom||button.top<box.top)throw Error('Indicator outside cell');",
 "more.click();if(opened!=='2026-11-13')throw Error('Day click failed');",
-"if(cells.at(-1).getBoundingClientRect().bottom>window.innerHeight)throw Error('Bottom row offscreen');",
+"if(cells.at(-1).getBoundingClientRect().bottom>window.innerHeight)throw Error('November bottom row offscreen');",
+"month=7;jlScheduleQuotes.forEach(q=>q.content.appointment.date='2026-08-13');jlScheduleNotes.forEach(n=>n.note_date='2026-08-13');",
+"jlScheduleRender();",
+"const august=[...document.querySelectorAll('.jl-schedule-day')];if(august.length!==42)throw Error('Expected 42 August cells');",
+"const aug13=august.find(x=>x.querySelector('.jl-schedule-day-button')?.textContent==='13');",
+"if(aug13.querySelectorAll('.jl-schedule-mini').length!==2)throw Error('Expected 2 August previews');",
+"if(aug13.querySelector('.jl-schedule-more')?.textContent!=='+4 autres')throw Error('Expected +4 August autres');",
+"if(august.at(-1).getBoundingClientRect().bottom>window.innerHeight)throw Error('August bottom row offscreen');",
 "document.getElementById('result').textContent='PASS';",
 "}catch(e){document.getElementById('result').textContent='FAIL: '+String(e.message||e);}"
 ].join('\n');
@@ -45,5 +52,5 @@ try{
  const res=spawnSync(chrome,['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking','--window-size=1800,1000','--virtual-time-budget=1000','--dump-dom','file://'+file],{encoding:'utf8',timeout:30000,maxBuffer:3e6});
  const match=(res.stdout||'').match(/<output id="result">([^<]*)<\/output>/);
  if(match?.[1]!=='PASS')throw Error('Chromium S09 failed: '+(match?.[1]||'no output')+' '+(res.stderr||'').slice(-200));
- console.log('S09 PASS: 42 cells, +4 autres, clickable indicator, complete last row');
+ console.log('S09 PASS: November 35 cells/+3; August 42 cells/+4; full viewport');
 }finally{fs.rmSync(dir,{recursive:true,force:true});}
