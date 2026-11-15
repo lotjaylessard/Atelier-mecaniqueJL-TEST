@@ -573,6 +573,10 @@ input[type="checkbox"]{
     #page-dashboard .jl-calendar-appointment:focus-visible{outline:2px solid #ef6161;outline-offset:1px}
     #page-dashboard .jl-calendar-day-open{border:0;background:transparent;color:inherit;font-weight:700;padding:2px;cursor:pointer}
     #page-dashboard .jl-calendar-day-open:hover{color:var(--accent);text-decoration:underline}
+    #page-dashboard .jl-calendar-day-event{flex:0 0 auto;border-left:3px solid #daa038;background:rgba(218,160,56,.12);padding:4px 6px;font-size:11px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+    #page-dashboard .jl-calendar-day-event.private{border-left-color:#48ad7d;background:rgba(72,173,125,.12)}
+    #page-dashboard .jl-day-event-item{border:1px solid rgba(218,160,56,.4);border-left:3px solid #daa038;background:rgba(218,160,56,.08);padding:9px;border-radius:6px}
+    #page-dashboard .jl-day-event-item.private{border-color:rgba(72,173,125,.4);border-left-color:#48ad7d;background:rgba(72,173,125,.08)}
     #page-dashboard .jl-calendar-day-note{flex:0 0 auto;border-left:3px solid #5da9ff;padding:4px 6px;font-size:11px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;background:rgba(93,169,255,.12);color:inherit}
     #page-dashboard .jl-calendar-day-more{display:block;flex:0 0 auto;width:100%;border:0;background:transparent;color:var(--accent);padding:3px 2px;font-size:11px;font-weight:700;text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     #page-dashboard .jl-calendar-day-more:hover{text-decoration:underline}
@@ -1814,6 +1818,8 @@ button.link:hover{
             <div class="jl-day-agenda-head"><h4 id="jlDayAgendaTitle" style="margin:0">Horaire du jour</h4>
               <button type="button" class="ghost" id="jlDayAgendaClose">Fermer</button></div>
             <div id="jlDayAgendaAppointments" class="jl-day-appointments"></div>
+            <h4 style="margin:14px 0 5px">Événements et indisponibilités</h4>
+            <div id="jlDayAgendaEvents" class="jl-day-appointments"></div>
             <h4 style="margin:14px 0 5px">📝 Notes de la journée</h4>
             <div id="jlDayAgendaNotes" class="jl-day-note-list"></div>
             <label for="jlDayNoteText">Nouvelle note</label>
@@ -13612,6 +13618,7 @@ async function jlScheduleSaveEvent(event){
     status.textContent="✓ Événement enregistré.";
     document.getElementById("jlScheduleEventEditor").hidden=true;
     await jlScheduleLoad();
+    void jlCalendarLoadEvents();
   }catch(err){status.textContent="⚠ Enregistrement refusé : "+String(err?.message||err);}
   finally{jlScheduleEventSaving=false;button.disabled=false;}
 }
@@ -13632,6 +13639,7 @@ async function jlScheduleDeleteEvent(){
     if(error||!data)throw error||Error("Suppression non confirmée");
     document.getElementById("jlScheduleEventEditor").hidden=true;
     await jlScheduleLoad();
+    void jlCalendarLoadEvents();
   }catch(err){status.textContent="⚠ Suppression refusée : "+String(err?.message||err);}
   finally{jlScheduleEventSaving=false;}
 }
@@ -13689,6 +13697,30 @@ window.addEventListener("s08-quotes-refreshed",()=>{
 
 // Le calendrier conserve seulement les rendez-vous confirmés par Supabase.
 let jlCalendarWeekShift=0, jlCalendarQuotes=[];
+let jlCalendarEvents=[],jlCalendarEventsLoaded=false,jlCalendarEventsRequest=0;
+function jlCalendarEventsFor(date){
+  return jlCalendarEvents.filter(e=>e.start_date<=date&&e.end_date>=date);
+}
+async function jlCalendarLoadEvents(){
+  const start=jlCalendarStart(),end=new Date(start);end.setDate(end.getDate()+6);
+  const min=jlCalendarISO(start),max=jlCalendarISO(end),token=++jlCalendarEventsRequest;
+  jlCalendarEvents=[];jlCalendarEventsLoaded=false;jlCalendarRender();jlDayAgendaRender();
+  try{
+    const db=window.garageSupabase;
+    if(typeof CLOUD_DATA_READY==="undefined"||!CLOUD_DATA_READY||
+       typeof ACTIVE_GARAGE_ID==="undefined"||!ACTIVE_GARAGE_ID||
+       !db?.auth?.getUser||!db?.from)throw Error("Cloud indisponible");
+    const {data:auth,error:authError}=await db.auth.getUser();
+    if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
+    const {data,error}=await db.from("garage_schedule_events")
+      .select("id,visibility,event_type,title,start_date,end_date,all_day,start_time,end_time")
+      .eq("garage_id",ACTIVE_GARAGE_ID).lte("start_date",max).gte("end_date",min);
+    if(error)throw error;
+    if(token!==jlCalendarEventsRequest)return;
+    jlCalendarEvents=Array.isArray(data)?data:[];
+    jlCalendarEventsLoaded=true;jlCalendarRender();jlDayAgendaRender();
+  }catch(err){if(token===jlCalendarEventsRequest)console.warn("[Dashboard TEST] Événements non vérifiés",err);}
+}
 function jlCalendarISO(date){
   return date.getFullYear()+"-"+String(date.getMonth()+1).padStart(2,"0")+
     "-"+String(date.getDate()).padStart(2,"0");
@@ -13744,6 +13776,19 @@ function jlDayAgendaRender(){
     open.append(title,description);
     open.addEventListener("click",()=>jlDashboardOpenQuote(q.id));
     row.append(time,open);appointments.append(row);
+  }
+  const events=document.getElementById("jlDayAgendaEvents");events.replaceChildren();
+  for(const e of jlCalendarEventsFor(date)){
+    const item=document.createElement("div");
+    item.className="jl-day-event-item"+(e.visibility==="private"?" private":"");
+    item.textContent=(e.visibility==="private"?"🔒 Personnel · ":"🏭 Atelier · ")+
+      (e.all_day?"Toute la journée · ":String(e.start_time||"").slice(0,5)+"–"+
+        String(e.end_time||"").slice(0,5)+" · ")+String(e.title||"");
+    events.append(item);
+  }
+  if(!events.childElementCount){
+    const p=document.createElement("span");p.className="muted";
+    p.textContent=jlCalendarEventsLoaded?"Aucun événement.":"Événements non vérifiés.";events.append(p);
   }
   const list=document.getElementById("jlDayAgendaNotes");
   list.replaceChildren();
@@ -13852,11 +13897,11 @@ function jlCalendarRender(){
     });
     const appointments=jlCalendarQuotes.filter(q=>q.content?.appointment?.date===key)
       .sort((x,y)=>String(x.content.appointment.time).localeCompare(String(y.content.appointment.time)));
-    const dayNotes=jlCalendarNotesFor(key);
-    // Trois aperçus maximum : les jobs sont toujours prioritaires, puis les notes.
-    // Les autres éléments restent visibles dans la fiche détaillée de la journée.
+    const dayNotes=jlCalendarNotesFor(key),dayEvents=jlCalendarEventsFor(key);
+    // Trois aperçus maximum : travaux prioritaires, puis événements et notes.
     const visibleAppointments=appointments.slice(0,3);
-    const visibleNotes=dayNotes.slice(0,Math.max(0,3-visibleAppointments.length));
+    const visibleEvents=dayEvents.slice(0,Math.max(0,3-visibleAppointments.length));
+    const visibleNotes=dayNotes.slice(0,Math.max(0,3-visibleAppointments.length-visibleEvents.length));
     for(const q of visibleAppointments){
       const event=document.createElement("button");
       event.type="button";event.className="jl-calendar-appointment";
@@ -13881,12 +13926,18 @@ function jlCalendarRender(){
       event.addEventListener("click",()=>jlDashboardOpenQuote(q.id));
       day.append(event);
     }
+    for(const event of visibleEvents){
+      const item=document.createElement("div");
+      item.className="jl-calendar-day-event"+(event.visibility==="private"?" private":"");
+      item.textContent=(event.visibility==="private"?"🔒 ":"🏭 ")+String(event.title||"");
+      item.title=String(event.title||"");day.append(item);
+    }
     for(const n of visibleNotes){
       const note=document.createElement("div");note.className="jl-calendar-day-note";
       note.textContent="📝 "+String(n.note_text||"").slice(0,90);
       note.title=String(n.note_text||"");day.append(note);
     }
-    const hiddenCount=appointments.length+dayNotes.length-visibleAppointments.length-visibleNotes.length;
+    const hiddenCount=appointments.length+dayNotes.length+dayEvents.length-visibleAppointments.length-visibleNotes.length-visibleEvents.length;
     if(hiddenCount>0){
       const more=document.createElement("button");
       more.type="button";more.className="jl-calendar-day-more";
@@ -13905,12 +13956,13 @@ function jlCalendarInit(){
   if(!prev||!next||!today)return;
   prev.dataset.bound="1";
   const close=()=>{jlCalendarSelectedDate="";document.getElementById("jlDayAgenda").hidden=true;};
-  prev.addEventListener("click",()=>{jlCalendarWeekShift--;close();void jlCalendarLoadNotes();});
-  next.addEventListener("click",()=>{jlCalendarWeekShift++;close();void jlCalendarLoadNotes();});
-  today.addEventListener("click",()=>{jlCalendarWeekShift=0;close();void jlCalendarLoadNotes();});
+  prev.addEventListener("click",()=>{jlCalendarWeekShift--;close();void jlCalendarLoadNotes();void jlCalendarLoadEvents();});
+  next.addEventListener("click",()=>{jlCalendarWeekShift++;close();void jlCalendarLoadNotes();void jlCalendarLoadEvents();});
+  today.addEventListener("click",()=>{jlCalendarWeekShift=0;close();void jlCalendarLoadNotes();void jlCalendarLoadEvents();});
   document.getElementById("jlDayAgendaClose")?.addEventListener("click",close);
   document.getElementById("jlDayNoteSave")?.addEventListener("click",()=>void jlCalendarSaveDayNote());
   void jlCalendarLoadNotes();
+  void jlCalendarLoadEvents();
 }
 async function dashboardRefreshPendingQuotes(){
   jlCalendarInit();
@@ -13918,9 +13970,10 @@ async function dashboardRefreshPendingQuotes(){
   if(dashboardQuotePending||Date.now()-dashboardQuoteCheckAt<15000)return;
   if(typeof CLOUD_DATA_READY==="undefined"||!CLOUD_DATA_READY||
      typeof ACTIVE_GARAGE_ID==="undefined"||!ACTIVE_GARAGE_ID)return;
-  if(!jlCalendarNotesLoaded&&Date.now()>=jlCalendarNotesRetryAt){
+  if((!jlCalendarNotesLoaded||!jlCalendarEventsLoaded)&&Date.now()>=jlCalendarNotesRetryAt){
     jlCalendarNotesRetryAt=Date.now()+15000;
-    void jlCalendarLoadNotes();
+    if(!jlCalendarNotesLoaded)void jlCalendarLoadNotes();
+    if(!jlCalendarEventsLoaded)void jlCalendarLoadEvents();
   }
   dashboardQuotePending=true;dashboardQuoteCheckAt=Date.now();
   const countEl=document.getElementById("statPendingQuotes");
