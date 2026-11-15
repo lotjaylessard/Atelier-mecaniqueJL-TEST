@@ -1597,6 +1597,10 @@ button.link:hover{
 #page-schedule .jl-schedule-weekdays,#page-schedule .jl-schedule-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
 #page-schedule .jl-schedule-weekdays{text-align:center;font-size:12px;font-weight:700;padding-bottom:5px}
 #page-schedule .jl-schedule-day{height:clamp(85px,calc((100dvh - 300px)/6),102px);min-height:0;min-width:0;overflow:hidden;display:flex;flex-direction:column;gap:2px;box-sizing:border-box;padding:3px;border:1px solid var(--border);border-radius:7px;cursor:pointer}
+/* S09 : six rangées, réserver l'espace du mois entier dans le viewport. */
+#page-schedule .jl-schedule-month-grid[data-weeks="6"] .jl-schedule-day{height:clamp(65px,calc((100dvh - 412px)/6),96px)}
+#page-schedule .jl-schedule-month-grid[data-weeks="6"] .jl-schedule-mini{padding:1px 5px;line-height:13px}
+#page-schedule .jl-schedule-month-grid[data-weeks="6"] .jl-schedule-more{line-height:13px;flex:0 0 auto}
 #page-schedule .jl-schedule-day[data-outside="true"]{background:rgba(128,128,128,.035);cursor:default;opacity:.36}
 #page-schedule .jl-schedule-day[data-today="true"]{border-color:#e2af36}
 #page-schedule .jl-schedule-day[data-selected="true"]{outline:2px solid #75b6ff;outline-offset:-2px;background:rgba(93,169,255,.08)}
@@ -13390,6 +13394,7 @@ function jlScheduleRender(){
   const slots=Math.ceil((firstWeekday+monthDays)/7)*7;
   document.getElementById("jlScheduleMonth").textContent=
     start.toLocaleDateString("fr-CA",{month:"long",year:"numeric"});
+  grid.dataset.weeks=String(slots/7);
   grid.replaceChildren();
   for(let index=0;index<slots;index++){
     const num=index-firstWeekday+1;
@@ -13408,9 +13413,12 @@ function jlScheduleRender(){
       if(!e.target.closest("button"))jlScheduleDayOpen(date);
     });
     const jobs=jlScheduleJobsFor(date),notes=jlScheduleNotesFor(date),events=jlScheduleEventsFor(date);
-    const visibleJobs=jobs.slice(0,3);
-    const visibleEvents=events.slice(0,Math.max(0,3-visibleJobs.length));
-    const visibleNotes=notes.slice(0,Math.max(0,3-visibleJobs.length-visibleEvents.length));
+    // Six semaines : deux aperçus + place garantie pour « + X autres ».
+    // Autres mois : au plus trois aperçus, selon le comportement convenu.
+    const previewLimit=slots===42?2:3;
+    const visibleJobs=jobs.slice(0,previewLimit);
+    const visibleEvents=events.slice(0,Math.max(0,previewLimit-visibleJobs.length));
+    const visibleNotes=notes.slice(0,Math.max(0,previewLimit-visibleJobs.length-visibleEvents.length));
     for(const q of visibleJobs){
       const el=document.createElement("button");el.type="button";
       el.className="jl-schedule-mini work";
