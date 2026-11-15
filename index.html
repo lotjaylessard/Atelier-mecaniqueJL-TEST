@@ -13224,6 +13224,232 @@ window.addEventListener("s08-quotes-refreshed",()=>{
   if(document.getElementById("page-dashboard")?.style.display!=="none")
     void dashboardRefreshPendingQuotes();
 });
+
+/* S09 — Horaire mensuel : lecture des SO et notes existantes, sans duplication.
+   Portée de chaque requête : utilisateur connecté + garage courant. */
+let jlScheduleShift=0,jlScheduleSelected="",jlScheduleQuotes=[],jlScheduleNotes=[];
+let jlScheduleLoaded=false,jlScheduleRequest=0,jlScheduleSaving=false,jlScheduleInitialized=false;
+function jlScheduleMonthStart(){
+  const d=new Date(),first=new Date(d.getFullYear(),d.getMonth()+jlScheduleShift,1);
+  return first;
+}
+function jlScheduleISO(date){return jlCalendarISO(date);}
+function jlScheduleJobsFor(date){
+  return jlScheduleQuotes.filter(q=>q.content?.appointment?.date===date)
+    .sort((a,b)=>String(a.content.appointment.time||"").localeCompare(String(b.content.appointment.time||"")));
+}
+function jlScheduleNotesFor(date){
+  return jlScheduleNotes.filter(n=>n.note_date===date)
+    .sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||"")));
+}
+function jlScheduleText(container,content,className){
+  const item=document.createElement("div");
+  item.className=className||"muted";
+  item.textContent=content;
+  container.append(item);
+  return item;
+}
+function jlScheduleDayOpen(date){
+  jlScheduleSelected=date;
+  const panel=document.getElementById("jlScheduleDayPanel");
+  panel.hidden=false;
+  document.getElementById("jlScheduleNoteEditor").hidden=true;
+  document.getElementById("jlScheduleNoteText").value="";
+  document.getElementById("jlScheduleNoteStatus").textContent="";
+  jlScheduleRender();
+  panel.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+function jlScheduleDayRender(){
+  const panel=document.getElementById("jlScheduleDayPanel");
+  if(!panel||panel.hidden||!jlScheduleSelected)return;
+  const date=jlScheduleSelected,[year,month,day]=date.split("-").map(Number);
+  document.getElementById("jlScheduleDayTitle").textContent=
+    new Date(year,month-1,day,12).toLocaleDateString("fr-CA",
+      {weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  const jobs=document.getElementById("jlScheduleDayJobs");
+  const notes=document.getElementById("jlScheduleDayNotes");
+  jobs.replaceChildren();notes.replaceChildren();
+  for(const q of jlScheduleJobsFor(date)){
+    const ap=q.content.appointment||{};
+    const entry=document.createElement("div");entry.className="jl-schedule-full-item work";
+    const link=document.createElement("button");link.type="button";
+    const first=document.createElement("strong"),desc=document.createElement("span");
+    first.textContent=String(ap.time||"—")+" · "+String(q.quote_number||"SO")+" · "+
+      String(q.content.clientName||"Client");
+    desc.textContent="\n"+[q.content.vehicleLabel,q.content.description].filter(Boolean).join(" · ");
+    link.append(first,desc);
+    link.addEventListener("click",()=>jlDashboardOpenQuote(q.id));
+    entry.append(link);jobs.append(entry);
+  }
+  if(!jobs.childElementCount)jlScheduleText(jobs,jlScheduleLoaded?
+    "Aucun travail planifié.":"Travaux en cours de chargement.");
+  for(const note of jlScheduleNotesFor(date)){
+    jlScheduleText(notes,String(note.note_text||""),"jl-schedule-full-item note");
+  }
+  if(!notes.childElementCount)jlScheduleText(notes,jlScheduleLoaded?
+    "Aucune note pour cette journée.":"Notes en cours de chargement.");
+}
+function jlScheduleRender(){
+  const grid=document.getElementById("jlScheduleMonthGrid");if(!grid)return;
+  const start=jlScheduleMonthStart(),year=start.getFullYear(),month=start.getMonth();
+  const today=jlScheduleISO(new Date()),firstWeekday=start.getDay();
+  const monthDays=new Date(year,month+1,0).getDate();
+  const slots=Math.ceil((firstWeekday+monthDays)/7)*7;
+  document.getElementById("jlScheduleMonth").textContent=
+    start.toLocaleDateString("fr-CA",{month:"long",year:"numeric"});
+  grid.replaceChildren();
+  for(let index=0;index<slots;index++){
+    const num=index-firstWeekday+1;
+    const cell=document.createElement("div");cell.className="jl-schedule-day";
+    if(num<1||num>monthDays){
+      cell.dataset.outside="true";grid.append(cell);continue;
+    }
+    const date=jlScheduleISO(new Date(year,month,num));
+    cell.dataset.today=String(date===today);
+    cell.dataset.selected=String(date===jlScheduleSelected);
+    const number=document.createElement("button");number.type="button";
+    number.className="jl-schedule-day-button";number.textContent=String(num);
+    number.setAttribute("aria-label","Voir la journée du "+date);
+    number.addEventListener("click",()=>jlScheduleDayOpen(date));cell.append(number);
+    cell.addEventListener("click",e=>{
+      if(!e.target.closest("button"))jlScheduleDayOpen(date);
+    });
+    const jobs=jlScheduleJobsFor(date),notes=jlScheduleNotesFor(date);
+    const visibleJobs=jobs.slice(0,3),visibleNotes=notes.slice(0,Math.max(0,3-visibleJobs.length));
+    for(const q of visibleJobs){
+      const el=document.createElement("button");el.type="button";
+      el.className="jl-schedule-mini work";
+      el.textContent=String(q.content.appointment.time||"—")+" · "+String(q.content.clientName||"Client");
+      el.title=String(q.quote_number||"SO")+" · "+String(q.content.description||"");
+      el.addEventListener("click",()=>jlDashboardOpenQuote(q.id));cell.append(el);
+    }
+    for(const note of visibleNotes){
+      const el=document.createElement("div");el.className="jl-schedule-mini note";
+      el.textContent="📝 "+String(note.note_text||"");
+      el.title=String(note.note_text||"");cell.append(el);
+    }
+    const extra=jobs.length+notes.length-visibleJobs.length-visibleNotes.length;
+    if(extra>0){
+      const more=document.createElement("button");more.type="button";
+      more.className="jl-schedule-more";more.textContent="+"+extra+" autre"+(extra>1?"s":"");
+      more.addEventListener("click",()=>jlScheduleDayOpen(date));cell.append(more);
+    }
+    grid.append(cell);
+  }
+  jlScheduleDayRender();
+}
+async function jlScheduleLoad(){
+  const first=jlScheduleMonthStart(),last=new Date(first.getFullYear(),first.getMonth()+1,0);
+  const min=jlScheduleISO(first),max=jlScheduleISO(last),token=++jlScheduleRequest;
+  const status=document.getElementById("jlScheduleStatus");
+  jlScheduleLoaded=false;jlScheduleQuotes=[];jlScheduleNotes=[];
+  status.textContent="Chargement des rendez-vous et des notes…";
+  jlScheduleRender();
+  try{
+    const db=window.garageSupabase;
+    if(typeof CLOUD_DATA_READY==="undefined"||!CLOUD_DATA_READY||
+       typeof ACTIVE_GARAGE_ID==="undefined"||!ACTIVE_GARAGE_ID||
+       !db?.auth?.getUser||!db?.from)throw Error("Connexion Supabase indisponible");
+    const {data:auth,error:authError}=await db.auth.getUser();
+    if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
+    const [quotesResult,notesResult]=await Promise.all([
+      db.from("garage_quotes")
+        .select("id,quote_number,status,created_at,content")
+        .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id)
+        .in("status",["sent","converted"])
+        .order("created_at",{ascending:false}).limit(1000),
+      db.from("garage_calendar_notes")
+        .select("id,note_date,note_text,created_at")
+        .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id)
+        .gte("note_date",min).lte("note_date",max)
+        .order("created_at",{ascending:true})
+    ]);
+    if(quotesResult.error)throw quotesResult.error;
+    if(notesResult.error)throw notesResult.error;
+    if(token!==jlScheduleRequest)return;
+    const all=Array.isArray(quotesResult.data)?quotesResult.data:[];
+    jlScheduleQuotes=all.filter(q=>q.content?.approvalConfirmedAt&&
+      q.content?.appointment?.date>=min&&q.content?.appointment?.date<=max);
+    jlScheduleNotes=Array.isArray(notesResult.data)?notesResult.data:[];
+    jlScheduleLoaded=true;
+    status.textContent=all.length>=1000?
+      "⚠ Plus de 1000 soumissions : affichage potentiellement incomplet.":
+      "Sélectionne une journée pour afficher les travaux et les notes.";
+    jlScheduleRender();
+  }catch(err){
+    if(token!==jlScheduleRequest)return;
+    status.textContent="⚠ Lecture Supabase indisponible — horaire non vérifié.";
+    console.warn("[Horaire TEST] Erreur de lecture",err);
+    jlScheduleDayRender();
+  }
+}
+async function jlScheduleSaveNote(){
+  if(jlScheduleSaving||!jlScheduleSelected)return;
+  const field=document.getElementById("jlScheduleNoteText"),
+    status=document.getElementById("jlScheduleNoteStatus"),
+    button=document.getElementById("jlScheduleSaveNote");
+  const value=field.value.trim(),date=jlScheduleSelected;
+  if(!value){status.textContent="Écris une note.";return;}
+  if(value.length>4000){status.textContent="Maximum 4000 caractères.";return;}
+  jlScheduleSaving=true;button.disabled=true;status.textContent="Sauvegarde Supabase…";
+  try{
+    const db=window.garageSupabase;
+    if(typeof CLOUD_DATA_READY==="undefined"||!CLOUD_DATA_READY||
+       typeof ACTIVE_GARAGE_ID==="undefined"||!ACTIVE_GARAGE_ID||
+       !db?.auth?.getUser||!db?.from)throw Error("Connexion Supabase indisponible");
+    const {data:auth,error:authError}=await db.auth.getUser();
+    if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
+    const {data,error}=await db.from("garage_calendar_notes")
+      .insert({garage_id:ACTIVE_GARAGE_ID,user_id:auth.user.id,
+        note_date:date,note_text:value})
+      .select("id,note_date,note_text,created_at").single();
+    if(error||!data)throw error||Error("Sauvegarde non confirmée");
+    field.value="";status.textContent="✓ Note enregistrée dans Supabase.";
+    await jlScheduleLoad();
+    // Même source Supabase que le Dashboard : actualiser son cache hebdomadaire.
+    if(typeof jlCalendarLoadNotes==="function")void jlCalendarLoadNotes();
+  }catch(err){status.textContent="⚠ Note non enregistrée : "+String(err?.message||err);}
+  finally{jlScheduleSaving=false;button.disabled=false;}
+}
+async function jlScheduleOpen(){
+  if(!jlScheduleInitialized){
+    jlScheduleInitialized=true;
+    document.getElementById("jlSchedulePrev").addEventListener("click",()=>{
+      jlScheduleShift--;jlScheduleSelected="";
+      document.getElementById("jlScheduleDayPanel").hidden=true;void jlScheduleLoad();
+    });
+    document.getElementById("jlScheduleNext").addEventListener("click",()=>{
+      jlScheduleShift++;jlScheduleSelected="";
+      document.getElementById("jlScheduleDayPanel").hidden=true;void jlScheduleLoad();
+    });
+    document.getElementById("jlScheduleToday").addEventListener("click",()=>{
+      jlScheduleShift=0;jlScheduleSelected="";
+      document.getElementById("jlScheduleDayPanel").hidden=true;void jlScheduleLoad();
+    });
+    document.getElementById("jlScheduleClose").addEventListener("click",()=>{
+      jlScheduleSelected="";
+      document.getElementById("jlScheduleDayPanel").hidden=true;jlScheduleRender();
+    });
+    document.getElementById("jlScheduleNewNote").addEventListener("click",()=>{
+      const editor=document.getElementById("jlScheduleNoteEditor");
+      editor.hidden=!editor.hidden;
+      if(!editor.hidden)document.getElementById("jlScheduleNoteText").focus();
+    });
+    document.getElementById("jlScheduleCancelNote").addEventListener("click",()=>{
+      document.getElementById("jlScheduleNoteEditor").hidden=true;
+      document.getElementById("jlScheduleNoteText").value="";
+    });
+    document.getElementById("jlScheduleSaveNote").addEventListener("click",()=>void jlScheduleSaveNote());
+  }
+  // Chaque ouverture revient au mois actuel, détails fermés, comme approuvé.
+  jlScheduleShift=0;jlScheduleSelected="";
+  document.getElementById("jlScheduleDayPanel").hidden=true;
+  void jlScheduleLoad();
+}
+window.addEventListener("s08-quotes-refreshed",()=>{
+  if(document.getElementById("page-schedule")?.style.display==="block")void jlScheduleLoad();
+});
+
 // Le calendrier conserve seulement les rendez-vous confirmés par Supabase.
 let jlCalendarWeekShift=0, jlCalendarQuotes=[];
 function jlCalendarISO(date){
