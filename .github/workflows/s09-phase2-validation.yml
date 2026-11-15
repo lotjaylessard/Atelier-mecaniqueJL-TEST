@@ -24,12 +24,15 @@ jobs:
       - name: Validate HTML inline JavaScript syntax
         run: |
           node - <<'NODE'
-          const fs=require('fs'),vm=require('vm');
+          const fs=require('fs'),vm=require('vm'),cp=require('child_process');
           const html=fs.readFileSync('index.html','utf8');
-          const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(s=>s.trim());
-          for(const [i,code] of scripts.entries()){
-            try{new vm.Script(code,{filename:'inline-'+i+'.js'});}
-            catch(e){console.error('Syntax error in inline script',i);throw e;}
+          const scripts=[...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].filter(m=>m[2].trim());
+          for(const [i,entry] of scripts.entries()){
+            const code=entry[2],isModule=/\btype\s*=\s*["']module["']/i.test(entry[1]);
+            if(isModule){
+              const check=cp.spawnSync(process.execPath,['--check','--input-type=module'],{input:code,encoding:'utf8'});
+              if(check.status!==0)throw Error('Module '+i+' syntax: '+check.stderr);
+            }else new vm.Script(code,{filename:'inline-'+i+'.js'});
           }
-          console.log('Validated',scripts.length,'inline scripts');
+          console.log('Validated',scripts.length,'inline scripts, including ES modules');
           NODE
