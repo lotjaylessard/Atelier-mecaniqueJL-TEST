@@ -13626,7 +13626,8 @@ async function jlScheduleSaveEvent(event){
     const {data:auth,error:authError}=await db.auth.getUser();
     if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
     const row={...candidate,garage_id:ACTIVE_GARAGE_ID,user_id:auth.user.id};
-    const query=id?db.from("garage_schedule_events").update(row).eq("id",id)
+    const query=id?db.from("garage_schedule_events").update(row)
+        .eq("id",id).eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id)
       :db.from("garage_schedule_events").insert(row);
     const {data,error}=await query.select("id").single();
     if(error||!data)throw error||Error("Écriture non confirmée");
