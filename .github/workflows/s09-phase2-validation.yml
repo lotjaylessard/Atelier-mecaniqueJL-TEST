@@ -21,6 +21,8 @@ jobs:
           node-version: '22'
       - name: Validate all S09 regression tests
         run: node --test tests/s09-*.test.cjs
+      - name: Phase 3 calendar provider adapter tests (offline)
+        run: node --test tests/s09-calendar-providers.test.cjs
       - name: Complete offline regression suite (other modules)
         run: node --test tests/*.test.cjs
       - name: Real Chromium monthly calendar smoke (offline fixtures)
