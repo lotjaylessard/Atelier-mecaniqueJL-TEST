@@ -1588,6 +1588,8 @@ button.link:hover{
 #page-schedule .jl-schedule-swatch{display:inline-block;width:10px;height:10px;border-radius:3px}
 #page-schedule .jl-schedule-swatch.work{background:#ef6161}
 #page-schedule .jl-schedule-swatch.note{background:#5da9ff}
+#page-schedule .jl-schedule-swatch.workshop{background:#daa038}
+#page-schedule .jl-schedule-swatch.private{background:#48ad7d}
 #page-schedule .jl-schedule-weekdays,#page-schedule .jl-schedule-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
 #page-schedule .jl-schedule-weekdays{text-align:center;font-size:12px;font-weight:700;padding-bottom:5px}
 #page-schedule .jl-schedule-day{height:clamp(58px,calc((100dvh - 320px)/6),90px);min-height:0;min-width:0;overflow:hidden;display:flex;flex-direction:column;gap:4px;box-sizing:border-box;padding:6px;border:1px solid var(--border);border-radius:7px;cursor:pointer}
@@ -1599,6 +1601,8 @@ button.link:hover{
 #page-schedule .jl-schedule-mini{flex:0 0 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;padding:3px 5px;border-radius:3px;color:inherit}
 #page-schedule .jl-schedule-mini.work{background:rgba(239,97,97,.13);border-left:3px solid #ef6161}
 #page-schedule .jl-schedule-mini.note{background:rgba(93,169,255,.13);border-left:3px solid #5da9ff}
+#page-schedule .jl-schedule-mini.workshop{background:rgba(218,160,56,.15);border-left:3px solid #daa038}
+#page-schedule .jl-schedule-mini.private{background:rgba(72,173,125,.15);border-left:3px solid #48ad7d}
 #page-schedule .jl-schedule-more{border:0;background:transparent;color:var(--accent);text-align:left;font-size:11px;font-weight:700;cursor:pointer;padding:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #page-schedule .jl-schedule-day-panel{border:1px solid var(--border);border-radius:9px;padding:13px;margin-top:12px}
 #page-schedule .jl-schedule-day-panel[hidden],#page-schedule #jlScheduleNoteEditor[hidden]{display:none}
@@ -1609,6 +1613,17 @@ button.link:hover{
 #page-schedule .jl-schedule-full-item{padding:9px;border-radius:6px;overflow-wrap:anywhere;white-space:pre-wrap}
 #page-schedule .jl-schedule-full-item.work{border:1px solid rgba(239,97,97,.36);border-left:3px solid #ef6161;background:rgba(239,97,97,.07)}
 #page-schedule .jl-schedule-full-item.note{border:1px solid rgba(93,169,255,.36);border-left:3px solid #5da9ff;background:rgba(93,169,255,.07)}
+#page-schedule .jl-schedule-full-item.workshop{border:1px solid rgba(218,160,56,.36);border-left:3px solid #daa038;background:rgba(218,160,56,.08)}
+#page-schedule .jl-schedule-full-item.private{border:1px solid rgba(72,173,125,.36);border-left:3px solid #48ad7d;background:rgba(72,173,125,.08)}
+#page-schedule #jlScheduleEventEditor{padding:12px;border:1px solid var(--border);border-radius:8px;margin-top:12px}
+#page-schedule #jlScheduleEventEditor[hidden],#page-schedule #jlScheduleEventConflict[hidden]{display:none}
+#page-schedule .jl-schedule-event-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#page-schedule .jl-schedule-event-fields label{display:flex;flex-direction:column;gap:4px;min-width:0}
+#page-schedule .jl-schedule-event-fields input:not([type="checkbox"]),#page-schedule .jl-schedule-event-fields select{width:100%;box-sizing:border-box}
+#page-schedule .jl-schedule-event-wide{grid-column:1/-1}
+#page-schedule .jl-schedule-all-day{flex-direction:row!important;align-items:center}
+#page-schedule .jl-schedule-conflict{padding:9px;border-left:3px solid #daa038;background:rgba(218,160,56,.10);margin:9px 0}
+@media(max-width:520px){#page-schedule .jl-schedule-event-fields{grid-template-columns:1fr}#page-schedule .jl-schedule-event-wide{grid-column:auto}}
 #page-schedule .jl-schedule-full-item button{border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;padding:0}
 #page-schedule .jl-schedule-note-controls{justify-content:flex-end;margin-top:6px}
 #page-schedule #jlScheduleNoteEditor{margin-top:12px}
@@ -1830,6 +1845,8 @@ button.link:hover{
         <div class="jl-schedule-legend" aria-label="Couleurs de l'horaire">
           <span><i class="jl-schedule-swatch work"></i>Travaux</span>
           <span><i class="jl-schedule-swatch note"></i>Notes</span>
+          <span><i class="jl-schedule-swatch workshop"></i>Atelier</span>
+          <span><i class="jl-schedule-swatch private"></i>Personnel (privé)</span>
         </div>
         <p class="muted" id="jlScheduleStatus" role="status" aria-live="polite">Chargement de l'horaire…</p>
         <div class="jl-schedule-weekdays" aria-hidden="true">
@@ -1841,14 +1858,52 @@ button.link:hover{
             <h3 id="jlScheduleDayTitle"></h3>
             <div class="jl-schedule-day-actions">
               <button type="button" id="jlScheduleNewNote" class="ghost">+ Note</button>
-              <button type="button" id="jlScheduleNewEvent" class="ghost" disabled title="Disponible dans la prochaine phase">+ Événement · bientôt</button>
+              <button type="button" id="jlScheduleNewEvent" class="ghost">+ Événement</button>
               <button type="button" id="jlScheduleClose" class="ghost">Fermer</button>
             </div>
           </div>
           <h4>Travaux planifiés</h4>
           <div id="jlScheduleDayJobs" class="jl-schedule-day-list"></div>
+          <h4>Événements et indisponibilités</h4>
+          <div id="jlScheduleDayEvents" class="jl-schedule-day-list"></div>
           <h4>Notes de la journée</h4>
           <div id="jlScheduleDayNotes" class="jl-schedule-day-list"></div>
+          <form id="jlScheduleEventEditor" hidden>
+            <h4 id="jlScheduleEventFormTitle">Nouvel événement</h4>
+            <input type="hidden" id="jlScheduleEventId">
+            <div class="jl-schedule-event-fields">
+              <label>Visibilité
+                <select id="jlScheduleEventVisibility">
+                  <option value="workshop">Atelier — visible aux membres autorisés</option>
+                  <option value="private">Personnel — uniquement moi</option>
+                </select>
+              </label>
+              <label>Type
+                <select id="jlScheduleEventType">
+                  <option value="unavailable">Indisponibilité</option>
+                  <option value="closed">Atelier fermé</option>
+                  <option value="reserved">Période réservée</option>
+                </select>
+              </label>
+              <label class="jl-schedule-event-wide">Titre
+                <input id="jlScheduleEventTitle" maxlength="200" required placeholder="Ex. : vacances, atelier fermé, absence">
+              </label>
+              <label>Date de début<input id="jlScheduleEventStart" type="date" required></label>
+              <label>Date de fin<input id="jlScheduleEventEnd" type="date" required></label>
+              <label class="jl-schedule-event-wide jl-schedule-all-day">
+                <input type="checkbox" id="jlScheduleEventAllDay" checked> Toute la journée (sans heures)
+              </label>
+              <label class="jl-schedule-time-field">Heure de début<input id="jlScheduleEventStartTime" type="time" value="09:00"></label>
+              <label class="jl-schedule-time-field">Heure de fin<input id="jlScheduleEventEndTime" type="time" value="17:00"></label>
+            </div>
+            <div id="jlScheduleEventConflict" class="jl-schedule-conflict" hidden></div>
+            <div id="jlScheduleEventStatus" class="muted" role="status" aria-live="polite"></div>
+            <div class="jl-schedule-note-controls">
+              <button type="button" id="jlScheduleDeleteEvent" class="ghost" hidden>Supprimer</button>
+              <button type="button" id="jlScheduleCancelEvent" class="ghost">Annuler</button>
+              <button type="submit" id="jlScheduleSaveEvent">Enregistrer</button>
+            </div>
+          </form>
           <div id="jlScheduleNoteEditor" hidden>
             <label for="jlScheduleNoteText">Nouvelle note</label>
             <textarea id="jlScheduleNoteText" rows="2" maxlength="4000" placeholder="Note pour cette journée…"></textarea>
