@@ -1596,7 +1596,7 @@ button.link:hover{
 #page-schedule .jl-schedule-swatch.private{background:#48ad7d}
 #page-schedule .jl-schedule-weekdays,#page-schedule .jl-schedule-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
 #page-schedule .jl-schedule-weekdays{text-align:center;font-size:12px;font-weight:700;padding-bottom:5px}
-#page-schedule .jl-schedule-day{height:clamp(85px,calc((100dvh - 300px)/6),102px);min-height:0;min-width:0;overflow:hidden;display:flex;flex-direction:column;gap:2px;box-sizing:border-box;padding:3px;border:1px solid var(--border);border-radius:7px;cursor:pointer}
+#page-schedule .jl-schedule-day{height:clamp(85px,calc((100dvh - 300px)/6),102px);position:relative;min-height:0;min-width:0;overflow:hidden;display:flex;flex-direction:column;gap:2px;box-sizing:border-box;padding:3px;border:1px solid var(--border);border-radius:7px;cursor:pointer}
 /* S09 : six rangées, réserver l'espace du mois entier dans le viewport. */
 #page-schedule .jl-schedule-month-grid[data-weeks="6"] .jl-schedule-day{height:clamp(65px,calc((100dvh - 425px)/6),96px)}
 #page-schedule .jl-schedule-month-grid[data-weeks="6"] .jl-schedule-mini{padding:1px 5px;line-height:13px}
@@ -1611,7 +1611,7 @@ button.link:hover{
 #page-schedule .jl-schedule-mini.note{background:rgba(93,169,255,.13);border-left:3px solid #5da9ff}
 #page-schedule .jl-schedule-mini.workshop{background:rgba(218,160,56,.15);border-left:3px solid #daa038}
 #page-schedule .jl-schedule-mini.private{background:rgba(72,173,125,.15);border-left:3px solid #48ad7d}
-#page-schedule .jl-schedule-more{border:0;background:transparent;color:var(--accent);text-align:left;font-size:11px;font-weight:700;cursor:pointer;padding:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#page-schedule .jl-schedule-more{position:absolute;bottom:3px;right:4px;z-index:2;border:1px solid var(--border);border-radius:4px;background:var(--card,#252525);color:var(--accent);text-align:center;font-size:11px;line-height:15px;font-weight:700;cursor:pointer;padding:0 5px;max-width:calc(100% - 8px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.4)}
 #page-schedule .jl-schedule-day-panel{border:1px solid var(--border);border-radius:9px;padding:13px;margin-top:12px}
 #page-schedule .jl-schedule-day-panel[hidden],#page-schedule #jlScheduleNoteEditor[hidden]{display:none}
 #page-schedule .jl-schedule-day-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
@@ -13442,6 +13442,7 @@ function jlScheduleRender(){
     if(extra>0){
       const more=document.createElement("button");more.type="button";
       more.className="jl-schedule-more";more.textContent="+"+extra+" autre"+(extra>1?"s":"");
+      more.setAttribute("aria-label","Afficher "+extra+" élément"+(extra>1?"s":"")+" supplémentaire"+(extra>1?"s":"")+" pour le "+date);
       more.addEventListener("click",()=>jlScheduleDayOpen(date));cell.append(more);
     }
     grid.append(cell);
