@@ -1578,6 +1578,47 @@ button.link:hover{
   #page-invoice-list .card:has(#invoiceListTable){overflow-x:auto}
 }
 
+/* S09 : Agenda mensuel TEST, hauteur des cases fixe, sans dépendance graphique. */
+#page-schedule .jl-schedule-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#page-schedule .jl-schedule-bar h2{margin:0}
+#page-schedule .jl-schedule-nav{display:flex;gap:7px}
+#page-schedule .jl-schedule-title{text-align:center;text-transform:capitalize;margin:10px 0}
+#page-schedule .jl-schedule-legend{display:flex;gap:16px;flex-wrap:wrap;margin:6px 0 10px;font-size:12px}
+#page-schedule .jl-schedule-legend span{display:flex;gap:6px;align-items:center}
+#page-schedule .jl-schedule-swatch{display:inline-block;width:10px;height:10px;border-radius:3px}
+#page-schedule .jl-schedule-swatch.work{background:#ef6161}
+#page-schedule .jl-schedule-swatch.note{background:#5da9ff}
+#page-schedule .jl-schedule-weekdays,#page-schedule .jl-schedule-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+#page-schedule .jl-schedule-weekdays{text-align:center;font-size:12px;font-weight:700;padding-bottom:5px}
+#page-schedule .jl-schedule-day{height:124px;min-height:0;min-width:0;overflow:hidden;display:flex;flex-direction:column;gap:4px;box-sizing:border-box;padding:6px;border:1px solid var(--border);border-radius:7px;cursor:pointer}
+#page-schedule .jl-schedule-day[data-outside="true"]{background:rgba(128,128,128,.035);cursor:default;opacity:.36}
+#page-schedule .jl-schedule-day[data-today="true"]{border-color:#e2af36}
+#page-schedule .jl-schedule-day[data-selected="true"]{outline:2px solid #75b6ff;outline-offset:-2px;background:rgba(93,169,255,.08)}
+#page-schedule .jl-schedule-day-button{border:0;background:transparent;text-align:left;color:inherit;cursor:pointer;padding:0;font-size:12px;font-weight:700}
+#page-schedule .jl-schedule-mini{flex:0 0 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;padding:3px 5px;border-radius:3px;color:inherit}
+#page-schedule .jl-schedule-mini.work{background:rgba(239,97,97,.13);border-left:3px solid #ef6161}
+#page-schedule .jl-schedule-mini.note{background:rgba(93,169,255,.13);border-left:3px solid #5da9ff}
+#page-schedule .jl-schedule-more{border:0;background:transparent;color:var(--accent);text-align:left;font-size:11px;font-weight:700;cursor:pointer;padding:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#page-schedule .jl-schedule-day-panel{border:1px solid var(--border);border-radius:9px;padding:13px;margin-top:12px}
+#page-schedule .jl-schedule-day-panel[hidden],#page-schedule #jlScheduleNoteEditor[hidden]{display:none}
+#page-schedule .jl-schedule-day-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+#page-schedule .jl-schedule-day-heading h3{margin:0;text-transform:capitalize}
+#page-schedule .jl-schedule-day-actions,#page-schedule .jl-schedule-note-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+#page-schedule .jl-schedule-day-list{display:grid;gap:6px}
+#page-schedule .jl-schedule-full-item{padding:9px;border-radius:6px;overflow-wrap:anywhere;white-space:pre-wrap}
+#page-schedule .jl-schedule-full-item.work{border:1px solid rgba(239,97,97,.36);border-left:3px solid #ef6161;background:rgba(239,97,97,.07)}
+#page-schedule .jl-schedule-full-item.note{border:1px solid rgba(93,169,255,.36);border-left:3px solid #5da9ff;background:rgba(93,169,255,.07)}
+#page-schedule .jl-schedule-full-item button{border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;padding:0}
+#page-schedule .jl-schedule-note-controls{justify-content:flex-end;margin-top:6px}
+#page-schedule #jlScheduleNoteEditor{margin-top:12px}
+#page-schedule #jlScheduleNoteText{width:100%;min-height:65px;margin-top:6px}
+@media(max-width:780px){
+ #page-schedule .jl-schedule-weekdays,#page-schedule .jl-schedule-month-grid{gap:2px}
+ #page-schedule .jl-schedule-day{height:90px;padding:3px;gap:2px}
+ #page-schedule .jl-schedule-mini{font-size:9px;padding:2px}
+ #page-schedule .jl-schedule-more{font-size:9px}
+}
+
 /* TEST — ouverture des BT et factures par clic sur leur ligne. */
 #woTable tbody tr.jl-openable-row,#invoiceListTable tbody tr.jl-openable-row{cursor:pointer}
 #woTable tbody tr.jl-openable-row:hover,#invoiceListTable tbody tr.jl-openable-row:hover{background:rgba(245,197,66,.08)}
@@ -1618,6 +1659,7 @@ button.link:hover{
        Le panneau est masqué par défaut et n'est visible qu'après
        confirmation d'une minuterie réelle par la logique de restauration. -->
   <button class="navBtn" data-page="page-dashboard">📊 Dashboard</button>
+  <button class="navBtn" data-page="page-schedule">📅 Horaire</button>
   <button class="navBtn" data-page="page-quotes">📝 Soumissions</button>
   <button class="navBtn" data-page="page-workorders">📋 Work Order</button>
   <button class="navBtn" data-page="page-invoice-list">🧾 Factures</button>
@@ -1772,6 +1814,53 @@ button.link:hover{
 
 
         <!-- WORK ORDERS -->
+    <!-- S09 Horaire mensuel TEST : source Supabase commune, aucune nouvelle donnée copiée. -->
+    <div class="page" id="page-schedule">
+      <div class="card jl-schedule-card">
+        <div class="jl-schedule-bar">
+          <h2>📅 Horaire</h2>
+          <div class="jl-schedule-nav">
+            <button type="button" id="jlSchedulePrev" class="ghost" aria-label="Mois précédent">‹</button>
+            <button type="button" id="jlScheduleToday" class="ghost">Aujourd'hui</button>
+            <button type="button" id="jlScheduleNext" class="ghost" aria-label="Mois suivant">›</button>
+          </div>
+        </div>
+        <h3 id="jlScheduleMonth" class="jl-schedule-title"></h3>
+        <div class="jl-schedule-legend" aria-label="Couleurs de l'horaire">
+          <span><i class="jl-schedule-swatch work"></i>Travaux</span>
+          <span><i class="jl-schedule-swatch note"></i>Notes</span>
+        </div>
+        <p class="muted" id="jlScheduleStatus" role="status" aria-live="polite">Chargement de l'horaire…</p>
+        <div class="jl-schedule-weekdays" aria-hidden="true">
+          <span>Dim</span><span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span>
+        </div>
+        <div id="jlScheduleMonthGrid" class="jl-schedule-month-grid" aria-label="Calendrier mensuel"></div>
+        <section id="jlScheduleDayPanel" class="jl-schedule-day-panel" hidden aria-label="Détails de la journée">
+          <div class="jl-schedule-day-heading">
+            <h3 id="jlScheduleDayTitle"></h3>
+            <div class="jl-schedule-day-actions">
+              <button type="button" id="jlScheduleNewNote" class="ghost">+ Note</button>
+              <button type="button" id="jlScheduleNewEvent" class="ghost" disabled title="Disponible dans la prochaine phase">+ Événement · bientôt</button>
+              <button type="button" id="jlScheduleClose" class="ghost">Fermer</button>
+            </div>
+          </div>
+          <h4>Travaux planifiés</h4>
+          <div id="jlScheduleDayJobs" class="jl-schedule-day-list"></div>
+          <h4>Notes de la journée</h4>
+          <div id="jlScheduleDayNotes" class="jl-schedule-day-list"></div>
+          <div id="jlScheduleNoteEditor" hidden>
+            <label for="jlScheduleNoteText">Nouvelle note</label>
+            <textarea id="jlScheduleNoteText" rows="2" maxlength="4000" placeholder="Note pour cette journée…"></textarea>
+            <div class="jl-schedule-note-controls">
+              <span id="jlScheduleNoteStatus" class="muted" role="status" aria-live="polite"></span>
+              <button type="button" id="jlScheduleCancelNote" class="ghost">Annuler</button>
+              <button type="button" id="jlScheduleSaveNote">Enregistrer</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
     <!-- S08-F01 : module Soumissions indépendant, squelette sans écriture de données. -->
     <div class="page" id="page-quotes">
       <div class="s08-page-heading"><h2>Soumissions</h2></div>
@@ -3604,6 +3693,9 @@ function showPage(id){
 
   if (id === "page-workorders") {
     initWorkOrdersModule();
+  }
+  if (id === "page-schedule" && typeof jlScheduleOpen==="function") {
+    void jlScheduleOpen();
   }
 
   // navigation active
