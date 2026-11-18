@@ -13671,6 +13671,38 @@ async function jlScheduleDeleteEvent(){
   }catch(err){status.textContent="⚠ Suppression refusée : "+String(err?.message||err);}
   finally{jlScheduleEventSaving=false;}
 }
+async function jlScheduleLoadExternalConnections(){
+  const status=document.getElementById("jlScheduleExternalStatus");
+  if(!status)return;
+  status.textContent="Vérification des connexions personnelles…";
+  for(const [id,label] of [["jlScheduleExternalGoogle","Google Calendar"],["jlScheduleExternalMicrosoft","Outlook / Hotmail"]])
+    document.getElementById(id).textContent=label+" — non connecté";
+  try{
+    const db=window.garageSupabase;
+    if(!db?.auth?.getUser||!db?.from||!CLOUD_DATA_READY||!ACTIVE_GARAGE_ID)
+      throw Error("Session TEST indisponible");
+    const {data:auth,error:authError}=await db.auth.getUser();
+    if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
+    const {data,error}=await db.from("garage_external_calendar_connections")
+      .select("provider,display_name,sync_status,last_synced_at")
+      .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id).limit(100);
+    if(error)throw error;
+    if(document.getElementById("jlScheduleCalendarsPanel").hidden)return;
+    const rows=Array.isArray(data)?data:[];
+    for(const [provider,id,label] of [
+      ["google","jlScheduleExternalGoogle","Google Calendar"],
+      ["microsoft","jlScheduleExternalMicrosoft","Outlook / Hotmail"]
+    ]){
+      const own=rows.filter(x=>x.provider===provider);
+      const items=own.map(x=>String(x.display_name||"Calendrier").slice(0,100)+
+        " ("+({connected:"connecté",syncing:"synchronisation",needs_reconnect:"reconnexion requise",error:"erreur",not_connected:"non connecté"}[x.sync_status]||"statut inconnu")+")");
+      document.getElementById(id).textContent=label+" — "+(items.length?items.join(" · "):"non connecté");
+    }
+    status.textContent="La connexion de nouveaux comptes sera activée après la configuration OAuth sécurisée.";
+  }catch(err){
+    status.textContent="⚠ Connexions non vérifiées : "+String(err?.message||"");
+  }
+}
 function jlScheduleBindEvents(){
   const form=document.getElementById("jlScheduleEventEditor");
   document.getElementById("jlScheduleNewEvent").addEventListener("click",()=>jlScheduleOpenEventForm());
@@ -13686,6 +13718,12 @@ function jlScheduleBindEvents(){
 async function jlScheduleOpen(){
   if(!jlScheduleInitialized){
     jlScheduleInitialized=true;
+    document.getElementById("jlScheduleCalendarsToggle").addEventListener("click",()=>{
+      const panel=document.getElementById("jlScheduleCalendarsPanel");
+      panel.hidden=!panel.hidden;
+      document.getElementById("jlScheduleCalendarsToggle").setAttribute("aria-expanded",String(!panel.hidden));
+      if(!panel.hidden)void jlScheduleLoadExternalConnections();
+    });
     document.getElementById("jlSchedulePrev").addEventListener("click",()=>{
       jlScheduleShift--;jlScheduleSelected="";
       document.getElementById("jlScheduleDayPanel").hidden=true;void jlScheduleLoad();
@@ -13717,6 +13755,8 @@ async function jlScheduleOpen(){
   // Chaque ouverture revient au mois actuel, détails fermés, comme approuvé.
   jlScheduleShift=0;jlScheduleSelected="";
   document.getElementById("jlScheduleDayPanel").hidden=true;
+  document.getElementById("jlScheduleCalendarsPanel").hidden=true;
+  document.getElementById("jlScheduleCalendarsToggle").setAttribute("aria-expanded","false");
   void jlScheduleLoad();
 }
 window.addEventListener("s08-quotes-refreshed",()=>{
