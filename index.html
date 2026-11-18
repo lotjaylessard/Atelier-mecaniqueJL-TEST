@@ -1612,6 +1612,10 @@ button.link:hover{
 #page-schedule .jl-schedule-mini.workshop{background:rgba(218,160,56,.15);border-left:3px solid #daa038}
 #page-schedule .jl-schedule-mini.private{background:rgba(72,173,125,.15);border-left:3px solid #48ad7d}
 #page-schedule .jl-schedule-more{position:absolute;bottom:3px;right:4px;z-index:2;border:1px solid var(--border);border-radius:4px;background:var(--card,#252525);color:var(--accent);text-align:center;font-size:11px;line-height:15px;font-weight:700;cursor:pointer;padding:0 5px;max-width:calc(100% - 8px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+#page-schedule .jl-schedule-external-panel{margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:9px}
+#page-schedule .jl-schedule-external-panel[hidden]{display:none}
+#page-schedule .jl-schedule-external-panel h3{margin:0 0 8px}
+#page-schedule .jl-schedule-external-provider{padding:7px 9px;margin:6px 0;border:1px solid var(--border);border-radius:6px}
 #page-schedule .jl-schedule-day-panel{border:1px solid var(--border);border-radius:9px;padding:13px;margin-top:12px}
 #page-schedule .jl-schedule-day-panel[hidden],#page-schedule #jlScheduleNoteEditor[hidden]{display:none}
 #page-schedule .jl-schedule-day-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
@@ -1847,6 +1851,7 @@ button.link:hover{
         <div class="jl-schedule-bar">
           <h2>📅 Horaire</h2>
           <div class="jl-schedule-nav">
+            <button type="button" id="jlScheduleCalendarsToggle" class="ghost" aria-expanded="false" aria-controls="jlScheduleCalendarsPanel">Mes calendriers</button>
             <button type="button" id="jlSchedulePrev" class="ghost" aria-label="Mois précédent">‹</button>
             <button type="button" id="jlScheduleToday" class="ghost">Aujourd'hui</button>
             <button type="button" id="jlScheduleNext" class="ghost" aria-label="Mois suivant">›</button>
@@ -1864,6 +1869,13 @@ button.link:hover{
           <span>Dim</span><span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span>
         </div>
         <div id="jlScheduleMonthGrid" class="jl-schedule-month-grid" aria-label="Calendrier mensuel"></div>
+        <section id="jlScheduleCalendarsPanel" class="jl-schedule-external-panel" hidden aria-label="Mes calendriers personnels">
+          <h3>Calendriers personnels</h3>
+          <p class="muted">Tes événements importés resteront complètement privés, sans partager tes plages occupées avec les employés.</p>
+          <div id="jlScheduleExternalGoogle" class="jl-schedule-external-provider">Google Calendar — non connecté</div>
+          <div id="jlScheduleExternalMicrosoft" class="jl-schedule-external-provider">Outlook / Hotmail — non connecté</div>
+          <p id="jlScheduleExternalStatus" class="muted" role="status" aria-live="polite">Les connexions seront disponibles après la configuration OAuth sécurisée.</p>
+        </section>
         <section id="jlScheduleDayPanel" class="jl-schedule-day-panel" hidden aria-label="Détails de la journée">
           <div class="jl-schedule-day-heading">
             <h3 id="jlScheduleDayTitle"></h3>
