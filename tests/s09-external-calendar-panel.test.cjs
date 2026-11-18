@@ -9,7 +9,7 @@ assert.ok(a>0&&b>a,'External calendar controller');
 const src=html.slice(a,b);
 test('personal calendar panel starts closed and calendar does not grow on entry',()=>{
  assert.match(html,/id="jlScheduleCalendarsPanel"[^>]*hidden/);
- assert.match(html,/#page-schedule \\.jl-schedule-external-panel\\[hidden\\]\\{display:none\\}/);
+ assert.ok(html.includes('#page-schedule .jl-schedule-external-panel[hidden]{display:none}'));
  assert.match(html,/id="jlScheduleCalendarsToggle"[^>]*aria-expanded="false"/);
  assert.match(html,/jlScheduleCalendarsToggle"\)\.setAttribute\("aria-expanded","false"\)/);
 });
