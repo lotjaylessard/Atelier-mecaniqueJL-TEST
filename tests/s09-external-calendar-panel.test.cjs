@@ -21,7 +21,8 @@ test('external calendars read only status metadata with both owner and garage fi
 });
 test('no external OAuth tokens or fake connection buttons are exposed',()=>{
  assert.doesNotMatch(src,/refresh_token|access_token|client_secret|service_role/);
- assert.match(html,/La connexion de nouveaux comptes sera activée après la configuration OAuth sécurisée/);
+ assert.match(html,/Connexion Google TEST en attente de configuration OAuth/);
+ assert.match(html,/id="jlScheduleConnectGoogle"[^>]*disabled/);
 });
 test('two providers have separated labels and untrusted values use textContent',()=>{
  assert.match(html,/id="jlScheduleExternalGoogle"/);
