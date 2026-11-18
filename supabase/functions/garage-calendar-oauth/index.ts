@@ -3,8 +3,16 @@
 // POST /start individually verifies the Supabase user's bearer token and garage membership.
 // All secrets remain Supabase Edge Function environment variables. NO credentials in HTML/GitHub.
 const dbUrl=Deno.env.get("SUPABASE_URL")||"";
-const serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"";
-const anonKey=Deno.env.get("SUPABASE_ANON_KEY")||"";
+function projectKey(legacy:string,modern:string){
+ const legacyKey=Deno.env.get(legacy)||"";
+ if(legacyKey)return legacyKey;
+ try{
+  const keys=JSON.parse(Deno.env.get(modern)||"{}");
+  return typeof keys.default==="string"?keys.default:"";
+ }catch{return "";}
+}
+const serviceKey=projectKey("SUPABASE_SERVICE_ROLE_KEY","SUPABASE_SECRET_KEYS");
+const anonKey=projectKey("SUPABASE_ANON_KEY","SUPABASE_PUBLISHABLE_KEYS");
 const clientId=Deno.env.get("GOOGLE_CALENDAR_CLIENT_ID")||"";
 const clientSecret=Deno.env.get("GOOGLE_CALENDAR_CLIENT_SECRET")||"";
 const tokenKey=Deno.env.get("GOOGLE_CALENDAR_ENCRYPTION_KEY_HEX")||"";
