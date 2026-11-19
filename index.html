@@ -15265,6 +15265,7 @@ if (clientObj && Array.isArray(clientObj.vehicles)){
         <td>${it.type || ""}</td>
         <td>${escapeHTML(String(it.desc||""))}</td>
         <td>${it.type==="Pièce" ? (escapeHTML(String(it.number||it.invNumber||"")) || "—") : "—"}</td>
+        <td class="jl-supplier-internal jl-invoice-supplier">${it.type==="Pièce" ? (escapeHTML(String(it.supplier||"")) || "—") : "—"}</td>
         <td style="text-align:right;">${Number(it.qty).toFixed(2)}</td>
         <td style="text-align:right;">${money(it.rate)} $</td>
         <td style="text-align:right;">${money(s06InvoiceItemAmount(it))} $</td>
@@ -15361,6 +15362,7 @@ content.innerHTML = `
         <th>Type</th>
         <th>Description</th>
         <th># pièce</th>
+        <th class="jl-supplier-internal jl-invoice-supplier">Fournisseur</th>
         <th style="text-align:right;">Qté</th>
         <th style="text-align:right;">Prix</th>
         <th style="text-align:right;">Total</th>
