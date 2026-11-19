@@ -1585,10 +1585,10 @@ button.link:hover{
 }
 
 
-body.jl-hide-supplier-quotes #s08QuoteEditor .s08-editor-lines th:nth-child(9),
-body.jl-hide-supplier-quotes #s08QuoteEditor .s08-editor-lines td:nth-child(9),
-body.jl-hide-supplier-quotes #s08QuoteViewer .s08-viewer-table th:last-child,
-body.jl-hide-supplier-quotes #s08QuoteViewer .s08-viewer-table td:last-child{display:none!important}
+body.jl-hide-supplier-quotes #s08QuoteEditor .s08-editor-lines th:nth-child(4),
+body.jl-hide-supplier-quotes #s08QuoteEditor .s08-editor-lines td:nth-child(4),
+body.jl-hide-supplier-quotes #s08QuoteViewer .s08-viewer-table th:nth-child(4),
+body.jl-hide-supplier-quotes #s08QuoteViewer .s08-viewer-table td:nth-child(4){display:none!important}
 body.jl-hide-supplier-invoices .jl-invoice-supplier{display:none!important}
 .pdf-export .jl-supplier-internal{display:none!important}
 @media print{.jl-supplier-internal{display:none!important}}
@@ -1605,8 +1605,8 @@ body.jl-hide-supplier-invoices .jl-invoice-supplier{display:none!important}
 #page-quotes .s08-editor-lines td:nth-child(1){min-width:100px}
 #page-quotes .s08-editor-lines th:nth-child(2),
 #page-quotes .s08-editor-lines td:nth-child(2){min-width:170px}
-#page-quotes .s08-editor-lines th:nth-child(9),
-#page-quotes .s08-editor-lines td:nth-child(9){min-width:125px}
+#page-quotes .s08-editor-lines th:nth-child(4),
+#page-quotes .s08-editor-lines td:nth-child(4){min-width:125px}
 #page-quotes .s08-viewer-table table{min-width:820px}
 #page-workorders #woPartsTable{min-width:850px}
 #page-workorders #woPartsTable th,#page-workorders #woPartsTable td{
@@ -1614,8 +1614,8 @@ body.jl-hide-supplier-invoices .jl-invoice-supplier{display:none!important}
 }
 #page-workorders #woPartsTable th:nth-child(1),
 #page-workorders #woPartsTable td:nth-child(1){min-width:145px}
-#page-workorders #woPartsTable th:nth-child(8),
-#page-workorders #woPartsTable td:nth-child(8){min-width:120px}
+#page-workorders #woPartsTable th:nth-child(3),
+#page-workorders #woPartsTable td:nth-child(3){min-width:120px}
 @media(max-width:1300px){
   #page-quotes .s08-line-add{grid-template-columns:repeat(2,minmax(0,1fr))}
   #page-quotes .s08-line-add label:nth-child(2),#page-quotes .s08-line-add button{grid-column:span 2}
@@ -2117,7 +2117,7 @@ body.jl-hide-supplier-invoices .jl-invoice-supplier{display:none!important}
         <p class="muted" style="font-size:12px;margin:4px 0 0">Astuce : <strong>Entrée</strong> dans les champs de la ligne ajoute directement la pièce ou le service.</p>
         <p id="s08LineError" role="status" aria-live="polite" class="muted"></p>
         <div class="s08-editor-lines">
-          <table><thead><tr><th>Type</th><th>Description</th><th># pièce</th><th>Quantité</th><th>Coûtant</th><th>Vente</th><th>Montant</th><th>Profit</th><th>Fournisseur</th><th>Actions</th></tr></thead>
+          <table><thead><tr><th>Type</th><th>Description</th><th># pièce</th><th>Fournisseur</th><th>Quantité</th><th>Coûtant</th><th>Vente</th><th>Montant</th><th>Profit</th><th>Actions</th></tr></thead>
             <tbody id="s08DraftLines"><tr><td colspan="10" class="muted">Aucune ligne ajoutée.</td></tr></tbody>
           </table>
         </div>
@@ -2239,7 +2239,7 @@ body.jl-hide-supplier-invoices .jl-invoice-supplier{display:none!important}
           <h3>Pièces et main-d’œuvre</h3>
           <div class="s08-viewer-table">
             <table>
-              <thead><tr><th>Type</th><th>Description</th><th># pièce</th><th>Quantité / heures</th><th class="s08-internal-col">Coûtant</th><th>Vente</th><th>Montant</th><th class="s08-internal-col">Profit</th><th class="s08-internal-col">Fournisseur</th></tr></thead>
+              <thead><tr><th>Type</th><th>Description</th><th># pièce</th><th class="s08-internal-col">Fournisseur</th><th>Quantité / heures</th><th class="s08-internal-col">Coûtant</th><th>Vente</th><th>Montant</th><th class="s08-internal-col">Profit</th></tr></thead>
               <tbody id="s08ViewLines"></tbody>
             </table>
           </div>
@@ -7199,9 +7199,8 @@ const isPaid = totalPaid >= Number(wo.total || 0);
 
   <table id="woPartsTable">
     <thead><tr>
-      <th>Nom</th><th># pièce</th><th>Qté</th><th>Coûtant</th>
-      <th>Vente</th><th>Total</th><th>Profit</th>
-      <th class="jl-supplier-internal">Fournisseur</th><th></th>
+      <th>Nom</th><th># pièce</th><th class="jl-supplier-internal">Fournisseur</th><th>Qté</th><th>Coûtant</th>
+      <th>Vente</th><th>Total</th><th>Profit</th><th></th>
     </tr></thead>
     <tbody></tbody>
   </table>
@@ -7951,6 +7950,7 @@ function woRenderLines(wo) {
   <tr>
     <td>${escapeHTML(String(p.name||""))}</td>
     <td>${escapeHTML(String(p.number||"")) || "—"}</td>
+    <td class="jl-supplier-internal">${escapeHTML(String(p.supplier||""))||"—"}</td>
     <td>${qty}</td>
     <td>${money(cost)} $</td>
     <td>${money(price)} $</td>
@@ -7959,7 +7959,6 @@ function woRenderLines(wo) {
   ${money(profit)} $ 
   <span class="muted">(${marginPct.toFixed(1)}%)</span>
 </td>
-    <td class="jl-supplier-internal">${escapeHTML(String(p.supplier||""))||"—"}</td>
     <td>
       <button class="ghost" onclick="woRemovePart('${wo.id}',${i})">🗑</button>
     </td>
@@ -9557,12 +9556,12 @@ const statusLabel =
         <tr>
   <th>Nom</th>
   <th># pièce</th>
+  <th class="jl-supplier-internal">Fournisseur</th>
   <th>Qté</th>
   <th>Coûtant</th>
   <th>Vente</th>
   <th>Total</th>
   <th>Profit</th>
-  <th class="jl-supplier-internal">Fournisseur</th>
   <th></th>
 </tr>
       </thead>
@@ -18208,15 +18207,15 @@ if (window.garageSupabase) {
       const profitCents=line.amountCents-Math.round(unitCost*line.qty);
       const values=[
         part?"Pièce":line.type==="labor"?"Main-d’œuvre":"Autre",
-        line.description,part?(line.number||"—"):"—",String(line.qty),
+        line.description,part?(line.number||"—"):"—",part?(line.supplier||"—"):"—",String(line.qty),
         part?fmt(unitCost/100):"—",fmt(line.priceCents/100),
         fmt(line.amountCents/100),
-        line.type==="labor"||part?fmt(profitCents/100):"—",part?(line.supplier||"—"):"—"
+        line.type==="labor"||part?fmt(profitCents/100):"—"
       ];
       values.forEach((val,i)=>{
         const cell=document.createElement("td");cell.textContent=val;
-        if(i===7&&(part||line.type==="labor"))cell.classList.add(profitCents<0?"s08-profit-negative":profitCents>0?"s08-profit-positive":"s08-profit-neutral");
-        if([1,3,5].includes(i)||(part&&[2,4,8].includes(i))){
+        if(i===8&&(part||line.type==="labor"))cell.classList.add(profitCents<0?"s08-profit-negative":profitCents>0?"s08-profit-positive":"s08-profit-neutral");
+        if([1,4,6].includes(i)||(part&&[2,3,5].includes(i))){
           cell.tabIndex=0;cell.setAttribute("role","button");
           cell.title="Cliquer pour modifier cette ligne";
           cell.style.cursor="pointer";
@@ -18254,7 +18253,7 @@ if (window.garageSupabase) {
     qty.type="number";qty.min="0.01";qty.step="any";qty.value=String(line.qty);qty.setAttribute("aria-label","Quantité ou heures");
     cost.type="number";cost.min="0";cost.step="0.01";cost.value=String((Number(line.costCents)||0)/100);cost.setAttribute("aria-label","Coûtant");
     price.type="number";price.min="0";price.step="0.01";price.value=String(line.priceCents/100);price.setAttribute("aria-label","Vente");
-    const fields=[[1,desc],[3,qty],[5,price],...(part?[[2,partNumber],[4,cost],[8,supplier]]:[])];
+    const fields=[[1,desc],[4,qty],[6,price],...(part?[[2,partNumber],[3,supplier],[5,cost]]:[])];
     for(const [position,input] of fields){
       cells[position].replaceChildren(input);
       cells[position].removeAttribute("role");cells[position].removeAttribute("tabindex");
@@ -19321,16 +19320,16 @@ if (window.garageSupabase) {
       const profitCents=Number(line.amountCents||0)-Math.round(costCents*qty);
       const type={part:"Pièce",labor:"Main-d’œuvre",other:"Autre"}[line.type]||"Autre";
       const values=[
-        type,line.description||"",isPart?(line.number||"—"):"—",
+        type,line.description||"",isPart?(line.number||"—"):"—",isPart?(line.supplier||"—"):"—",
         String(line.qty??""),isPart?fmtQuote(costCents):"—",
         fmtQuote(Number(line.priceCents||0)),fmtQuote(Number(line.amountCents||0)),
-        isPart||line.type==="labor"?fmtQuote(profitCents):"—",isPart?(line.supplier||"—"):"—"
+        isPart||line.type==="labor"?fmtQuote(profitCents):"—"
       ];
       values.forEach((value,index)=>{
         const td=document.createElement("td");
         td.textContent=value;
-        if(index===4||index===7||index===8)td.classList.add("s08-internal-col");
-        if(index===7&&(isPart||line.type==="labor"))td.classList.add(profitCents<0?"s08-profit-negative":profitCents>0?"s08-profit-positive":"s08-profit-neutral");
+        if(index===3||index===5||index===8)td.classList.add("s08-internal-col");
+        if(index===8&&(isPart||line.type==="labor"))td.classList.add(profitCents<0?"s08-profit-negative":profitCents>0?"s08-profit-positive":"s08-profit-neutral");
         tr.append(td);
       });
       target.append(tr);
