@@ -25,7 +25,7 @@ test('S10 preserves supplier when reopening invoice as temporary work order',()=
  const toWO=new Function(functionSource('invoiceToTempWO')+'\nreturn invoiceToTempWO;')();
  const invoice={number:'FA-TEST',customer:'Client',vehicle:'Auto',date:'2026-11-19',
   items:[{type:'Pièce',desc:'Filtre',number:'AA-18',supplier:'NAPA',qty:2,rate:21.5},
-    {type:'Main-d’œuvre',desc:'Pose',qty:1,rate:90}]};
+    {type:"Main-d'œuvre",desc:'Pose',qty:1,rate:90}]};
  const wo=toWO(invoice);
  assert.equal(wo.parts[0].supplier,'NAPA');
  assert.equal(wo.parts[0].total,43);
