@@ -1791,6 +1791,45 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
  #page-settings .jl-supplier-fields{grid-template-columns:minmax(0,1fr)}
  #page-settings .jl-supplier-fields input:nth-child(3){grid-column:auto}
 }
+/* TEST - Calendriers personnels : cartes compactes, aide contextuelle accessible. */
+#page-settings .jl-calendar-compact{padding:0;border:0;margin:8px 0;display:grid;gap:8px}
+#page-settings .jl-cal-provider-row{border:1px solid var(--border);border-radius:9px;padding:9px 11px;min-width:0}
+#page-settings .jl-cal-provider-head{display:flex;justify-content:space-between;align-items:center;gap:12px;min-width:0}
+#page-settings .jl-calendar-compact .jl-schedule-external-provider{
+  flex:1;min-width:0;margin:0;padding:0;border:0;overflow-wrap:anywhere;font-weight:600
+}
+#page-settings .jl-calendar-compact .jl-familywall-settings{margin:0}
+#page-settings .jl-cal-provider-actions{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:6px 0 0}
+#page-settings .jl-cal-provider-actions button{margin:0}
+#page-settings .jl-cal-ics-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:7px}
+#page-settings .jl-cal-ics-row label{flex:0 0 auto;font-size:12px;color:var(--muted)}
+#page-settings .jl-cal-ics-row input{flex:1 1 290px;min-width:0;width:auto!important;max-width:none!important;margin:0!important;height:34px}
+#page-settings .jl-cal-ics-row:has(input[hidden]){display:none}
+#page-settings .jl-cal-status{margin:5px 0 0;font-size:12px}
+#page-settings .jl-cal-status:empty{display:none}
+#page-settings .jl-calendar-compact .jl-cal-color-panel{padding:7px 9px;margin:8px 0 0}
+#page-settings .jl-calendar-compact .jl-cal-color-panel summary{font-size:13px;cursor:pointer}
+#page-settings .jl-cal-help{position:relative;display:inline-flex;flex:none}
+#page-settings .jl-cal-help-button{
+  width:24px;height:24px;padding:0!important;display:grid;place-items:center;
+  border:1px solid var(--accent);border-radius:6px;background:transparent;color:var(--accent);
+  font-weight:700;cursor:pointer
+}
+#page-settings .jl-cal-help-popup{
+  display:none;position:absolute;right:0;top:calc(100% + 7px);z-index:20;
+  width:max-content;max-width:min(340px,75vw);padding:10px 12px;
+  white-space:normal;line-height:1.45;font-size:12px;
+  background:#151515;color:#eee;border:1px solid var(--accent);
+  border-radius:8px;box-shadow:0 7px 18px #0008
+}
+#page-settings .jl-cal-help:hover .jl-cal-help-popup,
+#page-settings .jl-cal-help:focus-within .jl-cal-help-popup{display:block}
+#page-settings .jl-cal-help-button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+#page-settings #jlCalendarColorsSettings{margin-top:8px}
+@media(max-width:650px){
+  #page-settings .jl-cal-ics-row{display:block}
+  #page-settings .jl-cal-ics-row input{width:100%!important;margin-top:4px!important}
+}
 </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -2798,55 +2837,72 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
 
     <details class="jl-settings-backup jl-settings-options jl-settings-fold" id="jlCalendarSettings">
       <summary>📅 Calendriers personnels — connexions</summary>
-<section id="jlScheduleCalendarsPanel" class="jl-schedule-external-panel" aria-label="Mes calendriers personnels">
-          <h3>Calendriers personnels</h3>
-          <p class="muted">Tes événements importés resteront complètement privés, sans partager tes plages occupées avec les employés.</p>
-          <div id="jlScheduleExternalGoogle" class="jl-schedule-external-provider">Google Calendar — non connecté</div>
-          <button type="button" id="jlScheduleConnectGoogle" class="ghost" disabled>Connecter Google Calendar</button>
-          <div id="jlScheduleExternalMicrosoft" class="jl-schedule-external-provider">Outlook / Hotmail — non connecté</div>
-          <div class="jl-outlook-ical-settings">
-            <p class="muted" style="margin:6px 0">Connexion iCal en lecture seule, sans Microsoft Entra. Ton ami doit se connecter à son compte Garage personnel : ses événements ne seront visibles que par lui. Le lien ICS est confidentiel.</p>
-            <label for="jlScheduleOutlookIcsUrl">Lien ICS Outlook / Hotmail (privé)</label>
-            <input type="password" id="jlScheduleOutlookIcsUrl" autocomplete="off" spellcheck="false" placeholder="Colle ici le lien ICS publié dans Outlook" style="width:100%;max-width:900px;box-sizing:border-box;margin:7px 0">
-            <div class="jl-settings-actions">
-              <button type="button" id="jlScheduleConnectMicrosoft" class="ghost" disabled>Connecter Outlook / Hotmail</button>
-              <button type="button" id="jlScheduleMicrosoftSync" class="ghost" hidden>Actualiser Outlook</button>
-            </div>
-            <p class="muted" id="jlScheduleMicrosoftStatus" role="status" aria-live="polite"></p>
-            <details id="jlOutlookColorsSettings" class="jl-familywall-colors">
-              <summary>🎨 Couleurs des catégories Outlook</summary>
-              <p class="muted">Le lien ICS Outlook ne transmet pas les catégories dans ce calendrier. Associe des mots-clés présents dans les titres aux couleurs, séparés par des virgules. AC, TR et TODO sont proposés selon les exemples visibles. Tes préférences restent privées sur ce navigateur.</p>
-              <div id="jlOutlookColorRules" class="jl-familywall-color-rules"></div>
-              <div class="jl-settings-actions">
-                <button type="button" id="jlOutlookAddColorRule" class="ghost">+ Ajouter une couleur</button>
-                <button type="button" id="jlOutlookResetColors" class="ghost">Restaurer les couleurs</button>
-              </div>
-              <p class="muted" id="jlOutlookColorStatus" role="status" aria-live="polite"></p>
-            </details>
-          </div>
-          <div class="jl-familywall-settings">
-            <div id="jlScheduleExternalFamilyWall" class="jl-schedule-external-provider">FamilyWall — non connecté</div>
-            <p class="muted" style="margin:6px 0">Calendrier familial privé, en lecture seule. Dans FamilyWall : Calendrier → Paramètres → Ton cercle → Générer un iCal. Ne partage jamais ce lien.</p>
-            <label for="jlScheduleFamilyWallUrl">Lien iCal FamilyWall (privé)</label>
-            <input type="password" id="jlScheduleFamilyWallUrl" autocomplete="off" spellcheck="false" placeholder="Colle ici le lien iCal de FamilyWall">
-            <div class="jl-settings-actions">
-              <button type="button" class="ghost" id="jlScheduleFamilyWallConnect">Connecter FamilyWall</button>
-              <button type="button" class="ghost" id="jlScheduleFamilyWallSync" hidden>Actualiser FamilyWall</button>
-            </div>
-            <p class="muted" id="jlScheduleFamilyWallStatus" role="status" aria-live="polite"></p>
-            <details id="jlFamilyWallColorsSettings" class="jl-familywall-colors">
-              <summary>🎨 Couleurs des événements FamilyWall</summary>
-              <p class="muted">Le lien iCal ne garantit pas les couleurs FamilyWall. Choisis ici les mots-clés et leurs couleurs, comme dans ton calendrier familial. La première règle correspondante s'applique. Ces préférences restent sur ton navigateur.</p>
-              <div id="jlFamilyWallColorRules" class="jl-familywall-color-rules"></div>
-              <div class="jl-settings-actions">
-                <button type="button" id="jlFamilyWallAddColorRule" class="ghost">+ Ajouter une couleur</button>
-                <button type="button" id="jlFamilyWallResetColors" class="ghost">Réinitialiser les couleurs</button>
-              </div>
-              <p class="muted" id="jlFamilyWallColorsStatus" role="status" aria-live="polite"></p>
-            </details>
-          </div>
-          <p id="jlScheduleExternalStatus" class="muted" role="status" aria-live="polite">Les connexions seront disponibles après la configuration OAuth sécurisée.</p>
-        </section>
+<section id="jlScheduleCalendarsPanel" class="jl-schedule-external-panel jl-calendar-compact" aria-label="Mes calendriers personnels">
+  <div class="jl-cal-provider-row">
+    <div class="jl-cal-provider-head">
+      <div id="jlScheduleExternalGoogle" class="jl-schedule-external-provider">Google Calendar — non connecté</div>
+      <span class="jl-cal-help"><button type="button" class="jl-cal-help-button" aria-label="Aide Google Calendar" aria-describedby="jlHelpGoogle">?</button><span id="jlHelpGoogle" class="jl-cal-help-popup" role="tooltip">Calendrier personnel privé. Tes événements et tes disponibilités ne sont pas partagés avec les employés.</span></span>
+    </div>
+    <div class="jl-cal-provider-actions"><button type="button" id="jlScheduleConnectGoogle" class="ghost" disabled>Connecter Google Calendar</button></div>
+  </div>
+
+  <div class="jl-cal-provider-row">
+    <div class="jl-cal-provider-head">
+      <div id="jlScheduleExternalMicrosoft" class="jl-schedule-external-provider">Outlook / Hotmail — non connecté</div>
+      <span class="jl-cal-help"><button type="button" class="jl-cal-help-button" aria-label="Aide Outlook Hotmail" aria-describedby="jlHelpOutlook">?</button><span id="jlHelpOutlook" class="jl-cal-help-popup" role="tooltip">Connexion iCal en lecture seule, sans Microsoft Entra. Chaque compte Garage voit uniquement ses calendriers personnels. Ton lien ICS est confidentiel.</span></span>
+    </div>
+    <div class="jl-outlook-ical-settings">
+      <div class="jl-cal-ics-row">
+        <label for="jlScheduleOutlookIcsUrl">Lien ICS Outlook / Hotmail (privé)</label>
+        <input type="password" id="jlScheduleOutlookIcsUrl" autocomplete="off" spellcheck="false" placeholder="Colle le lien ICS Outlook">
+      </div>
+      <div class="jl-settings-actions jl-cal-provider-actions">
+        <button type="button" id="jlScheduleConnectMicrosoft" class="ghost" disabled>Connecter Outlook / Hotmail</button>
+        <button type="button" id="jlScheduleMicrosoftSync" class="ghost" hidden>Actualiser Outlook</button>
+      </div>
+      <p class="muted jl-cal-status" id="jlScheduleMicrosoftStatus" role="status" aria-live="polite"></p>
+      <details id="jlOutlookColorsSettings" class="jl-familywall-colors jl-cal-color-panel">
+        <summary>🎨 Couleurs Outlook</summary>
+        <p class="muted">Le lien ICS ne transmet pas toujours les catégories. Associe des mots-clés des titres aux couleurs (AC, TR, TODO, etc.). Ces préférences restent privées dans ton navigateur.</p>
+        <div id="jlOutlookColorRules" class="jl-familywall-color-rules"></div>
+        <div class="jl-settings-actions">
+          <button type="button" id="jlOutlookAddColorRule" class="ghost">+ Ajouter une couleur</button>
+          <button type="button" id="jlOutlookResetColors" class="ghost">Restaurer les couleurs</button>
+        </div>
+        <p class="muted" id="jlOutlookColorStatus" role="status" aria-live="polite"></p>
+      </details>
+    </div>
+  </div>
+
+  <div class="jl-cal-provider-row">
+    <div class="jl-cal-provider-head">
+      <div id="jlScheduleExternalFamilyWall" class="jl-schedule-external-provider">FamilyWall — non connecté</div>
+      <span class="jl-cal-help"><button type="button" class="jl-cal-help-button" aria-label="Aide FamilyWall" aria-describedby="jlHelpFamilyWall">?</button><span id="jlHelpFamilyWall" class="jl-cal-help-popup" role="tooltip">Calendrier familial privé en lecture seule. Pour obtenir le lien : FamilyWall → Calendrier → Paramètres → Ton cercle → Générer un iCal. Ne partage pas ce lien.</span></span>
+    </div>
+    <div class="jl-familywall-settings">
+      <div class="jl-cal-ics-row">
+        <label for="jlScheduleFamilyWallUrl">Lien iCal FamilyWall (privé)</label>
+        <input type="password" id="jlScheduleFamilyWallUrl" autocomplete="off" spellcheck="false" placeholder="Colle le lien iCal FamilyWall">
+      </div>
+      <div class="jl-settings-actions jl-cal-provider-actions">
+        <button type="button" class="ghost" id="jlScheduleFamilyWallConnect">Connecter FamilyWall</button>
+        <button type="button" class="ghost" id="jlScheduleFamilyWallSync" hidden>Actualiser FamilyWall</button>
+      </div>
+      <p class="muted jl-cal-status" id="jlScheduleFamilyWallStatus" role="status" aria-live="polite"></p>
+      <details id="jlFamilyWallColorsSettings" class="jl-familywall-colors jl-cal-color-panel">
+        <summary>🎨 Couleurs FamilyWall</summary>
+        <p class="muted">Les couleurs ne sont pas toujours incluses dans le lien iCal. Ajoute des mots-clés et leurs couleurs : la première règle correspondante s'applique. Ces préférences restent dans ton navigateur.</p>
+        <div id="jlFamilyWallColorRules" class="jl-familywall-color-rules"></div>
+        <div class="jl-settings-actions">
+          <button type="button" id="jlFamilyWallAddColorRule" class="ghost">+ Ajouter une couleur</button>
+          <button type="button" id="jlFamilyWallResetColors" class="ghost">Réinitialiser les couleurs</button>
+        </div>
+        <p class="muted" id="jlFamilyWallColorsStatus" role="status" aria-live="polite"></p>
+      </details>
+    </div>
+  </div>
+  <p id="jlScheduleExternalStatus" class="muted jl-cal-status" role="status" aria-live="polite">Vérification des connexions…</p>
+</section>
     <details class="jl-settings-subsection" id="jlCalendarColorsSettings">
       <summary>🎨 Couleurs de mes calendriers</summary>
       <p class="muted">Personnalise les couleurs par catégorie, sans modifier les événements ni les calendriers des autres utilisateurs. Les préférences restent dans ton navigateur. Pour FamilyWall, les couleurs par mot-clé se trouvent dans « Calendriers personnels — connexions ».</p>
