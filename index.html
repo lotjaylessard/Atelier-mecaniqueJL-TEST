@@ -1805,28 +1805,28 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
 }
 #page-settings .jl-invoice-options label{white-space:normal;align-items:flex-start}
 #page-settings .jl-invoice-options input{flex:none;margin-top:2px}
-#page-settings .jl-supplier-add-row{display:flex;gap:8px;align-items:center}
-#page-settings .jl-supplier-add-row input{flex:1;min-width:0;margin:0}
-#page-settings .jl-supplier-list{display:grid;gap:8px;margin-top:10px}
-#page-settings .jl-supplier-row{
+#page-suppliers .jl-supplier-add-row{display:flex;gap:8px;align-items:center}
+#page-suppliers .jl-supplier-add-row input{flex:1;min-width:0;margin:0}
+#page-suppliers .jl-supplier-list{display:grid;gap:8px;margin-top:10px}
+#page-suppliers .jl-supplier-row{
   display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px 12px;
   border:1px solid var(--border);border-radius:8px;padding:10px;
 }
-#page-settings .jl-supplier-name{font-weight:700;align-self:center;min-width:0;overflow-wrap:anywhere}
-#page-settings .jl-supplier-fields{
+#page-suppliers .jl-supplier-name{font-weight:700;align-self:center;min-width:0;overflow-wrap:anywhere}
+#page-suppliers .jl-supplier-fields{
   grid-column:1/-1;display:grid;
   grid-template-columns:minmax(120px,1fr) minmax(160px,1.2fr) minmax(180px,1.5fr) auto;
   gap:8px;align-items:center;min-width:0;
 }
-#page-settings .jl-supplier-fields input{margin:0;min-width:0;width:100%}
-#page-settings .jl-supplier-fields button{white-space:nowrap}
+#page-suppliers .jl-supplier-fields input{margin:0;min-width:0;width:100%}
+#page-suppliers .jl-supplier-fields button{white-space:nowrap}
 @media(max-width:800px){
- #page-settings .jl-supplier-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
- #page-settings .jl-supplier-fields input:nth-child(3){grid-column:1/-1}
+ #page-suppliers .jl-supplier-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #page-suppliers .jl-supplier-fields input:nth-child(3){grid-column:1/-1}
 }
 @media(max-width:480px){
- #page-settings .jl-supplier-fields{grid-template-columns:minmax(0,1fr)}
- #page-settings .jl-supplier-fields input:nth-child(3){grid-column:auto}
+ #page-suppliers .jl-supplier-fields{grid-template-columns:minmax(0,1fr)}
+ #page-suppliers .jl-supplier-fields input:nth-child(3){grid-column:auto}
 }
 /* TEST - Calendriers personnels : cartes compactes, aide contextuelle accessible. */
 #page-settings .jl-calendar-compact{padding:0;border:0;margin:8px 0;display:grid;gap:8px}
@@ -1938,6 +1938,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
   <button class="navBtn" data-page="page-vehicles">🚗 Véhicules</button>
   <button class="navBtn" data-page="page-services">🛠️ Services</button>
   <button class="navBtn" data-page="page-parts">🔩 Pièces</button>
+  <button class="navBtn" data-page="page-suppliers">🏪 Fournisseurs</button>
   <button class="navBtn" data-page="page-history">📜 Historique</button>
   <button class="navBtn" data-page="page-notes">📝 Notes</button>
   <button class="navBtn" data-page="page-links">🔗 Liens Rapides</button>
@@ -2705,6 +2706,20 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
       </div>
     </div>
 
+    <!-- FOURNISSEURS : même répertoire et mêmes données que l'ancien menu Paramètres. -->
+    <div class="page" id="page-suppliers">
+      <h2>🏪 Fournisseurs</h2>
+      <div class="card jl-suppliers-card">
+        <p class="muted">Répertoire des fournisseurs du garage. Les coordonnées sont modifiables directement; elles restent internes au garage.</p>
+        <div class="jl-supplier-add-row">
+          <input id="jlSupplierName" type="text" maxlength="80" placeholder="Nom du fournisseur (ex. NAPA)" aria-label="Nom du fournisseur">
+          <button type="button" id="jlSupplierAdd">+ Ajouter</button>
+        </div>
+        <div id="jlSupplierList" class="jl-supplier-list"></div>
+        <p id="jlSupplierStatus" class="muted" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+
     <!-- HISTORIQUE GLOBAL -->
     <div class="page" id="page-history">
       <h2>Historique</h2>
@@ -3024,16 +3039,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
         <label><input type="checkbox" id="jlSupplierShowQuotes" checked /> Afficher le fournisseur dans les soumissions</label>
         <label><input type="checkbox" id="jlSupplierShowInvoices" checked /> Afficher le fournisseur dans les factures (interne seulement)</label>
       </div>
-      <details class="jl-settings-subsection" id="jlSupplierSettings">
-        <summary>🏪 Répertoire des fournisseurs</summary>
-        <p class="muted">Les coordonnées sont modifiables directement. Les fournisseurs restent internes au garage.</p>
-        <div class="jl-supplier-add-row">
-          <input id="jlSupplierName" type="text" maxlength="80" placeholder="Nom du fournisseur (ex. NAPA)" aria-label="Nom du fournisseur">
-          <button type="button" id="jlSupplierAdd">+ Ajouter</button>
-        </div>
-        <div id="jlSupplierList" class="jl-supplier-list"></div>
-        <p id="jlSupplierStatus" class="muted" role="status" aria-live="polite"></p>
-      </details>
+
     </details>
 
     <details class="jl-settings-backup">
@@ -20732,7 +20738,7 @@ document.getElementById("jlResetCalendarColors")?.addEventListener("click",()=>{
   jlPaletteColors={...jlPaletteDefaults};jlPaletteSave();
 });
 
-/* S10 TEST — fournisseurs partagés dans les réglages du garage. */
+/* S10 TEST — répertoire fournisseurs partagé dans son onglet indépendant. */
 function jlSupplierNames(){
   const arr=Array.isArray(SETTINGS?.suppliers)?SETTINGS.suppliers:[];
   return [...new Set(arr.filter(x=>typeof x==="string").map(x=>x.trim()).filter(x=>x&&x.length<=80))].slice(0,100);
@@ -20854,7 +20860,7 @@ for(const id of ["jlSupplierShowQuotes","jlSupplierShowInvoices"]){
     }
   });
 }
-for(const page of ["page-settings","page-quotes","page-workorders","page-invoice-list"]){
+for(const page of ["page-suppliers","page-settings","page-quotes","page-workorders","page-invoice-list"]){
   document.querySelector('[data-page="'+page+'"]')?.addEventListener("click",()=>jlSupplierRender());
 }
 </script>
