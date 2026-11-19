@@ -515,6 +515,31 @@ input[type="checkbox"]{
     #page-dashboard .jl-dashboard-tag[data-kind="overdue7"]{color:#eddd9c}
     #page-dashboard .jl-dashboard-tag[data-kind="overdue3"]{color:#b3d5f4}
     #page-dashboard .jl-dashboard-tag[data-kind="overdue1"]{color:#b7c7d3}
+
+/* Factures impayées : priorité bien visible, sans surcharger le dashboard. */
+#page-dashboard #jlDashboardOldInvoicesBox .jl-dashboard-row[data-overdue-tier]{
+  border-left:5px solid var(--overdue-color);
+  background:linear-gradient(90deg,var(--overdue-bg),transparent 85%);
+}
+#page-dashboard #jlDashboardOldInvoicesBox .jl-dashboard-row[data-overdue-tier] .jl-dashboard-tag{
+  color:var(--overdue-text);background:var(--overdue-bg);
+  border:1px solid var(--overdue-color);
+  font-size:12px;font-weight:800;padding:4px 9px;
+}
+#page-dashboard #jlDashboardOldInvoicesBox .jl-dashboard-row[data-overdue-tier="60"]{--overdue-color:#ef5350;--overdue-bg:rgba(239,83,80,.25);--overdue-text:#ffb8b6}
+#page-dashboard #jlDashboardOldInvoicesBox .jl-dashboard-row[data-overdue-tier="45"]{--overdue-color:#fa8754;--overdue-bg:rgba(250,135,84,.23);--overdue-text:#ffc3a8}
+#page-dashboard #jlDashboardOldInvoicesBox .jl-dashboard-row[data-overdue-tier="30"]{--overdue-color:#efa936;--overdue-bg:rgba(239,169,54,.23);--overdue-text:#ffdc99}
+#page-dashboard #jlDashboardOldInvoicesBox .jl-dashboard-row[data-overdue-tier="14"]{--overdue-color:#e4c241;--overdue-bg:rgba(228,194,65,.21);--overdue-text:#fbe99f}
+#page-dashboard #jlDashboardOldInvoicesBox .jl-dashboard-row[data-overdue-tier="7"]{--overdue-color:#a7c971;--overdue-bg:rgba(167,201,113,.19);--overdue-text:#d9efaf}
+#page-dashboard #jlDashboardOldInvoicesBox .jl-dashboard-row[data-overdue-tier="3"]{--overdue-color:#72b6ed;--overdue-bg:rgba(114,182,237,.19);--overdue-text:#bddfff}
+#page-dashboard #jlDashboardOldInvoicesBox .jl-dashboard-row[data-overdue-tier="1"]{--overdue-color:#aeb8c6;--overdue-bg:rgba(174,184,198,.14);--overdue-text:#e0e6ef}
+#page-dashboard .jl-dashboard-unpaid-more{
+  width:100%;border:1px dashed var(--border);border-radius:6px;
+  background:transparent;color:var(--accent);text-align:center;
+  font-weight:700;font-size:13px;padding:9px;cursor:pointer;margin-top:4px;
+}
+#page-dashboard .jl-dashboard-unpaid-more:hover{border-color:var(--accent);background:rgba(218,160,56,.08)}
+
     #page-settings .jl-dashboard-order-settings{padding-top:10px;border-top:1px solid var(--border);margin-top:10px;font-size:13px}
     #page-settings .jl-dashboard-order-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 9px;margin-top:8px}
     #page-settings .jl-dashboard-order-entry{display:flex;gap:9px;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:6px;padding:4px 7px;min-width:0}
@@ -15446,6 +15471,8 @@ function jlDashboardFillList(id,items,emptyMessage){
   for(const item of items){
     const row=document.createElement("button");row.type="button";
     row.className="jl-dashboard-row";
+    if(/^overdue(?:60|45|30|14|7|3|1)$/.test(String(item.kind||"")))
+      row.dataset.overdueTier=item.kind.slice(7);
     const title=document.createElement("span");title.className="jl-dashboard-row-title";
     const name=document.createElement("span");name.textContent=item.title||"";
     title.append(name);
@@ -15473,6 +15500,7 @@ function jlDashboardOpenQuote(id){
   window.dispatchEvent(new CustomEvent("jl-dashboard-open-quote",{detail:{id}}));
 }
 
+let jlDashboardOverdueExpanded=false;
 function renderDashboard(){
   // 🔒 Source de vérité directe (dashboard = lecture seule)
 INVOICES = loadArrayFromStorage(STORAGE.invoices);
@@ -15700,7 +15728,8 @@ const datedUnpaid=activeInvoices.filter(inv=>
 }).filter(Boolean).sort((a,b)=>b.days-a.days||
   String(a.inv.date||"").localeCompare(String(b.inv.date||""))||
   String(a.inv.number||"").localeCompare(String(b.inv.number||""),"fr",{numeric:true}));
-jlDashboardFillList("jlDashboardOldInvoicesBox",datedUnpaid.map(({inv,days,balance})=>{
+const visibleUnpaid=jlDashboardOverdueExpanded?datedUnpaid:datedUnpaid.slice(0,5);
+jlDashboardFillList("jlDashboardOldInvoicesBox",visibleUnpaid.map(({inv,days,balance})=>{
   const tier=invoiceAgeTiers.find(threshold=>days>=threshold)||1;
   return {
     title:"#"+String(inv.number||"—")+" · "+money(balance)+" $ à recevoir",
@@ -15712,6 +15741,22 @@ jlDashboardFillList("jlDashboardOldInvoicesBox",datedUnpaid.map(({inv,days,balan
     onClick:()=>jlDashboardOpenInvoice(inv.number)
   };
 }),"Aucune facture avec solde impayé de 1 jour ou plus.");
+const remainingUnpaid=datedUnpaid.length-5;
+const unpaidBox=document.getElementById("jlDashboardOldInvoicesBox");
+if(unpaidBox&&(remainingUnpaid>0||jlDashboardOverdueExpanded)){
+  const more=document.createElement("button");
+  more.type="button";more.className="jl-dashboard-unpaid-more";
+  more.textContent=jlDashboardOverdueExpanded?"− Réduire la liste":
+    "+"+remainingUnpaid+" facture"+(remainingUnpaid>1?"s":"")+" impayée"+(remainingUnpaid>1?"s":"");
+  more.setAttribute("aria-expanded",String(jlDashboardOverdueExpanded));
+  more.setAttribute("aria-label",jlDashboardOverdueExpanded?"Afficher seulement les 5 plus anciennes factures":
+    "Afficher les "+remainingUnpaid+" autres factures impayées");
+  more.addEventListener("click",()=>{
+    jlDashboardOverdueExpanded=!jlDashboardOverdueExpanded;
+    renderDashboard();
+  });
+  unpaidBox.append(more);
+}
     /* === Mettre à jour les filtres (client & véhicule) === */
   if ($("filterClient")) {
       const selClient = $("filterClient");
