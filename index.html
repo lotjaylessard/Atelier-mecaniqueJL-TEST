@@ -14303,6 +14303,10 @@ async function jlScheduleLoadExternalConnections(){
     const connectedMicrosoft=rows.find(x=>x.provider==="microsoft"&&typeof x.id==="string");
     jlScheduleMicrosoftConnectionId=connectedMicrosoft?.id||"";
     microsoftButton.textContent=connectedMicrosoft?"Déconnecter Outlook / Hotmail":"Connecter Outlook / Hotmail";
+    const outlookStatus=document.getElementById("jlScheduleMicrosoftStatus");
+    if(outlookStatus&&connectedMicrosoft&&connectedMicrosoft.sync_status!=="connected")
+      outlookStatus.textContent="⚠ Outlook enregistré, mais importation non confirmée. Clique sur Actualiser Outlook pour obtenir le diagnostic précis.";
+    else if(outlookStatus&&!connectedMicrosoft)outlookStatus.textContent="";
     document.getElementById("jlScheduleMicrosoftSync").hidden=!connectedMicrosoft;
     document.getElementById("jlScheduleOutlookIcsUrl").hidden=!!connectedMicrosoft;
     document.querySelector('label[for="jlScheduleOutlookIcsUrl"]').hidden=!!connectedMicrosoft;
