@@ -20,9 +20,12 @@ const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GE
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ready=()=>Boolean(dbUrl&&serviceKey&&anonKey&&clientId&&clientSecret&&/^[0-9a-f]{64}$/i.test(tokenKey));
 const json=(value:unknown,code=200)=>new Response(JSON.stringify(value),{status:code,headers:{...cors,"Content-Type":"application/json; charset=utf-8"}});
+// The Supabase Edge gateway can render callback HTML as literal text in some browsers.
+// Return readable UTF-8 plain text instead of showing raw markup.
 const html=(message:string,code=200)=>new Response(
- '<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Calendrier Garage TEST</title><body style="font:16px system-ui;padding:32px;max-width:600px;margin:auto"><h1>Garage — connexion calendrier TEST</h1><p>'+message+'</p><p>Tu peux fermer cet onglet et retourner dans le garage, puis ouvrir « Mes calendriers ».</p></body></html>',
- {status:code,headers:{...cors,"Content-Type":"text/html; charset=utf-8","Content-Security-Policy":"default-src 'none'; style-src 'unsafe-inline'","Referrer-Policy":"no-referrer"}});
+ "GARAGE — CALENDRIER GOOGLE TEST\n\n"+message+
+ "\n\nRetourne dans ton garage TEST : Paramètres → Calendriers personnels — connexions.",
+ {status:code,headers:{...cors,"Content-Type":"text/plain; charset=utf-8","Referrer-Policy":"no-referrer"}});
 const bytes=(len:number)=>crypto.getRandomValues(new Uint8Array(len));
 const base64url=(a:Uint8Array)=>btoa(String.fromCharCode(...a)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
 const sha=async(str:string)=>new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(str)));
