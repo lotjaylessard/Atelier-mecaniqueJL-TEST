@@ -1601,6 +1601,13 @@ button.link:hover{
 #page-schedule .jl-schedule-full-item.familywall{border-left:3px solid #a478e4}
 #page-settings .jl-familywall-settings{margin-top:12px}
 #page-settings #jlScheduleFamilyWallUrl{width:100%;max-width:900px;box-sizing:border-box;margin:7px 0}
+#page-settings .jl-familywall-colors{margin-top:10px;border:1px solid var(--border);border-radius:7px;padding:10px}
+#page-settings .jl-familywall-colors summary{cursor:pointer;font-weight:700;color:var(--accent)}
+#page-settings .jl-familywall-color-rules{display:flex;flex-direction:column;gap:7px;margin:10px 0}
+#page-settings .jl-familywall-rule{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+#page-settings .jl-familywall-rule input[type="text"]{width:min(340px,65vw);min-width:140px;max-width:100%;box-sizing:border-box}
+#page-settings .jl-familywall-rule input[type="color"]{width:45px;height:34px;box-sizing:border-box;padding:2px;cursor:pointer}
+#page-settings .jl-familywall-rule button{min-height:32px}
 #page-schedule .jl-schedule-weekdays,#page-schedule .jl-schedule-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
 #page-schedule .jl-schedule-weekdays{text-align:center;font-size:12px;font-weight:700;padding-bottom:5px}
 #page-schedule .jl-schedule-day{height:clamp(85px,calc((100dvh - 300px)/6),102px);position:relative;min-height:0;min-width:0;overflow:hidden;display:flex;flex-direction:column;gap:2px;box-sizing:border-box;padding:3px;border:1px solid var(--border);border-radius:7px;cursor:pointer}
@@ -2648,6 +2655,16 @@ button.link:hover{
               <button type="button" class="ghost" id="jlScheduleFamilyWallSync" hidden>Actualiser FamilyWall</button>
             </div>
             <p class="muted" id="jlScheduleFamilyWallStatus" role="status" aria-live="polite"></p>
+            <details id="jlFamilyWallColorsSettings" class="jl-familywall-colors">
+              <summary>🎨 Couleurs des événements FamilyWall</summary>
+              <p class="muted">Le lien iCal ne garantit pas les couleurs FamilyWall. Choisis ici les mots-clés et leurs couleurs, comme dans ton calendrier familial. La première règle correspondante s'applique. Ces préférences restent sur ton navigateur.</p>
+              <div id="jlFamilyWallColorRules" class="jl-familywall-color-rules"></div>
+              <div class="jl-settings-actions">
+                <button type="button" id="jlFamilyWallAddColorRule" class="ghost">+ Ajouter une couleur</button>
+                <button type="button" id="jlFamilyWallResetColors" class="ghost">Réinitialiser les couleurs</button>
+              </div>
+              <p class="muted" id="jlFamilyWallColorsStatus" role="status" aria-live="polite"></p>
+            </details>
           </div>
           <p id="jlScheduleExternalStatus" class="muted" role="status" aria-live="polite">Les connexions seront disponibles après la configuration OAuth sécurisée.</p>
         </section>
@@ -13393,6 +13410,111 @@ function jlScheduleEventLabel(e,date=""){
   }
   return prefix+" · "+String(e.title||type[e.event_type]||"Événement");
 }
+// FamilyWall's free iCal feed does not guarantee the app's category colors.
+// Private, owner-specific matching rules are never sent to Supabase or to FamilyWall.
+const jlFamilyWallDefaultColor="#8055a9";
+const jlFamilyWallSampleRules=[
+ {keyword:"cours de piscine",color:"#4d85e7"},
+ {keyword:"chalet",color:"#4d85e7"},
+ {keyword:"sophia training",color:"#ff8c24"},
+ {keyword:"freins",color:"#182923"},
+ {keyword:"mécanique",color:"#182923"},
+ {keyword:"alignement",color:"#182923"},
+ {keyword:"clarence - retour",color:"#d02b35"}
+];
+let jlFamilyWallColorRules=jlFamilyWallSampleRules.map(x=>({...x}));
+let jlFamilyWallColorOwnerKey="";
+function jlFamilyWallNormalizeText(s){
+ return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("fr-CA").trim();
+}
+function jlFamilyWallValidColor(s){
+ return typeof s==="string"&&/^#[0-9a-f]{6}$/i.test(s);
+}
+function jlFamilyWallLoadColors(userId){
+ if(!userId||!ACTIVE_GARAGE_ID)return;
+ const key="jl-familywall-colors:"+ACTIVE_GARAGE_ID+":"+userId;
+ if(key!==jlFamilyWallColorOwnerKey){
+  jlFamilyWallColorOwnerKey=key;
+  jlFamilyWallColorRules=jlFamilyWallSampleRules.map(x=>({...x}));
+  try{
+   const json=localStorage.getItem(key);
+   if(json!==null){
+    const rules=JSON.parse(json);
+    if(Array.isArray(rules))
+     jlFamilyWallColorRules=rules.slice(0,30).filter(x=>x&&
+      typeof x.keyword==="string"&&x.keyword.length<=80&&jlFamilyWallValidColor(x.color))
+      .map(x=>({keyword:x.keyword,color:x.color}));
+   }
+  }catch(_err){}
+ }
+ jlFamilyWallRenderColorSettings();
+}
+function jlFamilyWallSaveColors(){
+ if(!jlFamilyWallColorOwnerKey)return;
+ try{
+  localStorage.setItem(jlFamilyWallColorOwnerKey,JSON.stringify(jlFamilyWallColorRules));
+  document.getElementById("jlFamilyWallColorsStatus").textContent="Couleurs enregistrées pour ce compte sur ce navigateur.";
+ }catch(_err){
+  document.getElementById("jlFamilyWallColorsStatus").textContent="⚠ Impossible d'enregistrer les couleurs sur ce navigateur.";
+ }
+ jlScheduleRender();
+}
+function jlFamilyWallColorFor(title){
+ const value=jlFamilyWallNormalizeText(title);
+ for(const rule of jlFamilyWallColorRules){
+  const term=jlFamilyWallNormalizeText(rule.keyword);
+  if(term&&value.includes(term)&&jlFamilyWallValidColor(rule.color))return rule.color;
+ }
+ return jlFamilyWallDefaultColor;
+}
+function jlFamilyWallStyleEvent(node,title){
+ const color=jlFamilyWallColorFor(title),rgb=color.slice(1).match(/../g).map(x=>parseInt(x,16));
+ const lightness=(rgb[0]*299+rgb[1]*587+rgb[2]*114)/1000;
+ node.style.backgroundColor=color;
+ node.style.borderLeftColor=color;
+ node.style.color=lightness>=145?"#141414":"#fff";
+}
+function jlFamilyWallRenderColorSettings(){
+ const list=document.getElementById("jlFamilyWallColorRules");
+ if(!list)return;
+ list.replaceChildren();
+ jlFamilyWallColorRules.forEach((rule,index)=>{
+  const row=document.createElement("div");row.className="jl-familywall-rule";
+  const title=document.createElement("input");title.type="text";title.maxLength=80;
+  title.placeholder="Mot-clé dans le titre (ex. piscine)";title.value=rule.keyword;
+  title.setAttribute("aria-label","Mot-clé de la règle "+(index+1));
+  title.addEventListener("change",()=>{
+   jlFamilyWallColorRules[index].keyword=title.value.trim();
+   jlFamilyWallSaveColors();
+  });
+  const color=document.createElement("input");color.type="color";color.value=rule.color;
+  color.setAttribute("aria-label","Couleur de la règle "+(index+1));
+  color.addEventListener("input",()=>{
+   jlFamilyWallColorRules[index].color=color.value;
+   jlFamilyWallSaveColors();
+  });
+  const remove=document.createElement("button");remove.type="button";remove.className="ghost";
+  remove.textContent="Supprimer";remove.setAttribute("aria-label","Supprimer la règle "+(index+1));
+  remove.addEventListener("click",()=>{
+   jlFamilyWallColorRules.splice(index,1);
+   jlFamilyWallRenderColorSettings();jlFamilyWallSaveColors();
+  });
+  row.append(title,color,remove);list.append(row);
+ });
+ document.getElementById("jlFamilyWallAddColorRule").disabled=jlFamilyWallColorRules.length>=30;
+}
+function jlFamilyWallInitColorSettings(){
+ document.getElementById("jlFamilyWallAddColorRule").addEventListener("click",()=>{
+  if(jlFamilyWallColorRules.length>=30)return;
+  jlFamilyWallColorRules.push({keyword:"",color:jlFamilyWallDefaultColor});
+  jlFamilyWallRenderColorSettings();jlFamilyWallSaveColors();
+ });
+ document.getElementById("jlFamilyWallResetColors").addEventListener("click",()=>{
+  jlFamilyWallColorRules=jlFamilyWallSampleRules.map(x=>({...x}));
+  jlFamilyWallRenderColorSettings();jlFamilyWallSaveColors();
+ });
+ jlFamilyWallRenderColorSettings();
+}
 function jlScheduleFamilyWallFor(date){
   if(!jlScheduleVisibility.familywall)return [];
   return jlScheduleFamilyWallEvents.filter(e=>e.start_date<=date&&e.end_date>=date)
@@ -13457,7 +13579,8 @@ function jlScheduleDayRender(){
   if(!events.childElementCount)jlScheduleText(events,jlScheduleLoaded?
     "Aucun événement.":"Événements en cours de chargement.");
   for(const item of jlScheduleFamilyWallFor(date)){
-    jlScheduleText(events,"🏠 FamilyWall · "+String(item.event_title||"Événement familial"),"jl-schedule-full-item familywall");
+    const row=jlScheduleText(events,"🏠 FamilyWall · "+String(item.event_title||"Événement familial"),"jl-schedule-full-item familywall");
+    jlFamilyWallStyleEvent(row,item.event_title);
   }
   for(const note of (jlScheduleVisibility.note?jlScheduleNotesFor(date):[])){
     jlScheduleText(notes,String(note.note_text||""),"jl-schedule-full-item note");
@@ -13519,6 +13642,7 @@ function jlScheduleRender(){
     for(const item of visibleFamily){
       const el=document.createElement("div");el.className="jl-schedule-mini familywall";
       el.textContent="🏠 "+String(item.event_title||"Événement familial");
+      jlFamilyWallStyleEvent(el,item.event_title);
       el.title="FamilyWall — personnel";cell.append(el);
     }
     for(const note of visibleNotes){
@@ -13579,6 +13703,7 @@ async function jlScheduleLoad(){
     jlScheduleEvents=Array.isArray(eventsResult.data)?eventsResult.data:[];
     jlScheduleEventUserId=auth.user.id;
     jlScheduleLoadVisibility(auth.user.id);
+    jlFamilyWallLoadColors(auth.user.id);
     jlScheduleLoaded=true;
     void jlScheduleLoadFamilyWallEvents(auth.user.id,min,max,token);
     status.textContent=all.length>=1000?
@@ -13880,6 +14005,7 @@ let jlScheduleSettingsInitialized=false;
 function jlScheduleInitSettings(){
   if(jlScheduleSettingsInitialized)return;
   jlScheduleSettingsInitialized=true;
+  jlFamilyWallInitColorSettings();
   document.getElementById("jlScheduleFamilyWallConnect").addEventListener("click",()=>void jlScheduleFamilyWallAction(jlScheduleFamilyWallConnectionId?"disconnect":"connect"));
   document.getElementById("jlScheduleFamilyWallSync").addEventListener("click",()=>void jlScheduleFamilyWallAction("sync"));
   document.getElementById("jlScheduleConnectGoogle").addEventListener("click",()=>{
@@ -13914,6 +14040,7 @@ async function jlScheduleLoadExternalConnections(){
       .select("id,provider,display_name,sync_status,last_synced_at")
       .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id).limit(100);
     if(error)throw error;
+    jlFamilyWallLoadColors(auth.user.id);
     if(!document.getElementById("jlCalendarSettings").open)return;
     const rows=Array.isArray(data)?data:[];
     const connectedGoogle=rows.find(x=>x.provider==="google"&&x.sync_status==="connected"&&typeof x.id==="string");
