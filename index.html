@@ -510,8 +510,13 @@ input[type="checkbox"]{
     #page-dashboard .jl-dashboard-tag[data-kind="overdue"]{color:#ffa47d}
     #page-settings .jl-dashboard-order-settings{padding-top:10px;border-top:1px solid var(--border);margin-top:10px;font-size:13px}
     #page-settings .jl-dashboard-order-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 9px;margin-top:8px}
-    #page-settings .jl-dashboard-order-entry{display:flex;gap:5px;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:6px;padding:4px 7px}
-    #page-settings .jl-dashboard-order-entry button{padding:3px 8px;font-size:12px}
+    #page-settings .jl-dashboard-order-entry{display:flex;gap:9px;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:6px;padding:4px 7px;min-width:0}
+    #page-settings .jl-dashboard-order-entry .jl-dashboard-order-name{flex:1;min-width:0}
+    #page-settings .jl-dashboard-order-actions{display:inline-flex;flex:none;align-items:center;gap:5px}
+    #page-settings .jl-dashboard-order-entry button{padding:3px 8px;font-size:12px;min-width:29px}
+    /* Deux colonnes : les commandes sont groupées, proches de l'axe central. */
+    #page-settings .jl-dashboard-order-entry:nth-child(even){flex-direction:row-reverse}
+    @media(max-width:850px){#page-settings .jl-dashboard-order-entry:nth-child(even){flex-direction:row}}
     @media(max-width:850px){#page-dashboard .jl-dashboard-blocks{grid-template-columns:1fr}#page-dashboard .jl-dashboard-blocks .jl-dashboard-wide{grid-column:auto}#page-settings .jl-dashboard-order-options{grid-template-columns:1fr}}
     /* Analyse financière TEST : présentation compacte et adaptable. */
     #page-dashboard .jl-finance-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -2958,7 +2963,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
     </details>
 
     <details class="jl-settings-backup jl-settings-options" id="jlDashboardOptions">
-      <summary>📊 Tableau de bord</summary>
+      <summary>📊 Dashboard</summary>
       <div class="jl-settings-toggle-grid">
         <label><input type="checkbox" data-jl-dashboard="notes" checked /> Dernières notes</label>
         <label><input type="checkbox" data-jl-dashboard="monthly" checked /> Résultats mensuels</label>
@@ -10668,8 +10673,13 @@ function initSettings(){
       const row=document.createElement("div");
       row.className="jl-dashboard-order-entry";
       const label=document.createElement("span");
+      label.className="jl-dashboard-order-name";
       label.textContent=titles[key]||key;
       row.append(label);
+      const actions=document.createElement("span");
+      actions.className="jl-dashboard-order-actions";
+      actions.setAttribute("role","group");
+      actions.setAttribute("aria-label","Déplacer "+(titles[key]||key));
       for(const [symbol,offset] of [["↑",-1],["↓",1]]){
         const button=document.createElement("button");
         button.type="button";button.className="ghost";
@@ -10682,8 +10692,9 @@ function initSettings(){
           settings.dashboardOrder=next;
           save();applyDashboard();renderOrderControls();
         });
-        row.append(button);
+        actions.append(button);
       }
+      row.append(actions);
       area.append(row);
     });
   };
