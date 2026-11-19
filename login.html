@@ -110,6 +110,16 @@
       min-height: 16px;
     }
 
+    .login-core input {box-sizing:border-box}
+    .login-core form[hidden] {display:none!important}
+    .login-core .login-link {
+      background:transparent;border:0;color:#FFD400;font-size:13px;font-weight:600;
+      margin-top:12px;padding:8px;box-shadow:none;cursor:pointer;
+    }
+    .login-core .login-link:hover {background:transparent;box-shadow:none;text-decoration:underline}
+    .login-core button:disabled {opacity:.6;cursor:wait}
+    #loginError.ok {color:#79dfa3}
+    @media(max-width:450px){.login-core{width:min(300px,calc(100vw - 65px));padding:22px}}
     @keyframes pulse {
       0% { opacity: 0.4; }
       50% { opacity: 0.8; }
@@ -146,12 +156,29 @@
     <h2>Atelier-mecaniqueJL</h2>
     <p class="subtitle">Accès sécurisé à l'atelier</p>
 
-    <input id="loginEmail" type="email" placeholder="Email">
-    <input id="loginPassword" type="password" placeholder="Mot de passe">
+    <form id="loginForm">
+      <input id="loginEmail" type="email" placeholder="Courriel" autocomplete="username" required>
+      <input id="loginPassword" type="password" placeholder="Mot de passe" autocomplete="current-password" required>
+      <button id="btnLogin" type="submit">Entrer dans l’atelier</button>
+    </form>
+    <button id="forgotPassword" type="button" class="login-link">Mot de passe oublié?</button>
 
-    <button id="btnLogin">Entrer dans l’atelier</button>
+    <form id="forgotForm" hidden>
+      <h2>Réinitialiser le mot de passe</h2>
+      <p class="subtitle">Entre le courriel associé à ton compte du garage.</p>
+      <input id="recoveryEmail" type="email" placeholder="Courriel" autocomplete="email" required maxlength="254">
+      <button id="sendRecovery" type="submit">Recevoir le lien</button>
+      <button type="button" class="login-link" data-back-login>Retour à la connexion</button>
+    </form>
 
-    <div id="loginError" class="error"></div>
+    <form id="newPasswordForm" hidden>
+      <h2>Nouveau mot de passe</h2>
+      <p class="subtitle">Choisis un nouveau mot de passe pour ton compte.</p>
+      <input id="newPassword" type="password" placeholder="Nouveau mot de passe (8 caractères minimum)" autocomplete="new-password" minlength="8" required>
+      <input id="confirmPassword" type="password" placeholder="Confirmer le mot de passe" autocomplete="new-password" minlength="8" required>
+      <button id="saveNewPassword" type="submit">Enregistrer le nouveau mot de passe</button>
+    </form>
+    <div id="loginError" class="error" role="status" aria-live="polite"></div>
   </div>
 </div>
 
@@ -168,34 +195,110 @@
   }
     );
 
-    // Si déjà connecté -> aller direct au site
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) window.location.href = "index.html";
-
-    const btn = document.getElementById("btnLogin");
-    const err = document.getElementById("loginError");
-
-    async function login(){
-      err.textContent = "";
-
-      const email = document.getElementById("loginEmail").value.trim();
-      const password = document.getElementById("loginPassword").value;
-
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-      if (error){
-        err.textContent = error.message;
-        return;
-      }
-
-      window.location.href = "index.html";
+    const byId=id=>document.getElementById(id);
+    const status=byId("loginError");
+    const recoveryHint=new URLSearchParams(location.search).has("recovery") ||
+      new URLSearchParams(location.hash.replace(/^#/,"")).get("type")==="recovery";
+    let recoveryMode=recoveryHint;
+    let recoveryReady=false;
+    let busy=false;
+    function notice(message,ok=false){
+      status.textContent=message;
+      status.classList.toggle("ok",ok);
     }
-
-    btn.onclick = login;
-
-    // Enter pour login
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") login();
+    function display(mode){
+      byId("loginForm").hidden=mode!=="login";
+      byId("forgotPassword").hidden=mode!=="login";
+      byId("forgotForm").hidden=mode!=="forgot";
+      byId("newPasswordForm").hidden=mode!=="reset";
+      notice("");
+    }
+    display(recoveryMode?"reset":"login");
+    // Priorité au lien de récupération : ne jamais rediriger directement vers le garage.
+    supabase.auth.onAuthStateChange((event,session)=>{
+      if(event==="PASSWORD_RECOVERY"){
+        recoveryMode=true;
+        recoveryReady=!!session;
+        display("reset");
+      }
+    });
+    const initial=await supabase.auth.getSession();
+    if(recoveryMode){
+      recoveryReady=!!initial.data?.session;
+      if(!recoveryReady){
+        // L'échange du code de récupération peut encore être en cours.
+        const {data}=await supabase.auth.getSession();
+        recoveryReady=!!data?.session;
+      }
+      if(!recoveryReady){
+        display("forgot");
+        notice("Lien expiré ou invalide. Demande un nouveau courriel de réinitialisation.");
+      }
+    }else if(initial.data?.session){
+      location.replace("index.html");
+    }
+    byId("loginForm").addEventListener("submit",async event=>{
+      event.preventDefault();
+      if(busy)return;
+      busy=true;byId("btnLogin").disabled=true;notice("");
+      try{
+        const email=byId("loginEmail").value.trim();
+        const password=byId("loginPassword").value;
+        const {error}=await supabase.auth.signInWithPassword({email,password});
+        if(error)throw error;
+        location.replace("index.html");
+      }catch(error){
+        notice("Connexion impossible. Vérifie le courriel et le mot de passe.");
+      }finally{busy=false;byId("btnLogin").disabled=false;}
+    });
+    byId("forgotPassword").addEventListener("click",()=>{
+      byId("recoveryEmail").value=byId("loginEmail").value.trim();
+      display("forgot");byId("recoveryEmail").focus();
+    });
+    document.querySelector("[data-back-login]").addEventListener("click",()=>{
+      display("login");byId("loginEmail").focus();
+    });
+    byId("forgotForm").addEventListener("submit",async event=>{
+      event.preventDefault();
+      if(busy)return;
+      const email=byId("recoveryEmail").value.trim();
+      if(!byId("recoveryEmail").checkValidity())return;
+      busy=true;byId("sendRecovery").disabled=true;notice("");
+      try{
+        // La page courante est la destination du lien. Elle reste sur le même
+        // domaine (TEST / prévisualisation) et n'accepte aucune URL arbitraire.
+        const redirectTo=new URL("login.html?recovery=1",location.href).href;
+        const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo});
+        if(error)throw error;
+        notice("Si ce courriel correspond à un compte, tu recevras un lien pour changer ton mot de passe. Vérifie aussi les indésirables.",true);
+      }catch(error){
+        // Message uniforme : ne pas divulguer l'existence d'un compte.
+        notice("Demande non confirmée. Réessaie dans quelques minutes ou contacte l'administrateur.");
+      }finally{busy=false;byId("sendRecovery").disabled=false;}
+    });
+    byId("newPasswordForm").addEventListener("submit",async event=>{
+      event.preventDefault();
+      if(busy)return;
+      const password=byId("newPassword").value;
+      if(password.length<8){notice("Utilise au moins 8 caractères.");return;}
+      if(password!==byId("confirmPassword").value){
+        notice("Les deux mots de passe ne correspondent pas.");return;
+      }
+      busy=true;byId("saveNewPassword").disabled=true;notice("");
+      try{
+        const {data:{session},error:sessionError}=await supabase.auth.getSession();
+        if(sessionError||!session||!recoveryMode)throw Error("Invalid recovery session");
+        const {error}=await supabase.auth.updateUser({password});
+        if(error)throw error;
+        byId("newPassword").value="";byId("confirmPassword").value="";
+        await supabase.auth.signOut();
+        recoveryMode=false;recoveryReady=false;
+        history.replaceState(null,"",location.pathname);
+        display("login");
+        notice("Mot de passe modifié. Tu peux maintenant te connecter.",true);
+      }catch(error){
+        notice("Lien expiré ou mot de passe refusé. Demande un nouveau lien si nécessaire.");
+      }finally{busy=false;byId("saveNewPassword").disabled=false;}
     });
   </script>
 </body>
