@@ -1584,6 +1584,21 @@ button.link:hover{
   #page-invoice-list .card:has(#invoiceListTable){overflow-x:auto}
 }
 
+
+/* S10 TEST — palette personnelle pour les calendriers natifs. */
+#page-schedule .jl-schedule-swatch.work{background:var(--jl-color-work,#ef6161)}
+#page-schedule .jl-schedule-swatch.note{background:var(--jl-color-note,#5da9ff)}
+#page-schedule .jl-schedule-swatch.workshop{background:var(--jl-color-workshop,#daa038)}
+#page-schedule .jl-schedule-swatch.private{background:var(--jl-color-private,#48ad7d)}
+#page-schedule .jl-schedule-mini.work,#page-schedule .jl-schedule-full-item.work{border-left-color:var(--jl-color-work,#ef6161)}
+#page-schedule .jl-schedule-mini.note,#page-schedule .jl-schedule-full-item.note{border-left-color:var(--jl-color-note,#5da9ff)}
+#page-schedule .jl-schedule-mini.workshop,#page-schedule .jl-schedule-full-item.workshop{border-left-color:var(--jl-color-workshop,#daa038)}
+#page-schedule .jl-schedule-mini.private,#page-schedule .jl-schedule-full-item.private{border-left-color:var(--jl-color-private,#48ad7d)}
+#page-dashboard .jl-calendar-day-event.private,#page-dashboard .jl-day-event-item.private{border-left-color:var(--jl-color-private,#48ad7d)}
+#page-settings .jl-palette-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:10px}
+#page-settings .jl-palette-grid label{display:flex;align-items:center;justify-content:space-between;gap:6px;border:1px solid var(--border);padding:7px;border-radius:6px}
+#page-settings .jl-palette-grid input{width:45px;height:32px;padding:1px;cursor:pointer}
+
 /* S09 : Agenda mensuel TEST, hauteur des cases fixe, sans dépendance graphique. */
 #page-schedule .jl-schedule-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 #page-schedule .jl-schedule-bar h2{margin:0}
@@ -2683,6 +2698,19 @@ button.link:hover{
           </div>
           <p id="jlScheduleExternalStatus" class="muted" role="status" aria-live="polite">Les connexions seront disponibles après la configuration OAuth sécurisée.</p>
         </section>
+    </details>
+
+    <details class="jl-settings-backup jl-settings-options jl-settings-fold" id="jlCalendarColorsSettings">
+      <summary>🎨 Couleurs de mes calendriers</summary>
+      <p class="muted">Personnalise les couleurs par catégorie, sans modifier les événements ni les calendriers des autres utilisateurs. Les préférences restent dans ton navigateur. Pour FamilyWall, les couleurs par mot-clé se trouvent dans « Calendriers personnels — connexions ».</p>
+      <div class="jl-palette-grid">
+        <label>Travaux <input type="color" data-jl-palette="work" value="#ef6161"></label>
+        <label>Notes <input type="color" data-jl-palette="note" value="#5da9ff"></label>
+        <label>Atelier <input type="color" data-jl-palette="workshop" value="#daa038"></label>
+        <label>Personnel <input type="color" data-jl-palette="private" value="#48ad7d"></label>
+      </div>
+      <button type="button" id="jlResetCalendarColors" class="ghost" style="margin-top:10px">Réinitialiser les couleurs</button>
+      <p id="jlCalendarColorsStatus" class="muted" role="status" aria-live="polite"></p>
     </details>
 
     <details class="jl-settings-backup jl-settings-options jl-settings-fold" id="jlGarageSettings">
@@ -13738,6 +13766,7 @@ async function jlScheduleLoad(){
     jlScheduleEvents=Array.isArray(eventsResult.data)?eventsResult.data:[];
     jlScheduleEventUserId=auth.user.id;
     jlScheduleLoadVisibility(auth.user.id);
+    jlPaletteLoad(auth.user.id);
     jlFamilyWallLoadColors(auth.user.id);
     jlScheduleLoaded=true;
     void jlScheduleLoadFamilyWallEvents(auth.user.id,min,max,token);
@@ -14188,6 +14217,7 @@ async function jlCalendarLoadFamilyWall(){
     const {data:auth,error:authError}=await db.auth.getUser();
     if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
     jlScheduleLoadVisibility(auth.user.id);
+    jlPaletteLoad(auth.user.id);
     jlFamilyWallLoadColors(auth.user.id);
     const {data:connections,error:connectionError}=await db.from("garage_external_calendar_connections")
       .select("id").eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id)
@@ -19540,6 +19570,58 @@ async function jlHistoryLoadQuotes(){
     jlHistoryRenderQuotes();
   }
 }
+
+/* S10 TEST — palette utilisateur locale, sans aucune écriture cloud. */
+const jlPaletteDefaults={work:"#ef6161",note:"#5da9ff",workshop:"#daa038",private:"#48ad7d"};
+let jlPaletteOwner="",jlPaletteColors={...jlPaletteDefaults};
+function jlPaletteApply(){
+  for(const [key,color] of Object.entries(jlPaletteColors)){
+    if(/^#[0-9a-f]{6}$/i.test(color))document.documentElement.style.setProperty("--jl-color-"+key,color);
+  }
+  document.querySelectorAll("[data-jl-palette]").forEach(el=>{
+    el.value=jlPaletteColors[el.dataset.jlPalette]||jlPaletteDefaults[el.dataset.jlPalette]||"#777777";
+  });
+}
+function jlPaletteLoad(userId){
+  if(!ACTIVE_GARAGE_ID||!userId)return;
+  const owner="jl-calendar-palette:"+ACTIVE_GARAGE_ID+":"+userId;
+  if(jlPaletteOwner!==owner){
+    jlPaletteOwner=owner;jlPaletteColors={...jlPaletteDefaults};
+    try{
+      const saved=JSON.parse(localStorage.getItem(owner)||"{}");
+      for(const key of Object.keys(jlPaletteDefaults)){
+        if(typeof saved[key]==="string"&&/^#[0-9a-f]{6}$/i.test(saved[key]))
+          jlPaletteColors[key]=saved[key];
+      }
+    }catch(_e){}
+  }
+  jlPaletteApply();
+}
+function jlPaletteSave(){
+  if(!jlPaletteOwner)return;
+  try{
+    localStorage.setItem(jlPaletteOwner,JSON.stringify(jlPaletteColors));
+    const status=document.getElementById("jlCalendarColorsStatus");
+    if(status)status.textContent="Couleurs enregistrées sur ce navigateur.";
+  }catch(_e){
+    const status=document.getElementById("jlCalendarColorsStatus");
+    if(status)status.textContent="Impossible d'enregistrer sur ce navigateur.";
+  }
+  jlPaletteApply();
+}
+document.querySelectorAll("[data-jl-palette]").forEach(input=>{
+  input.addEventListener("input",()=>{
+    if(!jlPaletteOwner)return;
+    const key=input.dataset.jlPalette;
+    if(!(key in jlPaletteDefaults)||!/^#[0-9a-f]{6}$/i.test(input.value))return;
+    jlPaletteColors[key]=input.value;
+    jlPaletteSave();
+  });
+});
+document.getElementById("jlResetCalendarColors")?.addEventListener("click",()=>{
+  if(!jlPaletteOwner)return;
+  jlPaletteColors={...jlPaletteDefaults};jlPaletteSave();
+});
 </script>
 </body>
 </html>
