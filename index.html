@@ -15398,8 +15398,8 @@ async function dashboardRefreshPendingQuotes(){
     jlDashboardFillList("jlDashboardQuotesBox",unapproved.slice(0,5).map(quoteItem),
       "Aucune soumission envoyée en attente d'accord.");
     jlDashboardFillList("jlDashboardUnplanned",approved.filter(q=>
-      !q.content?.appointment?.date&&q.status!=="converted").slice(0,5).map(quoteItem),
-      "Aucune soumission approuvée à planifier.");
+      !q.content?.appointment?.date).slice(0,5).map(quoteItem),
+      "Aucun rendez-vous à planifier.");
     const status=document.getElementById("jlCalendarStatus");
     if(status)status.textContent=rows.length>=500
       ?"Affichage partiel : plus de 500 soumissions à vérifier."
@@ -19848,7 +19848,14 @@ if (window.garageSupabase) {
   // séparées du statut "converted", réservé à la transaction anti-doublon.
   let schedulingWrite=false;
   async function saveQuoteWorkflowChanges(patch){
-    if(schedulingWrite||!selectedQuote||!["draft","sent"].includes(selectedQuote.status))
+    // Une soumission convertie reste figée commercialement, mais son rendez-vous
+    // peut être replanifié sans toucher au BT ni à son statut "converted".
+    const onlyAppointment=patch&&Object.keys(patch).length===1&&Object.hasOwn(patch,"appointment");
+    const allowed=selectedQuote&&(
+      ["draft","sent"].includes(selectedQuote.status)||
+      (selectedQuote.status==="converted"&&onlyAppointment&&!!selectedQuote.content?.approvalConfirmedAt)
+    );
+    if(schedulingWrite||!allowed)
       throw Error("Soumission non modifiable ou enregistrement déjà en cours.");
     schedulingWrite=true;
     const q=selectedQuote;
@@ -20075,7 +20082,7 @@ if (window.garageSupabase) {
     get("s08MarkApproved").hidden=q.status!=="sent"||!!d.approvalConfirmedAt;
     get("s08QuickApprove").hidden=!["draft","sent"].includes(q.status)||!d.approvalConfirmedAt;
     const schedule=get("s08SchedulePanel");
-    schedule.hidden=!(["draft","sent"].includes(q.status)&&!!d.approvalConfirmedAt);
+    schedule.hidden=!(["draft","sent","converted"].includes(q.status)&&!!d.approvalConfirmedAt);
     get("s08ScheduleDate").value=d.appointment?.date||"";
     get("s08ScheduleTime").value=d.appointment?.time||"";
     get("s08ScheduleDuration").value=d.appointment?.durationMinutes||60;
@@ -20083,7 +20090,9 @@ if (window.garageSupabase) {
     if(!schedule.hidden)void s09LoadBookings();
     else {++s09BookingsToken;s09BookingsBox.textContent="";}
     get("s08ScheduleFeedback").textContent=d.approvalConfirmedAt?
-      (d.appointment?.date?"Rendez-vous enregistré.":"Soumission approuvée — à planifier."):"";
+      (d.appointment?.date?"Rendez-vous enregistré."+(converted?" Le BT existant reste inchangé.":""):
+       converted?"Rendez-vous annulé — à replanifier. Le BT existant est conservé.":
+       "Soumission approuvée — à planifier."):"";
     setStatusPill(get("s08ViewStatusBadge"),q.status==="sent"&&d.approvalConfirmedAt?"approved":q.status);
     const editableStatus=["draft","sent","declined","expired"].includes(q.status)&&!d.approvalConfirmedAt;
     get("s08StatusPanel").hidden=!editableStatus;
