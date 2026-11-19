@@ -13405,10 +13405,9 @@ function jlScheduleEventLabel(e,date=""){
   const type={closed:"Atelier fermé",reserved:"Période réservée",unavailable:"Indisponibilité"};
   let prefix="Toute la journée";
   if(!e.all_day){
-    const start=String(e.start_time||"").slice(0,5),end=String(e.end_time||"").slice(0,5);
-    if(e.start_date===e.end_date)prefix=start+"–"+end;
-    else if(date===e.start_date)prefix="Dès "+start;
-    else if(date===e.end_date)prefix="Jusqu'à "+end;
+    const start=String(e.start_time||"").slice(0,5);
+    if(e.start_date===e.end_date||!date||date===e.start_date)prefix=start||"Heure non précisée";
+    else prefix="En cours";
   }
   return prefix+" · "+String(e.title||type[e.event_type]||"Événement");
 }
@@ -13531,14 +13530,10 @@ function jlFamilyWallEventLabel(event,date=""){
     const mm=parts.find(p=>p.type==="minute")?.value||"";
     return hh&&mm?hh+":"+mm:"";
   };
-  const start=fmt(event.start_at),end=fmt(event.end_at);
-  if(!start&&!end)return title;
-  let clock=start&&end?start+"–"+end:start||end;
-  if(event.start_date!==event.end_date&&date){
-    if(date===event.start_date)clock=start?"Dès "+start:"";
-    else if(date===event.end_date)clock=end?"Jusqu'à "+end:"";
-    else clock="Toute la journée";
-  }
+  const start=fmt(event.start_at);
+  if(!start)return title;
+  const clock=(event.start_date!==event.end_date&&date&&date!==event.start_date)
+    ?"En cours":start;
   return (clock?clock+" · ":"")+title;
 }
 function jlScheduleFamilyWallFor(date){
@@ -14289,8 +14284,7 @@ function jlDayAgendaRender(){
     const item=document.createElement("div");
     item.className="jl-day-event-item"+(e.visibility==="private"?" private":"");
     item.textContent=(e.visibility==="private"?"🔒 Personnel · ":"🏭 Atelier · ")+
-      (e.all_day?"Toute la journée · ":String(e.start_time||"").slice(0,5)+"–"+
-        String(e.end_time||"").slice(0,5)+" · ")+String(e.title||"");
+      jlScheduleEventLabel(e,date);
     events.append(item);
   }
   for(const e of jlCalendarFamilyWallFor(date)){
