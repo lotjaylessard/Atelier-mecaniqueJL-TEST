@@ -7,6 +7,8 @@ on:
       - 'index.html'
       - 'tests/s09-*.test.cjs'
       - 'tests/s09-google-oauth-live.cjs'
+      - 'tests/s09-familywall-live.cjs'
+      - 'supabase/functions/garage-familywall-calendar/**'
       - 'supabase/functions/garage-calendar-oauth/**'
       - '.github/workflows/s09-phase2-validation.yml'
   workflow_dispatch:
@@ -27,6 +29,8 @@ jobs:
         run: node --test tests/s09-calendar-providers.test.cjs
       - name: Check deployed Google OAuth endpoint is safe and reachable
         run: node tests/s09-google-oauth-live.cjs
+      - name: Check FamilyWall endpoint availability and anonymous isolation
+        run: node tests/s09-familywall-live.cjs
       - name: Complete offline regression suite (other modules)
         run: node --test tests/*.test.cjs
       - name: Real Chromium monthly calendar smoke (offline fixtures)
