@@ -21,9 +21,9 @@ test('month opens on current month with day details hidden',()=>{
 test('up to three previews, or two plus overflow for six-row months',()=>{
  assert.match(source,/const previewLimit=slots===42\?2:3/);
  assert.match(source,/visibleJobs=jobs\.slice\(0,previewLimit\)/);
- assert.match(source,/visibleNotes=notes\.slice\(0,Math\.max\(0,previewLimit-visibleJobs\.length-visibleEvents\.length\)\)/);
+ assert.match(source,/visibleNotes=notes\.slice\(0,Math\.max\(0,previewLimit-visibleJobs\.length-visibleEvents\.length-visibleFamily\.length\)\)/);
  assert.match(source,/jlScheduleDayOpen\(date\)/);
- assert.match(source,/const extra=jobs\.length\+notes\.length\+events\.length-visibleJobs\.length-visibleNotes\.length-visibleEvents\.length/);
+ assert.match(source,/const extra=jobs\.length\+notes\.length\+events\.length\+family\.length-visibleJobs\.length-visibleNotes\.length-visibleEvents\.length-visibleFamily\.length/);
 });
 test('quotes and notes query the current garage and user',()=>{
  assert.match(source,/from\("garage_quotes"\)/);
