@@ -539,6 +539,7 @@ input[type="checkbox"]{
     #page-dashboard .jl-finance-bar[data-metric="cost"]{background:#e8bd45}
     #page-dashboard .jl-finance-bar[data-metric="profit"]{background:#4caf50}
     #page-dashboard .jl-finance-column-label{text-align:center;font-size:11px;color:var(--muted);white-space:nowrap}
+    #page-dashboard .jl-finance-month-amount{text-align:center;font-size:10px;font-weight:800;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     #page-dashboard .jl-finance-column[aria-current="true"] .jl-finance-column-label{font-weight:800;color:var(--accent)}
     #page-dashboard .jl-finance-caveat{font-size:12px;margin:10px 0 0}
     @media(max-width:900px){#page-dashboard .jl-finance-summary{grid-template-columns:repeat(2,minmax(0,1fr))}#page-dashboard .jl-finance-chart{grid-template-columns:repeat(12,minmax(58px,1fr))}}
@@ -1876,6 +1877,8 @@ body.jl-hide-supplier-invoices .jl-invoice-supplier{display:none!important}
     <div><span>Ventes hors taxes</span><strong id="jlFinanceSales">0,00 $</strong></div>
     <div><span>Coût des pièces des BT</span><strong id="annualPartCost">0,00 $</strong></div>
     <div><span>Profit brut estimé</span><strong id="annualGrossProfit">0,00 $</strong></div>
+    <div><span>Profit sur pièces estimé (BT facturés)</span><strong id="jlFinancePartsProfit">—</strong></div>
+    <div><span>Main-d'œuvre facturée (avant frais)</span><strong id="jlFinanceLaborProfit">—</strong></div>
     <div><span>Marge brute estimée</span><strong id="jlFinanceMargin">—</strong></div>
     <div><span>Factures payées</span><strong id="jlFinanceCount">0</strong></div>
     <div><span>Vente HT moyenne / facture</span><strong id="jlFinanceAverage">—</strong></div>
@@ -15342,9 +15345,16 @@ function renderMonthlyRevenueChart(){
       const parts=wo&&Array.isArray(wo.parts)?wo.parts:null;
       const cost=parts&&parts.every(p=>[Number(p.qty||0),Number(p.cost||0)].every(finite))?
         parts.reduce((n,p)=>n+Number(p.qty||0)*Number(p.cost||0),0):null;
+      const partsProfit=parts&&parts.every(p=>[Number(p.qty||0),Number(p.cost||0),Number(p.rate||0)].every(finite))?
+        parts.reduce((n,p)=>n+(Number(p.rate||0)-Number(p.cost||0))*Number(p.qty||0),0):null;
+      const labor=wo&&Array.isArray(wo.labor)?wo.labor:null;
+      const laborRevenue=labor&&labor.every(line=>finite(Number(s06LaborLineAmount(line))))?
+        labor.reduce((n,line)=>n+Number(s06LaborLineAmount(line)),0):null;
       return {date,total:finite(total)?total:null,tax:knownTaxes?gst+qst:null,
         sales:finite(sales)?sales:null,cost:finite(cost)?cost:null,
-        profit:finite(sales)&&finite(cost)?sales-cost:null};
+        profit:finite(sales)&&finite(cost)?sales-cost:null,
+        partsProfit:finite(partsProfit)?partsProfit:null,
+        laborRevenue:finite(laborRevenue)?laborRevenue:null};
     }).filter(Boolean);
   const currentYear=String(new Date().getFullYear());
   const years=[...new Set(paid.map(x=>x.date.slice(0,4)).concat(currentYear))].sort().reverse();
@@ -15371,6 +15381,10 @@ function renderMonthlyRevenueChart(){
   set("jlFinanceSales",knownSales?dollars(sales):"—");
   set("annualPartCost",knownCosts?dollars(costs):"—");
   set("annualGrossProfit",knownProfit?dollars(profit):"—");
+  // Les deux mesures ne s'additionnent pas nécessairement au profit brut
+  // si la facture contient des services et frais hors lignes pièces / MO.
+  set("jlFinancePartsProfit",complete("partsProfit")?dollars(sum("partsProfit")):"—");
+  set("jlFinanceLaborProfit",complete("laborRevenue")?dollars(sum("laborRevenue")):"—");
   set("jlFinanceMargin",knownProfit&&knownSales&&sales>0?
     (profit/sales*100).toLocaleString("fr-CA",{maximumFractionDigits:1,minimumFractionDigits:1})+" %":"—");
   set("jlFinanceCount",String(filtered.length));
@@ -15385,6 +15399,7 @@ function renderMonthlyRevenueChart(){
     if(missingPaid)gaps.push(missingPaid+" facture(s) sans total historique vérifiable");
     if(missingTax)gaps.push(missingTax+" facture(s) sans taxes historiques vérifiables");
     if(missingWO)gaps.push(missingWO+" facture(s) sans coût de pièces associé à un BT");
+    if(!complete("partsProfit")||!complete("laborRevenue"))gaps.push("détail du profit pièces / main-d'œuvre non vérifiable pour certaines factures");
     caveat.textContent=(gaps.length?"Données incomplètes : "+gaps.join(" ; ")+". Les valeurs non vérifiables sont indiquées par « — ». ":"")+
       "Profit brut estimé = ventes hors taxes moins coût des pièces des BT. Main-d’œuvre comptée comme revenu, sans coût salarial ni autres dépenses. Les factures partielles ne sont pas incluses.";
   }
@@ -15405,6 +15420,10 @@ function renderMonthlyRevenueChart(){
   for(const g of groups){
     const col=document.createElement("div");col.className="jl-finance-column";
     if(mode==="month")col.setAttribute("aria-current","true");
+    const amount=document.createElement("strong");amount.className="jl-finance-month-amount";
+    amount.textContent=g.records.length?(g.records.every(x=>finite(x.total))?dollars(g.records.reduce((n,x)=>n+x.total,0)):"—"):"0 $";
+    amount.title="Total TTC des factures payées : "+g.key;
+    col.append(amount);
     const bars=document.createElement("div");bars.className="jl-finance-bars";
     for(const key of ["sales","cost","profit"]){
       const val=g[key];
