@@ -1565,11 +1565,26 @@ button.link:hover{
   display:flex;align-items:center;justify-content:center;text-align:center;
   gap:4px;width:100%;min-width:0;padding:5px 4px;font-size:12px;line-height:1.2;white-space:normal;
 }
-#page-invoice-list #invoiceListTable th:nth-child(1){width:25%}
-#page-invoice-list #invoiceListTable th:nth-child(2){width:17%}
-#page-invoice-list #invoiceListTable th:nth-child(3){width:30%}
-#page-invoice-list #invoiceListTable th:nth-child(4){width:14%}
-#page-invoice-list #invoiceListTable th:nth-child(5){width:14%}
+/* TEST: six colonnes de facture, largeurs totalisant exactement 100 %. */
+#page-invoice-list #invoiceListTable th:nth-child(1){width:24%}
+#page-invoice-list #invoiceListTable th:nth-child(2){width:14%}
+#page-invoice-list #invoiceListTable th:nth-child(3){width:22%}
+#page-invoice-list #invoiceListTable th:nth-child(4){width:13%}
+#page-invoice-list #invoiceListTable th:nth-child(5){width:12%}
+#page-invoice-list #invoiceListTable th:nth-child(6){width:15%}
+#page-invoice-list #invoiceListTable td.invoice-balance,
+#page-invoice-list #invoiceListTable td.invoice-total{
+  white-space:nowrap;font-variant-numeric:tabular-nums;
+}
+#page-invoice-list #invoiceListTable td.invoice-status{
+  white-space:nowrap;overflow-wrap:normal;
+}
+#page-invoice-list #invoiceListTable td.invoice-status .status-badge{
+  display:inline-block;white-space:nowrap;overflow-wrap:normal;
+  max-width:none;padding:5px 8px;vertical-align:middle;
+}
+#page-invoice-list #invoiceListTable tbody tr{height:auto}
+#page-invoice-list #invoiceListTable tbody td{padding-top:10px;padding-bottom:10px}
 #page-invoice-list #invoiceListTable td:first-child{font-size:12px;font-weight:650;overflow-wrap:anywhere}
 #page-invoice-list #invoiceListTable td.invoice-total{
   white-space:nowrap;font-size:12px;font-variant-numeric:tabular-nums;
@@ -1580,8 +1595,8 @@ button.link:hover{
 @media(max-width:950px){
   #page-quotes .s08-quotes-table #s08QuotesTable{min-width:850px}
 }
-@media(max-width:650px){
-  #page-invoice-list #invoiceListTable{min-width:570px}
+@media(max-width:1050px){
+  #page-invoice-list #invoiceListTable{min-width:900px}
   #page-invoice-list .card:has(#invoiceListTable){overflow-x:auto}
 }
 
