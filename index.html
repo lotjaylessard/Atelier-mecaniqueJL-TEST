@@ -1588,7 +1588,9 @@ button.link:hover{
 #page-schedule .jl-schedule-nav{display:flex;gap:7px}
 #page-schedule .jl-schedule-title{text-align:center;text-transform:capitalize;margin:10px 0}
 #page-schedule .jl-schedule-legend{display:flex;gap:16px;flex-wrap:wrap;margin:6px 0 10px;font-size:12px}
-#page-schedule .jl-schedule-legend span{display:flex;gap:6px;align-items:center}
+#page-schedule .jl-schedule-legend label{display:inline-flex;gap:6px;align-items:center;cursor:pointer;white-space:nowrap}
+#page-schedule .jl-schedule-legend input{margin:0;accent-color:#ffd000}
+#page-schedule .jl-schedule-legend label:has(input:disabled){opacity:.55;cursor:not-allowed}
 #page-schedule .jl-schedule-swatch{display:inline-block;width:10px;height:10px;border-radius:3px}
 #page-schedule .jl-schedule-swatch.work{background:#ef6161}
 #page-schedule .jl-schedule-swatch.note{background:#5da9ff}
@@ -1612,10 +1614,10 @@ button.link:hover{
 #page-schedule .jl-schedule-mini.workshop{background:rgba(218,160,56,.15);border-left:3px solid #daa038}
 #page-schedule .jl-schedule-mini.private{background:rgba(72,173,125,.15);border-left:3px solid #48ad7d}
 #page-schedule .jl-schedule-more{position:absolute;bottom:3px;right:4px;z-index:2;border:1px solid var(--border);border-radius:4px;background:var(--card,#252525);color:var(--accent);text-align:center;font-size:11px;line-height:15px;font-weight:700;cursor:pointer;padding:0 5px;max-width:calc(100% - 8px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.4)}
-#page-schedule .jl-schedule-external-panel{margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:9px}
-#page-schedule .jl-schedule-external-panel[hidden]{display:none}
-#page-schedule .jl-schedule-external-panel h3{margin:0 0 8px}
-#page-schedule .jl-schedule-external-provider{padding:7px 9px;margin:6px 0;border:1px solid var(--border);border-radius:6px}
+#page-settings .jl-schedule-external-panel{margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:9px}
+#page-settings .jl-schedule-external-panel[hidden]{display:none}
+#page-settings .jl-schedule-external-panel h3{margin:0 0 8px}
+#page-settings .jl-schedule-external-provider{padding:7px 9px;margin:6px 0;border:1px solid var(--border);border-radius:6px}
 #page-schedule .jl-schedule-day-panel{border:1px solid var(--border);border-radius:9px;padding:13px;margin-top:12px}
 #page-schedule .jl-schedule-day-panel[hidden],#page-schedule #jlScheduleNoteEditor[hidden]{display:none}
 #page-schedule .jl-schedule-day-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
@@ -1851,32 +1853,25 @@ button.link:hover{
         <div class="jl-schedule-bar">
           <h2>📅 Horaire</h2>
           <div class="jl-schedule-nav">
-            <button type="button" id="jlScheduleCalendarsToggle" class="ghost" aria-expanded="false" aria-controls="jlScheduleCalendarsPanel">Mes calendriers</button>
             <button type="button" id="jlSchedulePrev" class="ghost" aria-label="Mois précédent">‹</button>
             <button type="button" id="jlScheduleToday" class="ghost">Aujourd'hui</button>
             <button type="button" id="jlScheduleNext" class="ghost" aria-label="Mois suivant">›</button>
           </div>
         </div>
         <h3 id="jlScheduleMonth" class="jl-schedule-title"></h3>
-        <div class="jl-schedule-legend" aria-label="Couleurs de l'horaire">
-          <span><i class="jl-schedule-swatch work"></i>Travaux</span>
-          <span><i class="jl-schedule-swatch note"></i>Notes</span>
-          <span><i class="jl-schedule-swatch workshop"></i>Atelier</span>
-          <span><i class="jl-schedule-swatch private"></i>Personnel (privé)</span>
+        <div class="jl-schedule-legend" aria-label="Calendriers à afficher dans Horaire">
+          <label><input type="checkbox" data-jl-schedule-filter="work" checked><i class="jl-schedule-swatch work"></i>Travaux</label>
+          <label><input type="checkbox" data-jl-schedule-filter="note" checked><i class="jl-schedule-swatch note"></i>Notes</label>
+          <label><input type="checkbox" data-jl-schedule-filter="workshop" checked><i class="jl-schedule-swatch workshop"></i>Atelier</label>
+          <label><input type="checkbox" data-jl-schedule-filter="private" checked><i class="jl-schedule-swatch private"></i>Personnel (privé)</label>
+          <label title="Disponible lorsque les événements Google seront importés"><input type="checkbox" data-jl-schedule-filter="google" disabled>Google (à venir)</label>
+          <label title="Disponible lorsque les événements Outlook seront importés"><input type="checkbox" data-jl-schedule-filter="microsoft" disabled>Outlook (à venir)</label>
         </div>
         <p class="muted" id="jlScheduleStatus" role="status" aria-live="polite">Chargement de l'horaire…</p>
         <div class="jl-schedule-weekdays" aria-hidden="true">
           <span>Dim</span><span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span>
         </div>
         <div id="jlScheduleMonthGrid" class="jl-schedule-month-grid" aria-label="Calendrier mensuel"></div>
-        <section id="jlScheduleCalendarsPanel" class="jl-schedule-external-panel" hidden aria-label="Mes calendriers personnels">
-          <h3>Calendriers personnels</h3>
-          <p class="muted">Tes événements importés resteront complètement privés, sans partager tes plages occupées avec les employés.</p>
-          <div id="jlScheduleExternalGoogle" class="jl-schedule-external-provider">Google Calendar — non connecté</div>
-          <button type="button" id="jlScheduleConnectGoogle" class="ghost" disabled>Connecter Google Calendar</button>
-          <div id="jlScheduleExternalMicrosoft" class="jl-schedule-external-provider">Outlook / Hotmail — non connecté</div>
-          <p id="jlScheduleExternalStatus" class="muted" role="status" aria-live="polite">Les connexions seront disponibles après la configuration OAuth sécurisée.</p>
-        </section>
         <section id="jlScheduleDayPanel" class="jl-schedule-day-panel" hidden aria-label="Détails de la journée">
           <div class="jl-schedule-day-heading">
             <h3 id="jlScheduleDayTitle"></h3>
@@ -2627,6 +2622,18 @@ button.link:hover{
         <button id="jlThemeToggle" type="button" role="switch" aria-checked="false" aria-labelledby="jlThemeLabel" title="Passer en thème clair"><span class="jl-theme-knob" aria-hidden="true"></span></button>
         <span class="muted">Clair</span>
       </div>
+    </details>
+
+    <details class="jl-settings-backup jl-settings-options jl-settings-fold" id="jlCalendarSettings">
+      <summary>📅 Calendriers personnels — connexions</summary>
+<section id="jlScheduleCalendarsPanel" class="jl-schedule-external-panel" aria-label="Mes calendriers personnels">
+          <h3>Calendriers personnels</h3>
+          <p class="muted">Tes événements importés resteront complètement privés, sans partager tes plages occupées avec les employés.</p>
+          <div id="jlScheduleExternalGoogle" class="jl-schedule-external-provider">Google Calendar — non connecté</div>
+          <button type="button" id="jlScheduleConnectGoogle" class="ghost" disabled>Connecter Google Calendar</button>
+          <div id="jlScheduleExternalMicrosoft" class="jl-schedule-external-provider">Outlook / Hotmail — non connecté</div>
+          <p id="jlScheduleExternalStatus" class="muted" role="status" aria-live="polite">Les connexions seront disponibles après la configuration OAuth sécurisée.</p>
+        </section>
     </details>
 
     <details class="jl-settings-backup jl-settings-options jl-settings-fold" id="jlGarageSettings">
@@ -3792,6 +3799,7 @@ function showPage(id){
 
     case "page-settings":
   loadSettings();
+  if(typeof jlScheduleInitSettings==="function")jlScheduleInitSettings();
   break;
 
       case "page-parts":
@@ -13310,6 +13318,38 @@ window.addEventListener("s08-quotes-refreshed",()=>{
 let jlScheduleShift=0,jlScheduleSelected="",jlScheduleQuotes=[],jlScheduleNotes=[];
 let jlScheduleLoaded=false,jlScheduleRequest=0,jlScheduleSaving=false,jlScheduleInitialized=false;
 let jlScheduleEvents=[],jlScheduleEventSaving=false,jlScheduleEventUserId="";
+const jlScheduleVisibility={work:true,note:true,workshop:true,private:true};
+let jlScheduleVisibilityOwnerKey="";
+function jlScheduleLoadVisibility(userId){
+  if(!userId||!ACTIVE_GARAGE_ID)return;
+  const key="jl-schedule-visibility:"+ACTIVE_GARAGE_ID+":"+userId;
+  if(key!==jlScheduleVisibilityOwnerKey){
+    jlScheduleVisibilityOwnerKey=key;
+    for(const k of Object.keys(jlScheduleVisibility))jlScheduleVisibility[k]=true;
+    try{
+      const saved=JSON.parse(localStorage.getItem(key)||"{}");
+      for(const k of Object.keys(jlScheduleVisibility))
+        if(typeof saved[k]==="boolean")jlScheduleVisibility[k]=saved[k];
+    }catch(_err){}
+  }
+  document.querySelectorAll("[data-jl-schedule-filter]").forEach(input=>{
+    const k=input.dataset.jlScheduleFilter;
+    if(k in jlScheduleVisibility)input.checked=jlScheduleVisibility[k];
+  });
+}
+function jlScheduleInitFilters(){
+  document.querySelectorAll("[data-jl-schedule-filter]").forEach(input=>{
+    if(input.disabled)return;
+    input.addEventListener("change",()=>{
+      const key=input.dataset.jlScheduleFilter;
+      if(!(key in jlScheduleVisibility))return;
+      jlScheduleVisibility[key]=input.checked;
+      if(jlScheduleVisibilityOwnerKey)
+        try{localStorage.setItem(jlScheduleVisibilityOwnerKey,JSON.stringify(jlScheduleVisibility));}catch(_err){}
+      jlScheduleRender();
+    });
+  });
+}
 function jlScheduleMonthStart(){
   const d=new Date(),first=new Date(d.getFullYear(),d.getMonth()+jlScheduleShift,1);
   return first;
@@ -13367,7 +13407,7 @@ function jlScheduleDayRender(){
   const notes=document.getElementById("jlScheduleDayNotes");
   const events=document.getElementById("jlScheduleDayEvents");
   jobs.replaceChildren();notes.replaceChildren();events.replaceChildren();
-  for(const q of jlScheduleJobsFor(date)){
+  for(const q of (jlScheduleVisibility.work?jlScheduleJobsFor(date):[])){
     const ap=q.content.appointment||{};
     const entry=document.createElement("div");entry.className="jl-schedule-full-item work";
     const link=document.createElement("button");link.type="button";
@@ -13381,7 +13421,7 @@ function jlScheduleDayRender(){
   }
   if(!jobs.childElementCount)jlScheduleText(jobs,jlScheduleLoaded?
     "Aucun travail planifié.":"Travaux en cours de chargement.");
-  for(const e of jlScheduleEventsFor(date)){
+  for(const e of jlScheduleEventsFor(date).filter(e=>jlScheduleVisibility[e.visibility==="private"?"private":"workshop"])){
     const row=document.createElement("div");
     row.className="jl-schedule-full-item "+(e.visibility==="private"?"private":"workshop");
     const edit=document.createElement("button");edit.type="button";
@@ -13393,7 +13433,7 @@ function jlScheduleDayRender(){
   }
   if(!events.childElementCount)jlScheduleText(events,jlScheduleLoaded?
     "Aucun événement.":"Événements en cours de chargement.");
-  for(const note of jlScheduleNotesFor(date)){
+  for(const note of (jlScheduleVisibility.note?jlScheduleNotesFor(date):[])){
     jlScheduleText(notes,String(note.note_text||""),"jl-schedule-full-item note");
   }
   if(!notes.childElementCount)jlScheduleText(notes,jlScheduleLoaded?
@@ -13425,7 +13465,9 @@ function jlScheduleRender(){
     cell.addEventListener("click",e=>{
       if(!e.target.closest("button"))jlScheduleDayOpen(date);
     });
-    const jobs=jlScheduleJobsFor(date),notes=jlScheduleNotesFor(date),events=jlScheduleEventsFor(date);
+    const jobs=jlScheduleVisibility.work?jlScheduleJobsFor(date):[];
+    const notes=jlScheduleVisibility.note?jlScheduleNotesFor(date):[];
+    const events=jlScheduleEventsFor(date).filter(e=>jlScheduleVisibility[e.visibility==="private"?"private":"workshop"]);
     // Six semaines : deux aperçus + place garantie pour « + X autres ».
     // Autres mois : au plus trois aperçus, selon le comportement convenu.
     const previewLimit=slots===42?2:3;
@@ -13503,6 +13545,7 @@ async function jlScheduleLoad(){
     jlScheduleNotes=Array.isArray(notesResult.data)?notesResult.data:[];
     jlScheduleEvents=Array.isArray(eventsResult.data)?eventsResult.data:[];
     jlScheduleEventUserId=auth.user.id;
+    jlScheduleLoadVisibility(auth.user.id);
     jlScheduleLoaded=true;
     status.textContent=all.length>=1000?
       "⚠ Plus de 1000 soumissions : affichage potentiellement incomplet.":
@@ -13699,6 +13742,16 @@ async function jlScheduleConnectGoogle(){
     button.disabled=false;
   }
 }
+let jlScheduleSettingsInitialized=false;
+function jlScheduleInitSettings(){
+  if(jlScheduleSettingsInitialized)return;
+  jlScheduleSettingsInitialized=true;
+  document.getElementById("jlScheduleConnectGoogle").addEventListener("click",()=>void jlScheduleConnectGoogle());
+  document.getElementById("jlCalendarSettings").addEventListener("toggle",()=>{
+    if(document.getElementById("jlCalendarSettings").open)void jlScheduleLoadExternalConnections();
+  });
+  if(document.getElementById("jlCalendarSettings").open)void jlScheduleLoadExternalConnections();
+}
 async function jlScheduleLoadExternalConnections(){
   const status=document.getElementById("jlScheduleExternalStatus");
   if(!status)return;
@@ -13717,7 +13770,7 @@ async function jlScheduleLoadExternalConnections(){
       .select("provider,display_name,sync_status,last_synced_at")
       .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id).limit(100);
     if(error)throw error;
-    if(document.getElementById("jlScheduleCalendarsPanel").hidden)return;
+    if(!document.getElementById("jlCalendarSettings").open)return;
     const rows=Array.isArray(data)?data:[];
     for(const [provider,id,label] of [
       ["google","jlScheduleExternalGoogle","Google Calendar"],
@@ -13757,13 +13810,7 @@ function jlScheduleBindEvents(){
 async function jlScheduleOpen(){
   if(!jlScheduleInitialized){
     jlScheduleInitialized=true;
-    document.getElementById("jlScheduleConnectGoogle").addEventListener("click",()=>void jlScheduleConnectGoogle());
-    document.getElementById("jlScheduleCalendarsToggle").addEventListener("click",()=>{
-      const panel=document.getElementById("jlScheduleCalendarsPanel");
-      panel.hidden=!panel.hidden;
-      document.getElementById("jlScheduleCalendarsToggle").setAttribute("aria-expanded",String(!panel.hidden));
-      if(!panel.hidden)void jlScheduleLoadExternalConnections();
-    });
+    jlScheduleInitFilters();
     document.getElementById("jlSchedulePrev").addEventListener("click",()=>{
       jlScheduleShift--;jlScheduleSelected="";
       document.getElementById("jlScheduleDayPanel").hidden=true;void jlScheduleLoad();
@@ -13795,8 +13842,6 @@ async function jlScheduleOpen(){
   // Chaque ouverture revient au mois actuel, détails fermés, comme approuvé.
   jlScheduleShift=0;jlScheduleSelected="";
   document.getElementById("jlScheduleDayPanel").hidden=true;
-  document.getElementById("jlScheduleCalendarsPanel").hidden=true;
-  document.getElementById("jlScheduleCalendarsToggle").setAttribute("aria-expanded","false");
   void jlScheduleLoad();
 }
 window.addEventListener("s08-quotes-refreshed",()=>{
