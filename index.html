@@ -1840,6 +1840,23 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
 #page-schedule .jl-schedule-full-item.google{border-left:3px solid #4285f4}
 #page-dashboard .jl-calendar-day-event.google{background:rgba(66,133,244,.2);border-left:3px solid #4285f4}
 #page-dashboard .jl-day-event-item.google{background:rgba(66,133,244,.12);border-left:3px solid #4285f4}
+
+/* TEST — gestion autonome des rendez-vous */
+.jl-appointment-overlay[hidden]{display:none!important}
+.jl-appointment-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);
+ z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px}
+.jl-appointment-panel{background:var(--card,#242424);color:var(--text,#fff);
+ border:1px solid var(--border,#444);border-radius:12px;
+ padding:18px;max-width:650px;width:100%;box-shadow:0 12px 40px #0009}
+.jl-appointment-head{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.jl-appointment-head h3{margin:0;color:var(--accent)}
+.jl-appointment-inputs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}
+.jl-appointment-inputs label{display:flex;flex-direction:column;gap:5px}
+.jl-appointment-inputs input{width:100%;min-width:0;box-sizing:border-box}
+.jl-appointment-actions,.jl-appointment-row-actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.jl-appointment-row-actions{margin-top:7px}
+.jl-appointment-row-actions button{padding:4px 8px;font-size:12px}
+@media(max-width:620px){.jl-appointment-inputs{grid-template-columns:minmax(0,1fr)}}
 </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -14028,6 +14045,100 @@ function jlScheduleDayOpen(date){
   jlScheduleRender();
   panel.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
+
+/* TEST — Rendez-vous des soumissions : modification indépendante de la soumission.
+   La version Supabase bloque les écritures concurrentes; aucun BT n'est modifié. */
+let jlAppointmentBusy=false;
+function jlAppointmentDialog(){
+ let box=document.getElementById("jlAppointmentDialog");
+ if(box)return box;
+ box=document.createElement("div");box.id="jlAppointmentDialog";box.className="jl-appointment-overlay";box.hidden=true;
+ const panel=document.createElement("div");panel.className="jl-appointment-panel";
+ panel.setAttribute("role","dialog");panel.setAttribute("aria-modal","true");
+ panel.setAttribute("aria-labelledby","jlAppointmentTitle");
+ panel.innerHTML=`<div class="jl-appointment-head"><h3 id="jlAppointmentTitle">Modifier le rendez-vous</h3><button type="button" class="ghost" id="jlAppointmentClose">Fermer</button></div>
+ <p id="jlAppointmentQuote" class="muted"></p>
+ <div class="jl-appointment-inputs">
+  <label>Date<input id="jlAppointmentDate" type="date"></label>
+  <label>Heure<input id="jlAppointmentTime" type="time" step="900"></label>
+  <label>Durée (minutes)<input id="jlAppointmentDuration" type="number" min="15" max="1440" step="15"></label>
+ </div>
+ <p id="jlAppointmentMessage" class="muted" role="status" aria-live="polite"></p>
+ <div class="jl-appointment-actions">
+  <button type="button" id="jlAppointmentSave">Enregistrer / déplacer</button>
+  <button type="button" class="ghost danger" id="jlAppointmentCancel">Annuler le rendez-vous</button>
+  <button type="button" class="ghost" id="jlAppointmentViewQuote">Voir la soumission</button>
+ </div>`;
+ box.append(panel);document.body.append(box);
+ const close=()=>{if(jlAppointmentBusy)return;box.hidden=true;box.dataset.quoteId="";};
+ box.querySelector("#jlAppointmentClose").addEventListener("click",close);
+ box.addEventListener("click",e=>{if(e.target===box)close();});
+ box.querySelector("#jlAppointmentViewQuote").addEventListener("click",()=>{
+  if(jlAppointmentBusy)return;const id=box.dataset.quoteId;close();if(id)jlDashboardOpenQuote(id);
+ });
+ box.querySelector("#jlAppointmentSave").addEventListener("click",()=>void jlAppointmentPersist(false));
+ box.querySelector("#jlAppointmentCancel").addEventListener("click",()=>void jlAppointmentPersist(true));
+ return box;
+}
+function jlAppointmentOpen(q){
+ if(!q?.id||!q.content?.approvalConfirmedAt||!q.content?.appointment?.date)return;
+ const box=jlAppointmentDialog(),a=q.content.appointment;
+ box.dataset.quoteId=String(q.id);box.hidden=false;
+ box.querySelector("#jlAppointmentQuote").textContent=String(q.quote_number||"Soumission")+" · "+String(q.content.clientName||"Client")+
+ (q.status==="converted"?" · BT déjà créé (non modifié par cette action)":"");
+ box.querySelector("#jlAppointmentDate").value=a.date||"";
+ box.querySelector("#jlAppointmentTime").value=a.time||"";
+ box.querySelector("#jlAppointmentDuration").value=String(a.durationMinutes||60);
+ box.querySelector("#jlAppointmentMessage").textContent="Le rendez-vous peut être modifié ou annulé sans supprimer la soumission.";
+ box.querySelector("#jlAppointmentDate").focus();
+}
+async function jlAppointmentPersist(cancel){
+ const box=document.getElementById("jlAppointmentDialog"),id=box?.dataset.quoteId;
+ if(!id||jlAppointmentBusy||!CLOUD_DATA_READY||!ACTIVE_GARAGE_ID)return;
+ const msg=box.querySelector("#jlAppointmentMessage");
+ const date=box.querySelector("#jlAppointmentDate").value;
+ const time=box.querySelector("#jlAppointmentTime").value;
+ const duration=Number(box.querySelector("#jlAppointmentDuration").value);
+ if(!cancel&&(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||
+   !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(time)||
+   !Number.isInteger(duration)||duration<15||duration>1440)){
+   msg.textContent="Indique une date, une heure et une durée de 15 à 1440 minutes.";return;
+ }
+ if(cancel&&!confirm("Annuler ce rendez-vous et remettre la soumission à planifier ? La soumission et tout BT existant restent conservés."))return;
+ jlAppointmentBusy=true;
+ const buttons=[...box.querySelectorAll("button")];buttons.forEach(b=>b.disabled=true);
+ msg.textContent="Enregistrement en cours…";
+ try{
+  const db=window.garageSupabase;
+  const {data:auth,error:authError}=await db.auth.getUser();
+  if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
+  const {data:quote,error:readError}=await db.from("garage_quotes")
+   .select("id,garage_id,user_id,status,version,content,quote_number")
+   .eq("id",id).eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id).maybeSingle();
+  if(readError||!quote)throw Error("Soumission introuvable ou inaccessible");
+  if(!["sent","converted","draft"].includes(quote.status)||!quote.content?.approvalConfirmedAt)
+   throw Error("Cette soumission n'est plus admissible à une modification de rendez-vous");
+  if(!quote.content?.appointment?.date)throw Error("Ce rendez-vous a déjà été retiré; actualise Horaire.");
+  const next=cancel?null:{date,time,durationMinutes:duration};
+  if(!cancel&&JSON.stringify(next)===JSON.stringify(quote.content.appointment)){
+   msg.textContent="Aucune modification à enregistrer.";return;
+  }
+  const {data:updated,error:saveError}=await db.from("garage_quotes")
+   .update({content:{...quote.content,appointment:next},
+     version:Number(quote.version)+1,updated_at:new Date().toISOString()})
+   .eq("id",quote.id).eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id)
+   .eq("status",quote.status).eq("version",quote.version)
+   .select("id,version").maybeSingle();
+  if(saveError||!updated||Number(updated.version)!==Number(quote.version)+1)
+   throw Error("Conflit d'enregistrement : le rendez-vous n'a pas été modifié. Réessaie après actualisation.");
+  box.hidden=true;box.dataset.quoteId="";
+  // Forcer le rafraîchissement des deux calendriers et des travaux à planifier.
+  dashboardQuoteCheckAt=0;
+  await Promise.all([jlScheduleLoad(),dashboardRefreshPendingQuotes()]);
+ }catch(err){msg.textContent="⚠ "+String(err?.message||err);}
+ finally{jlAppointmentBusy=false;buttons.forEach(b=>b.disabled=false);}
+}
+
 function jlScheduleDayRender(){
   const panel=document.getElementById("jlScheduleDayPanel");
   if(!panel||panel.hidden||!jlScheduleSelected)return;
@@ -14048,8 +14159,13 @@ function jlScheduleDayRender(){
       String(q.content.clientName||"Client");
     desc.textContent="\n"+[q.content.vehicleLabel,q.content.description].filter(Boolean).join(" · ");
     link.append(first,desc);
-    link.addEventListener("click",()=>jlDashboardOpenQuote(q.id));
-    entry.append(link);jobs.append(entry);
+    link.addEventListener("click",()=>jlAppointmentOpen(q));
+    const actions=document.createElement("div");actions.className="jl-appointment-row-actions";
+    const edit=document.createElement("button");edit.type="button";edit.className="ghost";
+    edit.textContent="Modifier / annuler";edit.addEventListener("click",()=>jlAppointmentOpen(q));
+    const quote=document.createElement("button");quote.type="button";quote.className="ghost";
+    quote.textContent="Soumission";quote.addEventListener("click",()=>jlDashboardOpenQuote(q.id));
+    actions.append(edit,quote);entry.append(link,actions);jobs.append(entry);
   }
   if(!jobs.childElementCount)jlScheduleText(jobs,jlScheduleLoaded?
     "Aucun travail planifié.":"Travaux en cours de chargement.");
@@ -14131,7 +14247,7 @@ function jlScheduleRender(){
       el.className="jl-schedule-mini work";
       el.textContent=String(q.content.appointment.time||"—")+" · "+String(q.content.clientName||"Client");
       el.title=String(q.quote_number||"SO")+" · "+String(q.content.description||"");
-      el.addEventListener("click",()=>jlDashboardOpenQuote(q.id));cell.append(el);
+      el.addEventListener("click",()=>jlAppointmentOpen(q));cell.append(el);
     }
     for(const event of visibleEvents){
       const el=document.createElement("div");el.className="jl-schedule-mini "+
@@ -14992,8 +15108,13 @@ function jlDayAgendaRender(){
     const description=document.createElement("span");description.style.display="block";
     description.textContent=[q.content.vehicleLabel,q.content.description].filter(Boolean).join(" · ");
     open.append(title,description);
-    open.addEventListener("click",()=>jlDashboardOpenQuote(q.id));
-    row.append(time,open);appointments.append(row);
+    open.addEventListener("click",()=>jlAppointmentOpen(q));
+    const actions=document.createElement("div");actions.className="jl-appointment-row-actions";
+    const edit=document.createElement("button");edit.type="button";edit.className="ghost";
+    edit.textContent="Modifier / annuler";edit.addEventListener("click",()=>jlAppointmentOpen(q));
+    const quote=document.createElement("button");quote.type="button";quote.className="ghost";
+    quote.textContent="Soumission";quote.addEventListener("click",()=>jlDashboardOpenQuote(q.id));
+    actions.append(edit,quote);row.append(time,open,actions);appointments.append(row);
   }
   const events=document.getElementById("jlDayAgendaEvents");events.replaceChildren();
   for(const e of jlCalendarEventsFor(date)){
@@ -15170,7 +15291,7 @@ function jlCalendarRender(){
       event.title=String(q.quote_number||"SO")+" · "+description+
         " · "+String(q.content.vehicleLabel||"")+" · "+String(ap.durationMinutes||60)+" min"+
         (q.status==="converted"?" · BT créé":"");
-      event.addEventListener("click",()=>jlDashboardOpenQuote(q.id));
+      event.addEventListener("click",()=>jlAppointmentOpen(q));
       day.append(event);
     }
     for(const event of visibleEvents){
@@ -15282,7 +15403,7 @@ async function dashboardRefreshPendingQuotes(){
     const status=document.getElementById("jlCalendarStatus");
     if(status)status.textContent=rows.length>=500
       ?"Affichage partiel : plus de 500 soumissions à vérifier."
-      :"Clique sur un rendez-vous pour ouvrir sa soumission. Date et heure modifiables dans la fiche avant conversion.";
+      :"Clique sur un rendez-vous pour le déplacer ou l’annuler, sans supprimer la soumission.";
     jlCalendarRender();
   }catch(error){
     if(countEl){countEl.textContent="—";countEl.title="Lecture indisponible";}
