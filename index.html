@@ -2468,6 +2468,19 @@ button.link:hover{
           </select>
         </div>
       </div>
+      <h2>Historique des soumissions</h2>
+      <div class="card">
+        <div id="historyQuoteResultCount" class="module-result-count" role="status" aria-live="polite">Chargement des soumissions…</div>
+        <div class="s08-quotes-table" role="region" aria-label="Historique des soumissions" style="overflow-x:auto">
+          <table id="historyQuoteTable" style="width:100%">
+            <thead><tr>
+              <th># Soumission</th><th>Date</th><th>Client</th><th>Véhicule</th><th>Montant estimé</th><th>Statut</th>
+            </tr></thead>
+            <tbody><tr><td colspan="6" class="muted">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+        <p class="muted" style="font-size:12px">Soumissions enregistrées, sauf les brouillons. Clique sur une ligne pour consulter la fiche d'origine.</p>
+      </div>
       <h2>Historique des bons de travail</h2>
       <div class="card">
         <div id="historyWOResultCount" class="module-result-count" role="status" aria-live="polite"></div>
@@ -3999,9 +4012,10 @@ function showPage(id){
     };
   }
 
-  if ($("historySearch")) $("historySearch").oninput = () => {renderHistoryTable();renderHistoryWOTable();};
+  if ($("historySearch")) $("historySearch").oninput = () => {renderHistoryTable();renderHistoryWOTable();jlHistoryRenderQuotes();};
   renderHistoryTable();
   renderHistoryWOTable();
+  void jlHistoryLoadQuotes();
   break;
 }
   // Un retour à une section doit toujours montrer son en-tête.
@@ -19455,6 +19469,77 @@ if (window.garageSupabase) {
   window.addEventListener("load",()=>void refreshQuotes());
   render();
 })();
+
+/* S10 TEST — Historique des soumissions : lecture seule, isolé du flux BT/factures. */
+let jlHistoryQuotes=[],jlHistoryQuotesLoaded=false,jlHistoryQuotesRequest=0;
+function jlHistoryRenderQuotes(){
+  const table=document.querySelector("#historyQuoteTable tbody");
+  const count=document.getElementById("historyQuoteResultCount");
+  if(!table||!count)return;
+  table.replaceChildren();
+  const search=String(document.getElementById("historySearch")?.value||"").toLocaleLowerCase("fr");
+  const rows=jlHistoryQuotes.filter(q=>q.status!=="draft").filter(q=>
+    [q.quote_number,q.content?.clientName,q.content?.vehicleLabel,q.content?.description,q.status]
+      .join(" ").toLocaleLowerCase("fr").includes(search));
+  count.textContent=jlHistoryQuotesLoaded
+    ?rows.length+" soumission"+(rows.length===1?"":"s")+" dans l'historique"
+    :"Historique non vérifié — connexion requise.";
+  if(!rows.length){
+    const tr=document.createElement("tr"),td=document.createElement("td");
+    td.colSpan=6;td.className="muted";
+    td.textContent=jlHistoryQuotesLoaded?"Aucune soumission correspondante.":"Lecture non confirmée.";
+    tr.append(td);table.append(tr);return;
+  }
+  const statuses={draft:"Brouillon",sent:"Envoyée",converted:"Convertie",declined:"Refusée",expired:"Expirée"};
+  for(const q of rows){
+    const d=q.content||{},tr=document.createElement("tr");
+    const label=q.status==="sent"&&d.approvalConfirmedAt?"Approuvée":(statuses[q.status]||q.status);
+    const total=Number(d.totalCents);
+    const amount=Number.isFinite(total)?(total/100).toLocaleString("fr-CA",{minimumFractionDigits:2,maximumFractionDigits:2})+" $":"—";
+    for(const value of [q.quote_number,String(q.created_at||"").slice(0,10),
+      d.clientName||"—",d.vehicleLabel||"—",amount,label]){
+      const td=document.createElement("td");td.textContent=String(value||"—");tr.append(td);
+    }
+    tr.tabIndex=0;tr.setAttribute("role","button");
+    tr.classList.add("s08-quote-openable");
+    tr.setAttribute("aria-label","Ouvrir la soumission "+String(q.quote_number||""));
+    const open=()=>{
+      if(!q.id)return;
+      showPage("page-quotes");
+      window.dispatchEvent(new CustomEvent("jl-dashboard-open-quote",{detail:{id:q.id}}));
+    };
+    tr.addEventListener("click",open);
+    tr.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open();}});
+    table.append(tr);
+  }
+}
+async function jlHistoryLoadQuotes(){
+  const token=++jlHistoryQuotesRequest;
+  jlHistoryQuotes=[];jlHistoryQuotesLoaded=false;jlHistoryRenderQuotes();
+  try{
+    const db=window.garageSupabase;
+    if(!CLOUD_DATA_READY||!ACTIVE_GARAGE_ID||!db?.auth?.getUser||!db?.from)
+      throw Error("Cloud non prêt");
+    const {data:auth,error:authError}=await db.auth.getUser();
+    if(authError||!auth?.user?.id)throw Error("Session indisponible");
+    const {data,error,count}=await db.from("garage_quotes")
+      .select("id,quote_number,status,created_at,content",{count:"exact"})
+      .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id)
+      .order("created_at",{ascending:false}).limit(1000);
+    if(error)throw error;
+    if(token!==jlHistoryQuotesRequest)return;
+    jlHistoryQuotes=Array.isArray(data)?data:[];
+    jlHistoryQuotesLoaded=true;
+    jlHistoryRenderQuotes();
+    if(Number(count)>1000){
+      document.getElementById("historyQuoteResultCount").textContent+=" · 1000 premières seulement";
+    }
+  }catch(err){
+    if(token!==jlHistoryQuotesRequest)return;
+    console.warn("[S10 TEST] Historique des soumissions non vérifié",String(err?.message||err));
+    jlHistoryRenderQuotes();
+  }
+}
 </script>
 </body>
 </html>
