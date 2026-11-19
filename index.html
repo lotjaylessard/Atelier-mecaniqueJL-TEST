@@ -2722,6 +2722,18 @@ button.link:hover{
       <p id="jlCalendarColorsStatus" class="muted" role="status" aria-live="polite"></p>
     </details>
 
+    <details class="jl-settings-backup jl-settings-options jl-settings-fold" id="jlSupplierSettings">
+      <summary>🏪 Fournisseurs — soumissions, BT et factures</summary>
+      <p class="muted">Répertoire de fournisseurs de pièces. Un fournisseur peut être sélectionné par ligne; cette information reste interne au garage.</p>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+        <input id="jlSupplierName" type="text" maxlength="80" placeholder="Nom du fournisseur (ex. NAPA)" aria-label="Nom du fournisseur" style="flex:1;min-width:180px">
+        <button type="button" id="jlSupplierAdd">+ Ajouter</button>
+      </div>
+      <div id="jlSupplierList" style="display:grid;gap:6px;margin-top:9px"></div>
+      <p id="jlSupplierStatus" class="muted" role="status" aria-live="polite"></p>
+    </details>
+    <datalist id="jlSupplierChoices"></datalist>
+
     <details class="jl-settings-backup jl-settings-options jl-settings-fold" id="jlGarageSettings">
       <summary id="jlGarageSettingsTitle">🧮 Taxes et main-d’œuvre</summary>
       <div class="jl-settings-grid jl-settings-tax-grid">
@@ -6051,7 +6063,8 @@ let SETTINGS = {
   gst: 5,
   qst: 9.975,
   defaultHourlyRate: 90,  // Taux existant
-  quoteValidityDays: 15   // Soumissions envoyées : durée avant expiration
+  quoteValidityDays: 15,  // Soumissions envoyées
+  suppliers: []          // Noms des fournisseurs partagés dans les réglages
 };
 let INVOICES = [];
 let WO_TIMER_INTERVAL = null;
@@ -19696,6 +19709,72 @@ document.getElementById("jlResetCalendarColors")?.addEventListener("click",()=>{
   if(!jlPaletteOwner)return;
   jlPaletteColors={...jlPaletteDefaults};jlPaletteSave();
 });
+
+/* S10 TEST — fournisseurs partagés dans les réglages du garage. */
+function jlSupplierNames(){
+  const arr=Array.isArray(SETTINGS?.suppliers)?SETTINGS.suppliers:[];
+  return [...new Set(arr.filter(x=>typeof x==="string").map(x=>x.trim()).filter(x=>x&&x.length<=80))].slice(0,100);
+}
+function jlSupplierRender(){
+  const list=document.getElementById("jlSupplierList");
+  const choices=document.getElementById("jlSupplierChoices");
+  if(!list||!choices)return;
+  list.replaceChildren();choices.replaceChildren();
+  const names=jlSupplierNames();
+  for(const name of names){
+    const option=document.createElement("option");option.value=name;choices.append(option);
+    const row=document.createElement("div");
+    row.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--border);padding:5px 9px;border-radius:6px";
+    const label=document.createElement("span");label.textContent=name;
+    const remove=document.createElement("button");
+    remove.type="button";remove.className="ghost";remove.textContent="Retirer";
+    remove.title="Retirer de la liste (ne change pas les anciens documents)";
+    remove.addEventListener("click",()=>{
+      if(!confirm("Retirer « "+name+" » de la liste des fournisseurs ? Les documents existants garderont leur fournisseur."))return;
+      jlSupplierPersist(names.filter(n=>n!==name));
+    });
+    row.append(label,remove);list.append(row);
+  }
+  if(!names.length){
+    const empty=document.createElement("span");empty.className="muted";
+    empty.textContent="Aucun fournisseur enregistré.";list.append(empty);
+  }
+}
+function jlSupplierPersist(names){
+  const status=document.getElementById("jlSupplierStatus");
+  if(!CLOUD_DATA_READY||!ACTIVE_GARAGE_ID||!SUPABASE_USER?.id){
+    if(status)status.textContent="Connexion au garage TEST non confirmée.";return false;
+  }
+  const clean=[...new Set(names.map(x=>String(x).trim()).filter(x=>x&&x.length<=80))].slice(0,100);
+  const before=SETTINGS.suppliers;
+  SETTINGS.suppliers=clean;
+  try{
+    localStorage.setItem(STORAGE.settings,JSON.stringify(SETTINGS));
+    scheduleCloudSync();
+    if(status)status.textContent="Fournisseurs enregistrés localement; synchronisation cloud demandée.";
+    jlSupplierRender();return true;
+  }catch(err){
+    SETTINGS.suppliers=before;
+    if(status)status.textContent="Enregistrement non confirmé; réessaie.";
+    return false;
+  }
+}
+document.getElementById("jlSupplierAdd")?.addEventListener("click",()=>{
+  const input=document.getElementById("jlSupplierName");
+  const name=String(input?.value||"").trim().replace(/\s+/g," ");
+  const status=document.getElementById("jlSupplierStatus");
+  if(!name||name.length>80){if(status)status.textContent="Indique un nom de 1 à 80 caractères.";return;}
+  const existing=jlSupplierNames();
+  if(existing.some(n=>n.toLocaleLowerCase("fr-CA")===name.toLocaleLowerCase("fr-CA"))){
+    if(status)status.textContent="Ce fournisseur existe déjà.";return;
+  }
+  if(existing.length>=100){if(status)status.textContent="Maximum 100 fournisseurs.";return;}
+  if(jlSupplierPersist([...existing,name]))input.value="";
+});
+document.getElementById("jlSupplierName")?.addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&!e.isComposing){e.preventDefault();document.getElementById("jlSupplierAdd")?.click();}
+});
+document.querySelector('[data-page="page-settings"]')?.addEventListener("click",()=>jlSupplierRender());
 </script>
 </body>
 </html>
