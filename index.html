@@ -2724,7 +2724,16 @@ body.jl-hide-supplier-invoices .jl-invoice-supplier{display:none!important}
           <div id="jlScheduleExternalGoogle" class="jl-schedule-external-provider">Google Calendar — non connecté</div>
           <button type="button" id="jlScheduleConnectGoogle" class="ghost" disabled>Connecter Google Calendar</button>
           <div id="jlScheduleExternalMicrosoft" class="jl-schedule-external-provider">Outlook / Hotmail — non connecté</div>
-          <button type="button" id="jlScheduleConnectMicrosoft" class="ghost" disabled>Connecter Outlook / Hotmail</button>
+          <div class="jl-outlook-ical-settings">
+            <p class="muted" style="margin:6px 0">Connexion iCal en lecture seule, sans Microsoft Entra. Ton ami doit se connecter à son compte Garage personnel : ses événements ne seront visibles que par lui. Le lien ICS est confidentiel.</p>
+            <label for="jlScheduleOutlookIcsUrl">Lien ICS Outlook / Hotmail (privé)</label>
+            <input type="password" id="jlScheduleOutlookIcsUrl" autocomplete="off" spellcheck="false" placeholder="Colle ici le lien ICS publié dans Outlook" style="width:100%;max-width:900px;box-sizing:border-box;margin:7px 0">
+            <div class="jl-settings-actions">
+              <button type="button" id="jlScheduleConnectMicrosoft" class="ghost" disabled>Connecter Outlook / Hotmail</button>
+              <button type="button" id="jlScheduleMicrosoftSync" class="ghost" hidden>Actualiser Outlook</button>
+            </div>
+            <p class="muted" id="jlScheduleMicrosoftStatus" role="status" aria-live="polite"></p>
+          </div>
           <div class="jl-familywall-settings">
             <div id="jlScheduleExternalFamilyWall" class="jl-schedule-external-provider">FamilyWall — non connecté</div>
             <p class="muted" style="margin:6px 0">Calendrier familial privé, en lecture seule. Dans FamilyWall : Calendrier → Paramètres → Ton cercle → Générer un iCal. Ne partage jamais ce lien.</p>
@@ -14110,7 +14119,7 @@ async function jlScheduleDisconnectGoogle(){
  }
 }
 
-const JL_MICROSOFT_TEST_ENDPOINT="https://nraijzsodgojkpyigefu.supabase.co/functions/v1/garage-microsoft-calendar";
+const JL_MICROSOFT_TEST_ENDPOINT="https://nraijzsodgojkpyigefu.supabase.co/functions/v1/garage-outlook-ical";
 async function jlMicrosoftRequest(action,extra={}){
  const db=window.garageSupabase;
  const {data:session,error}=await db.auth.getSession();
@@ -14123,29 +14132,28 @@ async function jlMicrosoftRequest(action,extra={}){
  if(!response.ok)throw Error(data.error||"Microsoft indisponible");
  return data;
 }
-async function jlScheduleMicrosoftAction(){
+async function jlScheduleMicrosoftAction(action="connect"){
  const button=document.getElementById("jlScheduleConnectMicrosoft");
- const status=document.getElementById("jlScheduleExternalStatus");
+ const syncButton=document.getElementById("jlScheduleMicrosoftSync");
+ const input=document.getElementById("jlScheduleOutlookIcsUrl");
+ const status=document.getElementById("jlScheduleMicrosoftStatus");
  if(button.disabled)return;
- button.disabled=true;
+ const connectionId=jlScheduleMicrosoftConnectionId;
+ if(action==="disconnect"&&!connectionId)return;
+ if(action==="connect"&&!input.value.trim()){status.textContent="Colle le lien ICS Outlook avant de connecter.";return;}
+ if(action==="disconnect"&&!window.confirm("Déconnecter Outlook du garage TEST ? Les événements dans Outlook resteront intacts."))return;
+ button.disabled=true;syncButton.disabled=true;
+ status.textContent=action==="sync"?"Actualisation Outlook…":action==="disconnect"?"Déconnexion Outlook…":"Connexion et importation Outlook…";
  try{
-  if(jlScheduleMicrosoftConnectionId){
-   if(!window.confirm("Déconnecter Outlook du garage TEST ? Les événements Outlook d'origine ne seront pas modifiés."))return;
-   await jlMicrosoftRequest("disconnect",{connection_id:jlScheduleMicrosoftConnectionId});
-   jlScheduleMicrosoftConnectionId="";
-   jlScheduleMicrosoftEvents=[];
-   jlScheduleRender();
+   const extra=action==="connect"?{ical_url:input.value.trim()}:{connection_id:connectionId};
+   await jlMicrosoftRequest(action,extra);
+   input.value="";
+   if(action==="disconnect"){jlScheduleMicrosoftConnectionId="";jlScheduleMicrosoftEvents=[];jlScheduleRender();}
    await jlScheduleLoadExternalConnections();
-   status.textContent="Outlook déconnecté du garage TEST.";
-  }else{
-   status.textContent="Préparation de la connexion Microsoft…";
-   const data=await jlMicrosoftRequest("connect");
-   const target=new URL(data.authorization_url);
-   if(target.origin!=="https://login.microsoftonline.com"||!target.pathname.endsWith("/oauth2/v2.0/authorize"))throw Error("Destination Microsoft invalide");
-   window.location.assign(target.href);
-  }
+   if(document.getElementById("page-schedule")?.style.display==="block")void jlScheduleLoad();
+   status.textContent=action==="disconnect"?"Outlook déconnecté.":action==="sync"?"Outlook actualisé.":"Outlook connecté en lecture seule.";
  }catch(err){status.textContent="⚠ Outlook : "+String(err?.message||err);}
- finally{button.disabled=false;}
+ finally{button.disabled=false;syncButton.disabled=false;}
 }
 async function jlScheduleLoadMicrosoftEvents(userId,min,max,token){
  try{
@@ -14246,7 +14254,8 @@ function jlScheduleInitSettings(){
   jlFamilyWallInitColorSettings();
   document.getElementById("jlScheduleFamilyWallConnect").addEventListener("click",()=>void jlScheduleFamilyWallAction(jlScheduleFamilyWallConnectionId?"disconnect":"connect"));
   document.getElementById("jlScheduleFamilyWallSync").addEventListener("click",()=>void jlScheduleFamilyWallAction("sync"));
-  document.getElementById("jlScheduleConnectMicrosoft").addEventListener("click",()=>void jlScheduleMicrosoftAction());
+  document.getElementById("jlScheduleConnectMicrosoft").addEventListener("click",()=>void jlScheduleMicrosoftAction(jlScheduleMicrosoftConnectionId?"disconnect":"connect"));
+  document.getElementById("jlScheduleMicrosoftSync").addEventListener("click",()=>void jlScheduleMicrosoftAction("sync"));
   document.getElementById("jlScheduleConnectGoogle").addEventListener("click",()=>{
     if(jlScheduleGoogleConnectionId)void jlScheduleDisconnectGoogle();
     else void jlScheduleConnectGoogle();
@@ -14267,6 +14276,9 @@ async function jlScheduleLoadExternalConnections(){
   const microsoftButton=document.getElementById("jlScheduleConnectMicrosoft");
   microsoftButton.disabled=true;
   microsoftButton.textContent="Connecter Outlook / Hotmail";
+  document.getElementById("jlScheduleMicrosoftSync").hidden=true;
+  document.getElementById("jlScheduleOutlookIcsUrl").hidden=false;
+  document.querySelector('label[for="jlScheduleOutlookIcsUrl"]').hidden=false;
   jlScheduleMicrosoftConnectionId="";
   jlScheduleFamilyWallConnectionId="";
   document.getElementById("jlScheduleFamilyWallConnect").disabled=true;
@@ -14288,9 +14300,12 @@ async function jlScheduleLoadExternalConnections(){
     const rows=Array.isArray(data)?data:[];
     const connectedGoogle=rows.find(x=>x.provider==="google"&&x.sync_status==="connected"&&typeof x.id==="string");
     jlScheduleGoogleConnectionId=connectedGoogle?.id||"";
-    const connectedMicrosoft=rows.find(x=>x.provider==="microsoft"&&x.sync_status==="connected"&&typeof x.id==="string");
+    const connectedMicrosoft=rows.find(x=>x.provider==="microsoft"&&typeof x.id==="string");
     jlScheduleMicrosoftConnectionId=connectedMicrosoft?.id||"";
     microsoftButton.textContent=connectedMicrosoft?"Déconnecter Outlook / Hotmail":"Connecter Outlook / Hotmail";
+    document.getElementById("jlScheduleMicrosoftSync").hidden=!connectedMicrosoft;
+    document.getElementById("jlScheduleOutlookIcsUrl").hidden=!!connectedMicrosoft;
+    document.querySelector('label[for="jlScheduleOutlookIcsUrl"]').hidden=!!connectedMicrosoft;
     googleButton.textContent=connectedGoogle?"Déconnecter Google Calendar":"Connecter Google Calendar";
     for(const [provider,id,label] of [
       ["google","jlScheduleExternalGoogle","Google Calendar"],
@@ -14312,7 +14327,7 @@ async function jlScheduleLoadExternalConnections(){
     try{
       const response=await fetch(JL_MICROSOFT_TEST_ENDPOINT,{method:"GET",cache:"no-store"});
       const config=response.ok?await response.json():{};
-      microsoftButton.disabled=connectedMicrosoft?false:!config.microsoft_available;
+      microsoftButton.disabled=connectedMicrosoft?false:!config.available;
     }catch(_err){microsoftButton.disabled=!connectedMicrosoft;}
     try{
       const reply=await fetch(JL_CALENDAR_GOOGLE_TEST_ENDPOINT,{method:"GET",cache:"no-store"});
@@ -14322,10 +14337,10 @@ async function jlScheduleLoadExternalConnections(){
         "Google Calendar connecté. Tu peux le déconnecter ici pour changer de compte.":
         (config.google_available?
           "Google TEST prêt : clique « Connecter Google Calendar » pour autoriser la lecture.":
-          "Connexion Google TEST en attente de configuration OAuth. Outlook suivra.");
+          "Connexion Google TEST en attente de configuration OAuth. Outlook iCal disponible séparément.");
     }catch(_err){
       googleButton.disabled=!connectedGoogle;
-      status.textContent=connectedGoogle?"Google connecté; état serveur temporairement indisponible.":"Connexion Google TEST non disponible. Outlook suivra.";
+      status.textContent=connectedGoogle?"Google connecté; état serveur temporairement indisponible.":"Connexion Google TEST non disponible. Outlook iCal fonctionne séparément.";
     }
   }catch(err){
     status.textContent="⚠ Connexions non vérifiées : "+String(err?.message||"");
