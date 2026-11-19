@@ -2790,20 +2790,6 @@ body.jl-hide-supplier-invoices .jl-invoice-supplier{display:none!important}
       <p id="jlCalendarColorsStatus" class="muted" role="status" aria-live="polite"></p>
     </details>
 
-    <details class="jl-settings-backup jl-settings-options jl-settings-fold" id="jlSupplierSettings">
-      <summary>🏪 Fournisseurs — soumissions, BT et factures</summary>
-      <p class="muted">Répertoire de fournisseurs de pièces. Un fournisseur peut être sélectionné par ligne; cette information reste interne au garage.</p>
-      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
-        <input id="jlSupplierName" type="text" maxlength="80" placeholder="Nom du fournisseur (ex. NAPA)" aria-label="Nom du fournisseur" style="flex:1;min-width:180px">
-        <button type="button" id="jlSupplierAdd">+ Ajouter</button>
-      </div>
-      <div id="jlSupplierList" style="display:grid;gap:6px;margin-top:9px"></div>
-      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:10px">
-        <label><input type="checkbox" id="jlSupplierShowQuotes" checked> Afficher fournisseur dans les soumissions</label>
-        <label><input type="checkbox" id="jlSupplierShowInvoices" checked> Afficher fournisseur dans les factures (interne seulement)</label>
-      </div>
-      <p id="jlSupplierStatus" class="muted" role="status" aria-live="polite"></p>
-    </details>
     <datalist id="jlSupplierChoices"></datalist>
 
     <details class="jl-settings-backup jl-settings-options jl-settings-fold" id="jlGarageSettings">
@@ -2838,6 +2824,23 @@ body.jl-hide-supplier-invoices .jl-invoice-supplier{display:none!important}
       <summary>🧾 Factures et soumissions</summary>
       <div class="jl-settings-toggle-grid">
         <label><input type="checkbox" id="jlPrintPartNumber" checked /> Afficher le # de pièce</label>
+      </div>
+      <div style="margin:10px 0 4px">
+    <details class="jl-settings-backup jl-settings-options jl-settings-fold" id="jlSupplierSettings">
+      <summary>🏪 Fournisseurs — soumissions, BT et factures</summary>
+      <p class="muted">Répertoire de fournisseurs de pièces. Un fournisseur peut être sélectionné par ligne; cette information reste interne au garage.</p>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+        <input id="jlSupplierName" type="text" maxlength="80" placeholder="Nom du fournisseur (ex. NAPA)" aria-label="Nom du fournisseur" style="flex:1;min-width:180px">
+        <button type="button" id="jlSupplierAdd">+ Ajouter</button>
+      </div>
+      <div id="jlSupplierList" style="display:grid;gap:6px;margin-top:9px"></div>
+      <p class="muted" style="font-size:12px">Clique sur « Coordonnées » pour conserver le téléphone, le courriel et une note pour chaque fournisseur.</p>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:10px">
+        <label><input type="checkbox" id="jlSupplierShowQuotes" checked> Afficher fournisseur dans les soumissions</label>
+        <label><input type="checkbox" id="jlSupplierShowInvoices" checked> Afficher fournisseur dans les factures (interne seulement)</label>
+      </div>
+      <p id="jlSupplierStatus" class="muted" role="status" aria-live="polite"></p>
+    </details>
       </div>
     </details>
 
@@ -20115,6 +20118,43 @@ function jlSupplierRender(){
     const row=document.createElement("div");
     row.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--border);padding:5px 9px;border-radius:6px";
     const label=document.createElement("span");label.textContent=name;
+    const contacts=document.createElement("button");contacts.type="button";contacts.className="ghost";
+    contacts.textContent="Coordonnées";
+    const info=SETTINGS?.supplierDetails?.[name]||{};
+    const panel=document.createElement("div");panel.hidden=true;
+    panel.style.cssText="display:flex;flex-wrap:wrap;gap:6px;width:100%;margin:6px 0";
+    const fields=[["phone","Téléphone",40],["email","Courriel",120],["notes","Notes / commande",250]];
+    for(const [key,label,max] of fields){
+      const field=document.createElement("input");field.type="text";field.maxLength=max;
+      field.value=String(info[key]||"").slice(0,max);field.placeholder=label;
+      field.setAttribute("aria-label",label+" du fournisseur "+name);
+      field.dataset.supplierField=key;
+      field.style.cssText="flex:1 1 170px;min-width:140px";
+      panel.append(field);
+    }
+    const save=document.createElement("button");save.type="button";save.textContent="Enregistrer";
+    save.addEventListener("click",()=>{
+      const status=document.getElementById("jlSupplierStatus");
+      if(!CLOUD_DATA_READY||!ACTIVE_GARAGE_ID||!SUPABASE_USER?.id){
+        if(status)status.textContent="Connexion TEST non confirmée.";return;
+      }
+      const before=JSON.stringify(SETTINGS.supplierDetails||{});
+      const details={...(SETTINGS.supplierDetails||{})};
+      details[name]=Object.fromEntries([...panel.querySelectorAll("[data-supplier-field]")]
+        .map(x=>[x.dataset.supplierField,x.value.trim()]));
+      SETTINGS.supplierDetails=details;
+      try{
+        localStorage.setItem(STORAGE.settings,JSON.stringify(SETTINGS));
+        scheduleCloudSync();
+        panel.hidden=true;
+        if(status)status.textContent="Coordonnées enregistrées localement; synchronisation cloud demandée.";
+      }catch(_err){
+        SETTINGS.supplierDetails=JSON.parse(before);
+        if(status)status.textContent="Coordonnées non enregistrées.";
+      }
+    });
+    panel.append(save);
+    contacts.addEventListener("click",()=>{panel.hidden=!panel.hidden;});
     const remove=document.createElement("button");
     remove.type="button";remove.className="ghost";remove.textContent="Retirer";
     remove.title="Retirer de la liste (ne change pas les anciens documents)";
@@ -20122,7 +20162,8 @@ function jlSupplierRender(){
       if(!confirm("Retirer « "+name+" » de la liste des fournisseurs ? Les documents existants garderont leur fournisseur."))return;
       jlSupplierPersist(names.filter(n=>n!==name));
     });
-    row.append(label,remove);list.append(row);
+    row.style.flexWrap="wrap";
+    row.append(label,contacts,remove,panel);list.append(row);
   }
   if(!names.length){
     const empty=document.createElement("span");empty.className="muted";
