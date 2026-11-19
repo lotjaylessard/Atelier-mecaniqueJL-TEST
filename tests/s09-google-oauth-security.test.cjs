@@ -42,3 +42,12 @@ test('Google callback is limited to primary calendar and does not import/share d
   assert.doesNotMatch(oauth,/from\("garage_schedule_events"\)/);
   assert.doesNotMatch(oauth,/\/calendars\/.*\/events/);
 });
+
+test('OAuth authorization and token exchange use identical public HTTPS callback, never internal req.url',()=>{
+  const expected='https://nraijzsodgojkpyigefu.supabase.co/functions/v1/garage-calendar-oauth';
+  assert.ok(oauth.includes('const GOOGLE_OAUTH_REDIRECT_URI="'+expected+'";'));
+  const uses=oauth.match(/const redirectUri=GOOGLE_OAUTH_REDIRECT_URI;/g)||[];
+  assert.equal(uses.length,2,'both start and callback must use public URI');
+  assert.doesNotMatch(oauth,/redirectFor\(req\.url\)/);
+  assert.doesNotMatch(oauth,/const redirectUri\s*=\s*new URL\(req\.url\)/);
+});
