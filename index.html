@@ -1880,6 +1880,8 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
     <div><span>Taxes facturées (TPS + TVQ)</span><strong id="jlFinanceTaxes">0,00 $</strong></div>
     <div><span>Ventes hors taxes</span><strong id="jlFinanceSales">0,00 $</strong></div>
     <div><span>Coût des pièces des BT</span><strong id="annualPartCost">0,00 $</strong></div>
+    <div><span>Dépenses de sous-traitance (saisies)</span><strong id="jlFinanceSubcontractTotal">0,00 $</strong></div>
+    <div><span>Profit brut estimé après sous-traitance</span><strong id="jlFinanceAfterSubcontract">—</strong></div>
     <div><span>Profit brut estimé</span><strong id="annualGrossProfit">0,00 $</strong></div>
     <div><span>Profit sur pièces estimé (BT facturés)</span><strong id="jlFinancePartsProfit">—</strong></div>
     <div><span>Main-d'œuvre facturée (avant frais)</span><strong id="jlFinanceLaborProfit">—</strong></div>
@@ -1892,6 +1894,19 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
   <span><i style="background:#4caf50"></i> Profit brut estimé</span></div>
   <div id="monthlyRevenueChart" class="jl-finance-chart" role="img" aria-label="Graphique financier mensuel"></div>
   <p id="jlFinanceCaveat" class="muted jl-finance-caveat"></p>
+  <details class="jl-settings-backup" id="jlSubcontractExpensesPanel" style="margin-top:12px">
+    <summary>🧾 Dépenses de sous-traitance — ajouter / consulter</summary>
+    <p class="muted">Saisis les frais réels des sous-traitants. Ces dépenses sont indépendantes des factures et ne modifient aucun paiement ni coût de pièce.</p>
+    <div class="jl-settings-actions" style="gap:7px;flex-wrap:wrap">
+      <label>Date <input type="date" id="jlSubcontractDate"></label>
+      <label>Sous-traitant <input type="text" id="jlSubcontractName" maxlength="80" placeholder="Nom du sous-traitant"></label>
+      <label>Montant ($) <input type="number" id="jlSubcontractAmount" min="0.01" step="0.01"></label>
+      <label>Description <input type="text" id="jlSubcontractNote" maxlength="160" placeholder="Travail effectué"></label>
+      <button type="button" id="jlSubcontractAdd">+ Ajouter la dépense</button>
+    </div>
+    <p id="jlSubcontractStatus" class="muted" role="status" aria-live="polite"></p>
+    <div id="jlSubcontractList" style="display:grid;gap:5px;margin-top:10px"></div>
+  </details>
     </div></section>
         <section data-jl-dashboard-card="workorders" class=""><div class="stat-card"><div class="stat-label">Bons de travail en cours</div><div id="lastWorkOrdersBox" class="jl-dashboard-list"></div></div></section>
         <section data-jl-dashboard-card="invoices" class=""><div class="stat-card"><div class="stat-label">Dernières factures</div><div id="lastInvoicesBox" class="jl-dashboard-list"></div></div></section>
@@ -15332,6 +15347,71 @@ function monthlyInvoiceSettlementDate(inv){
   return finalPayment||validDate(inv.paidDate)||validDate(inv.date);
 }
 
+
+/* S11 TEST — dépenses de sous-traitance du garage. Les lignes sont distinctes
+   des factures et ne sont jamais recomptées dans les paiements clients. */
+function jlSubcontractEntries(){
+ return (Array.isArray(SETTINGS?.subcontractorExpenses)?SETTINGS.subcontractorExpenses:[])
+  .filter(e=>e&&typeof e.date==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(e.date)
+   &&Number.isFinite(Number(e.amount))&&Number(e.amount)>0&&Number(e.amount)<=1000000);
+}
+function jlSubcontractPersist(entries){
+ if(!CLOUD_DATA_READY||!ACTIVE_GARAGE_ID||!SUPABASE_USER?.id)
+   throw Error("Connexion Garage TEST non vérifiée");
+ const previous=SETTINGS.subcontractorExpenses;
+ SETTINGS.subcontractorExpenses=entries;
+ try{
+  localStorage.setItem(STORAGE.settings,JSON.stringify(SETTINGS));
+  scheduleCloudSync();
+ }catch(error){
+  SETTINGS.subcontractorExpenses=previous;
+  throw error;
+ }
+}
+function jlSubcontractRender(entries){
+ const list=document.getElementById("jlSubcontractList"),status=document.getElementById("jlSubcontractStatus");
+ if(!list)return;
+ list.replaceChildren();
+ if(!entries.length){const p=document.createElement("span");p.className="muted";p.textContent="Aucune dépense pour le moment.";list.append(p);}
+ for(const entry of entries.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)))){
+  const row=document.createElement("div");row.style.cssText="display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding:5px 0";
+  const label=document.createElement("span");label.style.flex="1";
+  label.textContent=String(entry.date)+" · "+String(entry.supplier||"Sous-traitant")+" · "+money(Number(entry.amount))+" $"+(entry.note?" · "+entry.note:"");
+  const remove=document.createElement("button");remove.type="button";remove.className="ghost";remove.textContent="Retirer";
+  remove.addEventListener("click",()=>{
+   if(!window.confirm("Retirer cette dépense de sous-traitance du garage TEST ?"))return;
+   try{
+    jlSubcontractPersist(jlSubcontractEntries().filter(e=>String(e.id)!==String(entry.id)));
+    if(status)status.textContent="Dépense retirée localement; synchronisation demandée.";
+    renderMonthlyRevenueChart();
+   }catch(error){if(status)status.textContent="⚠ "+String(error.message||error);}
+  });
+  row.append(label,remove);list.append(row);
+ }
+ const dateField=document.getElementById("jlSubcontractDate");
+ if(dateField&&!dateField.value)dateField.value=jlCalendarISO(new Date());
+ const add=document.getElementById("jlSubcontractAdd");
+ if(add)add.onclick=()=>{
+  const date=String(document.getElementById("jlSubcontractDate").value||"");
+  const supplier=String(document.getElementById("jlSubcontractName").value||"").trim();
+  const note=String(document.getElementById("jlSubcontractNote").value||"").trim();
+  const amount=Number(document.getElementById("jlSubcontractAmount").value);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!supplier||supplier.length>80||!Number.isFinite(amount)||amount<=0||amount>1000000||note.length>160){
+   status.textContent="⚠ Vérifie la date, le nom et le montant positif.";return;
+  }
+  const old=jlSubcontractEntries();
+  if(old.length>=500){status.textContent="⚠ Maximum 500 dépenses dans le TEST.";return;}
+  const entry={id:crypto.randomUUID(),date,supplier,note,amount:Math.round(amount*100)/100};
+  try{
+   jlSubcontractPersist([...old,entry]);
+   document.getElementById("jlSubcontractAmount").value="";
+   document.getElementById("jlSubcontractNote").value="";
+   status.textContent="✓ Dépense enregistrée localement; synchronisation cloud demandée.";
+   renderMonthlyRevenueChart();
+  }catch(error){status.textContent="⚠ "+String(error.message||error);}
+ };
+}
+
 function renderMonthlyRevenueChart(){
   const chart=document.getElementById("monthlyRevenueChart");
   const periodSelect=document.getElementById("jlFinancePeriod");
@@ -15386,11 +15466,18 @@ function renderMonthlyRevenueChart(){
   const complete=key=>filtered.every(x=>finite(x[key]));
   const knownPaid=complete("total");
   const total=sum("total"),knownSales=complete("sales"),knownCosts=complete("cost");
+  const expenses=jlSubcontractEntries();
+  const filteredExpenses=expenses.filter(e=>mode==="all"||
+    (mode==="year"?e.date.startsWith(selectedYear):e.date.startsWith(selectedYear+"-"+month)));
+  const subcontractTotal=filteredExpenses.reduce((n,e)=>n+Number(e.amount||0),0);
   const knownProfit=complete("profit"),sales=sum("sales"),costs=sum("cost"),profit=sum("profit");
   set("annualPaidTotal",knownPaid?dollars(total):"—");
   set("jlFinanceTaxes",complete("tax")?dollars(sum("tax")):"—");
   set("jlFinanceSales",knownSales?dollars(sales):"—");
   set("annualPartCost",knownCosts?dollars(costs):"—");
+  set("jlFinanceSubcontractTotal",dollars(subcontractTotal));
+  set("jlFinanceAfterSubcontract",knownProfit?dollars(profit-subcontractTotal):"—");
+  jlSubcontractRender(expenses);
   set("annualGrossProfit",knownProfit?dollars(profit):"—");
   // Les deux mesures ne s'additionnent pas nécessairement au profit brut
   // si la facture contient des services et frais hors lignes pièces / MO.
@@ -15412,7 +15499,7 @@ function renderMonthlyRevenueChart(){
     if(missingWO)gaps.push(missingWO+" facture(s) sans coût de pièces associé à un BT");
     if(!complete("partsProfit")||!complete("laborRevenue"))gaps.push("détail du profit pièces / main-d'œuvre non vérifiable pour certaines factures");
     caveat.textContent=(gaps.length?"Données incomplètes : "+gaps.join(" ; ")+". Les valeurs non vérifiables sont indiquées par « — ». ":"")+
-      "Profit brut estimé = ventes hors taxes moins coût des pièces des BT. Main-d’œuvre comptée comme revenu, sans coût salarial ni autres dépenses. Les factures partielles ne sont pas incluses.";
+      "Profit brut estimé = ventes hors taxes moins coût des pièces des BT. Le profit après sous-traitance retire uniquement les dépenses saisies manuellement; il ne tient pas compte des salaires ni des autres frais généraux. Les factures partielles ne sont pas incluses.";
   }
   chart.replaceChildren();
   chart.dataset.mode=mode;
