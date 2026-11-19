@@ -1598,6 +1598,15 @@ button.link:hover{
 #page-settings .jl-palette-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:10px}
 #page-settings .jl-palette-grid label{display:flex;align-items:center;justify-content:space-between;gap:6px;border:1px solid var(--border);padding:7px;border-radius:6px}
 #page-settings .jl-palette-grid input{width:45px;height:32px;padding:1px;cursor:pointer}
+#page-schedule .jl-schedule-mini.work{background:color-mix(in srgb,var(--jl-color-work,#ef6161) 16%,transparent)}
+#page-schedule .jl-schedule-mini.note{background:color-mix(in srgb,var(--jl-color-note,#5da9ff) 16%,transparent)}
+#page-schedule .jl-schedule-mini.workshop{background:color-mix(in srgb,var(--jl-color-workshop,#daa038) 16%,transparent)}
+#page-schedule .jl-schedule-mini.private{background:color-mix(in srgb,var(--jl-color-private,#48ad7d) 16%,transparent)}
+#page-schedule .jl-schedule-full-item.work{background:color-mix(in srgb,var(--jl-color-work,#ef6161) 9%,transparent)}
+#page-schedule .jl-schedule-full-item.note{background:color-mix(in srgb,var(--jl-color-note,#5da9ff) 9%,transparent)}
+#page-schedule .jl-schedule-full-item.workshop{background:color-mix(in srgb,var(--jl-color-workshop,#daa038) 9%,transparent)}
+#page-schedule .jl-schedule-full-item.private{background:color-mix(in srgb,var(--jl-color-private,#48ad7d) 9%,transparent)}
+
 
 /* S09 : Agenda mensuel TEST, hauteur des cases fixe, sans dépendance graphique. */
 #page-schedule .jl-schedule-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -19486,7 +19495,22 @@ if (window.garageSupabase) {
     const requested=String(event.detail?.id||"");
     if(!requested)return;
     await refreshQuotes();
-    const match=quotes.find(q=>String(q.id)===requested);
+    let match=quotes.find(q=>String(q.id)===requested);
+    // L'historique contient davantage de soumissions que la liste active (200).
+    // Relecture ciblée, strictement dans le garage et pour le compte authentifié.
+    if(!match){
+      try{
+        const {sb,garageId}=context();
+        const {data:auth,error:authError}=await sb.auth.getUser();
+        if(authError||!auth?.user?.id)throw Error("Session non vérifiée");
+        const {data,error}=await sb.from("garage_quotes")
+          .select("id,quote_number,status,content,created_at,version,converted_bt_id")
+          .eq("id",requested).eq("garage_id",garageId).eq("user_id",auth.user.id)
+          .maybeSingle();
+        if(error)throw error;
+        match=data||null;
+      }catch(err){console.warn("[S10 TEST] Ouverture soumission historique",String(err?.message||err));}
+    }
     if(match)viewQuote(match);
     else {
       const feedback=get("s08QuoteCount");
