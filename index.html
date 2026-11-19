@@ -2844,6 +2844,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
       <span class="jl-cal-help"><button type="button" class="jl-cal-help-button" aria-label="Aide Google Calendar" aria-describedby="jlHelpGoogle">?</button><span id="jlHelpGoogle" class="jl-cal-help-popup" role="tooltip">Calendrier personnel privé. Tes événements et tes disponibilités ne sont pas partagés avec les employés.</span></span>
     </div>
     <div class="jl-cal-provider-actions"><button type="button" id="jlScheduleConnectGoogle" class="ghost" disabled>Connecter Google Calendar</button></div>
+    <p id="jlScheduleExternalStatus" class="muted jl-cal-status" role="status" aria-live="polite"></p>
   </div>
 
   <div class="jl-cal-provider-row">
@@ -2901,7 +2902,6 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
       </details>
     </div>
   </div>
-  <p id="jlScheduleExternalStatus" class="muted jl-cal-status" role="status" aria-live="polite">Vérification des connexions…</p>
 </section>
     <details class="jl-settings-subsection" id="jlCalendarColorsSettings">
       <summary>🎨 Couleurs de mes calendriers</summary>
@@ -14650,7 +14650,7 @@ async function jlScheduleLoadExternalConnections(){
       const config=reply.ok?await reply.json():{};
       googleButton.disabled=connectedGoogle?false:!config.google_available;
       status.textContent=connectedGoogle?
-        "Google Calendar connecté. Tu peux le déconnecter ici pour changer de compte.":
+        "":
         (config.google_available?
           "Google TEST prêt : clique « Connecter Google Calendar » pour autoriser la lecture.":
           "Connexion Google TEST en attente de configuration OAuth. Outlook iCal disponible séparément.");
