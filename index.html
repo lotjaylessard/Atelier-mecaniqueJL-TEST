@@ -1830,6 +1830,10 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
   #page-settings .jl-cal-ics-row{display:block}
   #page-settings .jl-cal-ics-row input{width:100%!important;margin-top:4px!important}
 }
+
+/* Tableau de bord : Outlook conserve les couleurs personnelles d'Horaire. */
+#page-dashboard .jl-calendar-day-event.microsoft{border-left:3px solid #41a7e7;border-radius:3px;font-weight:600}
+#page-dashboard .jl-day-event-item.microsoft{border-left:3px solid #41a7e7;border-radius:6px}
 </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -14734,6 +14738,52 @@ window.addEventListener("s08-quotes-refreshed",()=>{
 let jlCalendarWeekShift=0, jlCalendarQuotes=[];
 let jlCalendarEvents=[],jlCalendarEventsLoaded=false,jlCalendarEventsRequest=0;
 let jlCalendarFamilyWallEvents=[],jlCalendarFamilyWallLoaded=false,jlCalendarFamilyWallRequest=0;
+let jlCalendarMicrosoftEvents=[],jlCalendarMicrosoftLoaded=false,jlCalendarMicrosoftRequest=0;
+function jlCalendarMicrosoftFor(date){
+  if(!jlScheduleVisibility.microsoft)return [];
+  return jlCalendarMicrosoftEvents.filter(e=>e.start_date<=date&&e.end_date>=date)
+    .sort((a,b)=>String(a.start_at||"").localeCompare(String(b.start_at||"")));
+}
+async function jlCalendarLoadMicrosoft(){
+  const start=jlCalendarStart(),end=new Date(start);end.setDate(end.getDate()+6);
+  const min=jlCalendarISO(start),max=jlCalendarISO(end),token=++jlCalendarMicrosoftRequest;
+  jlCalendarMicrosoftEvents=[];jlCalendarMicrosoftLoaded=false;
+  jlCalendarRender();jlDayAgendaRender();
+  try{
+    const db=window.garageSupabase;
+    if(!CLOUD_DATA_READY||!ACTIVE_GARAGE_ID||!db?.auth?.getUser||!db?.from)
+      throw Error("Cloud indisponible");
+    const {data:auth,error:authError}=await db.auth.getUser();
+    if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
+    jlScheduleLoadVisibility(auth.user.id);
+    jlOutlookLoadColors(auth.user.id);
+    const {data:connections,error:connectionError}=await db.from("garage_external_calendar_connections")
+      .select("id").eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id)
+      .eq("provider","microsoft").limit(1);
+    if(connectionError)throw connectionError;
+    if(token!==jlCalendarMicrosoftRequest)return;
+    const connectionId=connections?.[0]?.id;
+    if(!connectionId){jlCalendarMicrosoftLoaded=true;jlCalendarRender();jlDayAgendaRender();return;}
+    // Identique à Horaire : le fournisseur actualise son cache puis on lit uniquement
+    // les événements du compte courant, jamais ceux des autres employés.
+    try{await jlMicrosoftRequest("sync",{connection_id:connectionId});}
+    catch(_err){/* afficher les événements déjà importés si Outlook est indisponible */ }
+    if(token!==jlCalendarMicrosoftRequest)return;
+    const {data,error}=await db.from("garage_external_calendar_events")
+      .select("provider_event_id,event_title,start_date,end_date,all_day,start_at,end_at,categories")
+      .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id)
+      .eq("connection_id",connectionId).lte("start_date",max).gte("end_date",min).limit(1000);
+    if(error)throw error;
+    if(token!==jlCalendarMicrosoftRequest)return;
+    jlCalendarMicrosoftEvents=Array.isArray(data)?data:[];
+    jlCalendarMicrosoftLoaded=true;
+    jlCalendarRender();jlDayAgendaRender();
+  }catch(err){
+    if(token!==jlCalendarMicrosoftRequest)return;
+    console.warn("[Dashboard TEST] Outlook non vérifié",String(err?.message||""));
+  }
+}
+
 function jlCalendarFamilyWallFor(date){
   if(!jlScheduleVisibility.familywall)return [];
   return jlCalendarFamilyWallEvents.filter(e=>e.start_date<=date&&e.end_date>=date);
@@ -14877,6 +14927,11 @@ function jlDayAgendaRender(){
     item.textContent="🏠 FamilyWall · "+jlFamilyWallEventLabel(e,date);
     jlFamilyWallStyleEvent(item,e.event_title);events.append(item);
   }
+  for(const e of jlCalendarMicrosoftFor(date)){
+    const item=document.createElement("div");item.className="jl-day-event-item microsoft";
+    item.textContent="📧 Outlook · "+jlFamilyWallEventLabel(e,date);
+    jlOutlookStyleEvent(item,e);events.append(item);
+  }
   if(!events.childElementCount){
     const p=document.createElement("span");p.className="muted";
     p.textContent=jlCalendarEventsLoaded?"Aucun événement.":"Événements non vérifiés.";events.append(p);
@@ -14994,11 +15049,13 @@ function jlCalendarRender(){
       .sort((x,y)=>String(x.content.appointment.time).localeCompare(String(y.content.appointment.time)));
     const dayNotes=jlCalendarNotesFor(key),dayEvents=jlCalendarEventsFor(key);
     const dayFamily=jlCalendarFamilyWallFor(key);
+    const dayMicrosoft=jlCalendarMicrosoftFor(key);
     // Trois aperçus maximum : travaux prioritaires, puis événements et notes.
     const visibleAppointments=appointments.slice(0,3);
     const visibleEvents=dayEvents.slice(0,Math.max(0,3-visibleAppointments.length));
     const visibleFamily=dayFamily.slice(0,Math.max(0,3-visibleAppointments.length-visibleEvents.length));
-    const visibleNotes=dayNotes.slice(0,Math.max(0,3-visibleAppointments.length-visibleEvents.length-visibleFamily.length));
+    const visibleMicrosoft=dayMicrosoft.slice(0,Math.max(0,3-visibleAppointments.length-visibleEvents.length-visibleFamily.length));
+    const visibleNotes=dayNotes.slice(0,Math.max(0,3-visibleAppointments.length-visibleEvents.length-visibleFamily.length-visibleMicrosoft.length));
     for(const q of visibleAppointments){
       const event=document.createElement("button");
       event.type="button";event.className="jl-calendar-appointment";
@@ -15036,12 +15093,18 @@ function jlCalendarRender(){
       jlFamilyWallStyleEvent(item,event.event_title);
       day.append(item);
     }
+    for(const event of visibleMicrosoft){
+      const item=document.createElement("div");item.className="jl-calendar-day-event microsoft";
+      item.textContent="📧 "+jlFamilyWallEventLabel(event,key);
+      item.title="Outlook — "+jlFamilyWallEventLabel(event,key);
+      jlOutlookStyleEvent(item,event);day.append(item);
+    }
     for(const n of visibleNotes){
       const note=document.createElement("div");note.className="jl-calendar-day-note";
       note.textContent="📝 "+String(n.note_text||"").slice(0,90);
       note.title=String(n.note_text||"");day.append(note);
     }
-    const hiddenCount=appointments.length+dayNotes.length+dayEvents.length+dayFamily.length-visibleAppointments.length-visibleNotes.length-visibleEvents.length-visibleFamily.length;
+    const hiddenCount=appointments.length+dayNotes.length+dayEvents.length+dayFamily.length+dayMicrosoft.length-visibleAppointments.length-visibleNotes.length-visibleEvents.length-visibleFamily.length-visibleMicrosoft.length;
     if(hiddenCount>0){
       const more=document.createElement("button");
       more.type="button";more.className="jl-calendar-day-more";
@@ -15060,14 +15123,14 @@ function jlCalendarInit(){
   if(!prev||!next||!today)return;
   prev.dataset.bound="1";
   const close=()=>{jlCalendarSelectedDate="";document.getElementById("jlDayAgenda").hidden=true;};
-  prev.addEventListener("click",()=>{jlCalendarWeekShift--;close();void jlCalendarLoadNotes();void jlCalendarLoadEvents();void jlCalendarLoadFamilyWall();});
-  next.addEventListener("click",()=>{jlCalendarWeekShift++;close();void jlCalendarLoadNotes();void jlCalendarLoadEvents();void jlCalendarLoadFamilyWall();});
-  today.addEventListener("click",()=>{jlCalendarWeekShift=0;close();void jlCalendarLoadNotes();void jlCalendarLoadEvents();void jlCalendarLoadFamilyWall();});
+  prev.addEventListener("click",()=>{jlCalendarWeekShift--;close();void jlCalendarLoadNotes();void jlCalendarLoadEvents();void jlCalendarLoadFamilyWall();void jlCalendarLoadMicrosoft();});
+  next.addEventListener("click",()=>{jlCalendarWeekShift++;close();void jlCalendarLoadNotes();void jlCalendarLoadEvents();void jlCalendarLoadFamilyWall();void jlCalendarLoadMicrosoft();});
+  today.addEventListener("click",()=>{jlCalendarWeekShift=0;close();void jlCalendarLoadNotes();void jlCalendarLoadEvents();void jlCalendarLoadFamilyWall();void jlCalendarLoadMicrosoft();});
   document.getElementById("jlDayAgendaClose")?.addEventListener("click",close);
   document.getElementById("jlDayNoteSave")?.addEventListener("click",()=>void jlCalendarSaveDayNote());
   void jlCalendarLoadNotes();
   void jlCalendarLoadEvents();
-  void jlCalendarLoadFamilyWall();
+  void jlCalendarLoadFamilyWall();void jlCalendarLoadMicrosoft();
 }
 async function dashboardRefreshPendingQuotes(){
   jlCalendarInit();
@@ -15075,11 +15138,12 @@ async function dashboardRefreshPendingQuotes(){
   if(dashboardQuotePending||Date.now()-dashboardQuoteCheckAt<15000)return;
   if(typeof CLOUD_DATA_READY==="undefined"||!CLOUD_DATA_READY||
      typeof ACTIVE_GARAGE_ID==="undefined"||!ACTIVE_GARAGE_ID)return;
-  if((!jlCalendarNotesLoaded||!jlCalendarEventsLoaded||!jlCalendarFamilyWallLoaded)&&Date.now()>=jlCalendarNotesRetryAt){
+  if((!jlCalendarNotesLoaded||!jlCalendarEventsLoaded||!jlCalendarFamilyWallLoaded||!jlCalendarMicrosoftLoaded)&&Date.now()>=jlCalendarNotesRetryAt){
     jlCalendarNotesRetryAt=Date.now()+15000;
     if(!jlCalendarNotesLoaded)void jlCalendarLoadNotes();
     if(!jlCalendarEventsLoaded)void jlCalendarLoadEvents();
     if(!jlCalendarFamilyWallLoaded)void jlCalendarLoadFamilyWall();
+    if(!jlCalendarMicrosoftLoaded)void jlCalendarLoadMicrosoft();void jlCalendarLoadMicrosoft();
   }
   dashboardQuotePending=true;dashboardQuoteCheckAt=Date.now();
   const countEl=document.getElementById("statPendingQuotes");
