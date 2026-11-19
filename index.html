@@ -13742,11 +13742,47 @@ async function jlScheduleConnectGoogle(){
     button.disabled=false;
   }
 }
+let jlScheduleGoogleConnectionId="";
+async function jlScheduleDisconnectGoogle(){
+ const button=document.getElementById("jlScheduleConnectGoogle");
+ const status=document.getElementById("jlScheduleExternalStatus");
+ if(button.disabled||!jlScheduleGoogleConnectionId)return;
+ const current=document.getElementById("jlScheduleExternalGoogle").textContent;
+ if(!window.confirm("Déconnecter "+current+" ? Le garage supprimera sa connexion, son accès enregistré et ses événements importés. Aucun événement ne sera supprimé de Google."))return;
+ const connectionId=jlScheduleGoogleConnectionId;
+ button.disabled=true;
+ status.textContent="Déconnexion Google en cours…";
+ try{
+  const db=window.garageSupabase;
+  const {data:auth,error}=await db.auth.getUser();
+  if(error||!auth?.user?.id||!ACTIVE_GARAGE_ID)throw Error("Compte TEST non vérifié");
+  const {data:session,error:sessionError}=await db.auth.getSession();
+  if(sessionError||!session?.session?.access_token)throw Error("Session expirée");
+  const response=await fetch(JL_CALENDAR_GOOGLE_TEST_ENDPOINT,{
+   method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.session.access_token},
+   body:JSON.stringify({action:"disconnect",garage_id:ACTIVE_GARAGE_ID,connection_id:connectionId})
+  });
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok||result.disconnected!==true)throw Error(result.error||"Suppression non confirmée");
+  jlScheduleGoogleConnectionId="";
+  await jlScheduleLoadExternalConnections();
+  const message=result.google_access_revoked?
+   "Connexion supprimée et autorisation Google révoquée.":
+   "Connexion supprimée du garage. Pour révoquer aussi l'autorisation Google, ouvre les paramètres de sécurité de ton compte Google.";
+  status.textContent=message;
+ }catch(err){
+  status.textContent="⚠ Déconnexion Google : "+String(err?.message||err);
+  button.disabled=false;
+ }
+}
 let jlScheduleSettingsInitialized=false;
 function jlScheduleInitSettings(){
   if(jlScheduleSettingsInitialized)return;
   jlScheduleSettingsInitialized=true;
-  document.getElementById("jlScheduleConnectGoogle").addEventListener("click",()=>void jlScheduleConnectGoogle());
+  document.getElementById("jlScheduleConnectGoogle").addEventListener("click",()=>{
+    if(jlScheduleGoogleConnectionId)void jlScheduleDisconnectGoogle();
+    else void jlScheduleConnectGoogle();
+  });
   document.getElementById("jlCalendarSettings").addEventListener("toggle",()=>{
     if(document.getElementById("jlCalendarSettings").open)void jlScheduleLoadExternalConnections();
   });
@@ -13758,6 +13794,8 @@ async function jlScheduleLoadExternalConnections(){
   status.textContent="Vérification des connexions personnelles…";
   const googleButton=document.getElementById("jlScheduleConnectGoogle");
   googleButton.disabled=true;
+  jlScheduleGoogleConnectionId="";
+  googleButton.textContent="Connecter Google Calendar";
   for(const [id,label] of [["jlScheduleExternalGoogle","Google Calendar"],["jlScheduleExternalMicrosoft","Outlook / Hotmail"]])
     document.getElementById(id).textContent=label+" — non connecté";
   try{
@@ -13767,11 +13805,14 @@ async function jlScheduleLoadExternalConnections(){
     const {data:auth,error:authError}=await db.auth.getUser();
     if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
     const {data,error}=await db.from("garage_external_calendar_connections")
-      .select("provider,display_name,sync_status,last_synced_at")
+      .select("id,provider,display_name,sync_status,last_synced_at")
       .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id).limit(100);
     if(error)throw error;
     if(!document.getElementById("jlCalendarSettings").open)return;
     const rows=Array.isArray(data)?data:[];
+    const connectedGoogle=rows.find(x=>x.provider==="google"&&x.sync_status==="connected"&&typeof x.id==="string");
+    jlScheduleGoogleConnectionId=connectedGoogle?.id||"";
+    googleButton.textContent=connectedGoogle?"Déconnecter Google Calendar":"Connecter Google Calendar";
     for(const [provider,id,label] of [
       ["google","jlScheduleExternalGoogle","Google Calendar"],
       ["microsoft","jlScheduleExternalMicrosoft","Outlook / Hotmail"]
@@ -13784,12 +13825,15 @@ async function jlScheduleLoadExternalConnections(){
     try{
       const reply=await fetch(JL_CALENDAR_GOOGLE_TEST_ENDPOINT,{method:"GET",cache:"no-store"});
       const config=reply.ok?await reply.json():{};
-      googleButton.disabled=!config.google_available;
-      status.textContent=config.google_available?
-        "Google TEST prêt : clique « Connecter Google Calendar » pour autoriser la lecture.":
-        "Connexion Google TEST en attente de configuration OAuth. Outlook suivra.";
+      googleButton.disabled=connectedGoogle?false:!config.google_available;
+      status.textContent=connectedGoogle?
+        "Google Calendar connecté. Tu peux le déconnecter ici pour changer de compte.":
+        (config.google_available?
+          "Google TEST prêt : clique « Connecter Google Calendar » pour autoriser la lecture.":
+          "Connexion Google TEST en attente de configuration OAuth. Outlook suivra.");
     }catch(_err){
-      status.textContent="Connexion Google TEST non disponible. Outlook suivra.";
+      googleButton.disabled=!connectedGoogle;
+      status.textContent=connectedGoogle?"Google connecté; état serveur temporairement indisponible.":"Connexion Google TEST non disponible. Outlook suivra.";
     }
   }catch(err){
     status.textContent="⚠ Connexions non vérifiées : "+String(err?.message||"");
