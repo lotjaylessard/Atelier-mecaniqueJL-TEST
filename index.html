@@ -14602,6 +14602,23 @@ async function jlScheduleOpen(){
   document.getElementById("jlScheduleDayPanel").hidden=true;
   void jlScheduleLoad();
 }
+async function jlScheduleOpenFromDashboard(date,kind,id){
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(String(date||"")))return;
+ showPage("page-schedule");
+ const [year,month]=date.split("-").map(Number);
+ const now=new Date();
+ jlScheduleShift=(year-now.getFullYear())*12+month-1-now.getMonth();
+ jlScheduleSelected="";
+ await jlScheduleLoad();
+ jlScheduleDayOpen(date);
+ if(kind==="note"){
+  const note=jlScheduleNotes.find(x=>String(x.id)===String(id));
+  if(note)jlScheduleEditNote(note);
+ }else if(kind==="event"){
+  const event=jlScheduleEvents.find(x=>String(x.id)===String(id)&&x.user_id===jlScheduleEventUserId);
+  if(event)jlScheduleOpenEventForm(event);
+ }
+}
 window.addEventListener("s08-quotes-refreshed",()=>{
   if(document.getElementById("page-schedule")?.style.display==="block")void jlScheduleLoad();
 });
@@ -14668,8 +14685,9 @@ async function jlCalendarLoadEvents(){
        !db?.auth?.getUser||!db?.from)throw Error("Cloud indisponible");
     const {data:auth,error:authError}=await db.auth.getUser();
     if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
+    jlScheduleLoadVisibility(auth.user.id);
     const {data,error}=await db.from("garage_schedule_events")
-      .select("id,visibility,event_type,title,start_date,end_date,all_day,start_time,end_time")
+      .select("id,user_id,visibility,event_type,title,start_date,end_date,all_day,start_time,end_time")
       .eq("garage_id",ACTIVE_GARAGE_ID).lte("start_date",max).gte("end_date",min);
     if(error)throw error;
     if(token!==jlCalendarEventsRequest)return;
@@ -14739,6 +14757,12 @@ function jlDayAgendaRender(){
     item.className="jl-day-event-item"+(e.visibility==="private"?" private":"");
     item.textContent=(e.visibility==="private"?"🔒 Personnel · ":"🏭 Atelier · ")+
       jlScheduleEventLabel(e,date);
+    if(e.user_id===SUPABASE_USER?.id){
+      const edit=document.createElement("button");edit.className="ghost";edit.type="button";
+      edit.textContent="Modifier / annuler";edit.style.marginLeft="8px";
+      edit.addEventListener("click",()=>void jlScheduleOpenFromDashboard(date,"event",e.id));
+      item.append(edit);
+    }
     events.append(item);
   }
   for(const e of jlCalendarFamilyWallFor(date)){
@@ -14754,7 +14778,11 @@ function jlDayAgendaRender(){
   list.replaceChildren();
   for(const note of jlCalendarNotesFor(date)){
     const item=document.createElement("div");item.className="jl-day-note-item";
-    item.textContent=String(note.note_text||"");list.append(item);
+    item.textContent=String(note.note_text||"");
+    const edit=document.createElement("button");edit.type="button";edit.className="ghost";
+    edit.textContent="Modifier / supprimer";edit.style.marginLeft="8px";
+    edit.addEventListener("click",()=>void jlScheduleOpenFromDashboard(date,"note",note.id));
+    item.append(edit);list.append(item);
   }
   if(!list.children.length){
     const empty=document.createElement("span");empty.className="muted";
