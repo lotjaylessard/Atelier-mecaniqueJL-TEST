@@ -1596,6 +1596,11 @@ button.link:hover{
 #page-schedule .jl-schedule-swatch.note{background:#5da9ff}
 #page-schedule .jl-schedule-swatch.workshop{background:#daa038}
 #page-schedule .jl-schedule-swatch.private{background:#48ad7d}
+#page-schedule .jl-schedule-swatch.familywall{background:#a478e4}
+#page-schedule .jl-schedule-mini.familywall{background:rgba(164,120,228,.21);border-left:3px solid #a478e4}
+#page-schedule .jl-schedule-full-item.familywall{border-left:3px solid #a478e4}
+#page-settings .jl-familywall-settings{margin-top:12px}
+#page-settings #jlScheduleFamilyWallUrl{width:100%;max-width:900px;box-sizing:border-box;margin:7px 0}
 #page-schedule .jl-schedule-weekdays,#page-schedule .jl-schedule-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
 #page-schedule .jl-schedule-weekdays{text-align:center;font-size:12px;font-weight:700;padding-bottom:5px}
 #page-schedule .jl-schedule-day{height:clamp(85px,calc((100dvh - 300px)/6),102px);position:relative;min-height:0;min-width:0;overflow:hidden;display:flex;flex-direction:column;gap:2px;box-sizing:border-box;padding:3px;border:1px solid var(--border);border-radius:7px;cursor:pointer}
@@ -1866,6 +1871,7 @@ button.link:hover{
           <label><input type="checkbox" data-jl-schedule-filter="private" checked><i class="jl-schedule-swatch private"></i>Personnel (privé)</label>
           <label title="Disponible lorsque les événements Google seront importés"><input type="checkbox" data-jl-schedule-filter="google" disabled>Google (à venir)</label>
           <label title="Disponible lorsque les événements Outlook seront importés"><input type="checkbox" data-jl-schedule-filter="microsoft" disabled>Outlook (à venir)</label>
+          <label title="Calendrier familial privé"><input type="checkbox" data-jl-schedule-filter="familywall" disabled><i class="jl-schedule-swatch familywall"></i>FamilyWall</label>
         </div>
         <p class="muted" id="jlScheduleStatus" role="status" aria-live="polite">Chargement de l'horaire…</p>
         <div class="jl-schedule-weekdays" aria-hidden="true">
@@ -2632,6 +2638,17 @@ button.link:hover{
           <div id="jlScheduleExternalGoogle" class="jl-schedule-external-provider">Google Calendar — non connecté</div>
           <button type="button" id="jlScheduleConnectGoogle" class="ghost" disabled>Connecter Google Calendar</button>
           <div id="jlScheduleExternalMicrosoft" class="jl-schedule-external-provider">Outlook / Hotmail — non connecté</div>
+          <div class="jl-familywall-settings">
+            <div id="jlScheduleExternalFamilyWall" class="jl-schedule-external-provider">FamilyWall — non connecté</div>
+            <p class="muted" style="margin:6px 0">Calendrier familial privé, en lecture seule. Dans FamilyWall : Calendrier → Paramètres → Ton cercle → Générer un iCal. Ne partage jamais ce lien.</p>
+            <label for="jlScheduleFamilyWallUrl">Lien iCal FamilyWall (privé)</label>
+            <input type="password" id="jlScheduleFamilyWallUrl" autocomplete="off" spellcheck="false" placeholder="Colle ici le lien iCal de FamilyWall">
+            <div class="jl-settings-actions">
+              <button type="button" class="ghost" id="jlScheduleFamilyWallConnect">Connecter FamilyWall</button>
+              <button type="button" class="ghost" id="jlScheduleFamilyWallSync" hidden>Actualiser FamilyWall</button>
+            </div>
+            <p class="muted" id="jlScheduleFamilyWallStatus" role="status" aria-live="polite"></p>
+          </div>
           <p id="jlScheduleExternalStatus" class="muted" role="status" aria-live="polite">Les connexions seront disponibles après la configuration OAuth sécurisée.</p>
         </section>
     </details>
@@ -13318,7 +13335,8 @@ window.addEventListener("s08-quotes-refreshed",()=>{
 let jlScheduleShift=0,jlScheduleSelected="",jlScheduleQuotes=[],jlScheduleNotes=[];
 let jlScheduleLoaded=false,jlScheduleRequest=0,jlScheduleSaving=false,jlScheduleInitialized=false;
 let jlScheduleEvents=[],jlScheduleEventSaving=false,jlScheduleEventUserId="";
-const jlScheduleVisibility={work:true,note:true,workshop:true,private:true};
+let jlScheduleFamilyWallEvents=[],jlScheduleFamilyWallConnectionId="";
+const jlScheduleVisibility={work:true,note:true,workshop:true,private:true,familywall:true};
 let jlScheduleVisibilityOwnerKey="";
 function jlScheduleLoadVisibility(userId){
   if(!userId||!ACTIVE_GARAGE_ID)return;
@@ -13374,6 +13392,11 @@ function jlScheduleEventLabel(e,date=""){
     else if(date===e.end_date)prefix="Jusqu'à "+end;
   }
   return prefix+" · "+String(e.title||type[e.event_type]||"Événement");
+}
+function jlScheduleFamilyWallFor(date){
+  if(!jlScheduleVisibility.familywall)return [];
+  return jlScheduleFamilyWallEvents.filter(e=>e.start_date<=date&&e.end_date>=date)
+    .sort((a,b)=>String(a.event_title||"").localeCompare(String(b.event_title||"")));
 }
 function jlScheduleNotesFor(date){
   return jlScheduleNotes.filter(n=>n.note_date===date)
@@ -13433,6 +13456,9 @@ function jlScheduleDayRender(){
   }
   if(!events.childElementCount)jlScheduleText(events,jlScheduleLoaded?
     "Aucun événement.":"Événements en cours de chargement.");
+  for(const item of jlScheduleFamilyWallFor(date)){
+    jlScheduleText(events,"🏠 FamilyWall · "+String(item.event_title||"Événement familial"),"jl-schedule-full-item familywall");
+  }
   for(const note of (jlScheduleVisibility.note?jlScheduleNotesFor(date):[])){
     jlScheduleText(notes,String(note.note_text||""),"jl-schedule-full-item note");
   }
@@ -13468,12 +13494,14 @@ function jlScheduleRender(){
     const jobs=jlScheduleVisibility.work?jlScheduleJobsFor(date):[];
     const notes=jlScheduleVisibility.note?jlScheduleNotesFor(date):[];
     const events=jlScheduleEventsFor(date).filter(e=>jlScheduleVisibility[e.visibility==="private"?"private":"workshop"]);
+    const family=jlScheduleFamilyWallFor(date);
     // Six semaines : deux aperçus + place garantie pour « + X autres ».
     // Autres mois : au plus trois aperçus, selon le comportement convenu.
     const previewLimit=slots===42?2:3;
     const visibleJobs=jobs.slice(0,previewLimit);
     const visibleEvents=events.slice(0,Math.max(0,previewLimit-visibleJobs.length));
-    const visibleNotes=notes.slice(0,Math.max(0,previewLimit-visibleJobs.length-visibleEvents.length));
+    const visibleFamily=family.slice(0,Math.max(0,previewLimit-visibleJobs.length-visibleEvents.length));
+    const visibleNotes=notes.slice(0,Math.max(0,previewLimit-visibleJobs.length-visibleEvents.length-visibleFamily.length));
     for(const q of visibleJobs){
       const el=document.createElement("button");el.type="button";
       el.className="jl-schedule-mini work";
@@ -13488,12 +13516,17 @@ function jlScheduleRender(){
       el.title=String(event.title||"");
       cell.append(el);
     }
+    for(const item of visibleFamily){
+      const el=document.createElement("div");el.className="jl-schedule-mini familywall";
+      el.textContent="🏠 "+String(item.event_title||"Événement familial");
+      el.title="FamilyWall — personnel";cell.append(el);
+    }
     for(const note of visibleNotes){
       const el=document.createElement("div");el.className="jl-schedule-mini note";
       el.textContent="📝 "+String(note.note_text||"");
       el.title=String(note.note_text||"");cell.append(el);
     }
-    const extra=jobs.length+notes.length+events.length-visibleJobs.length-visibleNotes.length-visibleEvents.length;
+    const extra=jobs.length+notes.length+events.length+family.length-visibleJobs.length-visibleNotes.length-visibleEvents.length-visibleFamily.length;
     if(extra>0){
       const more=document.createElement("button");more.type="button";
       more.className="jl-schedule-more";more.textContent="+"+extra+" autre"+(extra>1?"s":"");
@@ -13508,7 +13541,7 @@ async function jlScheduleLoad(){
   const first=jlScheduleMonthStart(),last=new Date(first.getFullYear(),first.getMonth()+1,0);
   const min=jlScheduleISO(first),max=jlScheduleISO(last),token=++jlScheduleRequest;
   const status=document.getElementById("jlScheduleStatus");
-  jlScheduleLoaded=false;jlScheduleQuotes=[];jlScheduleNotes=[];jlScheduleEvents=[];
+  jlScheduleLoaded=false;jlScheduleQuotes=[];jlScheduleNotes=[];jlScheduleEvents=[];jlScheduleFamilyWallEvents=[];
   status.textContent="Chargement des rendez-vous et des notes…";
   jlScheduleRender();
   try{
@@ -13547,6 +13580,7 @@ async function jlScheduleLoad(){
     jlScheduleEventUserId=auth.user.id;
     jlScheduleLoadVisibility(auth.user.id);
     jlScheduleLoaded=true;
+    void jlScheduleLoadFamilyWallEvents(auth.user.id,min,max,token);
     status.textContent=all.length>=1000?
       "⚠ Plus de 1000 soumissions : affichage potentiellement incomplet.":
       "Sélectionne une journée pour afficher les travaux et les notes.";
@@ -13775,10 +13809,79 @@ async function jlScheduleDisconnectGoogle(){
   button.disabled=false;
  }
 }
+const JL_FAMILYWALL_TEST_ENDPOINT="https://nraijzsodgojkpyigefu.supabase.co/functions/v1/garage-familywall-calendar";
+async function jlFamilyWallRequest(action,extra={}){
+ const db=window.garageSupabase;
+ const {data:auth,error:authError}=await db.auth.getUser();
+ if(authError||!auth?.user?.id||!ACTIVE_GARAGE_ID)throw Error("Session TEST non vérifiée");
+ const {data:session,error:sessionError}=await db.auth.getSession();
+ if(sessionError||!session?.session?.access_token)throw Error("Session expirée");
+ const response=await fetch(JL_FAMILYWALL_TEST_ENDPOINT,{
+  method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.session.access_token},
+  body:JSON.stringify({action,garage_id:ACTIVE_GARAGE_ID,...extra})
+ });
+ const result=await response.json().catch(()=>({}));
+ if(!response.ok)throw Error(result.error||"FamilyWall temporairement indisponible");
+ return result;
+}
+async function jlScheduleLoadFamilyWallEvents(userId,min,max,token){
+ try{
+  const db=window.garageSupabase;
+  const {data:connections,error:connError}=await db.from("garage_external_calendar_connections")
+   .select("id,sync_status").eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",userId)
+   .eq("provider","familywall").limit(1);
+  if(connError)throw connError;
+  const connected=connections?.[0];
+  const input=document.querySelector('[data-jl-schedule-filter="familywall"]');
+  if(!connected){if(token===jlScheduleRequest){jlScheduleFamilyWallConnectionId="";input.disabled=true;jlScheduleRender();}return;}
+  if(token!==jlScheduleRequest)return;
+  jlScheduleFamilyWallConnectionId=connected.id;
+  input.disabled=false;
+  // Server enforces at most one FamilyWall download every 15 minutes.
+  try{await jlFamilyWallRequest("sync",{connection_id:connected.id});}
+  catch(_err){/* Show previously cached personal events when feed is offline. */}
+  if(token!==jlScheduleRequest)return;
+  const {data,error}=await db.from("garage_external_calendar_events")
+   .select("provider_event_id,event_title,start_date,end_date,all_day")
+   .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",userId)
+   .eq("connection_id",connected.id).lte("start_date",max).gte("end_date",min).limit(1000);
+  if(error)throw error;
+  if(token!==jlScheduleRequest)return;
+  jlScheduleFamilyWallEvents=Array.isArray(data)?data:[];
+  jlScheduleRender();
+ }catch(err){
+  if(token===jlScheduleRequest)console.warn("[Horaire TEST] FamilyWall non vérifié",String(err?.message||""));
+ }
+}
+async function jlScheduleFamilyWallAction(action){
+ const input=document.getElementById("jlScheduleFamilyWallUrl");
+ const status=document.getElementById("jlScheduleFamilyWallStatus");
+ const connect=document.getElementById("jlScheduleFamilyWallConnect");
+ const sync=document.getElementById("jlScheduleFamilyWallSync");
+ const connectionId=jlScheduleFamilyWallConnectionId;
+ if(action==="disconnect"&&!connectionId)return;
+ if(action==="disconnect"&&!window.confirm("Déconnecter FamilyWall du garage? Aucun événement ne sera supprimé dans FamilyWall."))return;
+ if(action==="connect"&&!input.value.trim()){status.textContent="Colle ton lien iCal FamilyWall.";return;}
+ connect.disabled=true;sync.disabled=true;
+ status.textContent=action==="sync"?"Actualisation FamilyWall…":action==="disconnect"?"Déconnexion…":"Connexion FamilyWall…";
+ try{
+  const extra=action==="connect"?{ical_url:input.value.trim()}:{connection_id:connectionId};
+  await jlFamilyWallRequest(action,extra);
+  input.value="";
+  await jlScheduleLoadExternalConnections();
+  if(document.getElementById("page-schedule")?.style.display==="block")void jlScheduleLoad();
+  status.textContent=action==="disconnect"?"FamilyWall déconnecté.":action==="sync"?"FamilyWall actualisé.":"FamilyWall connecté en lecture seule.";
+ }catch(err){
+  status.textContent="⚠ "+String(err?.message||err);
+  connect.disabled=false;sync.disabled=false;
+ }
+}
 let jlScheduleSettingsInitialized=false;
 function jlScheduleInitSettings(){
   if(jlScheduleSettingsInitialized)return;
   jlScheduleSettingsInitialized=true;
+  document.getElementById("jlScheduleFamilyWallConnect").addEventListener("click",()=>void jlScheduleFamilyWallAction(jlScheduleFamilyWallConnectionId?"disconnect":"connect"));
+  document.getElementById("jlScheduleFamilyWallSync").addEventListener("click",()=>void jlScheduleFamilyWallAction("sync"));
   document.getElementById("jlScheduleConnectGoogle").addEventListener("click",()=>{
     if(jlScheduleGoogleConnectionId)void jlScheduleDisconnectGoogle();
     else void jlScheduleConnectGoogle();
@@ -13796,6 +13899,9 @@ async function jlScheduleLoadExternalConnections(){
   googleButton.disabled=true;
   jlScheduleGoogleConnectionId="";
   googleButton.textContent="Connecter Google Calendar";
+  jlScheduleFamilyWallConnectionId="";
+  document.getElementById("jlScheduleFamilyWallConnect").disabled=true;
+  document.getElementById("jlScheduleFamilyWallSync").hidden=true;
   for(const [id,label] of [["jlScheduleExternalGoogle","Google Calendar"],["jlScheduleExternalMicrosoft","Outlook / Hotmail"]])
     document.getElementById(id).textContent=label+" — non connecté";
   try{
@@ -13815,13 +13921,21 @@ async function jlScheduleLoadExternalConnections(){
     googleButton.textContent=connectedGoogle?"Déconnecter Google Calendar":"Connecter Google Calendar";
     for(const [provider,id,label] of [
       ["google","jlScheduleExternalGoogle","Google Calendar"],
-      ["microsoft","jlScheduleExternalMicrosoft","Outlook / Hotmail"]
+      ["microsoft","jlScheduleExternalMicrosoft","Outlook / Hotmail"],
+      ["familywall","jlScheduleExternalFamilyWall","FamilyWall"]
     ]){
       const own=rows.filter(x=>x.provider===provider);
       const items=own.map(x=>String(x.display_name||"Calendrier").slice(0,100)+
         " ("+({connected:"connecté",syncing:"synchronisation",needs_reconnect:"reconnexion requise",error:"erreur",not_connected:"non connecté"}[x.sync_status]||"statut inconnu")+")");
       document.getElementById(id).textContent=label+" — "+(items.length?items.join(" · "):"non connecté");
     }
+    const family=rows.find(x=>x.provider==="familywall");
+    jlScheduleFamilyWallConnectionId=family?.id||"";
+    document.getElementById("jlScheduleFamilyWallConnect").textContent=family?"Déconnecter FamilyWall":"Connecter FamilyWall";
+    document.getElementById("jlScheduleFamilyWallConnect").disabled=false;
+    document.getElementById("jlScheduleFamilyWallSync").hidden=!family;
+    document.getElementById("jlScheduleFamilyWallUrl").hidden=!!family;
+    document.querySelector('label[for="jlScheduleFamilyWallUrl"]').hidden=!!family;
     try{
       const reply=await fetch(JL_CALENDAR_GOOGLE_TEST_ENDPOINT,{method:"GET",cache:"no-store"});
       const config=reply.ok?await reply.json():{};
