@@ -1672,6 +1672,8 @@ body.jl-hide-supplier-invoices .jl-invoice-supplier{display:none!important}
 #page-settings .jl-familywall-rule{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 #page-settings .jl-familywall-rule input[type="text"]{width:min(340px,65vw);min-width:140px;max-width:100%;box-sizing:border-box}
 #page-settings .jl-familywall-rule input[type="color"]{width:45px;height:34px;box-sizing:border-box;padding:2px;cursor:pointer}
+#page-settings #jlOutlookColorRules .jl-familywall-rule input[type="text"]{width:min(240px,35vw);flex:1 1 170px;min-width:120px}
+#page-settings #jlOutlookColorRules .jl-familywall-rule{padding:3px 0}
 #page-settings .jl-familywall-rule button{min-height:32px}
 #page-schedule .jl-schedule-weekdays,#page-schedule .jl-schedule-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
 #page-schedule .jl-schedule-weekdays{text-align:center;font-size:12px;font-weight:700;padding-bottom:5px}
@@ -2735,7 +2737,7 @@ body.jl-hide-supplier-invoices .jl-invoice-supplier{display:none!important}
             <p class="muted" id="jlScheduleMicrosoftStatus" role="status" aria-live="polite"></p>
             <details id="jlOutlookColorsSettings" class="jl-familywall-colors">
               <summary>🎨 Couleurs des catégories Outlook</summary>
-              <p class="muted">Couleurs suggérées d'après Outlook. Les catégories importées sont reconnues automatiquement quand elles sont présentes dans le lien ICS. Tu peux modifier les noms et les couleurs; si Outlook omet les catégories, les règles peuvent aussi s'appliquer à un mot du titre. Ces choix restent privés sur ce navigateur.</p>
+              <p class="muted">Le lien ICS Outlook ne transmet pas les catégories dans ce calendrier. Associe des mots-clés présents dans les titres aux couleurs, séparés par des virgules. AC, TR et TODO sont proposés selon les exemples visibles. Tes préférences restent privées sur ce navigateur.</p>
               <div id="jlOutlookColorRules" class="jl-familywall-color-rules"></div>
               <div class="jl-settings-actions">
                 <button type="button" id="jlOutlookAddColorRule" class="ghost">+ Ajouter une couleur</button>
@@ -13702,15 +13704,15 @@ function jlScheduleFamilyWallFor(date){
    Aucun accès ou partage d'événements entre utilisateurs du garage. */
 const jlOutlookDefaultColor="#41a7e7";
 const jlOutlookSampleRules=[
- {keyword:"AIR CANADA",color:"#ec7076"},
- {keyword:"AUTRES",color:"#6dbdb7"},
- {keyword:"DAUGHTERS",color:"#59bde6"},
- {keyword:"MECHANIC X +",color:"#b99485"},
- {keyword:"METIME",color:"#e5a253"},
- {keyword:"OUTSIDE",color:"#e2b847"},
- {keyword:"SHOPPING",color:"#a5a5a5"},
- {keyword:"TO DO",color:"#9b8af5"},
- {keyword:"TRAINING",color:"#77c56f"}
+ {keyword:"AIR CANADA",color:"#ec7076",aliases:"AC"},
+ {keyword:"AUTRES",color:"#6dbdb7",aliases:""},
+ {keyword:"DAUGHTERS",color:"#59bde6",aliases:""},
+ {keyword:"MECHANIC X +",color:"#b99485",aliases:""},
+ {keyword:"METIME",color:"#e5a253",aliases:""},
+ {keyword:"OUTSIDE",color:"#e2b847",aliases:""},
+ {keyword:"SHOPPING",color:"#a5a5a5",aliases:""},
+ {keyword:"TO DO",color:"#9b8af5",aliases:"TODO, TO DO"},
+ {keyword:"TRAINING",color:"#77c56f",aliases:"TR"}
 ];
 let jlOutlookColorRules=jlOutlookSampleRules.map(x=>({...x})),jlOutlookColorOwnerKey="";
 function jlOutlookLoadColors(userId){
@@ -13725,7 +13727,7 @@ function jlOutlookLoadColors(userId){
     const rules=JSON.parse(saved);
     if(Array.isArray(rules))jlOutlookColorRules=rules.slice(0,40)
      .filter(x=>x&&typeof x.keyword==="string"&&x.keyword.length<=80&&jlFamilyWallValidColor(x.color))
-     .map(x=>({keyword:x.keyword,color:x.color}));
+     .map(x=>({keyword:x.keyword,color:x.color,aliases:typeof x.aliases==="string"?x.aliases.slice(0,240):(jlOutlookSampleRules.find(r=>r.keyword===x.keyword)?.aliases||"")}));
    }
   }catch(_err){}
  }
@@ -13750,10 +13752,14 @@ function jlOutlookColorFor(event){
   }
  }
  // Outlook's published ICS does not always include CATEGORIES: allow title keywords.
- const title=jlFamilyWallNormalizeText(event?.event_title);
+ const title=" "+jlFamilyWallNormalizeText(event?.event_title).replace(/[^a-z0-9]+/g," ").trim()+" ";
  for(const rule of jlOutlookColorRules){
-  const key=jlFamilyWallNormalizeText(rule.keyword);
-  if(key&&title.includes(key)&&jlFamilyWallValidColor(rule.color))return rule.color;
+  if(!jlFamilyWallValidColor(rule.color))continue;
+  const terms=[rule.keyword,...String(rule.aliases||"").split(",")];
+  if(terms.some(term=>{
+   const key=jlFamilyWallNormalizeText(term).replace(/[^a-z0-9]+/g," ").trim();
+   return key.length>0&&title.includes(" "+key+" ");
+  }))return rule.color;
  }
  return jlOutlookDefaultColor;
 }
@@ -13774,19 +13780,24 @@ function jlOutlookRenderColors(){
   title.placeholder="Catégorie ou mot dans le titre";title.value=rule.keyword;
   title.setAttribute("aria-label","Catégorie Outlook "+(index+1));
   title.addEventListener("change",()=>{jlOutlookColorRules[index].keyword=title.value.trim();jlOutlookSaveColors();});
+  const aliases=document.createElement("input");aliases.type="text";aliases.maxLength=240;
+  aliases.placeholder="Mots-clés (AC, TR, TODO…)";aliases.value=rule.aliases||"";
+  aliases.setAttribute("aria-label","Mots-clés du titre pour "+rule.keyword);
+  aliases.title="Plusieurs mots-clés séparés par des virgules, sans correspondances à l'intérieur d'un autre mot.";
+  aliases.addEventListener("change",()=>{jlOutlookColorRules[index].aliases=aliases.value.trim();jlOutlookSaveColors();});
   const color=document.createElement("input");color.type="color";color.value=rule.color;
   color.setAttribute("aria-label","Couleur Outlook "+(index+1));
   color.addEventListener("input",()=>{jlOutlookColorRules[index].color=color.value;jlOutlookSaveColors();});
   const remove=document.createElement("button");remove.type="button";remove.className="ghost";remove.textContent="Supprimer";
   remove.addEventListener("click",()=>{jlOutlookColorRules.splice(index,1);jlOutlookRenderColors();jlOutlookSaveColors();});
-  row.append(title,color,remove);list.append(row);
+  row.append(title,aliases,color,remove);list.append(row);
  });
  document.getElementById("jlOutlookAddColorRule").disabled=jlOutlookColorRules.length>=40;
 }
 function jlOutlookInitColors(){
  document.getElementById("jlOutlookAddColorRule").addEventListener("click",()=>{
   if(jlOutlookColorRules.length>=40)return;
-  jlOutlookColorRules.push({keyword:"",color:jlOutlookDefaultColor});
+  jlOutlookColorRules.push({keyword:"",aliases:"",color:jlOutlookDefaultColor});
   jlOutlookRenderColors();jlOutlookSaveColors();
  });
  document.getElementById("jlOutlookResetColors").addEventListener("click",()=>{
