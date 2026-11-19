@@ -1753,6 +1753,44 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
 #woTable tbody tr.jl-openable-row,#invoiceListTable tbody tr.jl-openable-row{cursor:pointer}
 #woTable tbody tr.jl-openable-row:hover,#invoiceListTable tbody tr.jl-openable-row:hover{background:rgba(245,197,66,.08)}
 #woTable tbody tr.jl-openable-row:focus-visible,#invoiceListTable tbody tr.jl-openable-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+/* TEST : paramètres harmonisés et répertoire fournisseurs compact. */
+#page-settings .jl-settings-subsection{
+  margin:12px 0 3px;padding:10px 12px;
+  border:1px solid var(--border);border-radius:8px;
+}
+#page-settings .jl-settings-subsection>summary{
+  cursor:pointer;color:var(--accent);font-weight:700;
+}
+#page-settings #jlCalendarColorsSettings{margin-top:12px}
+#page-settings .jl-invoice-options{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  gap:12px 18px;padding:12px 2px;
+}
+#page-settings .jl-invoice-options label{white-space:normal;align-items:flex-start}
+#page-settings .jl-invoice-options input{flex:none;margin-top:2px}
+#page-settings .jl-supplier-add-row{display:flex;gap:8px;align-items:center}
+#page-settings .jl-supplier-add-row input{flex:1;min-width:0;margin:0}
+#page-settings .jl-supplier-list{display:grid;gap:8px;margin-top:10px}
+#page-settings .jl-supplier-row{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px 12px;
+  border:1px solid var(--border);border-radius:8px;padding:10px;
+}
+#page-settings .jl-supplier-name{font-weight:700;align-self:center;min-width:0;overflow-wrap:anywhere}
+#page-settings .jl-supplier-fields{
+  grid-column:1/-1;display:grid;
+  grid-template-columns:minmax(120px,1fr) minmax(160px,1.2fr) minmax(180px,1.5fr) auto;
+  gap:8px;align-items:center;min-width:0;
+}
+#page-settings .jl-supplier-fields input{margin:0;min-width:0;width:100%}
+#page-settings .jl-supplier-fields button{white-space:nowrap}
+@media(max-width:800px){
+ #page-settings .jl-supplier-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #page-settings .jl-supplier-fields input:nth-child(3){grid-column:1/-1}
+}
+@media(max-width:480px){
+ #page-settings .jl-supplier-fields{grid-template-columns:minmax(0,1fr)}
+ #page-settings .jl-supplier-fields input:nth-child(3){grid-column:auto}
+}
 </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -2809,9 +2847,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
           </div>
           <p id="jlScheduleExternalStatus" class="muted" role="status" aria-live="polite">Les connexions seront disponibles après la configuration OAuth sécurisée.</p>
         </section>
-    </details>
-
-    <details class="jl-settings-backup jl-settings-options jl-settings-fold" id="jlCalendarColorsSettings">
+    <details class="jl-settings-subsection" id="jlCalendarColorsSettings">
       <summary>🎨 Couleurs de mes calendriers</summary>
       <p class="muted">Personnalise les couleurs par catégorie, sans modifier les événements ni les calendriers des autres utilisateurs. Les préférences restent dans ton navigateur. Pour FamilyWall, les couleurs par mot-clé se trouvent dans « Calendriers personnels — connexions ».</p>
       <div class="jl-palette-grid">
@@ -2822,6 +2858,8 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
       </div>
       <button type="button" id="jlResetCalendarColors" class="ghost" style="margin-top:10px">Réinitialiser les couleurs</button>
       <p id="jlCalendarColorsStatus" class="muted" role="status" aria-live="polite"></p>
+    </details>
+
     </details>
 
     <datalist id="jlSupplierChoices"></datalist>
@@ -2856,26 +2894,21 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
 
     <details class="jl-settings-backup jl-settings-options" id="jlPrintOptions">
       <summary>🧾 Factures et soumissions</summary>
-      <div class="jl-settings-toggle-grid">
+      <div class="jl-settings-toggle-grid jl-invoice-options">
         <label><input type="checkbox" id="jlPrintPartNumber" checked /> Afficher le # de pièce</label>
+        <label><input type="checkbox" id="jlSupplierShowQuotes" checked /> Afficher le fournisseur dans les soumissions</label>
+        <label><input type="checkbox" id="jlSupplierShowInvoices" checked /> Afficher le fournisseur dans les factures (interne seulement)</label>
       </div>
-      <div style="margin:10px 0 4px">
-    <details class="jl-settings-backup jl-settings-options jl-settings-fold" id="jlSupplierSettings">
-      <summary>🏪 Fournisseurs — soumissions, BT et factures</summary>
-      <p class="muted">Répertoire de fournisseurs de pièces. Un fournisseur peut être sélectionné par ligne; cette information reste interne au garage.</p>
-      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
-        <input id="jlSupplierName" type="text" maxlength="80" placeholder="Nom du fournisseur (ex. NAPA)" aria-label="Nom du fournisseur" style="flex:1;min-width:180px">
-        <button type="button" id="jlSupplierAdd">+ Ajouter</button>
-      </div>
-      <div id="jlSupplierList" style="display:grid;gap:6px;margin-top:9px"></div>
-      <p class="muted" style="font-size:12px">Clique sur « Coordonnées » pour conserver le téléphone, le courriel et une note pour chaque fournisseur.</p>
-      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:10px">
-        <label><input type="checkbox" id="jlSupplierShowQuotes" checked> Afficher fournisseur dans les soumissions</label>
-        <label><input type="checkbox" id="jlSupplierShowInvoices" checked> Afficher fournisseur dans les factures (interne seulement)</label>
-      </div>
-      <p id="jlSupplierStatus" class="muted" role="status" aria-live="polite"></p>
-    </details>
-      </div>
+      <details class="jl-settings-subsection" id="jlSupplierSettings">
+        <summary>🏪 Répertoire des fournisseurs</summary>
+        <p class="muted">Les coordonnées sont modifiables directement. Les fournisseurs restent internes au garage.</p>
+        <div class="jl-supplier-add-row">
+          <input id="jlSupplierName" type="text" maxlength="80" placeholder="Nom du fournisseur (ex. NAPA)" aria-label="Nom du fournisseur">
+          <button type="button" id="jlSupplierAdd">+ Ajouter</button>
+        </div>
+        <div id="jlSupplierList" class="jl-supplier-list"></div>
+        <p id="jlSupplierStatus" class="muted" role="status" aria-live="polite"></p>
+      </details>
     </details>
 
     <details class="jl-settings-backup">
@@ -20257,20 +20290,17 @@ function jlSupplierRender(){
   for(const name of names){
     const option=document.createElement("option");option.value=name;choices.append(option);
     const row=document.createElement("div");
-    row.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--border);padding:5px 9px;border-radius:6px";
-    const label=document.createElement("span");label.textContent=name;
-    const contacts=document.createElement("button");contacts.type="button";contacts.className="ghost";
-    contacts.textContent="Coordonnées";
+    row.className="jl-supplier-row";
+    const label=document.createElement("span");label.className="jl-supplier-name";label.textContent=name;
     const info=SETTINGS?.supplierDetails?.[name]||{};
-    const panel=document.createElement("div");panel.hidden=true;
-    panel.style.cssText="display:flex;flex-wrap:wrap;gap:6px;width:100%;margin:6px 0";
+    const panel=document.createElement("div");panel.className="jl-supplier-fields";
     const fields=[["phone","Téléphone",40],["email","Courriel",120],["notes","Notes / commande",250]];
     for(const [key,label,max] of fields){
       const field=document.createElement("input");field.type="text";field.maxLength=max;
       field.value=String(info[key]||"").slice(0,max);field.placeholder=label;
       field.setAttribute("aria-label",label+" du fournisseur "+name);
       field.dataset.supplierField=key;
-      field.style.cssText="flex:1 1 170px;min-width:140px";
+      
       panel.append(field);
     }
     const save=document.createElement("button");save.type="button";save.textContent="Enregistrer";
@@ -20287,7 +20317,6 @@ function jlSupplierRender(){
       try{
         localStorage.setItem(STORAGE.settings,JSON.stringify(SETTINGS));
         scheduleCloudSync();
-        panel.hidden=true;
         if(status)status.textContent="Coordonnées enregistrées localement; synchronisation cloud demandée.";
       }catch(_err){
         SETTINGS.supplierDetails=JSON.parse(before);
@@ -20295,7 +20324,6 @@ function jlSupplierRender(){
       }
     });
     panel.append(save);
-    contacts.addEventListener("click",()=>{panel.hidden=!panel.hidden;});
     const remove=document.createElement("button");
     remove.type="button";remove.className="ghost";remove.textContent="Retirer";
     remove.title="Retirer de la liste (ne change pas les anciens documents)";
@@ -20303,8 +20331,7 @@ function jlSupplierRender(){
       if(!confirm("Retirer « "+name+" » de la liste des fournisseurs ? Les documents existants garderont leur fournisseur."))return;
       jlSupplierPersist(names.filter(n=>n!==name));
     });
-    row.style.flexWrap="wrap";
-    row.append(label,contacts,remove,panel);list.append(row);
+    row.append(label,remove,panel);list.append(row);
   }
   if(!names.length){
     const empty=document.createElement("span");empty.className="muted";
