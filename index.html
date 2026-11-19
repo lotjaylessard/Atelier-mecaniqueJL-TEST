@@ -2559,7 +2559,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
           </select>
         </div>
       </div>
-      <h2>Historique des soumissions</h2>
+      <h2>Soumissions archivées (refusées / expirées)</h2>
       <div class="card">
         <div id="historyQuoteResultCount" class="module-result-count" role="status" aria-live="polite">Chargement des soumissions…</div>
         <div class="s08-quotes-table" role="region" aria-label="Historique des soumissions" style="overflow-x:auto">
@@ -2570,7 +2570,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
             <tbody><tr><td colspan="6" class="muted">Chargement…</td></tr></tbody>
           </table>
         </div>
-        <p class="muted" style="font-size:12px">Soumissions enregistrées, sauf les brouillons. Clique sur une ligne pour consulter la fiche d'origine.</p>
+        <p class="muted" style="font-size:12px">Seules les soumissions refusées ou expirées apparaissent ici. Les factures payées archivées sont dans « Historique des factures » ci-dessous. Les données sont conservées sans suppression.</p>
       </div>
       <h2>Historique des bons de travail</h2>
       <div class="card">
@@ -20100,11 +20100,11 @@ function jlHistoryRenderQuotes(){
   if(!table||!count)return;
   table.replaceChildren();
   const search=String(document.getElementById("historySearch")?.value||"").toLocaleLowerCase("fr");
-  const rows=jlHistoryQuotes.filter(q=>q.status!=="draft").filter(q=>
+  const rows=jlHistoryQuotes.filter(q=>["declined","expired"].includes(q.status)).filter(q=>
     [q.quote_number,q.content?.clientName,q.content?.vehicleLabel,q.content?.description,q.status]
       .join(" ").toLocaleLowerCase("fr").includes(search));
   count.textContent=jlHistoryQuotesLoaded
-    ?rows.length+" soumission"+(rows.length===1?"":"s")+" dans l'historique"
+    ?rows.length+" soumission"+(rows.length===1?"":"s")+" archivée"+(rows.length===1?"":"s")
     :"Historique non vérifié — connexion requise.";
   if(!rows.length){
     const tr=document.createElement("tr"),td=document.createElement("td");
