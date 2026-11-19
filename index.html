@@ -2207,7 +2207,7 @@ button.link:hover{
             </table>
           </div>
           <p class="s08-view-total">Total estimé : <strong id="s08ViewTotal"></strong></p>
-          <p class="muted" style="font-size:12px;">Taxes applicables en sus. Soumission valide pendant 15 jours.</p>
+          <p class="muted" id="s08QuoteValidityNotice" style="font-size:12px;">Taxes applicables en sus. Soumission valide pendant 15 jours.</p>
         </div>
       </div>
 
@@ -2728,6 +2728,7 @@ button.link:hover{
         <label>TPS (%)<input id="settingGST" type="number" step="0.01" /></label>
         <label>TVQ (%)<input id="settingQST" type="number" step="0.001" /></label>
         <label>Taux horaire ($/h)<input id="settingDefaultHourlyRate" type="number" step="0.01" placeholder="ex: 60" /></label>
+        <label>Validité des soumissions envoyées (jours)<input id="settingQuoteValidityDays" type="number" min="1" max="365" step="1" value="15" /></label>
       </div>
     </details>
 
@@ -6049,7 +6050,8 @@ let SETTINGS = {
   garageName: 'Garage-Atelier Mécanique J.L',
   gst: 5,
   qst: 9.975,
-  defaultHourlyRate: 90   // ⬅️ valeur par défaut sécuritaire
+  defaultHourlyRate: 90,  // Taux existant
+  quoteValidityDays: 15   // Soumissions envoyées : durée avant expiration
 };
 let INVOICES = [];
 let WO_TIMER_INTERVAL = null;
@@ -10280,6 +10282,8 @@ function initSettings(){
   if($('settingQST')) $('settingQST').value = SETTINGS.qst;
   if($('settingDefaultHourlyRate'))
   $('settingDefaultHourlyRate').value = SETTINGS.defaultHourlyRate || 0;
+  if($('settingQuoteValidityDays'))
+    $('settingQuoteValidityDays').value=Number.isInteger(Number(SETTINGS.quoteValidityDays))&&Number(SETTINGS.quoteValidityDays)>=1&&Number(SETTINGS.quoteValidityDays)<=365?SETTINGS.quoteValidityDays:15;
 
   if($('saveSettings')){
     $('saveSettings').addEventListener('click', async ()=>{
@@ -10299,6 +10303,11 @@ function initSettings(){
         const gst=Number($('settingGST').value);
         const qst=Number($('settingQST').value);
         const rate=Number($('settingDefaultHourlyRate').value);
+        const days=Number($('settingQuoteValidityDays')?.value||15);
+        if(!Number.isInteger(days)||days<1||days>365){
+          if(status)status.textContent='Validité : indique un nombre entier entre 1 et 365 jours.';
+          return;
+        }
         if(![gst,qst,rate].every(Number.isFinite) || gst<0 || qst<0 || rate<0){
           if(status)status.textContent='Vérifie les taxes et le taux horaire.';
           return;
@@ -10308,6 +10317,7 @@ function initSettings(){
         SETTINGS.gst=gst;
         SETTINGS.qst=qst;
         SETTINGS.defaultHourlyRate=rate;
+        SETTINGS.quoteValidityDays=days;
         // Un changement de taux met à jour les services horaires existants.
         // Ne jamais modifier les forfaits ni les lignes déjà inscrites dans les BT.
         let updatedServices=0;
@@ -16812,6 +16822,9 @@ function initLinksModule() {
 
   if ($("settingDefaultHourlyRate"))
     $("settingDefaultHourlyRate").value = SETTINGS.defaultHourlyRate ?? 0;
+  if ($("settingQuoteValidityDays"))
+    $("settingQuoteValidityDays").value = Number.isInteger(Number(SETTINGS.quoteValidityDays))&&
+      Number(SETTINGS.quoteValidityDays)>=1&&Number(SETTINGS.quoteValidityDays)<=365?SETTINGS.quoteValidityDays:15;
 
   updateGarageNameUI();
 }
@@ -18848,6 +18861,10 @@ if (window.garageSupabase) {
   });
   // S08-F08 : un seul bouton visible pour préparer ou approuver.
   // La conversion réelle conserve toutes ses validations et sa confirmation serveur.
+  function quoteValidityDays(){
+    const days=Number(SETTINGS?.quoteValidityDays);
+    return Number.isInteger(days)&&days>=1&&days<=365?days:15;
+  }
   function setStatusPill(el,status){
     const label={draft:"Brouillon",sent:"Envoyée",converted:"Convertie",declined:"Refusée",expired:"Expirée",approved:"Approuvée"}[status]||status;
     el.dataset.status=status||"draft";
@@ -19129,6 +19146,8 @@ if (window.garageSupabase) {
   });
   function viewQuote(q,trigger){
     if(!q||!viewer)return;
+    const validityNotice=get("s08QuoteValidityNotice");
+    if(validityNotice)validityNotice.textContent="Taxes applicables en sus. Soumission valide pendant "+quoteValidityDays()+" jours.";
     selectedQuote=q;
     get("s08PreflightResult").hidden=true;
     linkPanel.hidden=true;
@@ -19290,7 +19309,8 @@ if (window.garageSupabase) {
       const {data:auth,error:authError}=await sb.auth.getUser();
       if(authError||!auth?.user?.id)throw Error("Connexion expirée.");
       const {data:row,error}=await sb.from("garage_quotes")
-        .update({status:to,version:q.version+1,updated_at:new Date().toISOString()})
+        .update({status:to,version:q.version+1,updated_at:new Date().toISOString(),
+          content:to==="sent"?{...(q.content||{}),sentAt:new Date().toISOString()}:(q.content||{})})
         .eq("id",q.id).eq("garage_id",garageId).eq("user_id",auth.user.id)
         .eq("version",q.version).eq("status",q.status)
         .select("id,quote_number,status,version,converted_bt_id,content,created_at").maybeSingle();
@@ -19404,6 +19424,26 @@ if (window.garageSupabase) {
       list.append(tr);
     }
   }
+  async function expireDueSentQuotes(rows,sb,garageId,userId){
+    // Les anciennes SO sans sentAt ne doivent jamais expirer rétroactivement.
+    const now=Date.now(),duration=quoteValidityDays()*86400000;
+    let changed=false;
+    const due=rows.filter(q=>q.status==="sent"&&!q.content?.approvalConfirmedAt&&
+      typeof q.content?.sentAt==="string"&&Number.isFinite(Date.parse(q.content.sentAt))&&
+      now-Date.parse(q.content.sentAt)>=duration);
+    for(const q of due.slice(0,25)){
+      const nextVersion=Number(q.version)+1;
+      if(!Number.isSafeInteger(nextVersion))continue;
+      const {data,error}=await sb.from("garage_quotes")
+        .update({status:"expired",version:nextVersion,updated_at:new Date().toISOString()})
+        .eq("id",q.id).eq("garage_id",garageId).eq("user_id",userId)
+        .eq("status","sent").eq("version",q.version)
+        .select("id,status,version").maybeSingle();
+      if(error){console.warn("[S10 TEST] Expiration à vérifier",String(error.message||error));continue;}
+      if(data?.id===q.id&&data.status==="expired"&&Number(data.version)===nextVersion)changed=true;
+    }
+    return changed;
+  }
   async function refreshQuotes(){
     try{
       const {sb,garageId}=context();
@@ -19415,6 +19455,16 @@ if (window.garageSupabase) {
         .order("created_at",{ascending:false}).limit(200);
       if(readError)throw readError;
       quotes=Array.isArray(data)?data:[];
+      // Expiration évaluée lors de l'ouverture/rafraîchissement du module.
+      const expired=await expireDueSentQuotes(quotes,sb,garageId,auth.user.id);
+      if(expired){
+        const {data:reloaded,error:reloadError}=await sb.from("garage_quotes")
+          .select("id,quote_number,status,content,created_at,version,converted_bt_id")
+          .eq("garage_id",garageId).eq("user_id",auth.user.id)
+          .order("created_at",{ascending:false}).limit(200);
+        if(reloadError)throw reloadError;
+        quotes=Array.isArray(reloaded)?reloaded:[];
+      }
       renderQuoteList();
       // Actualisation directe du compteur Dashboard à chaque relecture des SO.
       window.dispatchEvent(new Event("s08-quotes-refreshed"));
