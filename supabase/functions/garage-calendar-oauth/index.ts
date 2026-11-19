@@ -56,10 +56,60 @@ async function encryptToken(value:string){
  const encrypted=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},key,new TextEncoder().encode(value)));
  return {refresh_token_ciphertext:btoa(String.fromCharCode(...encrypted)),refresh_token_nonce:btoa(String.fromCharCode(...iv))};
 }
-async function start(req:Request){
+async function decryptRefreshToken(ciphertext:string,nonce:string){
+ const keyBytes=Uint8Array.from(tokenKey.match(/.{2}/g)!.map(x=>parseInt(x,16)));
+ const key=await crypto.subtle.importKey("raw",keyBytes,"AES-GCM",false,["decrypt"]);
+ const iv=Uint8Array.from(atob(nonce),x=>x.charCodeAt(0));
+ const encrypted=Uint8Array.from(atob(ciphertext),x=>x.charCodeAt(0));
+ const raw=await crypto.subtle.decrypt({name:"AES-GCM",iv},key,encrypted);
+ return new TextDecoder().decode(raw);
+}
+async function disconnect(req:Request,body:Record<string,unknown>){
+ // Deleting a connection also cascade-deletes its encrypted token and private event cache.
+ // Only the authenticated connection owner may request it, never by an untrusted user id.
+ if(!serviceKey||!anonKey)return json({error:"Service TEST indisponible"},503);
+ const userId=await getCaller(req);
+ const garageId=String(body?.garage_id||""),connectionId=String(body?.connection_id||"");
+ if(!uuid.test(garageId)||!uuid.test(connectionId))return json({error:"Identifiant de connexion invalide"},400);
+ const membership=await rest("garage_members","GET",{
+  select:"garage_id",garage_id:"eq."+garageId,user_id:"eq."+userId,limit:"1"
+ });
+ if(!Array.isArray(membership)||membership.length!==1)return json({error:"Accès au garage refusé"},403);
+ const matches=await rest("garage_external_calendar_connections","GET",{
+  select:"id",id:"eq."+connectionId,garage_id:"eq."+garageId,
+  user_id:"eq."+userId,provider:"eq.google",limit:"1"
+ });
+ if(!Array.isArray(matches)||matches.length!==1)
+  return json({error:"Connexion personnelle introuvable"},404);
+ // Attempt to revoke the Google grant. If Google is unavailable, we still forget
+ // the encrypted token locally, and instruct the user how to revoke from Google.
+ let revoked=false;
+ if(/^[0-9a-f]{64}$/i.test(tokenKey)){
+  try{
+   const rows=await rest("garage_external_calendar_tokens","GET",{
+    select:"refresh_token_ciphertext,refresh_token_nonce",connection_id:"eq."+connectionId,limit:"1"
+   });
+   if(Array.isArray(rows)&&rows.length===1){
+    const refresh=await decryptRefreshToken(rows[0].refresh_token_ciphertext,rows[0].refresh_token_nonce);
+    const response=await fetch("https://oauth2.googleapis.com/revoke",{
+     method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
+     body:new URLSearchParams({token:refresh}),signal:AbortSignal.timeout(8000)
+    });
+    revoked=response.ok;
+   }
+  }catch(_err){/* A failed remote revoke must not block removal of local access. */}
+ }
+ const removed=await rest("garage_external_calendar_connections","DELETE",{
+  id:"eq."+connectionId,garage_id:"eq."+garageId,user_id:"eq."+userId,provider:"eq.google"
+ });
+ if(!Array.isArray(removed)||removed.length!==1)
+  return json({error:"La suppression de la connexion n'a pas été confirmée"},500);
+ return json({disconnected:true,google_access_revoked:revoked});
+}
+async function start(req:Request,provided?:Record<string,unknown>){
  if(!ready())return json({error:"Connexion Google TEST non configurée : identifiants OAuth manquants."},503);
  const userId=await getCaller(req);
- const body=await req.json().catch(()=>({}));
+ const body=provided||await req.json().catch(()=>({}));
  const garageId=String(body?.garage_id||"");
  if(!uuid.test(garageId))return json({error:"Garage invalide"},400);
  const membership=await rest("garage_members","GET",{select:"garage_id",garage_id:"eq."+garageId,user_id:"eq."+userId,limit:"1"});
@@ -132,7 +182,12 @@ Deno.serve(async(req:Request)=>{
   const u=new URL(req.url);
   if(req.method==="GET"&&u.searchParams.has("state"))return await callback(req);
   if(req.method==="GET")return json({google_available:ready(),phase:"test",read_only:true});
-  if(req.method==="POST")return await start(req);
+  if(req.method==="POST"){
+   const body=await req.json().catch(()=>({}));
+   if(body?.action==="disconnect")return await disconnect(req,body);
+   if(body?.action===undefined||body?.action==="connect")return await start(req,body);
+   return json({error:"Action inconnue"},400);
+  }
   return json({error:"Méthode non permise"},405);
  }catch(_err){
   // Never echo OAuth codes, provider responses, tokens, user data or secrets in error text.
