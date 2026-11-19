@@ -13517,6 +13517,26 @@ function jlFamilyWallInitColorSettings(){
  });
  jlFamilyWallRenderColorSettings();
 }
+function jlFamilyWallEventLabel(event,date=""){
+  const title=String(event.event_title||"Événement familial");
+  if(event.all_day)return "Toute la journée · "+title;
+  const fmt=iso=>{
+    if(!iso)return "";
+    const instant=new Date(iso);
+    return Number.isNaN(instant.getTime())?"":new Intl.DateTimeFormat("fr-CA",{
+      timeZone:"America/Toronto",hour:"2-digit",minute:"2-digit",hour12:false
+    }).format(instant);
+  };
+  const start=fmt(event.start_at),end=fmt(event.end_at);
+  if(!start&&!end)return title;
+  let clock=start&&end?start+"–"+end:start||end;
+  if(event.start_date!==event.end_date&&date){
+    if(date===event.start_date)clock=start?"Dès "+start:"";
+    else if(date===event.end_date)clock=end?"Jusqu'à "+end:"";
+    else clock="Toute la journée";
+  }
+  return (clock?clock+" · ":"")+title;
+}
 function jlScheduleFamilyWallFor(date){
   if(!jlScheduleVisibility.familywall)return [];
   return jlScheduleFamilyWallEvents.filter(e=>e.start_date<=date&&e.end_date>=date)
@@ -13581,7 +13601,7 @@ function jlScheduleDayRender(){
   if(!events.childElementCount)jlScheduleText(events,jlScheduleLoaded?
     "Aucun événement.":"Événements en cours de chargement.");
   for(const item of jlScheduleFamilyWallFor(date)){
-    const row=jlScheduleText(events,"🏠 FamilyWall · "+String(item.event_title||"Événement familial"),"jl-schedule-full-item familywall");
+    const row=jlScheduleText(events,"🏠 FamilyWall · "+jlFamilyWallEventLabel(item,date),"jl-schedule-full-item familywall");
     jlFamilyWallStyleEvent(row,item.event_title);
   }
   for(const note of (jlScheduleVisibility.note?jlScheduleNotesFor(date):[])){
@@ -13643,7 +13663,7 @@ function jlScheduleRender(){
     }
     for(const item of visibleFamily){
       const el=document.createElement("div");el.className="jl-schedule-mini familywall";
-      el.textContent="🏠 "+String(item.event_title||"Événement familial");
+      el.textContent="🏠 "+jlFamilyWallEventLabel(item,date);
       jlFamilyWallStyleEvent(el,item.event_title);
       el.title="FamilyWall — personnel";cell.append(el);
     }
@@ -13969,7 +13989,7 @@ async function jlScheduleLoadFamilyWallEvents(userId,min,max,token){
   catch(_err){/* Show previously cached personal events when feed is offline. */}
   if(token!==jlScheduleRequest)return;
   const {data,error}=await db.from("garage_external_calendar_events")
-   .select("provider_event_id,event_title,start_date,end_date,all_day")
+   .select("provider_event_id,event_title,start_date,end_date,all_day,start_at,end_at")
    .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",userId)
    .eq("connection_id",connected.id).lte("start_date",max).gte("end_date",min).limit(1000);
   if(error)throw error;
@@ -14163,7 +14183,7 @@ async function jlCalendarLoadFamilyWall(){
     const connectionId=connections?.[0]?.id;
     if(!connectionId){if(token===jlCalendarFamilyWallRequest){jlCalendarFamilyWallLoaded=true;jlCalendarRender();}return;}
     const {data,error}=await db.from("garage_external_calendar_events")
-      .select("provider_event_id,event_title,start_date,end_date,all_day")
+      .select("provider_event_id,event_title,start_date,end_date,all_day,start_at,end_at")
       .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id)
       .eq("connection_id",connectionId).lte("start_date",max).gte("end_date",min).limit(1000);
     if(error)throw error;
@@ -14266,7 +14286,7 @@ function jlDayAgendaRender(){
   }
   for(const e of jlCalendarFamilyWallFor(date)){
     const item=document.createElement("div");item.className="jl-day-event-item familywall";
-    item.textContent="🏠 FamilyWall · "+String(e.event_title||"Événement familial");
+    item.textContent="🏠 FamilyWall · "+jlFamilyWallEventLabel(e,date);
     jlFamilyWallStyleEvent(item,e.event_title);events.append(item);
   }
   if(!events.childElementCount){
@@ -14414,13 +14434,13 @@ function jlCalendarRender(){
     for(const event of visibleEvents){
       const item=document.createElement("div");
       item.className="jl-calendar-day-event"+(event.visibility==="private"?" private":"");
-      item.textContent=(event.visibility==="private"?"🔒 ":"🏭 ")+String(event.title||"");
-      item.title=String(event.title||"");day.append(item);
+      item.textContent=(event.visibility==="private"?"🔒 ":"🏭 ")+jlScheduleEventLabel(event,key);
+      item.title=jlScheduleEventLabel(event,key);day.append(item);
     }
     for(const event of visibleFamily){
       const item=document.createElement("div");item.className="jl-calendar-day-event familywall";
-      item.textContent="🏠 "+String(event.event_title||"Événement familial");
-      item.title="FamilyWall — calendrier personnel";
+      item.textContent="🏠 "+jlFamilyWallEventLabel(event,key);
+      item.title="FamilyWall — "+jlFamilyWallEventLabel(event,key);
       jlFamilyWallStyleEvent(item,event.event_title);
       day.append(item);
     }
