@@ -7,7 +7,7 @@ const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
 const oauth=fs.readFileSync(path.join(__dirname,'..','supabase','functions','garage-calendar-oauth','index.ts'),'utf8');
 test('Google TEST button is fail-closed until server readiness',()=>{
   assert.match(html,/id="jlScheduleConnectGoogle"[^>]*disabled/);
-  assert.match(html,/googleButton.disabled=!config.google_available/);
+  assert.match(html,/googleButton.disabled=connectedGoogle\?false:!config.google_available/);
   assert.match(html,/const JL_CALENDAR_GOOGLE_TEST_ENDPOINT="https:\/\/nraijzsodgojkpyigefu\.supabase\.co\/functions\/v1\/garage-calendar-oauth"/);
 });
 test('browser sends the signed-in Supabase bearer, not OAuth credentials',()=>{
