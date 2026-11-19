@@ -20013,9 +20013,15 @@ if (window.garageSupabase) {
     const appointment=date?{date,time,durationMinutes:duration}:null;
     const button=get("s08SaveSchedule");button.disabled=true;
     feedback.textContent="Enregistrement Supabase…";
-    try{await saveQuoteWorkflowChanges({appointment});}
+    try{
+      await saveQuoteWorkflowChanges({appointment});
+      // La soumission convertie reste convertie : seule la planification change.
+      // Actualiser sans attendre les vues Horaire et dashboard.
+      dashboardQuoteCheckAt=0;
+      await Promise.all([jlScheduleLoad(),dashboardRefreshPendingQuotes()]);
+    }
     catch(error){
-      feedback.textContent="⚠ Rendez-vous non confirmé : "+String(error.message||error);
+      feedback.textContent="⚠ Rendez-vous : "+String(error.message||error);
     }finally{button.disabled=false;}
   });
   get("s08QuickApprove")?.addEventListener("click",async()=>{
