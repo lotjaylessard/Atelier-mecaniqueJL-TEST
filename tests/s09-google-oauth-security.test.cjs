@@ -51,3 +51,21 @@ test('OAuth authorization and token exchange use identical public HTTPS callback
   assert.doesNotMatch(oauth,/redirectFor\(req\.url\)/);
   assert.doesNotMatch(oauth,/const redirectUri\s*=\s*new URL\(req\.url\)/);
 });
+
+test('disconnect validates live Supabase JWT, garage membership and exact connection owner',()=>{
+ assert.match(oauth,/async function disconnect\(req:Request,body:Record<string,unknown>\)/);
+ assert.match(oauth,/const userId=await getCaller\(req\)/);
+ assert.match(oauth,/const membership=await rest\("garage_members","GET"/);
+ assert.match(oauth,/id:"eq\."\+connectionId,garage_id:"eq\."\+garageId,\s*user_id:"eq\."\+userId,provider:"eq\.google"/);
+ assert.match(oauth,/if\(!Array\.isArray\(matches\)\|\|matches\.length!==1\)/);
+ assert.match(oauth,/if\(body\?\.action==="disconnect"\)return await disconnect\(req,body\)/);
+});
+test('disconnect deletes only selected owner-scoped connection and tokens cascade',()=>{
+ assert.match(oauth,/rest\("garage_external_calendar_connections","DELETE"/);
+ assert.match(oauth,/const removed=await rest/);
+ assert.match(oauth,/if\(!Array\.isArray\(removed\)\|\|removed\.length!==1\)/);
+ assert.match(oauth,/return json\(\{disconnected:true,google_access_revoked:revoked\}\)/);
+ assert.match(oauth,/AES-GCM.*\["decrypt"\]/);
+ assert.match(oauth,/https:\/\/oauth2\.googleapis\.com\/revoke/);
+ assert.doesNotMatch(oauth,/console\.log\(.*refresh/);
+});
