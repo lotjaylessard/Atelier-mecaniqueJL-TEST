@@ -1591,6 +1591,10 @@ body.jl-hide-supplier-quotes #s08QuoteEditor .s08-editor-lines td:nth-child(4),
 body.jl-hide-supplier-quotes #s08QuoteViewer .s08-viewer-table th:nth-child(4),
 body.jl-hide-supplier-quotes #s08QuoteViewer .s08-viewer-table td:nth-child(4){display:none!important}
 body.jl-hide-supplier-invoices .jl-invoice-supplier{display:none!important}
+/* La préférence d'affichage du numéro de pièce s'applique aussi à l'aperçu,
+   tout en conservant les données intactes dans la facture enregistrée. */
+body.jl-hide-part-number-preview .jl-invoice-preview-table th:nth-child(3),
+body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){display:none!important}
 .pdf-export .jl-supplier-internal{display:none!important}
 @media print{.jl-supplier-internal{display:none!important}}
 /* S10 TEST — colonnes de pièces harmonisées, sans modifier les montants.
@@ -10547,8 +10551,12 @@ function initSettings(){
   const partNumber=document.getElementById("jlPrintPartNumber");
   if(partNumber){
     partNumber.checked=settings.printPartNumber;
-    partNumber.addEventListener("change",()=>{settings.printPartNumber=partNumber.checked;save();});
+    partNumber.addEventListener("change",()=>{
+      settings.printPartNumber=partNumber.checked;save();
+      document.body.classList.toggle("jl-hide-part-number-preview",!settings.printPartNumber);
+    });
   }
+  document.body.classList.toggle("jl-hide-part-number-preview",!settings.printPartNumber);
   window.jlPrintShouldShowPartNumber=()=>settings.printPartNumber;
   renderOrderControls();
   applyDashboard();
@@ -15669,7 +15677,7 @@ content.innerHTML = `
 
   ${paymentWarning ? `<div role="alert" style="margin:12px 0;padding:10px;border:1px solid #e99b6c;border-radius:7px;color:#ffd29e;">⚠ Anomalie de paiement : ${escapeHTML(paymentWarning)} Vérification manuelle nécessaire; aucun montant modifié automatiquement.</div>` : ""}
   <!-- DÉTAILS -->
-  <table class="table">
+  <table class="table jl-invoice-preview-table">
     <thead>
       <tr>
         <th>Type</th>
