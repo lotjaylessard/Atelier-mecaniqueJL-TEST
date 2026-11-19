@@ -20524,9 +20524,16 @@ function jlHistoryRenderQuotes(){
     const total=Number(d.totalCents);
     const amount=Number.isFinite(total)?(total/100).toLocaleString("fr-CA",{minimumFractionDigits:2,maximumFractionDigits:2})+" $":"—";
     for(const value of [q.quote_number,String(q.created_at||"").slice(0,10),
-      d.clientName||"—",d.vehicleLabel||"—",amount,label]){
+      d.clientName||"—",d.vehicleLabel||"—",amount]){
       const td=document.createElement("td");td.textContent=String(value||"—");tr.append(td);
     }
+    const statusCell=document.createElement("td");
+    const badge=document.createElement("span");
+    badge.className="s08-status-pill";
+    badge.dataset.status=q.status;
+    badge.textContent=label;
+    statusCell.append(badge);
+    tr.append(statusCell);
     tr.tabIndex=0;tr.setAttribute("role","button");
     tr.classList.add("s08-quote-openable");
     tr.setAttribute("aria-label","Ouvrir la soumission "+String(q.quote_number||""));
@@ -20552,6 +20559,7 @@ async function jlHistoryLoadQuotes(){
     const {data,error,count}=await db.from("garage_quotes")
       .select("id,quote_number,status,created_at,content",{count:"exact"})
       .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id)
+      .in("status",["declined","expired"])
       .order("created_at",{ascending:false}).limit(1000);
     if(error)throw error;
     if(token!==jlHistoryQuotesRequest)return;
