@@ -6457,6 +6457,7 @@ function addServiceToCurrentWO(serviceId){
   wo.parts.push({
   name: part.name,
   number: part.number,
+  supplier: part.supplier || "",
   qty: qty,
   cost: Number(part.cost || 0),
   rate: Number(part.price || 0),
@@ -7156,6 +7157,7 @@ const isPaid = totalPaid >= Number(wo.total || 0);
         <th>Prix</th>
         <th>Profit</th>
         <th>Total</th>
+        <th>Fournisseur</th>
         <th></th>
       </tr>
     </thead>
@@ -7777,6 +7779,7 @@ function woAddPartLine(wo) {
       wo.parts.push({
         name: part.name,
         number: part.number,
+        supplier: part.supplier || "",
         qty,
         cost: Number(part.cost || 0),
         rate: Number(part.price || 0),
@@ -7914,6 +7917,7 @@ function woRenderLines(wo) {
   ${money(profit)} $ 
   <span class="muted">(${marginPct.toFixed(1)}%)</span>
 </td>
+    <td>${escapeHTML(String(p.supplier||""))||"—"}</td>
     <td>
       <button class="ghost" onclick="woRemovePart('${wo.id}',${i})">🗑</button>
     </td>
@@ -7922,7 +7926,7 @@ function woRenderLines(wo) {
   }).join("");
   // Edition directe des cellules des pièces (BT), si modifications autorisées.
   if(woCanEditFinancials(wo))pBody.querySelectorAll("tr").forEach((row,i)=>{
-    [0,1,2,3,4].forEach(column=>{
+    [0,1,2,3,4,7].forEach(column=>{
       const cell=row.cells[column];if(!cell)return;
       cell.style.cursor="pointer";cell.tabIndex=0;cell.title="Cliquer pour modifier";
       cell.addEventListener("click",()=>woInlineEditLine(wo.id,"part",i,column));
@@ -8128,7 +8132,8 @@ function woInlineEditLine(woId,type,index,focusColumn=0){
     ["number","text",line.number||""],
     ["qty","number",line.qty],
     ["cost","number",line.cost||0],
-    ["rate","number",line.rate]
+    ["rate","number",line.rate],
+    ["supplier","text",line.supplier||""]
   ]:[
     ["description","text",line.description],
     ["hours","number",timerHoursDisplay ?? line.hours],
@@ -8140,7 +8145,8 @@ function woInlineEditLine(woId,type,index,focusColumn=0){
     input.setAttribute("aria-label",key);
     if(type==="number"){input.step=key==="qty"||key==="hours"?"any":"0.01";input.min=key==="qty"||key==="hours"?"0.01":"0";}
     input.style.cssText="width:100%;min-width:65px;box-sizing:border-box;padding:6px";
-    row.cells[j].replaceChildren(input);
+    row.cells[isPart&&key==="supplier"?7:j].replaceChildren(input);
+    if(key==="supplier"){input.maxLength=80;input.setAttribute("list","jlSupplierChoices");}
     return input;
   });
   const actions=row.cells[row.cells.length-1];
@@ -8163,7 +8169,7 @@ function woInlineEditLine(woId,type,index,focusColumn=0){
     // Pour le minuteur : si les heures affichées n'ont pas été touchées,
     // conserver les heures exactes et le montant d'origine.
     // confirmedMs reste toujours l'historique réel, même si les heures facturées changent.
-    if(isPart)Object.assign(line,{name,number:partNumber,qty,cost,rate,total:Math.round(qty*rate*100)/100});
+    if(isPart)Object.assign(line,{name,number:partNumber,qty,cost,rate,supplier:controls[5].value.trim().slice(0,80),total:Math.round(qty*rate*100)/100});
     else {
       const unchangedTimerHours=timerHoursDisplay!==null &&
         controls[1].value.trim()===timerHoursDisplay;
@@ -8188,7 +8194,7 @@ function woInlineEditLine(woId,type,index,focusColumn=0){
     if(event.key==="Enter" && !event.isComposing){event.preventDefault();event.stopPropagation();confirm();}
     if(event.key==="Escape"){event.preventDefault();event.stopPropagation();finishCancel();}
   }));
-  controls[Math.min(focusColumn,controls.length-1)].focus();
+  controls[isPart&&focusColumn===7?5:Math.min(focusColumn,controls.length-1)].focus();
 }
 function woEditLine(woId, type, index) {
   const wo = getActiveWOById(woId);
@@ -8209,6 +8215,8 @@ function woEditLine(woId, type, index) {
 
   <label>Prix coûtant</label>
   <input id="woEditCost" type="number" step="0.01" value="${Number(line.cost || 0)}">
+  <label>Fournisseur</label>
+  <input id="woEditSupplier" list="jlSupplierChoices" maxlength="80" value="${escapeHTML(String(line.supplier||""))}">
 
   <label>Prix de vente</label>
   <input id="woEditRate" type="number" step="0.01" value="${line.rate}">
@@ -8246,6 +8254,7 @@ function woEditLine(woId, type, index) {
       line.name = $("woEditName").value;
       line.qty  = Number($("woEditQty").value);
       line.cost = Number($("woEditCost").value) || 0;
+      line.supplier = String($("woEditSupplier")?.value||"").trim().slice(0,80);
       line.rate = Number($("woEditRate").value);
       line.total = line.qty * line.rate;
     } else {
@@ -9510,6 +9519,7 @@ const statusLabel =
   <th>Vente</th>
   <th>Total</th>
   <th>Profit</th>
+  <th>Fournisseur</th>
   <th></th>
 </tr>
       </thead>
@@ -9523,6 +9533,8 @@ const statusLabel =
 
   <label>Numéro de pièce (facultatif)</label>
   <input id="woManualPartNumber" placeholder="Référence / SKU">
+  <label>Fournisseur</label>
+  <input id="woManualPartSupplier" list="jlSupplierChoices" maxlength="80" placeholder="Facultatif">
 
   <label>Quantité</label>
   <input id="woManualPartQty" type="number" value="1">
@@ -9754,6 +9766,7 @@ if (saveManualBtn){
     if (!woRequireFinancialEdit(wo)) return;
     const name = document.getElementById("woManualPartName").value.trim();
     const number = document.getElementById("woManualPartNumber").value.trim();
+    const supplier = document.getElementById("woManualPartSupplier")?.value.trim().slice(0,80)||"";
     const qty = Number(document.getElementById("woManualPartQty").value);
     const rate = Number(document.getElementById("woManualPartRate").value);
 
@@ -9766,6 +9779,7 @@ if (saveManualBtn){
 wo.parts.push({
   name,
   number,
+  supplier,
   qty,
   cost,
   rate,
@@ -9779,6 +9793,7 @@ woRenderLines(wo);
     // reset + fermer
     document.getElementById("woManualPartName").value = "";
     document.getElementById("woManualPartNumber").value = "";
+    document.getElementById("woManualPartSupplier").value = "";
     document.getElementById("woManualPartQty").value = 1;
     document.getElementById("woManualPartRate").value = "";
     manualBox.style.display = "none";
