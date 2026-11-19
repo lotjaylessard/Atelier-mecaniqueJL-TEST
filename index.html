@@ -6564,6 +6564,7 @@ vehicleId: invoice.vehicleId ?? null,
       .map(i => ({
         name: i.desc,
         number: i.number || i.invNumber || "",
+        supplier: i.supplier || "",
         qty: Number(i.qty),
         rate: Number(i.rate),
         total: Number(i.qty) * Number(i.rate)
@@ -6706,6 +6707,7 @@ function woInvoiceItemsFromWO(wo){
   return [
     ...(wo.parts || []).map(p=>({
       type:"Pièce",desc:`${p.name || ""}${p.number ? " (#"+p.number+")" : ""}`.trim(),
+      number:p.number||"",supplier:p.supplier||"",
       qty:Number(p.qty),rate:Number(p.rate),total:Number(p.qty)*Number(p.rate)
     })),
     ...(wo.labor || []).map(l=>({
@@ -6802,7 +6804,9 @@ function persistActiveWO(wo){
         type: "Pièce",
         desc: p.name,
         number: p.number || "",
-        qty: p.qty,
+        supplier: p.supplier || "",
+        supplier: p.supplier || "",
+    qty: p.qty,
         rate: p.rate
       });
     });
@@ -7049,6 +7053,7 @@ function saveTempWOToInvoice(tempWO){
       type: "Pièce",
       desc: String(p.name||"").trim(),
       number: p.number || "",
+      supplier: p.supplier || "",
       qty: Number(p.qty) || 0,
       rate: Number(p.rate) || 0,
       total: (Number(p.qty) || 0) * (Number(p.rate) || 0)
@@ -8858,6 +8863,7 @@ const invoice = {
     type: "Pièce",
     desc: p.name,
     number: p.number || "",
+    supplier: p.supplier || "",
     qty: Number(p.qty),
     rate: Number(p.rate),
     total: Number(p.qty) * Number(p.rate)
@@ -17003,6 +17009,7 @@ function woConvertToInvoice(wo) {
       type: "Pièce",
       desc: p.name,
       number: p.number || "",
+      supplier: p.supplier || "",
       qty: p.qty,
       rate: p.rate
     });
