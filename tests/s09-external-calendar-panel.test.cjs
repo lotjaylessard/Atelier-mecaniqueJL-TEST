@@ -7,11 +7,13 @@ const a=html.indexOf('async function jlScheduleLoadExternalConnections(){');
 const b=html.indexOf('function jlScheduleBindEvents(){',a);
 assert.ok(a>0&&b>a,'External calendar controller');
 const src=html.slice(a,b);
-test('personal calendar panel starts closed and calendar does not grow on entry',()=>{
- assert.match(html,/id="jlScheduleCalendarsPanel"[^>]*hidden/);
- assert.ok(html.includes('#page-schedule .jl-schedule-external-panel[hidden]{display:none}'));
- assert.match(html,/id="jlScheduleCalendarsToggle"[^>]*aria-expanded="false"/);
- assert.match(html,/jlScheduleCalendarsToggle"\)\.setAttribute\("aria-expanded","false"\)/);
+test('account connection panel is under Settings and closed until expanded',()=>{
+ assert.match(html,/id="jlCalendarSettings"/);
+ assert.match(html,/<summary>📅 Calendriers personnels — connexions<\/summary>/);
+ assert.match(html,/id="jlScheduleCalendarsPanel"/);
+ assert.doesNotMatch(html,/id="jlScheduleCalendarsToggle"/);
+ assert.match(html,/jlCalendarSettings"\)\.addEventListener\("toggle"/);
+ assert.match(html,/jlScheduleInitSettings\(\)/);
 });
 test('external calendars read only status metadata with both owner and garage filters',()=>{
  assert.match(src,/from\("garage_external_calendar_connections"\)/);
