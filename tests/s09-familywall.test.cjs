@@ -29,7 +29,7 @@ test('unfolds ICS multiline summaries without executing markup',()=>{
 });
 test('rejects malformed and unsupported recurring feeds without deleting cache',()=>{
  assert.throws(()=>lib.parseFamilyWallICS('not calendar'));
- assert.throws(()=>lib.parseFamilyWallICS('BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:3\nDTSTART:20261119T100000\nRRULE:FREQ=WEEKLY\nEND:VEVENT\nEND:VCALENDAR'),/récurrent/);
+ assert.throws(()=>lib.parseFamilyWallICS('BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:3\nDTSTART:20261119T100000\nRRULE:FREQ=WEEKLY;BYDAY=-1MO\nEND:VEVENT\nEND:VCALENDAR'),/avancée/);
  assert.match(server,/parseFamilyWallICS\(text/);
  assert.ok(server.indexOf('parseFamilyWallICS(text')<server.indexOf('garage_external_calendar_events","DELETE'),'parse before delete');
 });
@@ -63,4 +63,25 @@ test('server enforces owner bound reads, deletes and sync throttle',()=>{
  assert.match(server,/user_id:"eq\."\+userId,provider:"eq\.familywall"/);
  assert.match(server,/15\*60\*1000/);
  assert.match(server,/grant|\/\/ Never leak the iCal URL/);
+});
+
+test('weekly repeats expand with stable unique IDs and skip EXDATE',()=>{
+ const feed=['BEGIN:VCALENDAR','BEGIN:VEVENT','UID:school@example',
+  'SUMMARY:École','DTSTART;VALUE=DATE:20261102','DTEND;VALUE=DATE:20261103',
+  'RRULE:FREQ=WEEKLY;COUNT=5;BYDAY=MO','EXDATE;VALUE=DATE:20261116',
+  'END:VEVENT','END:VCALENDAR'].join('\n');
+ const events=lib.parseFamilyWallICS(feed,{min:'2026-11-01',max:'2026-12-31'});
+ assert.deepEqual(events.map(x=>x.start_date),['2026-11-02','2026-11-09','2026-11-23','2026-11-30']);
+ assert.equal(new Set(events.map(x=>x.provider_event_id)).size,4);
+});
+test('daily monthly and yearly recurrence expand without missing date exclusions',()=>{
+ const ics=['BEGIN:VCALENDAR',
+  'BEGIN:VEVENT','UID:daily','DTSTART;VALUE=DATE:20261101','DTEND;VALUE=DATE:20261102','RRULE:FREQ=DAILY;COUNT=3','END:VEVENT',
+  'BEGIN:VEVENT','UID:monthly','DTSTART;VALUE=DATE:20261015','DTEND;VALUE=DATE:20261016','RRULE:FREQ=MONTHLY;COUNT=3','END:VEVENT',
+  'BEGIN:VEVENT','UID:yearly','DTSTART;VALUE=DATE:20251120','DTEND;VALUE=DATE:20251121','RRULE:FREQ=YEARLY;COUNT=3','END:VEVENT',
+  'END:VCALENDAR'].join('\n');
+ const data=lib.parseFamilyWallICS(ics,{min:'2026-11-01',max:'2027-12-31'});
+ assert.equal(data.filter(x=>x.provider_event_id.startsWith('daily#')).length,3);
+ assert.deepEqual(data.filter(x=>x.provider_event_id.startsWith('monthly#')).map(x=>x.start_date),['2026-11-15','2026-12-15']);
+ assert.deepEqual(data.filter(x=>x.provider_event_id.startsWith('yearly#')).map(x=>x.start_date),['2026-11-20','2027-11-20']);
 });
