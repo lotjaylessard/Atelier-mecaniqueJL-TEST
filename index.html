@@ -508,6 +508,13 @@ input[type="checkbox"]{
     #page-dashboard .jl-dashboard-tag[data-kind="partial"]{color:#f5c542}
     #page-dashboard .jl-dashboard-tag[data-kind="paid"]{color:#77d69a}
     #page-dashboard .jl-dashboard-tag[data-kind="overdue"]{color:#ffa47d}
+    #page-dashboard .jl-dashboard-tag[data-kind="overdue60"]{color:#ff9b9b;border-color:#a84c4c}
+    #page-dashboard .jl-dashboard-tag[data-kind="overdue45"]{color:#ffb58a;border-color:#a86b43}
+    #page-dashboard .jl-dashboard-tag[data-kind="overdue30"]{color:#ffd18c;border-color:#ad8343}
+    #page-dashboard .jl-dashboard-tag[data-kind="overdue14"]{color:#f5d879;border-color:#a78c38}
+    #page-dashboard .jl-dashboard-tag[data-kind="overdue7"]{color:#eddd9c}
+    #page-dashboard .jl-dashboard-tag[data-kind="overdue3"]{color:#b3d5f4}
+    #page-dashboard .jl-dashboard-tag[data-kind="overdue1"]{color:#b7c7d3}
     #page-settings .jl-dashboard-order-settings{padding-top:10px;border-top:1px solid var(--border);margin-top:10px;font-size:13px}
     #page-settings .jl-dashboard-order-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 9px;margin-top:8px}
     #page-settings .jl-dashboard-order-entry{display:flex;gap:9px;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:6px;padding:4px 7px;min-width:0}
@@ -2064,7 +2071,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
           </section>
           <p class="muted" id="jlCalendarStatus" style="font-size:12px;margin-top:8px">Les rendez-vous sont liés aux soumissions approuvées.</p>
         </div></section>
-        <section data-jl-dashboard-card="overdue" class=""><div class="stat-card"><div class="stat-label">Factures anciennes impayées (15 jours et +)</div><div id="jlDashboardOldInvoicesBox" class="jl-dashboard-list"></div></div></section>
+        <section data-jl-dashboard-card="overdue" class=""><div class="stat-card"><div class="stat-label">Factures impayées — suivi par ancienneté (1 à 60 jours +)</div><div id="jlDashboardOldInvoicesBox" class="jl-dashboard-list"></div></div></section>
       </div>
 
       </div>
@@ -15672,8 +15679,11 @@ jlDashboardFillList("lastWorkOrdersBox",activeWO.map(wo=>{
   };
 }),"Aucun bon de travail en cours.");
 
-/* ===== Anciennes factures ouvertes : âge calendaire, pas une échéance légale ===== */
+/* ===== Suivi des factures ouvertes : paliers 60, 45, 30, 14, 7, 3 et 1 jour.
+   Age calculé depuis la date de facture (et non depuis une échéance contractuelle).
+   Toutes les factures avec solde réel restant sont visibles, les plus anciennes d'abord. ===== */
 const today=new Date();today.setHours(0,0,0,0);
+const invoiceAgeTiers=[60,45,30,14,7,3,1];
 const datedUnpaid=activeInvoices.filter(inv=>
   ["unpaid","pending","partial"].includes(String(inv.status||"unpaid").toLowerCase())
 ).map(inv=>{
@@ -15684,19 +15694,24 @@ const datedUnpaid=activeInvoices.filter(inv=>
      invoiceDate.getDate()!==Number(d[3]))return null;
   const days=Math.floor((Date.UTC(today.getFullYear(),today.getMonth(),today.getDate())-
     Date.UTC(invoiceDate.getFullYear(),invoiceDate.getMonth(),invoiceDate.getDate()))/86400000);
-  return days>=15?{inv,days}:null;
-}).filter(Boolean).sort((a,b)=>b.days-a.days);
-jlDashboardFillList("jlDashboardOldInvoicesBox",datedUnpaid.slice(0,5).map(({inv,days})=>{
-  const paid=Number(inv.paidAmount||0);
-  const balance=Math.max(0,Number(inv.total||0)-(Number.isFinite(paid)?paid:0));
+  const total=Number(inv.total||0),paid=Number(inv.paidAmount||0);
+  const balance=Math.max(0,total-(Number.isFinite(paid)?paid:0));
+  return days>=1&&Number.isFinite(total)&&balance>=0.005?{inv,days,balance}:null;
+}).filter(Boolean).sort((a,b)=>b.days-a.days||
+  String(a.inv.date||"").localeCompare(String(b.inv.date||""))||
+  String(a.inv.number||"").localeCompare(String(b.inv.number||""),"fr",{numeric:true}));
+jlDashboardFillList("jlDashboardOldInvoicesBox",datedUnpaid.map(({inv,days,balance})=>{
+  const tier=invoiceAgeTiers.find(threshold=>days>=threshold)||1;
   return {
     title:"#"+String(inv.number||"—")+" · "+money(balance)+" $ à recevoir",
     subtitle:String(inv.customer||"Client inconnu"),
-    detail:days+" jours depuis la facture",
-    badge:days>=30?"30 jours +":"15–29 jours",kind:"overdue",
+    detail:days+" jour"+(days>1?"s":"")+" depuis la facture"+
+      (String(inv.status||"").toLowerCase()==="partial"?" · paiement partiel":""),
+    badge:tier+" jour"+(tier>1?"s":"")+(days>=60?" +":""),
+    kind:"overdue"+tier,
     onClick:()=>jlDashboardOpenInvoice(inv.number)
   };
-}),"Aucune facture impayée de 15 jours ou plus.");
+}),"Aucune facture avec solde impayé de 1 jour ou plus.");
     /* === Mettre à jour les filtres (client & véhicule) === */
   if ($("filterClient")) {
       const selClient = $("filterClient");
