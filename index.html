@@ -1585,6 +1585,11 @@ button.link:hover{
 }
 
 
+body.jl-hide-supplier-quotes #s08QuoteEditor .s08-editor-lines th:nth-child(9),
+body.jl-hide-supplier-quotes #s08QuoteEditor .s08-editor-lines td:nth-child(9),
+body.jl-hide-supplier-quotes #s08QuoteViewer .s08-viewer-table th:last-child,
+body.jl-hide-supplier-quotes #s08QuoteViewer .s08-viewer-table td:last-child{display:none!important}
+body.jl-hide-supplier-invoices .jl-invoice-supplier{display:none!important}
 .pdf-export .jl-supplier-internal{display:none!important}
 @media print{.jl-supplier-internal{display:none!important}}
 /* S10 TEST — palette personnelle pour les calendriers natifs. */
@@ -2733,6 +2738,10 @@ button.link:hover{
         <button type="button" id="jlSupplierAdd">+ Ajouter</button>
       </div>
       <div id="jlSupplierList" style="display:grid;gap:6px;margin-top:9px"></div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:10px">
+        <label><input type="checkbox" id="jlSupplierShowQuotes" checked> Afficher fournisseur dans les soumissions</label>
+        <label><input type="checkbox" id="jlSupplierShowInvoices" checked> Afficher fournisseur dans les factures (interne seulement)</label>
+      </div>
       <p id="jlSupplierStatus" class="muted" role="status" aria-live="polite"></p>
     </details>
     <datalist id="jlSupplierChoices"></datalist>
@@ -3748,7 +3757,7 @@ const isPaid =
           <th>Type</th>
           <th>Description</th>
           <th># pièce</th>
-          <th class="jl-supplier-internal">Fournisseur</th>
+          <th class="jl-supplier-internal jl-invoice-supplier">Fournisseur</th>
           <th>Qté</th>
           <th>Prix</th>
           <th>Total</th>
@@ -3760,7 +3769,7 @@ const isPaid =
             <td>${it.type}</td>
             <td>${escapeHTML(String(it.desc||""))}</td>
             <td>${it.type==="Pièce" ? escapeHTML(String(it.number||it.invNumber||"")) || "—" : "—"}</td>
-            <td class="jl-supplier-internal">${it.type==="Pièce"?escapeHTML(String(it.supplier||""))||"—":"—"}</td>
+            <td class="jl-supplier-internal jl-invoice-supplier">${it.type==="Pièce"?escapeHTML(String(it.supplier||""))||"—":"—"}</td>
             <td>${it.timerSessionId ? Number(it.qty).toFixed(2) + ' h' : it.qty}</td>
             <td>${money(it.rate)} $</td>
             <td>${money(s06InvoiceItemAmount(it))} $</td>
@@ -6069,7 +6078,9 @@ let SETTINGS = {
   qst: 9.975,
   defaultHourlyRate: 90,  // Taux existant
   quoteValidityDays: 15,  // Soumissions envoyées
-  suppliers: []          // Noms des fournisseurs partagés dans les réglages
+  suppliers: [],         // Noms des fournisseurs partagés
+  showSupplierQuotes: true,
+  showSupplierInvoices: true
 };
 let INVOICES = [];
 let WO_TIMER_INTERVAL = null;
@@ -15744,7 +15755,7 @@ function editInvoiceFromModal(number){
       tr.innerHTML = `
         <td><input ${inv.locked?'disabled':''} value="${it.type||''}" data-field="type" data-i="${i}" /></td>
         <td><input ${inv.locked?'disabled':''} value="${escapeHTML(String(it.desc||''))}" data-field="desc" data-i="${i}" /></td>
-        <td class="jl-supplier-internal"><input ${inv.locked||it.type!=="Pièce"?'disabled':''} value="${escapeHTML(String(it.supplier||''))}" list="jlSupplierChoices" maxlength="80" data-field="supplier" data-i="${i}" aria-label="Fournisseur" /></td>
+        <td class="jl-supplier-internal jl-invoice-supplier"><input ${inv.locked||it.type!=="Pièce"?'disabled':''} value="${escapeHTML(String(it.supplier||''))}" list="jlSupplierChoices" maxlength="80" data-field="supplier" data-i="${i}" aria-label="Fournisseur" /></td>
         <td><input ${inv.locked?'disabled':''} type="number" value="${it.qty||0}" data-field="qty" data-i="${i}" /></td>
         <td><input ${inv.locked?'disabled':''} type="number" value="${it.rate||0}" data-field="rate" data-i="${i}" /></td>
         <td>${money(total)}</td>
@@ -15825,7 +15836,7 @@ function renderEditUI(){
         <tr>
           <th>Type</th>
           <th>Description</th>
-          <th class="jl-supplier-internal">Fournisseur</th>
+          <th class="jl-supplier-internal jl-invoice-supplier">Fournisseur</th>
           <th>Qté</th>
           <th>Prix</th>
           <th>Total</th>
@@ -19743,11 +19754,21 @@ function jlSupplierNames(){
   const arr=Array.isArray(SETTINGS?.suppliers)?SETTINGS.suppliers:[];
   return [...new Set(arr.filter(x=>typeof x==="string").map(x=>x.trim()).filter(x=>x&&x.length<=80))].slice(0,100);
 }
+function jlSupplierApplyDisplay(){
+  const showQuotes=SETTINGS?.showSupplierQuotes!==false;
+  const showInvoices=SETTINGS?.showSupplierInvoices!==false;
+  document.body.classList.toggle("jl-hide-supplier-quotes",!showQuotes);
+  document.body.classList.toggle("jl-hide-supplier-invoices",!showInvoices);
+  const a=document.getElementById("jlSupplierShowQuotes"),b=document.getElementById("jlSupplierShowInvoices");
+  if(a)a.checked=showQuotes;
+  if(b)b.checked=showInvoices;
+}
 function jlSupplierRender(){
   const list=document.getElementById("jlSupplierList");
   const choices=document.getElementById("jlSupplierChoices");
   if(!list||!choices)return;
   list.replaceChildren();choices.replaceChildren();
+  jlSupplierApplyDisplay();
   const names=jlSupplierNames();
   for(const name of names){
     const option=document.createElement("option");option.value=name;choices.append(option);
@@ -19802,7 +19823,25 @@ document.getElementById("jlSupplierAdd")?.addEventListener("click",()=>{
 document.getElementById("jlSupplierName")?.addEventListener("keydown",e=>{
   if(e.key==="Enter"&&!e.isComposing){e.preventDefault();document.getElementById("jlSupplierAdd")?.click();}
 });
-document.querySelector('[data-page="page-settings"]')?.addEventListener("click",()=>jlSupplierRender());
+for(const id of ["jlSupplierShowQuotes","jlSupplierShowInvoices"]){
+  document.getElementById(id)?.addEventListener("change",e=>{
+    if(!CLOUD_DATA_READY||!ACTIVE_GARAGE_ID||!SUPABASE_USER?.id){
+      jlSupplierApplyDisplay();return;
+    }
+    const key=id==="jlSupplierShowQuotes"?"showSupplierQuotes":"showSupplierInvoices";
+    const old=SETTINGS[key];SETTINGS[key]=e.target.checked;
+    try{
+      localStorage.setItem(STORAGE.settings,JSON.stringify(SETTINGS));
+      scheduleCloudSync();jlSupplierApplyDisplay();
+    }catch(_err){
+      SETTINGS[key]=old;jlSupplierApplyDisplay();
+      document.getElementById("jlSupplierStatus").textContent="Réglage non enregistré.";
+    }
+  });
+}
+for(const page of ["page-settings","page-quotes","page-workorders","page-invoice-list"]){
+  document.querySelector('[data-page="'+page+'"]')?.addEventListener("click",()=>jlSupplierRender());
+}
 </script>
 </body>
 </html>
