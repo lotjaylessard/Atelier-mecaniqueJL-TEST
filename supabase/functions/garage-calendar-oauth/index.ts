@@ -27,7 +27,9 @@ const bytes=(len:number)=>crypto.getRandomValues(new Uint8Array(len));
 const base64url=(a:Uint8Array)=>btoa(String.fromCharCode(...a)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
 const sha=async(str:string)=>new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(str)));
 const hex=(a:Uint8Array)=>Array.from(a,x=>x.toString(16).padStart(2,"0")).join("");
-const redirectFor=(url:string)=>{const u=new URL(url);return u.origin+u.pathname;};
+// A Supabase Edge Function may receive an internal HTTP URL and a rewritten pathname.
+// OAuth redirects MUST use the exact public HTTPS URI registered at Google, never req.url.
+const GOOGLE_OAUTH_REDIRECT_URI="https://nraijzsodgojkpyigefu.supabase.co/functions/v1/garage-calendar-oauth";
 async function rest(table:string,method:string,params:Record<string,string>|null,body?:unknown,extra:Record<string,string>={}){
  const u=new URL(dbUrl+"/rest/v1/"+table);
  for(const [k,v] of Object.entries(params||{}))u.searchParams.set(k,v);
@@ -65,7 +67,7 @@ async function start(req:Request){
   state_hash:hashed,user_id:userId,garage_id:garageId,provider:"google",pkce_verifier:verifier,
   expires_at:new Date(Date.now()+10*60*1000).toISOString()
  });
- const redirectUri=redirectFor(req.url);
+ const redirectUri=GOOGLE_OAUTH_REDIRECT_URI;
  const url=new URL("https://accounts.google.com/o/oauth2/v2/auth");
  for(const [key,val] of Object.entries({
   client_id:clientId,redirect_uri:redirectUri,response_type:"code",
@@ -87,7 +89,7 @@ async function callback(req:Request){
  if(record.provider!=="google"||new Date(record.expires_at).getTime()<=Date.now())return html("Demande expirée.",400);
  if(query.get("error"))return html("Autorisation Google refusée ou annulée.",400);
  if(!code||code.length>4096||!ready())return html("La configuration Google TEST est incomplète.",503);
- const redirectUri=redirectFor(req.url);
+ const redirectUri=GOOGLE_OAUTH_REDIRECT_URI;
  const form=new URLSearchParams({code,client_id:clientId,client_secret:clientSecret,redirect_uri:redirectUri,grant_type:"authorization_code",code_verifier:record.pkce_verifier});
  const exchange=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:form});
  if(!exchange.ok)return html("Google n'a pas confirmé la connexion. Vérifie la configuration OAuth TEST.",400);
