@@ -2354,7 +2354,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
           <th data-module-sort="number" aria-sort="none"><button type="button" class="module-sort-button" onclick="setInvoiceSort('number')" title="Trier par # Facture"># Facture <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
           <th data-module-sort="date" aria-sort="none"><button type="button" class="module-sort-button" onclick="setInvoiceSort('date')" title="Trier par Date">Date <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
           <th data-module-sort="client" aria-sort="none"><button type="button" class="module-sort-button" onclick="setInvoiceSort('client')" title="Trier par Client">Client <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
-          <th>Solde restant</th>
+          <th data-module-sort="balance" aria-sort="none"><button type="button" class="module-sort-button" onclick="setInvoiceSort('balance')" title="Trier par Solde restant">Solde restant <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
           <th data-module-sort="total" aria-sort="none"><button type="button" class="module-sort-button" onclick="setInvoiceSort('total')" title="Trier par Total">Total <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
           <th data-module-sort="status" aria-sort="none"><button type="button" class="module-sort-button" onclick="setInvoiceSort('status')" title="Trier par Statut">Statut <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
         </tr>
@@ -10633,11 +10633,11 @@ function moduleRenderSortHeaders(table,key,direction){
 }
 let INVOICE_SORT_KEY=null;
 let INVOICE_SORT_DIRECTION="asc";
-const INVOICE_SORT_KEYS=["number","date","client","total","status"];
+const INVOICE_SORT_KEYS=["number","date","client","balance","total","status"];
 function setInvoiceSort(key){
   if(!INVOICE_SORT_KEYS.includes(key))return;
   if(INVOICE_SORT_KEY===key)INVOICE_SORT_DIRECTION=INVOICE_SORT_DIRECTION==="asc"?"desc":"asc";
-  else{INVOICE_SORT_KEY=key;INVOICE_SORT_DIRECTION=["date","total"].includes(key)?"desc":"asc";}
+  else{INVOICE_SORT_KEY=key;INVOICE_SORT_DIRECTION=["date","balance","total"].includes(key)?"desc":"asc";}
   renderInvoiceList();
 }
 function invoiceSearchFields(inv){
@@ -10658,6 +10658,9 @@ function invoiceSortValue(inv,key){
     case "number":return String(inv.number||"");
     case "date":{const t=Date.parse(inv.date||"");return Number.isFinite(t)?t:null;}
     case "client":return String(inv.customer||"");
+    case "balance":return inv.status==="partial"
+      ? Math.max(0,Math.round((Number(inv.total||0)-Number(inv.paidAmount||0))*100)/100)
+      : null;
     case "total":return Number(inv.total)||0;
     case "status":return String(inv.status||"");
     default:return "";
