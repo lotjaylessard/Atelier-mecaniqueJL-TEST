@@ -1828,6 +1828,27 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
  #page-suppliers .jl-supplier-fields{grid-template-columns:minmax(0,1fr)}
  #page-suppliers .jl-supplier-fields input:nth-child(3){grid-column:auto}
 }
+/* Catalogue fournisseurs — même présentation compacte que Pièces. */
+#page-suppliers .jl-supplier-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+#page-suppliers .jl-supplier-toolbar input{flex:1 1 320px;min-width:200px;margin:0;padding:9px;background:#111;color:var(--text);border:1px solid var(--border);border-radius:5px}
+#page-suppliers .jl-supplier-form[hidden]{display:none!important}
+#page-suppliers .jl-supplier-form{padding:14px;border:1px solid var(--border);border-radius:8px;margin:10px 0}
+#page-suppliers .jl-supplier-form-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+#page-suppliers .jl-supplier-form-title h3{margin:0}
+#page-suppliers .jl-supplier-table-wrap{overflow-x:auto}
+#page-suppliers .jl-supplier-table{width:100%;border-collapse:collapse;table-layout:auto}
+#page-suppliers .jl-supplier-table th{background:#333;color:var(--accent);text-align:left;padding:12px}
+#page-suppliers .jl-supplier-table td{padding:12px 10px;border-bottom:1px solid var(--border);vertical-align:middle;overflow-wrap:anywhere}
+#page-suppliers .jl-supplier-table .jl-supplier-name{font-weight:700;color:var(--accent)}
+#page-suppliers .jl-supplier-table .jl-supplier-actions{text-align:right;white-space:nowrap}
+#page-suppliers .jl-supplier-actions button{margin:0 3px 0 0}
+#page-suppliers .jl-supplier-remove{color:var(--danger)}
+#page-suppliers .jl-supplier-editor-row td{background:var(--card);padding:12px}
+#page-suppliers .jl-supplier-editor-row .jl-supplier-fields{display:grid;grid-template-columns:minmax(130px,1fr) minmax(180px,1.2fr) minmax(200px,1.5fr) auto;gap:8px;align-items:center}
+#page-suppliers .jl-supplier-editor-row input{min-width:0;width:100%;margin:0}
+#page-suppliers #jlSupplierStatus{margin-top:10px}
+@media(max-width:850px){#page-suppliers .jl-supplier-editor-row .jl-supplier-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){#page-suppliers .jl-supplier-editor-row .jl-supplier-fields{grid-template-columns:minmax(0,1fr)}}
 /* TEST - Calendriers personnels : cartes compactes, aide contextuelle accessible. */
 #page-settings .jl-calendar-compact{padding:0;border:0;margin:8px 0;display:grid;gap:8px}
 #page-settings .jl-cal-provider-row{border:1px solid var(--border);border-radius:9px;padding:9px 11px;min-width:0}
@@ -2708,14 +2729,26 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
 
     <!-- FOURNISSEURS : même répertoire et mêmes données que l'ancien menu Paramètres. -->
     <div class="page" id="page-suppliers">
-      <h2>🏪 Fournisseurs</h2>
+      <h2>Fournisseurs</h2>
       <div class="card jl-suppliers-card">
-        <p class="muted">Répertoire des fournisseurs du garage. Les coordonnées sont modifiables directement; elles restent internes au garage.</p>
-        <div class="jl-supplier-add-row">
-          <input id="jlSupplierName" type="text" maxlength="80" placeholder="Nom du fournisseur (ex. NAPA)" aria-label="Nom du fournisseur">
-          <button type="button" id="jlSupplierAdd">+ Ajouter</button>
+        <div class="module-search-toolbar jl-supplier-toolbar">
+          <button type="button" id="jlSupplierNew">➕ Nouveau fournisseur</button>
+          <input id="jlSupplierSearch" type="search" placeholder="🔎 Rechercher : fournisseur, téléphone, courriel, notes..." aria-label="Rechercher un fournisseur">
         </div>
-        <div id="jlSupplierList" class="jl-supplier-list"></div>
+        <div id="jlSupplierForm" class="jl-supplier-form" hidden>
+          <div class="jl-supplier-form-title"><h3>Ajouter un fournisseur</h3><button type="button" class="ghost" id="jlSupplierCancel">Annuler</button></div>
+          <div class="jl-supplier-add-row">
+            <input id="jlSupplierName" type="text" maxlength="80" placeholder="Nom du fournisseur (ex. NAPA)" aria-label="Nom du fournisseur">
+            <button type="button" id="jlSupplierAdd">Ajouter</button>
+          </div>
+        </div>
+        <div id="jlSupplierResultCount" class="module-result-count" role="status" aria-live="polite"></div>
+        <div class="jl-supplier-table-wrap">
+          <table class="jl-supplier-table" aria-label="Répertoire des fournisseurs">
+            <thead><tr><th>Nom</th><th>Téléphone</th><th>Courriel</th><th>Notes / commande</th><th>Actions</th></tr></thead>
+            <tbody id="jlSupplierList"></tbody>
+          </table>
+        </div>
         <p id="jlSupplierStatus" class="muted" role="status" aria-live="polite"></p>
       </div>
     </div>
@@ -20752,62 +20785,107 @@ function jlSupplierApplyDisplay(){
   if(a)a.checked=showQuotes;
   if(b)b.checked=showInvoices;
 }
+let jlSupplierEditing=null;
+function jlSupplierOpenForm(){
+  const form=document.getElementById("jlSupplierForm");
+  if(form){form.hidden=false;document.getElementById("jlSupplierName")?.focus();}
+}
+function jlSupplierCloseForm(){
+  const form=document.getElementById("jlSupplierForm");
+  if(form)form.hidden=true;
+  const input=document.getElementById("jlSupplierName");
+  if(input)input.value="";
+}
 function jlSupplierRender(){
   const list=document.getElementById("jlSupplierList");
   const choices=document.getElementById("jlSupplierChoices");
   if(!list||!choices)return;
   list.replaceChildren();choices.replaceChildren();
   jlSupplierApplyDisplay();
-  const names=jlSupplierNames();
+  const names=jlSupplierNames().sort((a,b)=>a.localeCompare(b,"fr-CA",{sensitivity:"base"}));
+  // Toujours offrir tous les fournisseurs dans les listes des soumissions et BT.
   for(const name of names){
     const option=document.createElement("option");option.value=name;choices.append(option);
-    const row=document.createElement("div");
-    row.className="jl-supplier-row";
-    const label=document.createElement("span");label.className="jl-supplier-name";label.textContent=name;
+  }
+  const filter=String(document.getElementById("jlSupplierSearch")?.value||"").trim().toLocaleLowerCase("fr-CA");
+  const visible=names.filter(name=>{
     const info=SETTINGS?.supplierDetails?.[name]||{};
-    const panel=document.createElement("div");panel.className="jl-supplier-fields";
-    const fields=[["phone","Téléphone",40],["email","Courriel",120],["notes","Notes / commande",250]];
-    for(const [key,label,max] of fields){
-      const field=document.createElement("input");field.type="text";field.maxLength=max;
-      field.value=String(info[key]||"").slice(0,max);field.placeholder=label;
-      field.setAttribute("aria-label",label+" du fournisseur "+name);
-      field.dataset.supplierField=key;
-      
-      panel.append(field);
+    return [name,info.phone,info.email,info.notes].some(value=>
+      String(value||"").toLocaleLowerCase("fr-CA").includes(filter));
+  });
+  const count=document.getElementById("jlSupplierResultCount");
+  if(count)count.textContent=visible.length+" fournisseur"+(visible.length!==1?"s":"")+" affiché"+(visible.length!==1?"s":"");
+  for(const name of visible){
+    const info=SETTINGS?.supplierDetails?.[name]||{};
+    const row=document.createElement("tr");
+    row.className="jl-supplier-row";
+    for(const value of [name,info.phone||"—",info.email||"—",info.notes||"—"]){
+      const cell=document.createElement("td");
+      cell.textContent=value;
+      if(value===name)cell.className="jl-supplier-name";
+      row.append(cell);
     }
-    const save=document.createElement("button");save.type="button";save.textContent="Enregistrer";
-    save.addEventListener("click",()=>{
-      const status=document.getElementById("jlSupplierStatus");
-      if(!CLOUD_DATA_READY||!ACTIVE_GARAGE_ID||!SUPABASE_USER?.id){
-        if(status)status.textContent="Connexion TEST non confirmée.";return;
-      }
-      const before=JSON.stringify(SETTINGS.supplierDetails||{});
-      const details={...(SETTINGS.supplierDetails||{})};
-      details[name]=Object.fromEntries([...panel.querySelectorAll("[data-supplier-field]")]
-        .map(x=>[x.dataset.supplierField,x.value.trim()]));
-      SETTINGS.supplierDetails=details;
-      try{
-        localStorage.setItem(STORAGE.settings,JSON.stringify(SETTINGS));
-        scheduleCloudSync();
-        if(status)status.textContent="Coordonnées enregistrées localement; synchronisation cloud demandée.";
-      }catch(_err){
-        SETTINGS.supplierDetails=JSON.parse(before);
-        if(status)status.textContent="Coordonnées non enregistrées.";
-      }
+    const actions=document.createElement("td");
+    actions.className="jl-supplier-actions";
+    const edit=document.createElement("button");
+    edit.type="button";edit.className="ghost";edit.textContent="Modifier";
+    edit.addEventListener("click",()=>{
+      if(jlSupplierEditing===name){jlSupplierEditing=null;jlSupplierRender();return;}
+      jlSupplierEditing=name;
+      jlSupplierRender();
+      const editor=document.getElementById("jlSupplierEditFields");
+      editor?.querySelector("input")?.focus();
     });
-    panel.append(save);
     const remove=document.createElement("button");
-    remove.type="button";remove.className="ghost";remove.textContent="Retirer";
-    remove.title="Retirer de la liste (ne change pas les anciens documents)";
+    remove.type="button";remove.className="ghost jl-supplier-remove";remove.textContent="Retirer";
+    remove.title="Retirer de la liste (sans modifier les anciens documents)";
     remove.addEventListener("click",()=>{
       if(!confirm("Retirer « "+name+" » de la liste des fournisseurs ? Les documents existants garderont leur fournisseur."))return;
-      jlSupplierPersist(names.filter(n=>n!==name));
+      if(jlSupplierPersist(names.filter(n=>n!==name)))jlSupplierEditing=null;
     });
-    row.append(label,remove,panel);list.append(row);
+    actions.append(edit,remove);row.append(actions);list.append(row);
+    if(jlSupplierEditing===name){
+      const detailRow=document.createElement("tr");detailRow.className="jl-supplier-editor-row";
+      const cell=document.createElement("td");cell.colSpan=5;
+      const panel=document.createElement("div");
+      panel.id="jlSupplierEditFields";panel.className="jl-supplier-fields";
+      const fields=[["phone","Téléphone",40],["email","Courriel",120],["notes","Notes / commande",250]];
+      for(const [key,label,max] of fields){
+        const input=document.createElement("input");input.type="text";input.maxLength=max;
+        input.value=String(info[key]||"").slice(0,max);input.placeholder=label;
+        input.setAttribute("aria-label",label+" du fournisseur "+name);
+        input.dataset.supplierField=key;panel.append(input);
+      }
+      const save=document.createElement("button");save.type="button";save.textContent="Enregistrer";
+      save.addEventListener("click",()=>{
+        const status=document.getElementById("jlSupplierStatus");
+        if(!CLOUD_DATA_READY||!ACTIVE_GARAGE_ID||!SUPABASE_USER?.id){
+          if(status)status.textContent="Connexion TEST non confirmée.";return;
+        }
+        const oldDetails=SETTINGS.supplierDetails;
+        const details={...(oldDetails||{})};
+        details[name]=Object.fromEntries([...panel.querySelectorAll("[data-supplier-field]")]
+          .map(x=>[x.dataset.supplierField,x.value.trim()]));
+        SETTINGS.supplierDetails=details;
+        try{
+          localStorage.setItem(STORAGE.settings,JSON.stringify(SETTINGS));
+          scheduleCloudSync();
+          jlSupplierEditing=null;
+          jlSupplierRender();
+          if(status)status.textContent="Coordonnées enregistrées localement; synchronisation cloud demandée.";
+        }catch(_err){
+          SETTINGS.supplierDetails=oldDetails;
+          if(status)status.textContent="Coordonnées non enregistrées.";
+        }
+      });
+      panel.append(save);cell.append(panel);detailRow.append(cell);list.append(detailRow);
+    }
   }
-  if(!names.length){
-    const empty=document.createElement("span");empty.className="muted";
-    empty.textContent="Aucun fournisseur enregistré.";list.append(empty);
+  if(!visible.length){
+    const tr=document.createElement("tr"),cell=document.createElement("td");
+    cell.colSpan=5;cell.className="muted";
+    cell.textContent=filter?"Aucun fournisseur ne correspond à la recherche.":"Aucun fournisseur enregistré.";
+    tr.append(cell);list.append(tr);
   }
 }
 function jlSupplierPersist(names){
@@ -20839,8 +20917,11 @@ document.getElementById("jlSupplierAdd")?.addEventListener("click",()=>{
     if(status)status.textContent="Ce fournisseur existe déjà.";return;
   }
   if(existing.length>=100){if(status)status.textContent="Maximum 100 fournisseurs.";return;}
-  if(jlSupplierPersist([...existing,name]))input.value="";
+  if(jlSupplierPersist([...existing,name]))jlSupplierCloseForm();
 });
+document.getElementById("jlSupplierNew")?.addEventListener("click",jlSupplierOpenForm);
+document.getElementById("jlSupplierCancel")?.addEventListener("click",jlSupplierCloseForm);
+document.getElementById("jlSupplierSearch")?.addEventListener("input",jlSupplierRender);
 document.getElementById("jlSupplierName")?.addEventListener("keydown",e=>{
   if(e.key==="Enter"&&!e.isComposing){e.preventDefault();document.getElementById("jlSupplierAdd")?.click();}
 });
