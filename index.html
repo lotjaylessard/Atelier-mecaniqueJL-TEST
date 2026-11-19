@@ -1585,6 +1585,8 @@ button.link:hover{
 }
 
 
+.pdf-export .jl-supplier-internal{display:none!important}
+@media print{.jl-supplier-internal{display:none!important}}
 /* S10 TEST — palette personnelle pour les calendriers natifs. */
 #page-schedule .jl-schedule-swatch.work{background:var(--jl-color-work,#ef6161) !important}
 #page-schedule .jl-schedule-swatch.note{background:var(--jl-color-note,#5da9ff) !important}
@@ -7154,17 +7156,11 @@ const isPaid = totalPaid >= Number(wo.total || 0);
 </div>
 
   <table id="woPartsTable">
-    <thead>
-      <tr>
-        <th>Nom</th>
-        <th>Qté</th>
-        <th>Prix</th>
-        <th>Profit</th>
-        <th>Total</th>
-        <th>Fournisseur</th>
-        <th></th>
-      </tr>
-    </thead>
+    <thead><tr>
+      <th>Nom</th><th># pièce</th><th>Qté</th><th>Coûtant</th>
+      <th>Vente</th><th>Total</th><th>Profit</th>
+      <th class="jl-supplier-internal">Fournisseur</th><th></th>
+    </tr></thead>
     <tbody></tbody>
   </table>
 
@@ -7921,7 +7917,7 @@ function woRenderLines(wo) {
   ${money(profit)} $ 
   <span class="muted">(${marginPct.toFixed(1)}%)</span>
 </td>
-    <td>${escapeHTML(String(p.supplier||""))||"—"}</td>
+    <td class="jl-supplier-internal">${escapeHTML(String(p.supplier||""))||"—"}</td>
     <td>
       <button class="ghost" onclick="woRemovePart('${wo.id}',${i})">🗑</button>
     </td>
@@ -9524,7 +9520,7 @@ const statusLabel =
   <th>Vente</th>
   <th>Total</th>
   <th>Profit</th>
-  <th>Fournisseur</th>
+  <th class="jl-supplier-internal">Fournisseur</th>
   <th></th>
 </tr>
       </thead>
