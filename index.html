@@ -14257,7 +14257,7 @@ async function jlScheduleMicrosoftAction(action="connect"){
  button.disabled=true;syncButton.disabled=true;
  status.textContent=action==="sync"?"Actualisation Outlook…":action==="disconnect"?"Déconnexion Outlook…":"Connexion et importation Outlook…";
  try{
-   const extra=action==="connect"?{ical_url:input.value.trim()}:{connection_id:connectionId};
+   const extra=action==="connect"?{ical_url:input.value.trim()}:{connection_id:connectionId,...(action==="sync"?{force:true}:{})};
    await jlMicrosoftRequest(action,extra);
    input.value="";
    if(action==="disconnect"){jlScheduleMicrosoftConnectionId="";jlScheduleMicrosoftEvents=[];jlScheduleRender();}
