@@ -3748,6 +3748,7 @@ const isPaid =
           <th>Type</th>
           <th>Description</th>
           <th># pièce</th>
+          <th class="jl-supplier-internal">Fournisseur</th>
           <th>Qté</th>
           <th>Prix</th>
           <th>Total</th>
@@ -3759,6 +3760,7 @@ const isPaid =
             <td>${it.type}</td>
             <td>${escapeHTML(String(it.desc||""))}</td>
             <td>${it.type==="Pièce" ? escapeHTML(String(it.number||it.invNumber||"")) || "—" : "—"}</td>
+            <td class="jl-supplier-internal">${it.type==="Pièce"?escapeHTML(String(it.supplier||""))||"—":"—"}</td>
             <td>${it.timerSessionId ? Number(it.qty).toFixed(2) + ' h' : it.qty}</td>
             <td>${money(it.rate)} $</td>
             <td>${money(s06InvoiceItemAmount(it))} $</td>
@@ -15741,7 +15743,8 @@ function editInvoiceFromModal(number){
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td><input ${inv.locked?'disabled':''} value="${it.type||''}" data-field="type" data-i="${i}" /></td>
-        <td><input ${inv.locked?'disabled':''} value="${it.desc||''}" data-field="desc" data-i="${i}" /></td>
+        <td><input ${inv.locked?'disabled':''} value="${escapeHTML(String(it.desc||''))}" data-field="desc" data-i="${i}" /></td>
+        <td class="jl-supplier-internal"><input ${inv.locked||it.type!=="Pièce"?'disabled':''} value="${escapeHTML(String(it.supplier||''))}" list="jlSupplierChoices" maxlength="80" data-field="supplier" data-i="${i}" aria-label="Fournisseur" /></td>
         <td><input ${inv.locked?'disabled':''} type="number" value="${it.qty||0}" data-field="qty" data-i="${i}" /></td>
         <td><input ${inv.locked?'disabled':''} type="number" value="${it.rate||0}" data-field="rate" data-i="${i}" /></td>
         <td>${money(total)}</td>
@@ -15822,6 +15825,7 @@ function renderEditUI(){
         <tr>
           <th>Type</th>
           <th>Description</th>
+          <th class="jl-supplier-internal">Fournisseur</th>
           <th>Qté</th>
           <th>Prix</th>
           <th>Total</th>
