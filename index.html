@@ -13523,9 +13523,13 @@ function jlFamilyWallEventLabel(event,date=""){
   const fmt=iso=>{
     if(!iso)return "";
     const instant=new Date(iso);
-    return Number.isNaN(instant.getTime())?"":new Intl.DateTimeFormat("fr-CA",{
-      timeZone:"America/Toronto",hour:"2-digit",minute:"2-digit",hour12:false
-    }).format(instant);
+    if(Number.isNaN(instant.getTime()))return "";
+    const parts=new Intl.DateTimeFormat("en-GB",{
+      timeZone:"America/Toronto",hour:"2-digit",minute:"2-digit",hourCycle:"h23"
+    }).formatToParts(instant);
+    const hh=parts.find(p=>p.type==="hour")?.value||"";
+    const mm=parts.find(p=>p.type==="minute")?.value||"";
+    return hh&&mm?hh+":"+mm:"";
   };
   const start=fmt(event.start_at),end=fmt(event.end_at);
   if(!start&&!end)return title;
