@@ -13357,8 +13357,8 @@ function jlScheduleLoadVisibility(userId){
 }
 function jlScheduleInitFilters(){
   document.querySelectorAll("[data-jl-schedule-filter]").forEach(input=>{
-    if(input.disabled)return;
     input.addEventListener("change",()=>{
+      if(input.disabled)return;
       const key=input.dataset.jlScheduleFilter;
       if(!(key in jlScheduleVisibility))return;
       jlScheduleVisibility[key]=input.checked;
