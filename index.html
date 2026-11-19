@@ -2733,6 +2733,16 @@ body.jl-hide-supplier-invoices .jl-invoice-supplier{display:none!important}
               <button type="button" id="jlScheduleMicrosoftSync" class="ghost" hidden>Actualiser Outlook</button>
             </div>
             <p class="muted" id="jlScheduleMicrosoftStatus" role="status" aria-live="polite"></p>
+            <details id="jlOutlookColorsSettings" class="jl-familywall-colors">
+              <summary>🎨 Couleurs des catégories Outlook</summary>
+              <p class="muted">Couleurs suggérées d'après Outlook. Les catégories importées sont reconnues automatiquement quand elles sont présentes dans le lien ICS. Tu peux modifier les noms et les couleurs; si Outlook omet les catégories, les règles peuvent aussi s'appliquer à un mot du titre. Ces choix restent privés sur ce navigateur.</p>
+              <div id="jlOutlookColorRules" class="jl-familywall-color-rules"></div>
+              <div class="jl-settings-actions">
+                <button type="button" id="jlOutlookAddColorRule" class="ghost">+ Ajouter une couleur</button>
+                <button type="button" id="jlOutlookResetColors" class="ghost">Restaurer les couleurs</button>
+              </div>
+              <p class="muted" id="jlOutlookColorStatus" role="status" aria-live="polite"></p>
+            </details>
           </div>
           <div class="jl-familywall-settings">
             <div id="jlScheduleExternalFamilyWall" class="jl-schedule-external-provider">FamilyWall — non connecté</div>
@@ -13687,6 +13697,105 @@ function jlScheduleFamilyWallFor(date){
   return jlScheduleFamilyWallEvents.filter(e=>e.start_date<=date&&e.end_date>=date)
     .sort((a,b)=>String(a.event_title||"").localeCompare(String(b.event_title||"")));
 }
+
+/* Couleurs Outlook personnelles — catégories ICS en priorité, titre en repli.
+   Aucun accès ou partage d'événements entre utilisateurs du garage. */
+const jlOutlookDefaultColor="#41a7e7";
+const jlOutlookSampleRules=[
+ {keyword:"AIR CANADA",color:"#ec7076"},
+ {keyword:"AUTRES",color:"#6dbdb7"},
+ {keyword:"DAUGHTERS",color:"#59bde6"},
+ {keyword:"MECHANIC X +",color:"#b99485"},
+ {keyword:"METIME",color:"#e5a253"},
+ {keyword:"OUTSIDE",color:"#e2b847"},
+ {keyword:"SHOPPING",color:"#a5a5a5"},
+ {keyword:"TO DO",color:"#9b8af5"},
+ {keyword:"TRAINING",color:"#77c56f"}
+];
+let jlOutlookColorRules=jlOutlookSampleRules.map(x=>({...x})),jlOutlookColorOwnerKey="";
+function jlOutlookLoadColors(userId){
+ if(!userId||!ACTIVE_GARAGE_ID)return;
+ const key="jl-outlook-colors:"+ACTIVE_GARAGE_ID+":"+userId;
+ if(key!==jlOutlookColorOwnerKey){
+  jlOutlookColorOwnerKey=key;
+  jlOutlookColorRules=jlOutlookSampleRules.map(x=>({...x}));
+  try{
+   const saved=localStorage.getItem(key);
+   if(saved!==null){
+    const rules=JSON.parse(saved);
+    if(Array.isArray(rules))jlOutlookColorRules=rules.slice(0,40)
+     .filter(x=>x&&typeof x.keyword==="string"&&x.keyword.length<=80&&jlFamilyWallValidColor(x.color))
+     .map(x=>({keyword:x.keyword,color:x.color}));
+   }
+  }catch(_err){}
+ }
+ jlOutlookRenderColors();
+}
+function jlOutlookSaveColors(){
+ if(!jlOutlookColorOwnerKey)return;
+ try{
+  localStorage.setItem(jlOutlookColorOwnerKey,JSON.stringify(jlOutlookColorRules));
+  document.getElementById("jlOutlookColorStatus").textContent="✓ Couleurs sauvegardées pour ce compte sur ce navigateur.";
+ }catch(_err){
+  document.getElementById("jlOutlookColorStatus").textContent="⚠ Impossible d'enregistrer les couleurs.";
+ }
+ jlScheduleRender();
+}
+function jlOutlookColorFor(event){
+ const categories=Array.isArray(event?.categories)?event.categories:[];
+ for(const category of categories){
+  const c=jlFamilyWallNormalizeText(category);
+  for(const rule of jlOutlookColorRules){
+   if(c&&c===jlFamilyWallNormalizeText(rule.keyword)&&jlFamilyWallValidColor(rule.color))return rule.color;
+  }
+ }
+ // Outlook's published ICS does not always include CATEGORIES: allow title keywords.
+ const title=jlFamilyWallNormalizeText(event?.event_title);
+ for(const rule of jlOutlookColorRules){
+  const key=jlFamilyWallNormalizeText(rule.keyword);
+  if(key&&title.includes(key)&&jlFamilyWallValidColor(rule.color))return rule.color;
+ }
+ return jlOutlookDefaultColor;
+}
+function jlOutlookStyleEvent(node,event){
+ const color=jlOutlookColorFor(event),rgb=color.slice(1).match(/../g).map(x=>parseInt(x,16));
+ const lightness=(rgb[0]*299+rgb[1]*587+rgb[2]*114)/1000;
+ node.style.backgroundColor=color;
+ node.style.borderLeftColor=color;
+ node.style.color=lightness>=145?"#141414":"#fff";
+}
+function jlOutlookRenderColors(){
+ const list=document.getElementById("jlOutlookColorRules");
+ if(!list)return;
+ list.replaceChildren();
+ jlOutlookColorRules.forEach((rule,index)=>{
+  const row=document.createElement("div");row.className="jl-familywall-rule";
+  const title=document.createElement("input");title.type="text";title.maxLength=80;
+  title.placeholder="Catégorie ou mot dans le titre";title.value=rule.keyword;
+  title.setAttribute("aria-label","Catégorie Outlook "+(index+1));
+  title.addEventListener("change",()=>{jlOutlookColorRules[index].keyword=title.value.trim();jlOutlookSaveColors();});
+  const color=document.createElement("input");color.type="color";color.value=rule.color;
+  color.setAttribute("aria-label","Couleur Outlook "+(index+1));
+  color.addEventListener("input",()=>{jlOutlookColorRules[index].color=color.value;jlOutlookSaveColors();});
+  const remove=document.createElement("button");remove.type="button";remove.className="ghost";remove.textContent="Supprimer";
+  remove.addEventListener("click",()=>{jlOutlookColorRules.splice(index,1);jlOutlookRenderColors();jlOutlookSaveColors();});
+  row.append(title,color,remove);list.append(row);
+ });
+ document.getElementById("jlOutlookAddColorRule").disabled=jlOutlookColorRules.length>=40;
+}
+function jlOutlookInitColors(){
+ document.getElementById("jlOutlookAddColorRule").addEventListener("click",()=>{
+  if(jlOutlookColorRules.length>=40)return;
+  jlOutlookColorRules.push({keyword:"",color:jlOutlookDefaultColor});
+  jlOutlookRenderColors();jlOutlookSaveColors();
+ });
+ document.getElementById("jlOutlookResetColors").addEventListener("click",()=>{
+  jlOutlookColorRules=jlOutlookSampleRules.map(x=>({...x}));
+  jlOutlookRenderColors();jlOutlookSaveColors();
+ });
+ jlOutlookRenderColors();
+}
+
 function jlScheduleMicrosoftFor(date){
   if(!jlScheduleVisibility.microsoft)return [];
   return jlScheduleMicrosoftEvents.filter(e=>e.start_date<=date&&e.end_date>=date)
@@ -13753,7 +13862,8 @@ function jlScheduleDayRender(){
     jlFamilyWallStyleEvent(row,item.event_title);
   }
   for(const item of jlScheduleMicrosoftFor(date)){
-    jlScheduleText(events,"📧 Outlook · "+jlFamilyWallEventLabel(item,date),"jl-schedule-full-item microsoft");
+    const row=jlScheduleText(events,"📧 Outlook · "+jlFamilyWallEventLabel(item,date),"jl-schedule-full-item microsoft");
+    jlOutlookStyleEvent(row,item);
   }
   if(!events.childElementCount)jlScheduleText(events,jlScheduleLoaded?
     "Aucun événement.":"Événements en cours de chargement.");
@@ -13825,6 +13935,7 @@ function jlScheduleRender(){
     for(const item of visibleMicrosoft){
       const el=document.createElement("div");el.className="jl-schedule-mini microsoft";
       el.textContent="📧 "+jlFamilyWallEventLabel(item,date);
+      jlOutlookStyleEvent(el,item);
       el.title="Outlook — personnel";cell.append(el);
     }
     for(const note of visibleNotes){
@@ -13887,6 +13998,7 @@ async function jlScheduleLoad(){
     jlScheduleLoadVisibility(auth.user.id);
     jlPaletteLoad(auth.user.id);
     jlFamilyWallLoadColors(auth.user.id);
+    jlOutlookLoadColors(auth.user.id);
     jlScheduleLoaded=true;
     void jlScheduleLoadFamilyWallEvents(auth.user.id,min,max,token);
     void jlScheduleLoadMicrosoftEvents(auth.user.id,min,max,token);
@@ -14170,7 +14282,7 @@ async function jlScheduleLoadMicrosoftEvents(userId,min,max,token){
   catch(_err){/* previously imported events remain private and readable */ }
   if(token!==jlScheduleRequest)return;
   const result=await db.from("garage_external_calendar_events")
-   .select("provider_event_id,event_title,start_date,end_date,all_day,start_at,end_at")
+   .select("provider_event_id,event_title,start_date,end_date,all_day,start_at,end_at,categories")
    .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",userId).eq("connection_id",connection.id)
    .lte("start_date",max).gte("end_date",min).limit(1000);
   if(result.error)throw result.error;
@@ -14252,6 +14364,7 @@ function jlScheduleInitSettings(){
   if(jlScheduleSettingsInitialized)return;
   jlScheduleSettingsInitialized=true;
   jlFamilyWallInitColorSettings();
+  jlOutlookInitColors();
   document.getElementById("jlScheduleFamilyWallConnect").addEventListener("click",()=>void jlScheduleFamilyWallAction(jlScheduleFamilyWallConnectionId?"disconnect":"connect"));
   document.getElementById("jlScheduleFamilyWallSync").addEventListener("click",()=>void jlScheduleFamilyWallAction("sync"));
   document.getElementById("jlScheduleConnectMicrosoft").addEventListener("click",()=>void jlScheduleMicrosoftAction(jlScheduleMicrosoftConnectionId?"disconnect":"connect"));
@@ -14296,6 +14409,7 @@ async function jlScheduleLoadExternalConnections(){
       .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id).limit(100);
     if(error)throw error;
     jlFamilyWallLoadColors(auth.user.id);
+    jlOutlookLoadColors(auth.user.id);
     if(!document.getElementById("jlCalendarSettings").open)return;
     const rows=Array.isArray(data)?data:[];
     const connectedGoogle=rows.find(x=>x.provider==="google"&&x.sync_status==="connected"&&typeof x.id==="string");
