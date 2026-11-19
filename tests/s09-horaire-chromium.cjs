@@ -13,6 +13,7 @@ const fixture=[
 "const jlScheduleNotes=[1,2,3,4].map(n=>({note_date:'2026-11-13',note_text:'note '+n,created_at:'2026-11-13T00:00:0'+n+'Z'}));",
 "const jlScheduleEvents=[];let opened='';",
 "const jlScheduleVisibility={work:true,note:true,workshop:true,private:true};",
+"const jlScheduleFamilyWallEvents=[];",
 "function jlScheduleMonthStart(){return new Date(2026,month,1);}",
 "function jlCalendarISO(d){return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}",
 "function jlScheduleISO(d){return jlCalendarISO(d);}",
