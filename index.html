@@ -13602,12 +13602,12 @@ function jlScheduleDayRender(){
     edit.addEventListener("click",()=>{if(e.user_id===jlScheduleEventUserId)jlScheduleOpenEventForm(e);});
     row.append(edit);events.append(row);
   }
-  if(!events.childElementCount)jlScheduleText(events,jlScheduleLoaded?
-    "Aucun événement.":"Événements en cours de chargement.");
   for(const item of jlScheduleFamilyWallFor(date)){
     const row=jlScheduleText(events,"🏠 FamilyWall · "+jlFamilyWallEventLabel(item,date),"jl-schedule-full-item familywall");
     jlFamilyWallStyleEvent(row,item.event_title);
   }
+  if(!events.childElementCount)jlScheduleText(events,jlScheduleLoaded?
+    "Aucun événement.":"Événements en cours de chargement.");
   for(const note of (jlScheduleVisibility.note?jlScheduleNotesFor(date):[])){
     jlScheduleText(notes,String(note.note_text||""),"jl-schedule-full-item note");
   }
@@ -14186,6 +14186,11 @@ async function jlCalendarLoadFamilyWall(){
     if(connectionError)throw connectionError;
     const connectionId=connections?.[0]?.id;
     if(!connectionId){if(token===jlCalendarFamilyWallRequest){jlCalendarFamilyWallLoaded=true;jlCalendarRender();}return;}
+    // Rafraîchit le cache FamilyWall dans le tableau de bord également.
+    // Le serveur respecte son délai et répare les heures des anciens imports.
+    try{await jlFamilyWallRequest("sync",{connection_id:connectionId});}
+    catch(_err){/* Conserver les événements précédemment synchronisés. */}
+    if(token!==jlCalendarFamilyWallRequest)return;
     const {data,error}=await db.from("garage_external_calendar_events")
       .select("provider_event_id,event_title,start_date,end_date,all_day,start_at,end_at")
       .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id)
