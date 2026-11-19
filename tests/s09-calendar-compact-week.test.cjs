@@ -14,8 +14,8 @@ test('calendar days have consistent fixed height and clip long content',()=>{
 test('weekly calendar shows at most 3 previews and a remaining count',()=>{
  assert.match(source,/appointments\.slice\(0,3\)/);
  assert.match(source,/dayEvents\.slice\(0,Math\.max\(0,3-visibleAppointments\.length\)\)/);
- assert.match(source,/dayNotes\.slice\(0,Math\.max\(0,3-visibleAppointments\.length-visibleEvents\.length\)\)/);
- assert.match(source,/const hiddenCount=appointments\.length\+dayNotes\.length\+dayEvents\.length-visibleAppointments\.length-visibleNotes\.length-visibleEvents\.length/);
+ assert.match(source,/dayNotes\.slice\(0,Math\.max\(0,3-visibleAppointments\.length-visibleEvents\.length-visibleFamily\.length\)\)/);
+ assert.match(source,/const hiddenCount=appointments\.length\+dayNotes\.length\+dayEvents\.length\+dayFamily\.length-visibleAppointments\.length-visibleNotes\.length-visibleEvents\.length-visibleFamily\.length/);
  assert.match(source,/if\(hiddenCount>0\)/);
 });
 test('overflow count opens full day and neither notes nor appointments are deleted',()=>{
@@ -30,5 +30,5 @@ test('jobs have priority over notes within the three visible slots',()=>{
  const notes=source.indexOf('for(const n of visibleNotes)');
  assert.ok(jobs>=0&&notes>jobs);
  assert.match(source,/visibleAppointments=appointments\.slice\(0,3\)/);
- assert.match(source,/visibleNotes=dayNotes\.slice\(0,Math\.max\(0,3-visibleAppointments\.length-visibleEvents\.length\)\)/);
+ assert.match(source,/visibleNotes=dayNotes\.slice\(0,Math\.max\(0,3-visibleAppointments\.length-visibleEvents\.length-visibleFamily\.length\)\)/);
 });
