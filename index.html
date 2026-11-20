@@ -18081,6 +18081,12 @@ function printInvoice(){
     });
   }
 
+  // Le numéro de BT devient un bouton dans l'aperçu; conserver son texte sur papier.
+  const btLink=clone.querySelector("#jlInvoiceLinkedBtNumber");
+  if(btLink?.querySelector("button")){
+    btLink.textContent=btLink.querySelector("button").textContent||"";
+  }
+
   // ❌ Supprimer bloc TAXES (UI)
   clone.querySelectorAll(".invoice-ui-taxes").forEach(el => el.remove());
 
@@ -18336,6 +18342,93 @@ clone.querySelectorAll("h3").forEach(h=>{
   width: 30%;
   text-align: right;
 }
+
+
+/* S11 TEST — impression de facture lisible et compacte, format lettre.
+   Les blocs d'une facture longue peuvent continuer sur plusieurs pages. */
+@media print {
+  @page {size:letter;margin:13mm 14mm}
+}
+.jl-print-body{padding-top:10mm!important;padding-bottom:11mm!important;max-width:100%}
+.jl-print-header{padding-bottom:2mm!important;font-size:10px!important}
+.jl-print-footer{padding-top:2mm!important;font-size:8px!important}
+.jl-print-body .jl-invoice-header{
+  display:grid!important;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+  align-items:center;gap:12px;margin:0 0 9px!important;
+}
+.jl-print-body .jl-invoice-header>div:first-child{min-width:0}
+.jl-print-body .jl-invoice-header h2{font-size:19px!important;margin:0 0 3px!important;overflow-wrap:anywhere}
+.jl-print-body .jl-invoice-header-reference{min-width:0;text-align:right!important;overflow-wrap:anywhere;font-size:10px}
+.jl-print-body .jl-invoice-paid-indicator{
+  display:inline-block!important;justify-self:center;align-self:center;margin:0!important;
+  border:1px solid #666!important;border-radius:5px!important;
+  font-size:10px!important;font-weight:700;letter-spacing:.2px;white-space:nowrap;
+  padding:4px 7px!important;color:#222!important
+}
+.jl-print-body .jl-invoice-contact{
+  display:grid!important;grid-template-columns:1fr 1fr;gap:10px 18px;
+  padding:10px 12px!important;margin:0 0 10px!important;
+  border:1px solid #aaa!important;border-radius:5px!important;
+  background:#fff!important;color:#151515!important;break-inside:avoid;
+}
+.jl-print-body .jl-invoice-info-col{min-width:0}
+.jl-print-body .jl-invoice-info-col + .jl-invoice-info-col{
+  border-left:1px solid #ccc;padding-left:14px
+}
+.jl-print-body .jl-invoice-info-heading{display:flex;flex-wrap:wrap;align-items:baseline;gap:5px;margin-bottom:5px}
+.jl-print-body .jl-invoice-info-heading>span{font-weight:700;font-size:9px;letter-spacing:.3px;color:#555}
+.jl-print-body .jl-invoice-info-heading strong{font-size:12px;color:#111;overflow-wrap:anywhere}
+.jl-print-body .jl-invoice-info-line{
+  display:grid;grid-template-columns:70px minmax(0,1fr);gap:5px;margin:2px 0;font-size:10px;
+}
+.jl-print-body .jl-invoice-info-line span:first-child{color:#555}
+.jl-print-body .jl-invoice-info-line span:last-child{overflow-wrap:anywhere}
+.jl-print-body .jl-invoice-preview-table{
+  width:100%!important;table-layout:auto;margin:0 0 9px!important;font-size:10px;
+}
+.jl-print-body .jl-invoice-preview-table th,
+.jl-print-body .jl-invoice-preview-table td{padding:6px 6px!important;border-bottom:1px solid #ddd;font-size:10px}
+.jl-print-body .jl-invoice-preview-table th{background:#eee!important;border-bottom:1px solid #bbb}
+.jl-print-body .jl-invoice-preview-table th:nth-last-child(-n+3),
+.jl-print-body .jl-invoice-preview-table td:nth-last-child(-n+3){text-align:right}
+.jl-print-body thead{display:table-header-group}
+.jl-print-body tr{break-inside:avoid;page-break-inside:avoid}
+.jl-print-body .jl-invoice-totals-shell{margin:4px 0 0!important;display:block!important}
+.jl-print-body .jl-invoice-totals-grid{
+  display:block!important;width:100%!important;margin:0!important;
+}
+.jl-print-body .jl-invoice-amounts{
+  display:block!important;width:250px!important;max-width:100%;
+  min-width:0!important;margin:3px 0 0 auto!important;
+  font-size:11px!important;line-height:1.35;break-inside:avoid;
+}
+.jl-print-body .jl-invoice-amounts>div{
+  display:flex!important;justify-content:space-between;gap:12px;margin:2px 0!important;
+}
+.jl-print-body #invDiscountRow[style*="display:none"]{display:none!important}
+.jl-print-body .jl-invoice-amounts hr{margin:6px 0!important;border:0;border-top:1px solid #555}
+.jl-print-body #invTotal{font-size:15px!important}
+.jl-print-body .pdf-payments{
+  width:100%!important;margin:12px 0 0!important;break-inside:auto!important;
+}
+.jl-print-body .pdf-payments h3{font-size:11px!important;margin:0 0 5px!important}
+.jl-print-body .pdf-payments table{
+  width:100%!important;table-layout:auto!important;margin:4px 0 0!important;
+}
+.jl-print-body .pdf-payments th,
+.jl-print-body .pdf-payments td{padding:5px 6px!important;border:0;border-bottom:1px solid #ddd;font-size:10px}
+.jl-print-body .pdf-payments th:nth-child(1),
+.jl-print-body .pdf-payments td:nth-child(1){width:7%;text-align:left}
+.jl-print-body .pdf-payments th:nth-child(2),
+.jl-print-body .pdf-payments td:nth-child(2){width:43%;text-align:left}
+.jl-print-body .pdf-payments th:nth-child(3),
+.jl-print-body .pdf-payments td:nth-child(3){width:30%;text-align:left}
+.jl-print-body .pdf-payments th:nth-child(4),
+.jl-print-body .pdf-payments td:nth-child(4){width:20%;text-align:right}
+.jl-print-body .pdf-payments>div{text-align:right!important;margin:5px 0 0!important;font-size:10px!important}
+.jl-print-body .jl-invoice-actions{margin-top:10px!important;padding-top:5px;border-top:1px solid #ddd}
+.jl-print-body .jl-invoice-actions .muted{font-size:10px!important}
+.jl-print-body #s07InvoiceAutosaveStatus{display:none!important}
 
       </style>
     </head>
