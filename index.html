@@ -1667,7 +1667,9 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
  #invoiceEditContent .jl-invoice-info-line{display:grid;grid-template-columns:84px minmax(0,1fr);gap:8px;margin:2px 0;font-size:13px}
  #invoiceEditContent .jl-invoice-info-line>span:first-child{color:var(--muted)}
  #invoiceEditContent .jl-invoice-info-line>span:last-child{overflow-wrap:anywhere}
- #invoiceEditContent .jl-invoice-paid-indicator{grid-column:1/-1;justify-self:end;font-size:13px;padding:3px 8px;margin:0}
+ #invoiceEditContent .jl-invoice-header{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:start;column-gap:14px}
+ #invoiceEditContent .jl-invoice-header-reference{min-width:0;overflow-wrap:anywhere}
+ #invoiceEditContent .jl-invoice-paid-indicator{justify-self:center;align-self:center;font-size:13px;padding:4px 10px;margin:0;white-space:nowrap}
 
  #invoiceEditContent .jl-invoice-contact>div:first-child{margin-bottom:2px!important}
  #invoiceEditContent .jl-invoice-vehicle{margin-top:3px!important}
@@ -1694,6 +1696,9 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
  #invoiceEditContent .jl-invoice-amounts{grid-column:1/-1}
 }
 @media screen and (max-width:650px){
+ #invoiceEditContent .jl-invoice-header{grid-template-columns:minmax(0,1fr) minmax(0,1fr);row-gap:5px}
+ #invoiceEditContent .jl-invoice-paid-indicator{grid-column:1/-1;grid-row:2}
+ #invoiceEditContent .jl-invoice-header-reference{grid-column:2;grid-row:1}
  #invoiceEditContent .jl-invoice-contact{grid-template-columns:minmax(0,1fr);gap:10px}
  #invoiceEditContent .jl-invoice-info-col + .jl-invoice-info-col{border-left:0;border-top:1px solid var(--border);padding-left:0;padding-top:9px}
 }
@@ -16290,17 +16295,13 @@ const paymentWarning = invoicePaymentMismatch(inv);
   
 content.innerHTML = `
   <!-- EN-TÊTE -->
-  <div style="
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  margin-bottom:4px;
-">
+  <div class="jl-invoice-header" style="margin-bottom:4px;">
     <div>
       <h2 style="margin:0;">Facture #${inv.number}</h2>
       <div class="muted">Date : ${inv.date || ""}</div>
     </div>
-    <div style="text-align:right;">
+    ${inv.status === "paid" ? `<div class="invoice-paid-badge jl-invoice-paid-indicator">PAYÉ (${invoicePaymentMethodLabel(inv.paymentMethod)})</div>` : '<div class="jl-invoice-header-spacer" aria-hidden="true"></div>'}
+    <div class="jl-invoice-header-reference" style="text-align:right;">
       <div style="font-weight:bold;">${SETTINGS.garageName || ""}</div>
       <div class="muted">Bon de travail : <span id="jlInvoiceLinkedBtNumber">${escapeHTML(String(inv.workOrderNumber || inv.referenceWO || "-"))}</span></div>
     </div>
@@ -16327,7 +16328,6 @@ content.innerHTML = `
     ${vehicleObj?.vin ? `<div class="jl-invoice-info-line"><span>VIN</span><span>${escapeHTML(String(vehicleObj.vin))}</span></div>` : ""}
     ${vehicleObj?.plate ? `<div class="jl-invoice-info-line"><span>Plaque</span><span>${escapeHTML(String(vehicleObj.plate))}</span></div>` : ""}
   </section>
-  ${inv.status === "paid" ? `<div class="invoice-paid-badge jl-invoice-paid-indicator">PAYÉ (${invoicePaymentMethodLabel(inv.paymentMethod)})</div>` : ""}
 </div>
 
   ${paymentWarning ? `<div role="alert" style="margin:12px 0;padding:10px;border:1px solid #e99b6c;border-radius:7px;color:#ffd29e;">⚠ Anomalie de paiement : ${escapeHTML(paymentWarning)} Vérification manuelle nécessaire; aucun montant modifié automatiquement.</div>` : ""}
