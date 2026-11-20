@@ -1670,6 +1670,9 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
  #invoiceEditContent .jl-invoice-header{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:start;column-gap:14px}
  #invoiceEditContent .jl-invoice-header-reference{min-width:0;overflow-wrap:anywhere}
  #invoiceEditContent .jl-invoice-paid-indicator{justify-self:center;align-self:center;font-size:13px;padding:4px 10px;margin:0;white-space:nowrap}
+ #invoiceEditContent .jl-invoice-badge-paid{color:#35cc78!important;border-color:#22a95d!important}
+ #invoiceEditContent .jl-invoice-badge-partial{color:#ffcb48!important;border-color:#c99522!important}
+ #invoiceEditContent .jl-invoice-badge-unpaid{color:#ff7878!important;border-color:#c44c4c!important}
 
  #invoiceEditContent .jl-invoice-contact>div:first-child{margin-bottom:2px!important}
  #invoiceEditContent .jl-invoice-vehicle{margin-top:3px!important}
@@ -16300,7 +16303,7 @@ content.innerHTML = `
       <h2 style="margin:0;">Facture #${inv.number}</h2>
       <div class="muted">Date : ${inv.date || ""}</div>
     </div>
-    ${inv.status === "paid" ? `<div class="invoice-paid-badge jl-invoice-paid-indicator">PAYÉ (${invoicePaymentMethodLabel(inv.paymentMethod)})</div>` : '<div class="jl-invoice-header-spacer" aria-hidden="true"></div>'}
+    ${`<div class="invoice-paid-badge jl-invoice-paid-indicator ${inv.status === "paid" ? "jl-invoice-badge-paid" : inv.status === "partial" ? "jl-invoice-badge-partial" : "jl-invoice-badge-unpaid"}">${escapeHTML(invoiceStatusLabel(inv))}</div>`}
     <div class="jl-invoice-header-reference" style="text-align:right;">
       <div style="font-weight:bold;">${SETTINGS.garageName || ""}</div>
       <div class="muted">Bon de travail : <span id="jlInvoiceLinkedBtNumber">${escapeHTML(String(inv.workOrderNumber || inv.referenceWO || "-"))}</span></div>
