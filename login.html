@@ -224,12 +224,8 @@
     });
     const initial=await supabase.auth.getSession();
     if(recoveryMode){
-      recoveryReady=!!initial.data?.session;
-      if(!recoveryReady){
-        // L'échange du code de récupération peut encore être en cours.
-        const {data}=await supabase.auth.getSession();
-        recoveryReady=!!data?.session;
-      }
+      // Une session déjà ouverte n'est PAS une preuve de récupération :
+      // seul l'événement PASSWORD_RECOVERY confirme le lien reçu par courriel.
       if(!recoveryReady){
         display("forgot");
         notice("Lien expiré ou invalide. Demande un nouveau courriel de réinitialisation.");
@@ -287,7 +283,7 @@
       busy=true;byId("saveNewPassword").disabled=true;notice("");
       try{
         const {data:{session},error:sessionError}=await supabase.auth.getSession();
-        if(sessionError||!session||!recoveryMode)throw Error("Invalid recovery session");
+        if(sessionError||!session||!recoveryMode||!recoveryReady)throw Error("Invalid recovery session");
         const {error}=await supabase.auth.updateUser({password});
         if(error)throw error;
         byId("newPassword").value="";byId("confirmPassword").value="";
