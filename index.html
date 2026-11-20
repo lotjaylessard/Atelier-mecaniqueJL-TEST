@@ -1654,7 +1654,21 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
  #invoiceEditModal .modal-panel{width:min(1040px,96vw)!important;max-width:1040px!important;max-height:94vh;overflow-y:auto;padding:14px 18px!important}
  #invoiceEditContent{font-size:14px;line-height:1.3}
  #invoiceEditContent h2{font-size:23px;margin:0 0 2px}
- #invoiceEditContent .jl-invoice-contact{padding:9px 12px!important;margin-bottom:9px!important}
+ #invoiceEditContent .jl-invoice-contact{
+   display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 20px;
+   padding:10px 14px!important;margin-bottom:9px!important;
+   border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);
+ }
+ #invoiceEditContent .jl-invoice-info-col{min-width:0}
+ #invoiceEditContent .jl-invoice-info-col + .jl-invoice-info-col{border-left:1px solid var(--border);padding-left:18px}
+ #invoiceEditContent .jl-invoice-info-heading{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;margin-bottom:5px}
+ #invoiceEditContent .jl-invoice-info-heading>span{color:var(--muted);font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.03em}
+ #invoiceEditContent .jl-invoice-info-heading strong{font-size:16px;color:var(--text);overflow-wrap:anywhere}
+ #invoiceEditContent .jl-invoice-info-line{display:grid;grid-template-columns:84px minmax(0,1fr);gap:8px;margin:2px 0;font-size:13px}
+ #invoiceEditContent .jl-invoice-info-line>span:first-child{color:var(--muted)}
+ #invoiceEditContent .jl-invoice-info-line>span:last-child{overflow-wrap:anywhere}
+ #invoiceEditContent .jl-invoice-paid-indicator{grid-column:1/-1;justify-self:end;font-size:13px;padding:3px 8px;margin:0}
+
  #invoiceEditContent .jl-invoice-contact>div:first-child{margin-bottom:2px!important}
  #invoiceEditContent .jl-invoice-vehicle{margin-top:3px!important}
  #invoiceEditContent .jl-invoice-vehicle-info{margin-left:0!important}
@@ -1678,6 +1692,10 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
 @media screen and (max-width:770px){
  #invoiceEditContent .jl-invoice-totals-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
  #invoiceEditContent .jl-invoice-amounts{grid-column:1/-1}
+}
+@media screen and (max-width:650px){
+ #invoiceEditContent .jl-invoice-contact{grid-template-columns:minmax(0,1fr);gap:10px}
+ #invoiceEditContent .jl-invoice-info-col + .jl-invoice-info-col{border-left:0;border-top:1px solid var(--border);padding-left:0;padding-top:9px}
 }
 @media screen and (max-width:520px){
  #invoiceEditModal .modal-panel{padding:12px!important}
@@ -16289,61 +16307,28 @@ content.innerHTML = `
   </div>
 
 
-<!-- CLIENT / VÉHICULE -->
-<div class="jl-invoice-contact" style="
-  border:1px solid #444;
-  border-radius:8px;
-  padding:12px;
-  margin-bottom:15px;
-  background:#2b2b2b;
-  color:#f1f1f1;
-">
-  <div style="
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  margin-bottom:6px;
-">
-
-  <!-- COLONNE GAUCHE : CLIENT + ADRESSE -->
-  <div>
-    <div>
-      <span style="color:#aaa;">Client :</span>
-      <b style="color:#fff;">${inv.customer || ""}</b>
+<!-- CLIENT / VÉHICULE — deux colonnes compactes -->
+<div class="jl-invoice-contact">
+  <section class="jl-invoice-info-col" aria-label="Informations du client">
+    <div class="jl-invoice-info-heading">
+      <span>Client</span>
+      <strong>${escapeHTML(String(inv.customer || "—"))}</strong>
     </div>
-
-    ${clientObj ? `
-      <div style="margin-top:4px; font-size:0.9em; color:#ccc;">
-        ${clientObj.address ? `<div><b>Adresse :</b> ${clientObj.address}</div>` : ""}
-        ${clientObj.phone ? `<div><b>Téléphone :</b> ${clientObj.phone}</div>` : ""}
-      </div>
-    ` : ""}
-  </div>
-
-  <!-- COLONNE DROITE : BADGE -->
-  ${inv.status === "paid" ? `
-    <div class="invoice-paid-badge">
-      PAYÉ (${invoicePaymentMethodLabel(inv.paymentMethod)})
+    ${clientObj?.address ? `<div class="jl-invoice-info-line"><span>Adresse</span><span>${escapeHTML(String(clientObj.address))}</span></div>` : ""}
+    ${clientObj?.phone ? `<div class="jl-invoice-info-line"><span>Téléphone</span><span>${escapeHTML(String(clientObj.phone))}</span></div>` : ""}
+    ${clientObj?.email ? `<div class="jl-invoice-info-line"><span>Courriel</span><span>${escapeHTML(String(clientObj.email))}</span></div>` : ""}
+  </section>
+  <section class="jl-invoice-info-col" aria-label="Informations du véhicule">
+    <div class="jl-invoice-info-heading">
+      <span>Véhicule</span>
+      <strong>${escapeHTML(String(inv.vehicle || "—"))}</strong>
     </div>
-  ` : ""}
+    ${(inv.vehicleKm || vehicleObj?.km) ? `<div class="jl-invoice-info-line"><span>KM</span><span>${escapeHTML(String(inv.vehicleKm || vehicleObj.km))}</span></div>` : ""}
+    ${vehicleObj?.vin ? `<div class="jl-invoice-info-line"><span>VIN</span><span>${escapeHTML(String(vehicleObj.vin))}</span></div>` : ""}
+    ${vehicleObj?.plate ? `<div class="jl-invoice-info-line"><span>Plaque</span><span>${escapeHTML(String(vehicleObj.plate))}</span></div>` : ""}
+  </section>
+  ${inv.status === "paid" ? `<div class="invoice-paid-badge jl-invoice-paid-indicator">PAYÉ (${invoicePaymentMethodLabel(inv.paymentMethod)})</div>` : ""}
 </div>
-
-  <div class="jl-invoice-vehicle" style="margin-top:6px;">
-    <span style="color:#aaa;">Véhicule :</span>
-    <b style="color:#fff;">${inv.vehicle || ""}</b>
-  </div>
-
-  ${vehicleObj ? `
-  <div class="jl-invoice-vehicle-info" style="margin-left:12px; font-size:0.9em; color:#ccc;">
-    ${(inv.vehicleKm || vehicleObj?.km)
-  ? "KM : " + (inv.vehicleKm || vehicleObj.km) + "<br>"
-  : ""}
-    ${vehicleObj.vin ? "VIN : " + vehicleObj.vin + "<br>" : ""}
-    ${vehicleObj.plate ? "Plaque : " + vehicleObj.plate : ""}
-  </div>
-` : ""}
-</div>
-
 
   ${paymentWarning ? `<div role="alert" style="margin:12px 0;padding:10px;border:1px solid #e99b6c;border-radius:7px;color:#ffd29e;">⚠ Anomalie de paiement : ${escapeHTML(paymentWarning)} Vérification manuelle nécessaire; aucun montant modifié automatiquement.</div>` : ""}
   <!-- DÉTAILS -->
