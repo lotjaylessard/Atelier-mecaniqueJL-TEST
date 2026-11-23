@@ -26,10 +26,10 @@ for(const file of files){
  ];
  for(const [regex,label] of checks)if(regex.test(source))errors.push(file+" : "+label);
  // Validate all local runtime resources (not just the two HTML entry points).
- for(const match of source.matchAll(/<(?:script|img|link)\\b[^>]*?\\b(?:src|href)\\s*=\\s*["']([^"']+)["']/gi)){
+ for(const match of source.matchAll(/<(?:script|img|link)\b[^>]*?\b(?:src|href)\s*=\s*["']([^"']+)["']/gi)){
    const uri=match[1];
-   if(/^(?:https?:|data:|blob:|\\/\\/|#)/i.test(uri))continue;
-   const relative=path.posix.normalize(uri.replace(/^\\.\\//,"").split(/[?#]/)[0]);
+   if(/^(?:https?:|data:|blob:|\/\/|#)/i.test(uri))continue;
+   const relative=path.posix.normalize(uri.replace(/^\.\//,"").split(/[?#]/)[0]);
    if(!relative||relative.startsWith("../")||relative.startsWith("/")){
      errors.push(file+" : chemin relatif interdit "+uri);continue;
    }
