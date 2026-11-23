@@ -94,6 +94,12 @@ Dernière révision : 2026-11-22. Branche de travail : `integration-finale`.
 - [x] Script de sauvegarde corrigé pour exporter les soumissions par RPC, recontrôler leurs versions et détecter les changements de membres pendant l'export.
 - [ ] Tester le script dans un navigateur réel et produire un manifeste complet avec tous les octets; aucun export physique terminé à ce stade.
 
+## Vérificateur de sauvegarde physique (code TEST)
+- [x] Ajout de `audit/s08-verify-physical-backup.js` : vérifie hors ligne le manifeste, les empreintes SHA-256, les fichiers physiques, les références des BT, les totaux et le snapshot JSON.
+- [x] `audit/s08-physical-backup.js` calcule désormais `snapshotSha256` et `snapshotBytes` dans le manifeste; le vérificateur compare ces valeurs au fichier JSON réel.
+- [ ] Exécuter et tester les deux scripts dans un navigateur HTTPS compatible File System Access API; vérifier un cas intact et des corruptions volontaires sur une copie.
+- [ ] Vérifier la restauration fonctionnelle dans un environnement isolé. Le vérificateur seul ne constitue pas une restauration.
+
 ## Tests d'acceptation indispensables
 1. Owner A peut lire et modifier A; ne peut ni lire ni modifier B.
 2. Employee A peut effectuer uniquement les actions autorisées sur A; ne voit rien de B.
