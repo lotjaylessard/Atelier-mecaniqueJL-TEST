@@ -128,7 +128,7 @@ async function backup(client,rootFolder,progress=()=>{}){
  const operational={};
  for(const table of ["garage_timer_sessions","garage_calendar_notes","garage_schedule_events"]){
   operational[table]=await pageRows((from,to)=>client.from(table)
-   .select("*").eq("garage_id",garageId).eq("user_id",uid).range(from,to));
+   .select("*").eq("garage_id",garageId).eq("user_id",uid).order("id",{ascending:true}).range(from,to));
   if(operational[table].some(row=>row.garage_id!==garageId||row.user_id!==uid))
    throw Error("Ligne opérationnelle hors compte : "+table);
  }
@@ -213,7 +213,7 @@ async function backup(client,rootFolder,progress=()=>{}){
    manifest.failed.push({path:"garage_quotes",error:"Les soumissions ont changé pendant l'export"});
   for(const [table,rows] of Object.entries(operational)){
    const latest=await pageRows((from,to)=>client.from(table)
-    .select("*").eq("garage_id",garageId).eq("user_id",uid).range(from,to));
+    .select("*").eq("garage_id",garageId).eq("user_id",uid).order("id",{ascending:true}).range(from,to));
    const initial=new Map(rows.map(row=>[row.id,JSON.stringify(row)]));
    if(latest.length!==rows.length || latest.some(row=>!initial.has(row.id)||
       JSON.stringify(row)!==initial.get(row.id)))
