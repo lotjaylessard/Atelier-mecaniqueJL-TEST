@@ -69,3 +69,10 @@ Tests séparés avec `SET LOCAL ROLE authenticated`, claim JWT `sub` simulé et 
 - [x] Propriétaire B, JWT simulé : même `UPDATE` a renvoyé 0 ligne, transaction annulée.
 - [x] La version de la ligne témoin reste à 6 après `ROLLBACK`.
 - [ ] Le test ne valide pas les actions métier complètes dans l'interface ni les autres champs d'écriture.
+
+## Matrice Storage simulée — 2026-11-22
+- [x] Bucket `wo-files` privé (`public=false`), 6 objets dans TEST.
+- [x] SELECT `storage.objects` avec rôle authenticated et JWT `sub` simulé, transactions rollback : propriétaire A 6, employé A 6, propriétaire B 0.
+- [x] Politiques présentes pour SELECT/INSERT/UPDATE/DELETE; UPDATE/DELETE limités au préfixe UID du propriétaire du fichier et aux fichiers non référencés.
+- [ ] Ne valide pas encore le téléchargement réel, les URL signées ni l'affichage des pièces jointes dans le navigateur.
+- [ ] Production inchangée.
