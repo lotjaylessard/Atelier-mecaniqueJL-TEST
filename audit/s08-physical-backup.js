@@ -145,6 +145,10 @@ async function backup(client,rootFolder,progress=()=>{}){
   files:[],failed:[],unresolvedReferences:[],
   note:"Fichiers physiques et données JSON; restauration automatique NON disponible."
  };
+ // Écrire d'abord un manifeste INCOMPLETE : une interruption du navigateur
+ // ou un échec de téléchargement ne doit jamais laisser un dossier ambigu.
+ // Les valeurs de comptage initiales sont provisoires et seront finalisées à la fin.
+ await writeJson(folder,"manifest.json",manifest);
  progress("Inventaire : "+targetPaths.length+" fichier(s) accessibles à vérifier");
  await writeJson(folder,"garage-data.json",{
   format:"atelier-test-full-garage-snapshot-v1",
