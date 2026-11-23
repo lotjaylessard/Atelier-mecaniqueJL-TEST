@@ -63,3 +63,9 @@ Tests séparés avec `SET LOCAL ROLE authenticated`, claim JWT `sub` simulé et 
 - [x] Chacun voit une seule ligne de données garage et sa propre appartenance.
 - [ ] **Non couvert** : véritables sessions navigateur, écritures métier complètes, pièces jointes et sauvegarde/restauration.
 - [ ] Aucun déploiement production.
+
+## Contrôle UPDATE RLS intergarage — 2026-11-22
+- [x] Employé A, JWT simulé : `UPDATE garage_quotes SET version=version+1 WHERE id=... AND version=6 RETURNING...` a renvoyé 1 ligne (version 7), transaction annulée.
+- [x] Propriétaire B, JWT simulé : même `UPDATE` a renvoyé 0 ligne, transaction annulée.
+- [x] La version de la ligne témoin reste à 6 après `ROLLBACK`.
+- [ ] Le test ne valide pas les actions métier complètes dans l'interface ni les autres champs d'écriture.
