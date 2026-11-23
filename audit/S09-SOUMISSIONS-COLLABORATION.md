@@ -50,3 +50,10 @@ Un propriétaire ne voit pas nécessairement les soumissions créées par son em
 - [x] Essais SQL en transaction annulée : UPDATE sans changement d'identité accepté; tentative de changement de `user_id` rejetée avec SQLSTATE 23514.
 - [ ] Le frontend de la liste principale reste limité à l'auteur. Partage complet et tests navigateur en attente.
 - [ ] Production inchangée.
+
+## Mise à jour : liste principale partagée TEST
+- [x] La liste principale et son rechargement après expiration lisent les SO de tout le garage actif, avec `user_id` de chaque créateur.
+- [x] Les SO des collègues sont visibles dans le tableau, mais l'ouverture de leur fiche depuis cette liste est temporairement désactivée (actions non encore sécurisées).
+- [x] L'expiration automatique ne tente plus de modifier les SO des autres auteurs.
+- [x] Commits frontend TEST `86e08ecc` et `e39e48f8`.
+- [ ] Validation navigateur et collaboration d'édition encore en attente.
