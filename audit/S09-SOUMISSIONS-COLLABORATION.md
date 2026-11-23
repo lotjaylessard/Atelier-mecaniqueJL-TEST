@@ -72,3 +72,10 @@ Un propriétaire ne voit pas nécessairement les soumissions créées par son em
 - [ ] Frontend : filtres `user_id` et garde-fous de consultation/édition des collègues restent à adapter avant utilisation.
 - [ ] DELETE reste limité au créateur. Test navigateur et contrôle de concurrence de bout en bout en attente.
 - [ ] Production inchangée.
+
+## Mise à jour : concurrence inter-auteurs TEST
+- [x] Transaction SQL simulée : employé A crée une soumission; propriétaire A réussit un UPDATE conditionnel sur `version`; deuxième UPDATE avec ancienne version affecte 0 ligne.
+- [x] La première modification demeure inchangée; transaction annulée.
+- [ ] Ce test confirme la stratégie UPDATE conditionnelle, pas une contrainte globale de version imposée à toutes les écritures.
+- [ ] Frontend : détails/édition inter-employés encore désactivés dans la liste principale; validation navigateur à faire.
+- [ ] Production inchangée.
