@@ -101,3 +101,10 @@ Un propriétaire ne voit pas nécessairement les soumissions créées par son em
 - [x] Vérification statique de la branche `viewQuote` après commit `516b9dea`.
 - [ ] Vérifier en navigateur les fiches personnelles et collègues et les callbacks asynchrones.
 - [ ] Production inchangée.
+
+## Mise à jour : fail-closed ouverture depuis historique TEST
+- [x] Ouverture ciblée d'une SO historique : inclure `user_id` dans SELECT pour distinguer son auteur.
+- [x] `viewQuote` applique désormais lecture seule si `user_id` absent, utilisateur courant inconnu, ou auteur différent.
+- [x] Commits frontend TEST `b209c94c`, `e0d9fcbd`.
+- [ ] Contrôle statique seulement; tests navigateur à faire.
+- [ ] Production inchangée.
