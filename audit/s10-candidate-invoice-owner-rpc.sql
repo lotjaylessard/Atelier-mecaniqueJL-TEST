@@ -253,7 +253,7 @@ BEGIN
  RETURN jsonb_build_object('dryRun',false,'workOrderNumber',p_workorder_number,
   'invoiceNumber',expected_invoice,'garageVersion',g.version+1);
 END;
-END $function$
+END $function$;
 
 REVOKE ALL ON FUNCTION public.s10_finalize_bt_invoice_owner_candidate(uuid,text,text,bigint,jsonb,boolean) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.s10_finalize_bt_invoice_owner_candidate(uuid,text,text,bigint,jsonb,boolean) FROM anon;
