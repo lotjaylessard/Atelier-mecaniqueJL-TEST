@@ -113,6 +113,12 @@ Dernière révision : 2026-11-22. Branche de travail : `integration-finale`.
 - [ ] Valider en navigateur la RPC paginée, les téléchargements et la sauvegarde COMPLETE avec empreintes réelles.
 - [ ] La fonction SQL donne un inventaire, mais ne prouve pas encore le téléchargement physique.
 
+## Détection de modifications pendant l'export
+- [x] Le script de sauvegarde TEST recontrôle désormais le contenu complet des lignes `garage_data` et `garage_quotes`, et non uniquement les versions.
+- [x] Les identifiants de lignes et leur nombre sont comparés entre le début et la fin de l'export.
+- [ ] Essais d'intégration navigateur requis : simuler une modification pendant le téléchargement, vérifier que `manifest.status` reste `INCOMPLETE`.
+- [ ] Aucun export physique complet ni restauration vérifiée à ce stade.
+
 ## Tests d'acceptation indispensables
 1. Owner A peut lire et modifier A; ne peut ni lire ni modifier B.
 2. Employee A peut effectuer uniquement les actions autorisées sur A; ne voit rien de B.
