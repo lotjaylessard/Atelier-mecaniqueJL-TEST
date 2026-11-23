@@ -54,5 +54,11 @@ async function check(label,patch,expected){
  await check("wrong format",{format:"unknown"},false);
  await check("incomplete",{status:"INCOMPLETE"},false);
  await check("bad hash",{snapshotSha256:"0".repeat(64)},false);
- console.log("S08 verifier: 8 scenarios OK");
+ await check("missing referenced file",{files:[],fileCount:0,totalBytes:0},false);
+ await check("duplicate file paths",{files:[base.files[0],base.files[0]],fileCount:2,totalBytes:2*payload.length},false);
+ await check("wrong attachment digest",{files:[{...base.files[0],sha256:"0".repeat(64)}]},false);
+ await check("wrong file size",{files:[{...base.files[0],bytes:payload.length+1}]},false);
+ await check("missing account in members",{memberIds:["employee-A"]},false);
+ await check("wrong garage",{garageId:"garage-B"},false);
+ console.log("S08 verifier: 14 scenarios OK");
 })().catch(error=>{console.error(error);process.exitCode=1});
