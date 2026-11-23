@@ -48,3 +48,18 @@ PROD : aucune modification autorisée par ce document.
 - [x] La ligne reste intacte. Ne pas l'attribuer automatiquement à un garage ni la supprimer.
 - [ ] Avant migration de cette ligne, comparer son contenu avec les sauvegardes et identifier son rôle historique.
 - [ ] Recette navigateur et restauration physique demeurent les vrais critères bloquants.
+
+## Matrice d'accès RLS simulée — 2026-11-22
+Tests séparés avec `SET LOCAL ROLE authenticated`, claim JWT `sub` simulé et `ROLLBACK`; aucune écriture persistante.
+
+| Identité simulée | garage_data visibles | garage_quotes visibles | memberships visibles |
+|---|---:|---:|---:|
+| Propriétaire A | 1 | 14 | 1 |
+| Employé A | 1 | 14 | 1 |
+| Propriétaire B | 1 | 0 | 1 |
+
+- [x] Propriétaire et employé du garage A lisent les mêmes 14 soumissions.
+- [x] Propriétaire du garage B ne lit aucune soumission du garage A.
+- [x] Chacun voit une seule ligne de données garage et sa propre appartenance.
+- [ ] **Non couvert** : véritables sessions navigateur, écritures métier complètes, pièces jointes et sauvegarde/restauration.
+- [ ] Aucun déploiement production.
