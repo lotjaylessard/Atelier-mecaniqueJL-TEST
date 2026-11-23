@@ -20326,6 +20326,7 @@ if (window.garageSupabase) {
     value("s08ViewTitle","Soumission "+q.quote_number);
     value("s08ViewMeta",String(q.created_at||"").slice(0,10)); // Le statut est déjà affiché dans la pastille colorée.
     // Une SO déjà convertie est en lecture seule : ne pas proposer une nouvelle approbation.
+    const s09ReadOnlyColleague=!!q.user_id&&q.user_id!==s09QuoteViewerUid;
     const converted=q.status==="converted";
     get("s08EditQuote").hidden=!(["draft","sent"].includes(q.status)&&!d.approvalConfirmedAt);
     get("s08ReactivateQuote").hidden=!(["declined","expired"].includes(q.status)&&!d.approvalConfirmedAt);
@@ -20345,8 +20346,17 @@ if (window.garageSupabase) {
        converted?"Rendez-vous annulé — à replanifier. Le BT existant est conservé.":
        "Soumission approuvée — à planifier."):"";
     setStatusPill(get("s08ViewStatusBadge"),q.status==="sent"&&d.approvalConfirmedAt?"approved":q.status);
+    if(s09ReadOnlyColleague){
+      // Fiche consultable, mais aucune action de mutation depuis ce dialogue.
+      for(const id of ["s08EditQuote","s08ReactivateQuote","s08MarkApproved","s08QuickApprove","s08Preflight"]){
+        get(id).hidden=true;
+      }
+      schedule.hidden=true;
+      ++s09BookingsToken;
+      s09BookingsBox.textContent="";
+    }
     const editableStatus=["draft","sent","declined","expired"].includes(q.status)&&!d.approvalConfirmedAt;
-    get("s08StatusPanel").hidden=!editableStatus;
+    get("s08StatusPanel").hidden=s09ReadOnlyColleague||!editableStatus;
     get("s08StatusChoice").value=editableStatus?q.status:"draft";
     updateStatusControl();
     get("s08StatusLabel").textContent="Statut";
@@ -20596,10 +20606,7 @@ if (window.garageSupabase) {
       statusCell.append(pill);tr.append(statusCell);
       // Une ligne = une soumission : clic ou clavier pour consulter, sans colonne Actions.
       if(q.user_id!==s09QuoteViewerUid){
-        // Consultation détaillée et actions réservées à l'auteur jusqu'à sécurisation.
-        tr.title="Soumission d'un collègue — lecture dans la liste seulement";
-        list.append(tr);
-        continue;
+        tr.title="Soumission d'un collègue — consultation en lecture seule";
       }
       tr.classList.add("s08-quote-openable");
       tr.tabIndex=0;
