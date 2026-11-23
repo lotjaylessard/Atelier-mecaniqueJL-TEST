@@ -9,14 +9,14 @@
 - Lecture SQL TEST : 1 garage_data, 14 garage_quotes, 2 garage_members, 1 garages, 3 connexions calendriers externes et 828 événements externes (cache/synchronisation).
 
 ## Ce que ces contrôles NE prouvent PAS
-- Les six octets/fichiers physiques du dossier local n'ont pas été fournis ici : leurs SHA-256 ne sont pas revérifiés indépendamment.
+- Le 23 novembre, PowerShell sur le laptop a exécuté `audit/s08-verify-local-windows.ps1` sur `C:\Test Jeremy\S08-TEST\garage-s08-physical-*` et affiché `INTEGRITE_PARTIELLE_OK : 6 fichiers ; 3995189 octets`. Les six SHA-256 des fichiers et celui du JSON correspondent au manifest. Validation constatée par capture d'écran ; fichiers non transférés au dépôt.
 - Le manifest reste INCOMPLETE par conception ; les métadonnées garages/membres et les connexions externes ne font pas partie du snapshot v1 complet.
 - Les calendriers externes peuvent nécessiter une reconnexion et resynchronisation ; ne jamais exporter des jetons OAuth ou secrets ICS en clair dans un dossier partagé.
 - Aucune restauration réelle vers une instance isolée n'a été exécutée.
 - La couverture actuelle 10/6/1 n'autorise pas à présumer qu'il n'y aura jamais de lignes appartenant à d'autres membres.
 
 ## Prochaines actions non redondantes
-1. Valider localement les SHA-256 des six fichiers physiques avec le préflight hors ligne (une fois le dossier accessible).
+1. [TERMINÉ] Valider localement les SHA-256 des six fichiers physiques et du JSON.
 2. Concevoir et valider un périmètre de restauration tenant complet (métadonnées garages/membres, rôles, données privées et calendrier) sans exposer les secrets.
 3. Restaurer dans un projet Supabase isolé, sans écraser TEST ni PROD ; vérifier les comptes, relations, pièces jointes et accès RLS.
 4. Tester les parcours métier avec propriétaire/employé/deuxième garage, puis sauvegarde et retour arrière PROD avant toute migration autorisée.
