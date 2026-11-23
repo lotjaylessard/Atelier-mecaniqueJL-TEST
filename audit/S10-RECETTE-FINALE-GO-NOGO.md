@@ -41,3 +41,10 @@ PROD : aucune modification autorisée par ce document.
 - [ ] Identifier le statut de la ligne `garage_data` sans garage avant de décider d'un traitement; ne pas la supprimer automatiquement.
 - [ ] Les contrôles SQL de cohérence ne remplacent pas la recette réelle multi-comptes.
 - [ ] Production inchangée.
+
+## Qualification de la ligne historique sans garage — 2026-11-22
+- [x] Ligne `garage_data.garage_id IS NULL` examinée en lecture seule : `version=0`, `updated_at=2026-10-25 18:40:33 UTC`, JSON objet de 7 clés.
+- [x] L'utilisateur associé a 1 membership garage; aucune soumission `garage_quotes` avec cet auteur.
+- [x] La ligne reste intacte. Ne pas l'attribuer automatiquement à un garage ni la supprimer.
+- [ ] Avant migration de cette ligne, comparer son contenu avec les sauvegardes et identifier son rôle historique.
+- [ ] Recette navigateur et restauration physique demeurent les vrais critères bloquants.
