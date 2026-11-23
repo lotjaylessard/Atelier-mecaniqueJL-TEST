@@ -11,6 +11,9 @@ on:
       - audit/test-s08-local-page.cjs
       - audit/test-s08-backup-verifier.cjs
       - audit/test-s08-physical-backup.cjs
+      - audit/s08-verify-partial-export.cjs
+      - audit/s08-stage-local-postgres.cjs
+      - audit/test-s08-stage-local-postgres.cjs
       - audit/s08-restore-preflight.cjs
       - audit/test-s08-restore-preflight.cjs
       - .github/workflows/s08-physical-verifier.yml
@@ -40,3 +43,7 @@ jobs:
         run: node --check audit/s08-restore-preflight.cjs
       - name: Tests de refus du preflight restauration
         run: node audit/test-s08-restore-preflight.cjs
+      - name: Syntaxe du staging partiel S08
+        run: node --check audit/s08-stage-local-postgres.cjs
+      - name: Tests staging partiel et refus sans accès base
+        run: node audit/test-s08-stage-local-postgres.cjs
