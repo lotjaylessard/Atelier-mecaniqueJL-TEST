@@ -24,9 +24,9 @@ try{
  const clients=Array.isArray(data.clients)?data.clients:[];
  const vehicles=clients.flatMap(client=>Array.isArray(client.vehicles)?client.vehicles:[]);
  sections.vehicles={state:"nested-in-clients",count:vehicles.length};
- const clientIds=new Set(clients.map(c=>String(c.id)));
- const vehicleIds=new Set(vehicles.map(v=>String(v.id)));
- if(vehicles.length!==vehicleIds.size)warnings.push("Identifiants de véhicules dupliqués entre clients");
+ const clientIds=new Set(clients.filter(c=>c&&c.id!=null).map(c=>String(c.id)));
+ const vehicleIds=new Set(vehicles.filter(v=>v&&v.id!=null).map(v=>String(v.id)));
+ if(vehicles.length!==vehicleIds.size)warnings.push("Identifiants de véhicules manquants ou dupliqués entre clients");
  for(const client of clients)if(!Array.isArray(client.vehicles))warnings.push("Client sans liste vehicles : "+String(client.id));
  for(const section of ["workorders","invoices"]){
   const rows=Array.isArray(data[section])?data[section]:[];
@@ -38,7 +38,7 @@ try{
   }
  }
 
- for(const name of ["clients","vehicles","workorders","invoices"]){
+ for(const name of ["clients","workorders","invoices"]){
   const value=data[name];
   if(value!==undefined&&!Array.isArray(value))warnings.push(name+" n'est pas une liste");
   if(Array.isArray(value)){
