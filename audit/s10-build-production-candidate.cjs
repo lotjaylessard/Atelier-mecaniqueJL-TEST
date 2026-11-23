@@ -44,7 +44,7 @@ try{
        "/* PROD candidate: cloud garage_data is authoritative after membership checks.\n   Do not import browser legacy data, TEST data or unsynced recovery snapshots.\n   Preserve old localStorage keys; require verified PROD backup before cutover. */",file);
      if(!html.includes("configureGarageStorage(ACTIVE_GARAGE_ID)")||
         !html.includes("const cloudLoaded = await loadCloudData()")||
-        !html.includes("hydrateLocalFromCloud(cloudData)")||
+        !/\bhydrateLocalFromCloud\(cloudData\)\s*;/.test(html)||
         !html.includes(".createSignedUrl("))
        fail("Cloud hydration / garage isolation / signed file URL guard missing");
    }
