@@ -8,8 +8,8 @@ const prodUrl="https://feeapfylfzlvgnqtglnh.supabase.co",prodKey="sb_publishable
 function run(out,url=prodUrl,key=prodKey){return cp.spawnSync(process.execPath,[builder,src,out,url,key],{encoding:"utf8"})}
 try{
  const initial=`const db="${testUrl}"; const key="${testKey}";
- // TEST uniquement : espace local distinct de la production GitHub Pages.
- // Ne jamais lire, migrer ou effacer les anciennes cles de production.
+// TEST uniquement : espace local distinct de la production GitHub Pages.
+// Ne jamais lire, migrer ou effacer les anciennes cles de production.
  const TEST_STORAGE_PREFIX = "ar_test_nraijzsodgojkpyigefu";
  let k = \`\${TEST_STORAGE_PREFIX}_bootstrap_invoices_v2\`;
  function configureGarageStorage(garageId){return \`\${TEST_STORAGE_PREFIX}_\${garageId}_invoices_v2\`;}
@@ -19,9 +19,9 @@ try{
  const cloudLoaded = await loadCloudData();
  hydrateLocalFromCloud(cloudData);
  sb.storage.from("wo-files").createSignedUrl(path,3600);
- /* MIGRATION DES ANCIENNES CLES DESACTIVEE EN TEST.
-    Ne jamais recopier les donnees locales de production dans TEST.
-    La base Supabase TEST est la seule source pour l'hydratation initiale. */`;
+/* MIGRATION DES ANCIENNES CLES DESACTIVEE EN TEST.
+   Ne jamais recopier les donnees locales de production dans TEST.
+   La base Supabase TEST est la seule source pour l'hydratation initiale. */`;
  fs.writeFileSync(path.join(src,"index.html"),initial);
  fs.writeFileSync(path.join(src,"login.html"),`const db="${testUrl}"; const key="${testKey}";`);
  fs.mkdirSync(path.join(src,"img"));fs.writeFileSync(path.join(src,"img","logov2.png"),"static-only");
