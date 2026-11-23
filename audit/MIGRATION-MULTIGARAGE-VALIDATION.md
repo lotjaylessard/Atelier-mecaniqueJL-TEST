@@ -79,6 +79,14 @@ Dernière révision : 2026-11-22. Branche de travail : `integration-finale`.
 - [ ] Préserver tous les fichiers non référencés lors des sauvegardes; ne rien supprimer automatiquement.
 - [ ] Vérifier l'intégrité binaire et les liens signés après transfert.
 
+## Préparation des sauvegardes physiques multi-membres
+- [x] Script `audit/s08-physical-backup.js` modifié sur `integration-finale` : export par garage, énumération des dossiers de tous les membres, fichiers référencés et non référencés, soumissions du garage.
+- [x] Migration TEST `owner_only_backup_member_inventory_test` : RPC `public.backup_garage_member_ids`, réservée au propriétaire du garage.
+- [x] Tests SQL simulés : propriétaire A obtient deux membres; employé A et propriétaire B n'obtiennent aucun membre du garage A.
+- [ ] Exécuter réellement la sauvegarde sur navigateur compatible, avec dossier local choisi par le propriétaire et session authentifiée.
+- [ ] Vérifier manifest `COMPLETE`, empreintes SHA-256, intégrité binaire, et restauration d'essai.
+- [ ] Revalider le script en navigateur; aucune sauvegarde physique n'a encore été produite.
+
 ## Tests d'acceptation indispensables
 1. Owner A peut lire et modifier A; ne peut ni lire ni modifier B.
 2. Employee A peut effectuer uniquement les actions autorisées sur A; ne voit rien de B.
