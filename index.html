@@ -20326,7 +20326,7 @@ if (window.garageSupabase) {
     value("s08ViewTitle","Soumission "+q.quote_number);
     value("s08ViewMeta",String(q.created_at||"").slice(0,10)); // Le statut est déjà affiché dans la pastille colorée.
     // Une SO déjà convertie est en lecture seule : ne pas proposer une nouvelle approbation.
-    const s09ReadOnlyColleague=!!q.user_id&&q.user_id!==s09QuoteViewerUid;
+    const s09ReadOnlyColleague=!q.user_id||!s09QuoteViewerUid||q.user_id!==s09QuoteViewerUid;
     const converted=q.status==="converted";
     get("s08EditQuote").hidden=!(["draft","sent"].includes(q.status)&&!d.approvalConfirmedAt);
     get("s08ReactivateQuote").hidden=!(["declined","expired"].includes(q.status)&&!d.approvalConfirmedAt);
