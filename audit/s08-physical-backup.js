@@ -106,23 +106,32 @@ async function backup(client,rootFolder,progress=()=>{}){
  if(auth.error||!user?.id)throw Error("Connexion Supabase requise");
  const uid=user.id;
  if(!validPath(uid))throw Error("Compte invalide");
+ const memberships=await pageRows((from,to)=>client.from("garage_members")
+  .select("garage_id,user_id,role").eq("user_id",uid).range(from,to));
+ if(memberships.length!==1 || memberships[0].role!=="owner")
+  throw Error("Sauvegarde complète réservée au propriétaire d’un seul garage");
+ const garageId=memberships[0].garage_id;
+ const members=await pageRows((from,to)=>client.from("garage_members")
+  .select("garage_id,user_id,role").eq("garage_id",garageId).range(from,to));
+ if(!members.some(m=>m.user_id===uid && m.role==="owner") ||
+    members.some(m=>m.garage_id!==garageId))throw Error("Membres incohérents");
  const garages=await pageRows((from,to)=>client.from("garage_data")
   .select("garage_id,user_id,data,version,updated_at")
-  .eq("user_id",uid).range(from,to));
- if(!garages.length)throw Error("Aucune donnée garage liée à ce compte");
- if(garages.some(g=>g.user_id!==uid))throw Error("Données d'un autre compte : export refusé");
+  .eq("garage_id",garageId).range(from,to));
+ if(garages.length!==1 || garages[0].user_id!==uid)
+  throw Error("Snapshot garage absent ou propriétaire incohérent");
  const quotes=await pageRows((from,to)=>client.from("garage_quotes")
-  .select("*").eq("user_id",uid).order("created_at",{ascending:true}).range(from,to));
- if(quotes.some(q=>q.user_id!==uid))throw Error("Soumission appartenant à un autre compte");
+  .select("*").eq("garage_id",garageId).order("created_at",{ascending:true}).range(from,to));
+ if(quotes.some(q=>q.garage_id!==garageId))throw Error("Soumission hors garage");
  const refs=pathsFromGarages(garages);
- const owned=await listOwned(client,uid);
+ const owned=[...new Set((await Promise.all(members.map(m=>listOwned(client,m.user_id)))).flat())].sort();
  const targetPaths=[...new Set([...owned,...refs])].sort();
  const stamp=new Date().toISOString().replace(/[:.]/g,"-");
  const folder=await rootFolder.getDirectoryHandle("garage-s08-physical-"+stamp,{create:true});
  const filesFolder=await folder.getDirectoryHandle("files",{create:true});
  const manifest={
   format:"atelier-test-physical-backup-v1",
-  accountId:uid,createdAt:new Date().toISOString(),
+  accountId:uid,garageId,memberIds:members.map(m=>m.user_id),createdAt:new Date().toISOString(),
   source:"Supabase TEST",
   bucket:BUCKET,bytesIncluded:true,status:"INCOMPLETE",
   garageCount:garages.length,quoteCount:quotes.length,
@@ -158,22 +167,22 @@ async function backup(client,rootFolder,progress=()=>{}){
    manifest.failed.push({path:"auth",error:"Compte différent à la fin de l'export"});
   // A file added/removed while exporting must not silently disappear
   // from a backup marked COMPLETE.
-  const ownedAfter=await listOwned(client,uid);
+  const ownedAfter=[...new Set((await Promise.all(members.map(m=>listOwned(client,m.user_id)))).flat())].sort();
   if(ownedAfter.length!==owned.length ||
      ownedAfter.some((path,index)=>path!==owned[index]))
    manifest.failed.push({path:"wo-files",error:"L'inventaire Storage a changé pendant l'export"});
   const latestQuotes=await pageRows((from,to)=>client.from("garage_quotes")
-   .select("id,user_id,version").eq("user_id",uid)
+   .select("id,user_id,garage_id,version").eq("garage_id",garageId)
    .order("created_at",{ascending:true}).range(from,to));
   const quoteVersions=new Map(quotes.map(q=>[q.id,String(q.version)]));
   if(latestQuotes.length!==quotes.length ||
-    latestQuotes.some(q=>q.user_id!==uid||
+    latestQuotes.some(q=>q.garage_id!==garageId||
       quoteVersions.get(q.id)!==String(q.version)))
    manifest.failed.push({path:"garage_quotes",error:"Les soumissions ont changé pendant l'export"});
   // Verify that all referenced BT paths were saved, including old shared files.
  
   const versions=await pageRows((from,to)=>client.from("garage_data")
-   .select("garage_id,version,user_id").eq("user_id",uid).range(from,to));
+   .select("garage_id,version,user_id").eq("garage_id",garageId).range(from,to));
   const original=new Map(garages.map(g=>[g.garage_id,String(g.version)]));
   if(versions.length!==garages.length ||
      versions.some(v=>v.user_id!==uid||!original.has(v.garage_id)||
