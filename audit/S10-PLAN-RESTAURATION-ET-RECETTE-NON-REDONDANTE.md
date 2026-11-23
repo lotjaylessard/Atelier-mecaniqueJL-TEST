@@ -46,3 +46,12 @@ Refaire un test SQL uniquement si sa fonction/policy a changé ou si une anomali
 - [x] GitHub indique une branche sans divergence (fusion fast-forward techniquement possible), **mais aucune fusion n'est autorisée par cette constatation**.
 - [ ] Avant fusion, recette réelle et restauration isolée toujours obligatoires; préserver une référence exacte de commit, faire un diff de déploiement et garder un retour arrière vérifiable.
 - [ ] Ne pas confondre GitHub `main` de TEST avec le dépôt/site de production; vérifier la cible exacte avant tout déploiement.
+
+
+## Écart bloquant confirmé — couverture des tables SQL (23 novembre 2026)
+
+Lecture seule du schéma et des comptages Supabase **TEST** : l'export physique `audit/s08-physical-backup.js` couvre `garage_data`, `garage_quotes` et les objets Storage, mais **n'exporte pas** les tables relationnelles du minuteur et de l'horaire.
+
+Comptages TEST au moment du contrôle : `garage_timer_sessions` 10, `garage_calendar_notes` 6, `garage_schedule_events` 1, `garage_external_calendar_connections` 3, `garage_external_calendar_events` 828, `garage_external_calendar_tokens` 1, `garage_familywall_feed_secrets` 2, `garage_external_oauth_states` 4.
+
+**Décision : NO-GO sauvegarde/restauration complète.** Prioriser une sauvegarde/restauration tenant-scoped des sessions minuteur, notes et événements de planning, avec contrôle des propriétaires, IDs et nombres. Pour les connexions externes, distinguer les événements dérivés (re-synchronisables) des paramètres nécessaires à la reconnexion. Ne jamais inclure les tokens OAuth, secrets iCal ou états OAuth bruts dans une archive locale non chiffrée : prévoir réautorisation ou sauvegarde chiffrée avec procédure dédiée. Aucune modification PROD ou SQL n'a été effectuée lors de ce contrôle.
