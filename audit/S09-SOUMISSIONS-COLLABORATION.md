@@ -24,3 +24,10 @@ Un propriétaire ne voit pas nécessairement les soumissions créées par son em
 - [x] Plan d'action documenté.
 - [ ] Changement RLS et frontend non effectué : nécessite modification coordonnée et tests.
 - [ ] Aucune modification en production.
+
+## Mise à jour : lecture partagée TEST
+- [x] Migration Supabase TEST `s09_quotes_shared_read_only_test` : SELECT de `garage_quotes` autorisé pour propriétaire/employé du même garage.
+- [x] Tests SQL simulant JWT : propriétaire A = 14 soumissions du garage A; employé A = 14; propriétaire B = aucune du garage A.
+- [ ] Le frontend filtre toujours par `user_id` dans plusieurs requêtes : **lecture partagée non encore fonctionnelle dans l'interface**.
+- [ ] UPDATE/DELETE demeurent limités à l'auteur; règles de collaboration non finalisées.
+- [ ] Aucun changement en production.
