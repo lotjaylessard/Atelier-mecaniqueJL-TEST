@@ -15,7 +15,7 @@ button:disabled{opacity:.45;cursor:default}input{max-width:95%;padding:9px;borde
 <p class="notice">Choisis un dossier sur ton ordinateur. L'outil télécharge les fichiers accessibles de ton compte TEST, les vérifie avec SHA-256 et sauvegarde aussi le JSON du garage, des notes et des soumissions. Ne ferme pas cette page pendant le processus.</p>
 <p>La restauration automatique demeure désactivée. Pour l'instant, l'export reste volontairement <strong>INCOMPLET</strong> tant que la couverture des données des autres membres et la restauration isolée ne sont pas validées. Même sans erreur de téléchargement, ne l'utilise pas comme sauvegarde complète.</p>
 <div id="login" hidden>
-<p>Connexion au compte propriétaire TEST sur cette adresse locale.</p>
+<p>Connexion au compte propriétaire TEST sur cette adresse locale. La session ne sera pas conservée après fermeture ou rechargement de la page.</p>
 <label>Courriel <input id="email" type="email" autocomplete="username"></label>
 <label>Mot de passe <input id="password" type="password" autocomplete="current-password"></label>
 <button id="signin" type="button">Se connecter à TEST</button>
@@ -27,7 +27,7 @@ button:disabled{opacity:.45;cursor:default}input{max-width:95%;padding:9px;borde
 <script src="./s08-physical-backup.js"></script>
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/+esm";
-const client=createClient("https://nraijzsodgojkpyigefu.supabase.co","sb_publishable_s0hqtqnGd4KgeyVr2Y4ltg_dI4qhjcA",{auth:{persistSession:true}});
+const client=createClient("https://nraijzsodgojkpyigefu.supabase.co","sb_publishable_s0hqtqnGd4KgeyVr2Y4ltg_dI4qhjcA",{auth:{persistSession:false,autoRefreshToken:false}});
 const btn=document.getElementById("start"),status=document.getElementById("status");
 const login=document.getElementById("login"),signin=document.getElementById("signin");
 async function prepare(){
