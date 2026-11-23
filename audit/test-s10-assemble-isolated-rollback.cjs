@@ -10,5 +10,8 @@ assert.match(s,/CREATE POLICY/);
 assert.match(s,/CREATE INDEX/);
 assert.match(s,/ADD CONSTRAINT/);
 assert.match(s,/ADD COLUMN IF NOT EXISTS garage_id/);
+assert.doesNotMatch(s,/ADD CONSTRAINT "garage_data_pkey"/);
+assert.doesNotMatch(s,/ADD CONSTRAINT "garage_data_user_id_fkey"/);
+assert.match(s,/CASCADE.*RESTRICT/);
 assert.doesNotMatch(s,/DROP TABLE|TRUNCATE|DELETE FROM garage_data|UPDATE garage_data/i);
 console.log("S10_SQL_ASSEMBLY_TESTS_OK: SQL transactionnel, rollback, contraintes, index, RLS, aucune suppression de données.");
