@@ -57,3 +57,10 @@ Un propriétaire ne voit pas nécessairement les soumissions créées par son em
 - [x] L'expiration automatique ne tente plus de modifier les SO des autres auteurs.
 - [x] Commits frontend TEST `86e08ecc` et `e39e48f8`.
 - [ ] Validation navigateur et collaboration d'édition encore en attente.
+
+## Mise à jour : test de soumission créée par un employé
+- [x] Transaction SQL TEST : création d'une SO par employé A (avec `clientName` requis par trigger de numérotation).
+- [x] Assertions SQL : propriétaire A lit exactement 1 SO créée par employé A; propriétaire B lit 0.
+- [x] Transaction annulée : aucune SO de test conservée.
+- [ ] Pas de test JWT navigateur réel ni de validation du workflow de modification.
+- [ ] Production inchangée.
