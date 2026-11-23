@@ -1,40 +1,71 @@
 #!/usr/bin/env node
-/* S10: construit un paquet candidat PROD en dossier séparé.
- * Ne déploie rien, ne contacte aucun serveur, ne modifie jamais les sources.
- * Usage:
- * node audit/s10-build-production-candidate.cjs <dossier-source-TEST> <dossier-sortie-NOUVEAU> <url-Supabase-PROD> <clé-publique-PROD>
+/* S10: prepare an isolated PROD review candidate. Never deploys or writes DB.
+ * Cloud PROD remains the source of truth. Historical browser keys are untouched.
+ * Usage: node audit/s10-build-production-candidate.cjs <TEST-source> <NEW-output> <PROD-url> <PROD-publishable-key>
  */
 "use strict";
 const fs=require("node:fs"),path=require("node:path");
 const [sourceArg,outArg,url,key]=process.argv.slice(2);
-function fail(msg){throw Error(msg)}
+const TEST_REF="nraijzsodgojkpyigefu",PROD_REF="feeapfylfzlvgnqtglnh";
+const testUrl=`https://${TEST_REF}.supabase.co`;
+const testKey="sb_publishable_s0hqtqnGd4KgeyVr2Y4ltg_dI4qhjcA";
+const prefix="ar_prod_"+PROD_REF; // namespaced by project AND active garage at runtime
+function fail(message){throw Error(message)}
+function replaceExactly(source,marker,replacement,file){
+ const count=source.split(marker).length-1;
+ if(count!==1)fail(file+": expected exactly one marker "+marker+"; found "+count);
+ return source.replace(marker,replacement);
+}
 try{
- if(!sourceArg||!outArg||!url||!key)fail("Usage: node audit/s10-build-production-candidate.cjs <source> <sortie-nouvelle> <url-prod> <clé-publique-prod>");
+ if(!sourceArg||!outArg||!url||!key)fail("Usage: node audit/s10-build-production-candidate.cjs <source> <new-output> <prod-url> <prod-publishable-key>");
  const src=fs.realpathSync(sourceArg),out=path.resolve(outArg);
- if(out===src||out.startsWith(src+path.sep)||src.startsWith(out+path.sep)||fs.existsSync(out))fail("Dossier de sortie doit être nouveau et séparé des sources");
- if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(url)||url.includes("nraijzsodgojkpyigefu"))fail("URL PROD invalide ou TEST");
- if(!/^sb_publishable_[a-zA-Z0-9_-]{10,}$/.test(key)||key==="sb_publishable_s0hqtqnGd4KgeyVr2Y4ltg_dI4qhjcA")fail("Clé publique PROD invalide ou TEST");
- const files=["index.html","login.html"];
- const testUrl="https://nraijzsodgojkpyigefu.supabase.co",testKey="sb_publishable_s0hqtqnGd4KgeyVr2Y4ltg_dI4qhjcA";
- const replacements={};
- for(const file of files){
-  let s=fs.readFileSync(path.join(src,file),"utf8");
-  if(!s.includes(testUrl)||!s.includes(testKey))fail("Marqueurs TEST attendus manquants dans "+file);
-  s=s.replaceAll(testUrl,url).replaceAll(testKey,key);
-  // Le préfixe TEST ne doit jamais être copié tel quel en production.
-  // La stratégie de stockage PROD doit être approuvée avant de générer un paquet.
-  if(file==="index.html"){
-   const marker='const TEST_STORAGE_PREFIX = "ar_test_nraijzsodgojkpyigefu";';
-   if(!s.includes(marker))fail("Préfixe TEST introuvable; adaptation manuelle nécessaire");
-   s=s.replace(marker,'const GARAGE_STORAGE_PREFIX = "ar_prod_candidate";\nconst TEST_STORAGE_PREFIX = GARAGE_STORAGE_PREFIX;');
-   // Ne pas prétendre restaurer les anciennes clés locales.
-   s=s.replace('MIGRATION DES ANCIENNES CLES DESACTIVEE EN TEST.','MIGRATION DES ANCIENNES CLES NON VALIDEE POUR PROD.');
-  }
-  replacements[file]=s;
+ if(out===src||out.startsWith(src+path.sep)||src.startsWith(out+path.sep)||fs.existsSync(out))
+   fail("Output must be NEW and separate from sources");
+ if(url!==`https://${PROD_REF}.supabase.co`)fail("Wrong PROD project URL");
+ if(!/^sb_publishable_[a-zA-Z0-9_-]{10,}$/.test(key)||key===testKey)fail("PROD publishable key required (never service_role)");
+ const result={};
+ for(const file of ["index.html","login.html"]){
+   let html=fs.readFileSync(path.join(src,file),"utf8");
+   if(!html.includes(testUrl)||!html.includes(testKey))fail(file+": TEST configuration markers missing");
+   html=html.replaceAll(testUrl,url).replaceAll(testKey,key);
+   if(file==="index.html"){
+     html=replaceExactly(html,
+       'const TEST_STORAGE_PREFIX = "ar_test_nraijzsodgojkpyigefu";',
+       `const PROD_STORAGE_PREFIX = "${prefix}";`,file);
+     // All cached garage keys and recoverable-unsynced markers keep the same
+     // logic but now use a PROD-only prefix. Legacy ar_<user>_* keys are neither
+     // read nor deleted; verified PROD garage_data hydrates the new cache.
+     html=html.replaceAll("TEST_STORAGE_PREFIX","PROD_STORAGE_PREFIX");
+     html=replaceExactly(html,
+       "// TEST uniquement : espace local distinct de la production GitHub Pages.\n// Ne jamais lire, migrer ou effacer les anciennes cles de production.",
+       "// PROD candidate: namespace cache by project and garage.\n// Preserve historical ar_<user>_* local keys without reading or deleting them.",file);
+     html=replaceExactly(html,
+       "/* MIGRATION DES ANCIENNES CLES DESACTIVEE EN TEST.\n   Ne jamais recopier les donnees locales de production dans TEST.\n   La base Supabase TEST est la seule source pour l'hydratation initiale. */",
+       "/* PROD candidate: cloud garage_data is authoritative after membership checks.\n   Do not import browser legacy data, TEST data or unsynced recovery snapshots.\n   Preserve old localStorage keys; require verified PROD backup before cutover. */",file);
+     if(!html.includes("configureGarageStorage(ACTIVE_GARAGE_ID)")||
+        !html.includes("const cloudLoaded = await loadCloudData()")||
+        !html.includes("hydrateLocalFromCloud(cloudData)")||
+        !html.includes(".createSignedUrl("))
+       fail("Cloud hydration / garage isolation / signed file URL guard missing");
+   }
+   if(html.includes(TEST_REF)||html.includes(testKey)||html.includes("TEST_STORAGE_PREFIX"))
+     fail(file+": TEST identifier remains after conversion");
+   result[file]=html;
  }
  fs.mkdirSync(out,{recursive:false});
- for(const [file,s] of Object.entries(replacements))fs.writeFileSync(path.join(out,file),s,{mode:0o600});
- fs.writeFileSync(path.join(out,"NO-GO-PROTOTYPE.txt"),"PROTOTYPE NON DEPLOYABLE. Préfixe de stockage provisoire, données locales PROD non migrées, autres ressources et contrôles manquants. Ne jamais publier ce dossier.\n");
- console.log("S10_PROTOTYPE_CREATED_NOT_DEPLOYABLE : "+out);
- console.log("ATTENTION: prototype de configuration uniquement. Pas de déploiement, pas de migration localStorage, pas de validation RLS/Auth/Storage. NO-GO.");
-}catch(e){console.error("S10_BUILD_REFUSED: "+e.message);process.exitCode=1}
+ for(const [file,html] of Object.entries(result))
+   fs.writeFileSync(path.join(out,file),html,{mode:0o600});
+ // Copy static assets as-is, not TEST business data, backups or configuration.
+ const logo=path.join(src,"img","logov2.png");
+ if(fs.existsSync(logo)){
+   fs.mkdirSync(path.join(out,"img"));
+   fs.copyFileSync(logo,path.join(out,"img","logov2.png"));
+ }
+ fs.writeFileSync(path.join(out,"NO-GO-PROTOTYPE.txt"),
+   "PRODUCTION REVIEW CANDIDATE -- NOT DEPLOYABLE.\n"+
+   "Cloud PROD is authoritative, existing localStorage keys must remain untouched.\n"+
+   "STOP until verified PROD backup/restore, multi-user browser QA, RLS/storage "+
+   "cutover and Edge Functions configuration are completed.\n");
+ console.log("S10_PROD_REVIEW_CANDIDATE_CREATED_NOT_DEPLOYABLE : "+out);
+ console.log("No database changes, no legacy browser data migration, no production deploy.");
+}catch(err){console.error("S10_BUILD_REFUSED: "+err.message);process.exitCode=1}
