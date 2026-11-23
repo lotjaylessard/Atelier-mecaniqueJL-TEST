@@ -1,0 +1,15 @@
+"use strict";
+const fs=require("node:fs"),path=require("node:path"),assert=require("node:assert/strict");
+const code=fs.readFileSync(path.join(__dirname,"s10-local-post-phase-1-to-4-integrity-READ-ONLY.psql"),"utf8");
+assert.match(code,/BEGIN READ ONLY;/);
+assert.match(code,/ROLLBACK;/);
+assert.match(code,/current_database\(\)<>\x27atelier_jl_restore_test\x27/);
+assert.match(code,/LOCAL_SCHEMA_INTEGRITY_PASS/);
+assert.match(code,/LOCAL_SCHEMA_INTEGRITY_FAIL/);
+assert.match(code,/missing_references=0/);
+assert.match(code,/new_tables_without_rls=0/);
+assert.match(code,/imported_quotes=0/);
+assert.match(code,/imported_tokens=0/);
+assert.match(code,/imported_feeds=0/);
+assert.doesNotMatch(code,/\b(?:CREATE TABLE|ALTER TABLE|INSERT INTO|DELETE FROM|TRUNCATE TABLE|DROP TABLE|COMMIT;)\b/i);
+console.log("S10_LOCAL_PHASE_REVIEW_STATIC_OK");
