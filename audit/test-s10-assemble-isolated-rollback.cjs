@@ -1,0 +1,14 @@
+"use strict";
+const assert=require("node:assert/strict"),cp=require("node:child_process"),path=require("node:path");
+const r=cp.spawnSync(process.execPath,[path.join(__dirname,"s10-assemble-isolated-rollback.cjs")],{encoding:"utf8",maxBuffer:3e6});
+assert.equal(r.status,0,r.stderr);
+const s=r.stdout;
+assert.ok(s.startsWith("BEGIN;"));
+assert.ok(s.trimEnd().endsWith("ROLLBACK;"));
+assert.doesNotMatch(s,/\bCOMMIT\s*;/i);
+assert.match(s,/CREATE POLICY/);
+assert.match(s,/CREATE INDEX/);
+assert.match(s,/ADD CONSTRAINT/);
+assert.match(s,/ADD COLUMN IF NOT EXISTS garage_id/);
+assert.doesNotMatch(s,/DROP TABLE|TRUNCATE|DELETE FROM garage_data|UPDATE garage_data/i);
+console.log("S10_SQL_ASSEMBLY_TESTS_OK: SQL transactionnel, rollback, contraintes, index, RLS, aucune suppression de données.");
