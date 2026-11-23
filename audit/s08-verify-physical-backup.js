@@ -57,6 +57,16 @@ async function verify(folder,progress=()=>{}){
   failures.push("Soumissions dupliquées");
  if(new Set(snapshot.garages.map(g=>g.garage_id)).size!==snapshot.garages.length)
   failures.push("Garages dupliqués");
+ const operationalTables=["garage_timer_sessions","garage_calendar_notes","garage_schedule_events"];
+ for(const table of operationalTables){
+  const rows=snapshot.operational?.[table];
+  if(!Array.isArray(rows) || !manifest.operationalCounts ||
+     manifest.operationalCounts[table]!==rows.length ||
+     new Set(rows?.map(row=>row?.id)).size!==rows?.length ||
+     rows?.some(row=>!row?.id||row.garage_id!==manifest.garageId||
+       row.user_id!==manifest.accountId))
+   failures.push("Données opérationnelles du propriétaire incohérentes : "+table);
+ }
  const refs=new Set();
  for(const garage of snapshot.garages){
   for(const wo of (Array.isArray(garage.data?.workorders)?garage.data.workorders:[])){
