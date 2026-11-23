@@ -63,6 +63,15 @@ Dernière révision : 2026-11-22. Branche de travail : `integration-finale`.
 - [x] Tous les scénarios utilisent `ROLLBACK`; aucune donnée métier de test conservée.
 - [ ] Vérification navigateur réelle, notamment synchronisation UI et conflits réseau.
 
+## Fichiers privés — correctif TEST et isolation
+- [x] Migration `storage_member_read_same_garage_test` : lecture `wo-files` autorisée aux membres du même garage, via `s08_private.can_read_member_file(name)`; ancien mécanisme d'accès legacy conservé.
+- [x] Employé A : 6/6 objets TEST visibles (4 fichiers du propriétaire et 2 de l'employé).
+- [x] Propriétaire A : 6/6 objets TEST visibles.
+- [x] Propriétaire B : 0 objet du garage A visible.
+- [x] `anon` n'a pas EXECUTE sur la fonction privée; `authenticated` l'a.
+- [x] Les politiques INSERT/UPDATE/DELETE n'ont pas été modifiées et restent limitées au préfixe UID; UPDATE/DELETE exigent un fichier non référencé dans un BT.
+- [ ] Tester les liens signés et le téléchargement en session navigateur; vérifier le comportement de migration des chemins PROD et les fichiers orphelins.
+
 ## Tests d'acceptation indispensables
 1. Owner A peut lire et modifier A; ne peut ni lire ni modifier B.
 2. Employee A peut effectuer uniquement les actions autorisées sur A; ne voit rien de B.
