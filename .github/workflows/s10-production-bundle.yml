@@ -5,6 +5,7 @@ on:
     paths:
       - audit/s10-check-production-bundle.cjs
       - audit/test-s10-production-bundle.cjs
+      - audit/s10-inventory-runtime-dependencies.cjs
       - .github/workflows/s10-production-bundle.yml
   workflow_dispatch:
 permissions:
@@ -28,3 +29,6 @@ jobs:
           else
             echo "OK: la configuration TEST est refusée en production"
           fi
+
+      - name: Inventaire des références TEST dans les fichiers applicatifs
+        run: node audit/s10-inventory-runtime-dependencies.cjs .
