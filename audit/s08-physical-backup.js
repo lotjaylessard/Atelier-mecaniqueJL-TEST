@@ -142,7 +142,7 @@ async function backup(client,rootFolder,progress=()=>{}){
   source:"Supabase TEST",
   bucket:BUCKET,bytesIncluded:true,status:"INCOMPLETE",
   garageCount:garages.length,quoteCount:quotes.length,
-  referencedPaths:refs.length,ownedPaths:owned.length,
+  referencedPaths:refs.length,ownedPaths:owned.length,ownedPathList:owned,
   files:[],failed:[],unresolvedReferences:[],
   note:"Fichiers physiques et données JSON; restauration automatique NON disponible."
  };
