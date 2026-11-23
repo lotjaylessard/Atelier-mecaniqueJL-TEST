@@ -1,0 +1,52 @@
+-- S10 / physical PROD restore integrity, READ ONLY; never run against live Supabase.
+-- Does not export personal data, filenames, identifiers or attachment URLs.
+\set ON_ERROR_STOP on
+BEGIN READ ONLY;
+DO $guard$
+BEGIN
+ IF current_database() <> 'atelier_jl_restore_test'
+    OR inet_server_addr() IS DISTINCT FROM inet '127.0.0.1'
+       AND inet_server_addr() IS DISTINCT FROM inet '::1'
+       AND inet_server_addr() IS NOT NULL THEN
+   RAISE EXCEPTION 'REFUSED: local database atelier_jl_restore_test required';
+ END IF;
+ IF to_regclass('public.garage_data') IS NULL
+    OR to_regclass('storage.objects') IS NULL
+    OR to_regclass('auth.users') IS NULL THEN
+   RAISE EXCEPTION 'REFUSED: incomplete local backup';
+ END IF;
+END $guard$;
+WITH garage AS (
+ SELECT user_id, data,
+  jsonb_array_length(CASE WHEN jsonb_typeof(data->'clients')='array' THEN data->'clients' ELSE '[]'::jsonb END) AS clients,
+  jsonb_array_length(CASE WHEN jsonb_typeof(data->'workorders')='array' THEN data->'workorders' ELSE '[]'::jsonb END) AS workorders,
+  jsonb_array_length(CASE WHEN jsonb_typeof(data->'invoices')='array' THEN data->'invoices' ELSE '[]'::jsonb END) AS invoices
+ FROM public.garage_data
+), attachments AS (
+ SELECT a.value->>'path' AS path
+ FROM public.garage_data d
+ CROSS JOIN LATERAL jsonb_array_elements(
+ CASE WHEN jsonb_typeof(d.data->'workorders')='array' THEN d.data->'workorders' ELSE '[]'::jsonb END) w(value)
+ CROSS JOIN LATERAL jsonb_array_elements(
+ CASE WHEN jsonb_typeof(w.value->'attachments')='array' THEN w.value->'attachments' ELSE '[]'::jsonb END) a(value)
+)
+SELECT jsonb_build_object(
+ 'local_database',current_database(),
+ 'garage_data_rows',(SELECT count(*) FROM garage),
+ 'valid_owner_auth_rows',(SELECT count(*) FROM garage g JOIN auth.users u ON g.user_id=u.id),
+ 'clients',(SELECT coalesce(sum(clients),0) FROM garage),
+ 'workorders',(SELECT coalesce(sum(workorders),0) FROM garage),
+ 'invoices',(SELECT coalesce(sum(invoices),0) FROM garage),
+ 'source_json_hash',(SELECT md5(data::text) FROM garage LIMIT 1),
+ 'storage_metadata',(SELECT count(*) FROM storage.objects WHERE bucket_id='wo-files'),
+ 'attached_paths',(SELECT count(*) FROM attachments),
+ 'missing_attached_objects',(SELECT count(*) FROM attachments a WHERE NOT EXISTS(
+    SELECT 1 FROM storage.objects o WHERE o.bucket_id='wo-files' AND o.name=a.path
+ )),
+ 'orphaned_objects',(SELECT count(*) FROM storage.objects o WHERE o.bucket_id='wo-files' AND NOT EXISTS(
+    SELECT 1 FROM attachments a WHERE a.path=o.name
+ )),
+ 'runtime_auth_ready',false,
+ 'binary_files_restored',false
+) AS integrity_snapshot;
+ROLLBACK;
