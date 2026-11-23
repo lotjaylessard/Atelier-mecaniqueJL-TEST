@@ -20666,6 +20666,10 @@ if (window.garageSupabase) {
       window.dispatchEvent(new Event("s08-quotes-refreshed"));
     }catch(err){
       console.warn("[S08] Liste des soumissions indisponible",err);
+      // Ne jamais conserver une liste ou un auteur authentifié d'une session précédente.
+      s09QuoteViewerUid=null;
+      quotes=[];
+      renderQuoteList();
       get("s08QuoteCount").textContent="Liste indisponible — vérifier la connexion.";
     }
   }
