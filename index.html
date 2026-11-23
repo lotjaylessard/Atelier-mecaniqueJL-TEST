@@ -20739,7 +20739,7 @@ if (window.garageSupabase) {
         if(authError||!auth?.user?.id)throw Error("Session non vérifiée");
         const {data,error}=await sb.from("garage_quotes")
           .select("id,quote_number,status,content,created_at,version,converted_bt_id")
-          .eq("id",requested).eq("garage_id",garageId).eq("user_id",auth.user.id)
+          .eq("id",requested).eq("garage_id",garageId)
           .maybeSingle();
         if(error)throw error;
         match=data||null;
@@ -20819,7 +20819,7 @@ async function jlHistoryLoadQuotes(){
     if(authError||!auth?.user?.id)throw Error("Session indisponible");
     const {data,error,count}=await db.from("garage_quotes")
       .select("id,quote_number,status,created_at,content",{count:"exact"})
-      .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id)
+      .eq("garage_id",ACTIVE_GARAGE_ID)
       .in("status",["declined","expired"])
       .order("created_at",{ascending:false}).limit(1000);
     if(error)throw error;
