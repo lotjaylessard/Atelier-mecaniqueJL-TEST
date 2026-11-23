@@ -1,0 +1,17 @@
+-- S10: one-command LOCAL RESTORE ONLY, not a production deployment.
+-- Run with: psql -X -v ON_ERROR_STOP=1 -d atelier_jl_restore_test -f audit/s10-local-restore-apply-phases-1-to-4.psql
+-- Run only on a NEW restore of PROD. Phases 1-4 are not idempotent.
+\set ON_ERROR_STOP on
+\connect atelier_jl_restore_test
+DO $$
+BEGIN
+  IF current_database() <> 'atelier_jl_restore_test' THEN
+    RAISE EXCEPTION 'REFUSED: local restore only';
+  END IF;
+END $$;
+\ir s10-phase1-local-additive-garage-data.sql
+\ir s10-phase2-local-garage-members.sql
+\ir s10-phase3-local-operational-tables.sql
+\ir s10-phase4-local-external-calendars.sql
+-- Phases 5-9 and invoice RPC intentionally excluded: Supabase roles, policies,
+-- permissions and API behavior must be integrated in an isolated Supabase target.
