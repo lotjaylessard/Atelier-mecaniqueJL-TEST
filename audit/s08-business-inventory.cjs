@@ -12,7 +12,7 @@ try{
  const snapshot=JSON.parse(fs.readFileSync(path.join(folder,"garage-data.json"),"utf8"));
  const data=snapshot.garages[0].data;
  if(!data||typeof data!=="object"||Array.isArray(data))throw Error("Structure garage.data invalide");
- const names=["clients","vehicles","workorders","invoices","parts_inventory","services","settings"];
+ const names=["clients","workorders","invoices","parts_inventory","services","settings"];
  const sections={};
  for(const name of names){
   const value=data[name];
@@ -21,6 +21,23 @@ try{
    {state:typeof value};
  }
  const warnings=[];
+ const clients=Array.isArray(data.clients)?data.clients:[];
+ const vehicles=clients.flatMap(client=>Array.isArray(client.vehicles)?client.vehicles:[]);
+ sections.vehicles={state:"nested-in-clients",count:vehicles.length};
+ const clientIds=new Set(clients.map(c=>String(c.id)));
+ const vehicleIds=new Set(vehicles.map(v=>String(v.id)));
+ if(vehicles.length!==vehicleIds.size)warnings.push("Identifiants de véhicules dupliqués entre clients");
+ for(const client of clients)if(!Array.isArray(client.vehicles))warnings.push("Client sans liste vehicles : "+String(client.id));
+ for(const section of ["workorders","invoices"]){
+  const rows=Array.isArray(data[section])?data[section]:[];
+  for(const row of rows){
+   if(row.clientId!==undefined&&row.clientId!==null&&row.clientId!==""&&!clientIds.has(String(row.clientId)))
+    warnings.push(section+" : référence client introuvable (id "+String(row.id??row.number)+")");
+   if(row.vehicleId!==undefined&&row.vehicleId!==null&&row.vehicleId!==""&&!vehicleIds.has(String(row.vehicleId)))
+    warnings.push(section+" : référence véhicule introuvable (id "+String(row.id??row.number)+")");
+  }
+ }
+
  for(const name of ["clients","vehicles","workorders","invoices"]){
   const value=data[name];
   if(value!==undefined&&!Array.isArray(value))warnings.push(name+" n'est pas une liste");
@@ -39,7 +56,7 @@ try{
   sections,quotes:quotes.length,files:files.length,
   operational:Object.fromEntries(Object.entries(snapshot.operational).map(([name,rows])=>[name,rows.length])),
   warnings,
-  limitations:["Aucune vérification des relations clients/véhicules/BT/factures sans contrat de schéma confirmé",
+  limitations:["Références clientId et vehicleId vérifiées lorsque présentes; anciens enregistrements sans identifiant non résolus",
    "Aucune donnée privée des autres membres garantie","Aucune restauration SQL applicative","Aucun accès PROD"]
  };
  console.log(JSON.stringify(report,null,2));
