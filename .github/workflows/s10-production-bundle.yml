@@ -6,6 +6,8 @@ on:
       - audit/s10-check-production-bundle.cjs
       - audit/test-s10-production-bundle.cjs
       - audit/s10-inventory-runtime-dependencies.cjs
+      - audit/s10-check-edge-functions.cjs
+      - audit/test-s10-edge-functions.cjs
       - audit/s10-build-production-candidate.cjs
       - audit/test-s10-build-production-candidate.cjs
       - audit/s10-check-storage-compat.cjs
@@ -48,3 +50,9 @@ jobs:
           fi
       - name: Tester la génération isolée d'un candidat PROD
         run: node audit/test-s10-build-production-candidate.cjs
+      - name: Tester l'inventaire des Edge Functions
+        run: node audit/test-s10-edge-functions.cjs
+      - name: Signaler les Edge Functions non versionnées sans casser les tests existants
+        run: |
+          node audit/s10-check-edge-functions.cjs . > edge-functions-report.json || true
+          cat edge-functions-report.json
