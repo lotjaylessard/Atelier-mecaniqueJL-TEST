@@ -20750,7 +20750,7 @@ if (window.garageSupabase) {
         const {data:auth,error:authError}=await sb.auth.getUser();
         if(authError||!auth?.user?.id)throw Error("Session non vérifiée");
         const {data,error}=await sb.from("garage_quotes")
-          .select("id,quote_number,status,content,created_at,version,converted_bt_id")
+          .select("id,user_id,quote_number,status,content,created_at,version,converted_bt_id")
           .eq("id",requested).eq("garage_id",garageId)
           .maybeSingle();
         if(error)throw error;
