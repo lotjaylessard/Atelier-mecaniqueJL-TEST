@@ -62,10 +62,10 @@ try{
  ];
  const localLinks=[];
  for(const html of Object.values(result)){
-   for(const match of html.matchAll(/<(?:script|img|link)\\b[^>]*?\\b(?:src|href)\\s*=\\s*["']([^"']+)["']/gi)){
+   for(const match of html.matchAll(/<(?:script|img|link)\b[^>]*?\b(?:src|href)\s*=\s*["']([^"']+)["']/gi)){
      const uri=match[1];
      if(/^(?:https?:|data:|blob:|\/\/|#)/i.test(uri))continue;
-     const normalized=path.posix.normalize(uri.replace(/^\\.\\//,"").split(/[?#]/)[0]);
+     const normalized=path.posix.normalize((uri.startsWith("./")?uri.slice(2):uri).split(/[?#]/)[0]);
      if(!normalized||normalized.startsWith("../")||normalized.startsWith("/"))
        fail("Unexpected relative runtime asset path: "+uri);
      localLinks.push(normalized);
