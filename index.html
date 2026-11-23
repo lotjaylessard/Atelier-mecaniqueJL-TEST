@@ -20334,7 +20334,7 @@ if (window.garageSupabase) {
     get("s08MarkApproved").hidden=q.status!=="sent"||!!d.approvalConfirmedAt;
     get("s08QuickApprove").hidden=!["draft","sent"].includes(q.status)||!d.approvalConfirmedAt;
     const schedule=get("s08SchedulePanel");
-    schedule.hidden=!(["draft","sent","converted"].includes(q.status)&&!!d.approvalConfirmedAt);
+    schedule.hidden=s09ReadOnlyColleague||!(["draft","sent","converted"].includes(q.status)&&!!d.approvalConfirmedAt);
     get("s08ScheduleDate").value=d.appointment?.date||"";
     get("s08ScheduleTime").value=d.appointment?.time||"";
     get("s08ScheduleDuration").value=d.appointment?.durationMinutes||60;
@@ -20351,9 +20351,6 @@ if (window.garageSupabase) {
       for(const id of ["s08EditQuote","s08ReactivateQuote","s08MarkApproved","s08QuickApprove","s08Preflight"]){
         get(id).hidden=true;
       }
-      schedule.hidden=true;
-      ++s09BookingsToken;
-      s09BookingsBox.textContent="";
     }
     const editableStatus=["draft","sent","declined","expired"].includes(q.status)&&!d.approvalConfirmedAt;
     get("s08StatusPanel").hidden=s09ReadOnlyColleague||!editableStatus;
