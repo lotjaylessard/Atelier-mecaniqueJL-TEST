@@ -23,8 +23,13 @@ async function readFile(folder,path){
 async function verify(folder,progress=()=>{}){
  if(!folder?.getFileHandle||!folder?.getDirectoryHandle)throw Error("Dossier local requis");
  const manifest=JSON.parse(await (await readFile(folder,"manifest.json")).text());
- const snapshot=JSON.parse(await (await readFile(folder,"garage-data.json")).text());
+ const snapshotFile=await readFile(folder,"garage-data.json");
+ const snapshotBytes=await snapshotFile.arrayBuffer();
+ const snapshot=JSON.parse(new TextDecoder().decode(snapshotBytes));
  const failures=[];
+ if(!manifest.snapshotSha256||manifest.snapshotBytes!==snapshotBytes.byteLength||
+    await hash(snapshotBytes)!==manifest.snapshotSha256)
+  failures.push("Empreinte du snapshot JSON invalide");
  if(manifest.status!=="COMPLETE")failures.push("Manifeste non COMPLETE");
  if(!Array.isArray(manifest.files)||!Array.isArray(manifest.failed)||
     !Array.isArray(manifest.unresolvedReferences))throw Error("Manifeste invalide");
