@@ -20,6 +20,9 @@ on:
       - audit/test-s10-storage-compat.cjs
       - audit/test-s10-storage-tenant-policy.cjs
       - audit/s10-storage-tenant-isolation-candidate-NOT-EXECUTED.sql
+      - audit/s10-local-restore-business-integrity-READ-ONLY.psql
+      - audit/s10-verify-local-restore-vs-checkpoint.ps1
+      - audit/test-s10-restore-checkpoint.cjs
       - .github/workflows/s10-production-bundle.yml
   workflow_dispatch:
 permissions:
@@ -58,6 +61,8 @@ jobs:
           fi
       - name: Vérifier l'isolation du stockage privé et les liens signés
         run: node audit/test-s10-storage-tenant-policy.cjs
+      - name: Verifier le garde-fou de controle de restauration locale
+        run: node audit/test-s10-restore-checkpoint.cjs
       - name: Tester la génération isolée d'un candidat PROD
         run: node audit/test-s10-build-production-candidate.cjs
       - name: Tester l'inventaire des Edge Functions
