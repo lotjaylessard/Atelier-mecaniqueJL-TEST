@@ -24,7 +24,7 @@ const base={format:"atelier-test-physical-backup-v1",source:"Supabase TEST",
  bucket:"wo-files",status:"COMPLETE",accountId:owner,garageId:garage,
  memberIds:[owner,"employee-A"],garageCount:1,quoteCount:1,
  snapshotSha256:digest(json),snapshotBytes:json.length,
- referencedPaths:1,ownedPaths:1,fileCount:1,totalBytes:payload.length,
+ referencedPaths:1,ownedPaths:1,ownedPathList:[filePath],fileCount:1,totalBytes:payload.length,
  failed:[],unresolvedReferences:[],
  files:[{path:filePath,bytes:payload.length,sha256:digest(payload),referenced:true}]};
 function folder(manifest){
@@ -60,5 +60,8 @@ async function check(label,patch,expected){
  await check("wrong file size",{files:[{...base.files[0],bytes:payload.length+1}]},false);
  await check("missing account in members",{memberIds:["employee-A"]},false);
  await check("wrong garage",{garageId:"garage-B"},false);
- console.log("S08 verifier: 14 scenarios OK");
+ await check("owned path missing but count matches",{ownedPathList:["owner-A/missing.pdf"]},false);
+ await check("owned path list absent",{ownedPathList:undefined},false);
+ await check("owned path duplicated",{ownedPaths:2,ownedPathList:[filePath,filePath]},false);
+ console.log("S08 verifier: 17 scenarios OK");
 })().catch(error=>{console.error(error);process.exitCode=1});
