@@ -31,3 +31,9 @@ Un propriétaire ne voit pas nécessairement les soumissions créées par son em
 - [ ] Le frontend filtre toujours par `user_id` dans plusieurs requêtes : **lecture partagée non encore fonctionnelle dans l'interface**.
 - [ ] UPDATE/DELETE demeurent limités à l'auteur; règles de collaboration non finalisées.
 - [ ] Aucun changement en production.
+
+## Mise à jour : requêtes de calendrier TEST
+- [x] Trois requêtes de lecture des soumissions du calendrier / rendez-vous / détection de conflits ne filtrent plus par `user_id` et restent bornées par `ACTIVE_GARAGE_ID`.
+- [x] Commit frontend TEST `195b9303`.
+- [ ] Autres écrans de soumissions, historique, conversion et modifications demeurent liés à l'auteur : ne pas annoncer la collaboration complète.
+- [ ] Validation navigateur avec deux utilisateurs du même garage à effectuer ultérieurement.
