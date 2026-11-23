@@ -6,6 +6,10 @@ on:
       - audit/s10-check-production-bundle.cjs
       - audit/test-s10-production-bundle.cjs
       - audit/s10-inventory-runtime-dependencies.cjs
+      - audit/s10-assemble-isolated-rollback.cjs
+      - audit/test-s10-assemble-isolated-rollback.cjs
+      - audit/s10-test-*-snapshot.json
+      - audit/s10-schema-draft-NO-GO.sql
       - audit/s10-compare-cloud-snapshots.cjs
       - audit/s10-cloud-reference/**
       - audit/s10-check-edge-functions.cjs
@@ -60,3 +64,5 @@ jobs:
           cat edge-functions-report.json
       - name: Rapporter dérive des sources Google et FamilyWall
         run: node audit/s10-compare-cloud-snapshots.cjs .
+      - name: Tester assemblage SQL avec ROLLBACK obligatoire
+        run: node audit/test-s10-assemble-isolated-rollback.cjs
