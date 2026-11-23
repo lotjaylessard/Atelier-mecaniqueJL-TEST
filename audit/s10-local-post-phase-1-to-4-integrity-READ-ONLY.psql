@@ -1,0 +1,78 @@
+-- S10 POST-PHASE 1-4 CHECK: READ ONLY.
+-- Does NOT import TEST data, create tables, or modify PROD/TEST.
+\set ON_ERROR_STOP on
+BEGIN READ ONLY;
+DO $guard$
+DECLARE names text[]:=ARRAY[
+'garages','garage_members','garage_data','garage_quotes',
+'garage_timer_sessions','garage_calendar_notes','garage_schedule_events',
+'garage_external_calendar_connections','garage_external_calendar_events',
+'garage_external_calendar_tokens','garage_external_oauth_states',
+'garage_familywall_feed_secrets'];
+n text;
+BEGIN
+ IF current_database()<>'atelier_jl_restore_test' OR
+   (inet_server_addr() IS NOT NULL AND inet_server_addr() NOT IN (inet '127.0.0.1', inet '::1')) THEN
+   RAISE EXCEPTION 'REFUSED: isolated local restore required';
+ END IF;
+ FOREACH n IN ARRAY names LOOP
+   IF to_regclass('public.'||n) IS NULL THEN
+     RAISE EXCEPTION 'REFUSED: phase tables missing: %',n;
+   END IF;
+ END LOOP;
+END $guard$;
+WITH attachment_refs AS (
+ SELECT a.value->>'path' path
+ FROM public.garage_data d
+ CROSS JOIN LATERAL jsonb_array_elements(
+ CASE WHEN jsonb_typeof(d.data->'workorders')='array' THEN d.data->'workorders' ELSE '[]'::jsonb END
+ ) w(value)
+ CROSS JOIN LATERAL jsonb_array_elements(
+ CASE WHEN jsonb_typeof(w.value->'attachments')='array' THEN w.value->'attachments' ELSE '[]'::jsonb END
+ ) a(value)
+), inspection AS (
+ SELECT
+  (SELECT count(*) FROM public.garage_data) AS garage_rows,
+  (SELECT count(*) FROM auth.users) AS auth_users,
+  (SELECT count(*) FROM public.garages) AS garages,
+  (SELECT count(*) FROM public.garage_members WHERE role='owner') AS owners,
+  (SELECT count(*) FROM public.garage_data d LEFT JOIN public.garage_members m
+   ON m.garage_id=d.garage_id AND m.user_id=d.user_id AND m.role='owner'
+   WHERE m.user_id IS NULL) AS unmapped_owner_rows,
+  (SELECT count(*) FROM storage.objects WHERE bucket_id='wo-files') AS storage_metadata,
+  (SELECT count(*) FROM attachment_refs) AS referenced_files,
+  (SELECT count(*) FROM attachment_refs r WHERE NOT EXISTS(
+   SELECT 1 FROM storage.objects o WHERE o.bucket_id='wo-files' AND o.name=r.path)) AS missing_references,
+  (SELECT count(*) FROM public.garage_quotes) AS imported_quotes,
+  (SELECT count(*) FROM public.garage_timer_sessions) AS imported_sessions,
+  (SELECT count(*) FROM public.garage_calendar_notes) AS imported_notes,
+  (SELECT count(*) FROM public.garage_schedule_events) AS imported_events,
+  (SELECT count(*) FROM public.garage_external_calendar_connections) AS imported_calendar_connections,
+  (SELECT count(*) FROM public.garage_external_calendar_events) AS imported_calendar_events,
+  (SELECT count(*) FROM public.garage_external_calendar_tokens) AS imported_tokens,
+  (SELECT count(*) FROM public.garage_familywall_feed_secrets) AS imported_feeds,
+  (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+   WHERE n.nspname='public' AND c.relkind='r' AND NOT c.relrowsecurity
+      AND c.relname IN ('garages','garage_members','garage_quotes','garage_timer_sessions',
+       'garage_calendar_notes','garage_schedule_events','garage_external_calendar_connections',
+       'garage_external_calendar_events','garage_external_calendar_tokens',
+       'garage_external_oauth_states','garage_familywall_feed_secrets')) AS new_tables_without_rls
+)
+SELECT jsonb_build_object(
+ 'status',CASE WHEN garage_rows=1 AND auth_users=1 AND garages=1 AND owners=1
+    AND unmapped_owner_rows=0 AND storage_metadata=55 AND missing_references=0
+    AND imported_quotes=0 AND imported_sessions=0 AND imported_notes=0
+    AND imported_events=0 AND imported_calendar_connections=0 AND imported_calendar_events=0
+    AND imported_tokens=0 AND imported_feeds=0 AND new_tables_without_rls=0
+    THEN 'LOCAL_SCHEMA_INTEGRITY_PASS' ELSE 'LOCAL_SCHEMA_INTEGRITY_FAIL' END,
+ 'garage_rows',garage_rows,'auth_users',auth_users,'garages',garages,'owners',owners,
+ 'owner_mapping_errors',unmapped_owner_rows,
+ 'storage_metadata',storage_metadata,'referenced_files',referenced_files,
+ 'missing_references',missing_references,'new_tables_without_rls',new_tables_without_rls,
+ 'test_business_rows_imported',imported_quotes+imported_sessions+imported_notes+
+    imported_events+imported_calendar_connections+imported_calendar_events+
+    imported_tokens+imported_feeds,
+ 'warning','Schema and object metadata only: no physical file bytes, Edge Functions, Auth runtime or RLS sessions tested'
+) AS local_phase_1_to_4_report
+FROM inspection;
+ROLLBACK;
