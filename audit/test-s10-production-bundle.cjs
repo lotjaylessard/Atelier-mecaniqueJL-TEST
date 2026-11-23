@@ -23,5 +23,9 @@ try{
  assert.equal(r.status,1);
  r=run('const db="'+prod+'";','const db="'+prod+'"; const other="https://another.supabase.co";');
  assert.equal(r.status,1);
- console.log("S10_BUNDLE_TESTS_OK : 5 scénarios.");
+ fs.writeFileSync(path.join(root,"NO-GO-PROTOTYPE.txt"),"REVIEW ONLY");
+ r=run('const db="'+prod+'";','const db="'+prod+'";');
+ assert.equal(r.status,1,"A marked review candidate must NEVER pass the PROD gate");
+ assert.match(r.stdout,/NON DÉPLOYABLE/);
+ console.log("S10_BUNDLE_TESTS_OK : 6 scénarios.");
 }finally{fs.rmSync(root,{recursive:true,force:true})}
