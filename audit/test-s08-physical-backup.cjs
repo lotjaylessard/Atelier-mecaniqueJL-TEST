@@ -38,6 +38,15 @@ function client({duplicate=false,changed=false}={}){
  assert.equal(manifest.failed.length,0);
  const saved=[...root.files.keys()];
  assert.equal(saved.length,0);
+ const savedFolder=[...root.getDirectoryHandle ? [] : []];
+ const physicalFolder=await root.getDirectoryHandle("garage-s08-physical-"+manifest.createdAt.replace(/[:.]/g,"-"));
+ const manifestFile=await physicalFolder.getFileHandle("manifest.json");
+ const writtenManifest=JSON.parse(await (await manifestFile.getFile()).text());
+ assert.equal(writtenManifest.status,"INCOMPLETE");
+ assert.equal(writtenManifest.missingTables.length,3);
+ const snapshotFile=await physicalFolder.getFileHandle("garage-data.json");
+ const writtenSnapshot=JSON.parse(await (await snapshotFile.getFile()).text());
+ assert.equal(writtenSnapshot.operational.garage_calendar_notes.length,0);
  console.log("S08 exporter: incomplete manifest retained, operational counts OK");
  await assert.rejects(()=>backup(client({duplicate:true}),directory()),/dupliqués/);
  console.log("S08 exporter: duplicate members rejected");
