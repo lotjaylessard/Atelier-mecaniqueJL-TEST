@@ -20595,6 +20595,12 @@ if (window.garageSupabase) {
       pill.className="s08-status-pill";setStatusPill(pill,q.status==="sent"&&d.approvalConfirmedAt?"approved":q.status);
       statusCell.append(pill);tr.append(statusCell);
       // Une ligne = une soumission : clic ou clavier pour consulter, sans colonne Actions.
+      if(q.user_id!==s09QuoteViewerUid){
+        // Consultation détaillée et actions réservées à l'auteur jusqu'à sécurisation.
+        tr.title="Soumission d'un collègue — lecture dans la liste seulement";
+        list.append(tr);
+        continue;
+      }
       tr.classList.add("s08-quote-openable");
       tr.tabIndex=0;
       tr.setAttribute("role","button");
@@ -20628,14 +20634,16 @@ if (window.garageSupabase) {
     }
     return changed;
   }
+  let s09QuoteViewerUid=null;
   async function refreshQuotes(){
     try{
       const {sb,garageId}=context();
       const {data:auth,error:authError}=await sb.auth.getUser();
       if(authError||!auth?.user?.id)throw Error("Session expirée.");
+      s09QuoteViewerUid=auth.user.id;
       const {data,error:readError}=await sb.from("garage_quotes")
-        .select("id,quote_number,status,content,created_at,version,converted_bt_id")
-        .eq("garage_id",garageId).eq("user_id",auth.user.id)
+        .select("id,user_id,quote_number,status,content,created_at,version,converted_bt_id")
+        .eq("garage_id",garageId)
         .order("created_at",{ascending:false}).limit(200);
       if(readError)throw readError;
       quotes=Array.isArray(data)?data:[];
@@ -20643,8 +20651,8 @@ if (window.garageSupabase) {
       const expired=await expireDueSentQuotes(quotes,sb,garageId,auth.user.id);
       if(expired){
         const {data:reloaded,error:reloadError}=await sb.from("garage_quotes")
-          .select("id,quote_number,status,content,created_at,version,converted_bt_id")
-          .eq("garage_id",garageId).eq("user_id",auth.user.id)
+          .select("id,user_id,quote_number,status,content,created_at,version,converted_bt_id")
+        .eq("garage_id",garageId)
           .order("created_at",{ascending:false}).limit(200);
         if(reloadError)throw reloadError;
         quotes=Array.isArray(reloaded)?reloaded:[];
