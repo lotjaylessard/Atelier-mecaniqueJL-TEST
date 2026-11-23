@@ -95,3 +95,9 @@ Un propriétaire ne voit pas nécessairement les soumissions créées par son em
 - [x] Commit frontend TEST `9b0d7124`.
 - [ ] Cette protection est une mesure d'interface; RLS autorise toujours les UPDATE same-garage. Audit complet des autres chemins d'écriture et tests navigateur requis avant édition partagée.
 - [ ] Production inchangée.
+
+## Mise à jour : chargement asynchrone des rendez-vous
+- [x] Le panneau de planification d'une fiche collègue est masqué avant la condition qui déclenche `s09LoadBookings()`; évite le chargement superflu et la course avec l'annulation du jeton.
+- [x] Vérification statique de la branche `viewQuote` après commit `516b9dea`.
+- [ ] Vérifier en navigateur les fiches personnelles et collègues et les callbacks asynchrones.
+- [ ] Production inchangée.
