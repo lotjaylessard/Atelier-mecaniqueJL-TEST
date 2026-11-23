@@ -144,6 +144,8 @@ async function backup(client,rootFolder,progress=()=>{}){
   garageCount:garages.length,quoteCount:quotes.length,
   referencedPaths:refs.length,ownedPaths:owned.length,ownedPathList:owned,
   files:[],failed:[],unresolvedReferences:[],
+  // Bloquer le statut COMPLETE tant que les données relationnelles ne sont pas exportées.
+  missingTables:["garage_timer_sessions","garage_calendar_notes","garage_schedule_events"],
   note:"Fichiers physiques et données JSON; restauration automatique NON disponible."
  };
  // Écrire d'abord un manifeste INCOMPLETE : une interruption du navigateur
@@ -210,7 +212,8 @@ async function backup(client,rootFolder,progress=()=>{}){
    manifest.failed.push({path:"garage_data",error:"Les versions cloud ont changé pendant l'export"});
   }
  }catch(error){manifest.failed.push({path:"garage_data",error:"Impossible de revérifier les versions : "+String(error.message||error)})}
- manifest.status=manifest.failed.length===0&&manifest.unresolvedReferences.length===0?"COMPLETE":"INCOMPLETE";
+ manifest.status=manifest.failed.length===0&&manifest.unresolvedReferences.length===0&&
+  manifest.missingTables.length===0?"COMPLETE":"INCOMPLETE";
  manifest.completedAt=new Date().toISOString();
  manifest.fileCount=manifest.files.length;
  manifest.totalBytes=manifest.files.reduce((sum,f)=>sum+f.bytes,0);
