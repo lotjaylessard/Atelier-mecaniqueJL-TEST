@@ -27,7 +27,7 @@ Dernière révision : 2026-11-22. Branche de travail : `integration-finale`.
 - [ ] Retester ces quatre dimensions après correction RLS; les tests simulés ne remplacent pas un parcours navigateur réel.
 
 ## Bloquants à corriger et à tester
-- [ ] **B1 — Accès employé.** La politique RLS `garage_data` utilise `auth.uid() = user_id`. Le compte employé du TEST est membre du garage mais n'est pas propriétaire de la ligne. Test simulé : aucune donnée active visible; seule une ancienne ligne sans garage reste visible. Définir précisément les droits owner/employee et remplacer la politique uniquement après tests d'isolation.
+- [x] **B1 — Accès employé (RLS TEST corrigée, simulations SQL validées; test navigateur restant).** La politique RLS `garage_data` utilise `auth.uid() = user_id`. Le compte employé du TEST est membre du garage mais n'est pas propriétaire de la ligne. Test simulé : aucune donnée active visible; seule une ancienne ligne sans garage reste visible. Définir précisément les droits owner/employee et remplacer la politique uniquement après tests d'isolation.
 - [ ] **B2 — Minuterie employé.** `s06_timer_check_work_order` et `s06_timer_post_labor` filtrent `garage_data` par `gd.user_id = p_uid/v_uid`. Adapter avec contrôle d'appartenance au garage, sans autoriser l'accès à un autre garage.
 - [ ] **B3 — Tests authentifiés.** Vérifier owner A, employee A, owner B : SELECT/UPDATE `garage_data`, BT, factures, minuterie, pièces jointes et calendriers. Les vérifications SQL administrateur ne remplacent pas ces tests.
 - [ ] **B4 — Fichiers.** Préserver les 55 fichiers PROD, vérifier les 49 références BT et examiner les 6 fichiers non référencés; convertir les anciennes URLs publiques en chemins privés et liens signés.
@@ -36,6 +36,15 @@ Dernière révision : 2026-11-22. Branche de travail : `integration-finale`.
 - [ ] **B7 — Sécurité.** Examiner les trois RPC SECURITY DEFINER; vérifier permissions `garage_members`, accès `admin` aux fichiers, fonctions calendrier sans vérification JWT à la passerelle, et activer la protection contre les mots de passe compromis.
 - [ ] **B8 — Performance.** Examiner index FK `garage_quotes.user_id`, `garage_timer_sessions.garage_id`, et optimisation `(select auth.uid())` dans la politique RLS.
 - [ ] **B9 — Mise en production.** Tests de non-régression, sauvegarde récupérable, validation GO/NO-GO, déploiement contrôlé, surveillance et procédure de rollback.
+
+## Correctifs appliqués à Supabase TEST
+- [x] Migration `garage_data_member_access_test_isolation` : SELECT/UPDATE pour membres owner/employee du garage actif; aucune ligne héritée visible; INSERT/DELETE client interdits.
+- [x] Migration `fix_member_update_policy_using_immutable_ids_trigger` : UPDATE employé autorisé; intégrité des IDs assurée par le déclencheur existant `protect_garage_data_ids_trigger`.
+- [x] Simulations SELECT : owner A → A uniquement; employee A → A uniquement; owner B → B uniquement; aucune ligne héritée visible.
+- [x] Simulations UPDATE dans des transactions annulées : owner A et employee A peuvent modifier A, owner B ne modifie pas A.
+- [x] Tentative UPDATE `user_id` employé : rejetée par le déclencheur.
+- [ ] Tests navigateur avec vrais JWT et flux de sauvegarde complets.
+- [ ] Corriger les fonctions de minuterie filtrant encore sur `gd.user_id = p_uid`.
 
 ## Tests d'acceptation indispensables
 1. Owner A peut lire et modifier A; ne peut ni lire ni modifier B.
