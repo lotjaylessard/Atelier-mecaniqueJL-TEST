@@ -1,0 +1,30 @@
+name: S10 garde-fou configuration production
+on:
+  push:
+    branches: [integration-finale]
+    paths:
+      - audit/s10-check-production-bundle.cjs
+      - audit/test-s10-production-bundle.cjs
+      - .github/workflows/s10-production-bundle.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  static-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Tests du contrôle de déploiement
+        run: node audit/test-s10-production-bundle.cjs
+      - name: Vérifier que la branche TEST est refusée comme paquet PROD
+        run: |
+          if node audit/s10-check-production-bundle.cjs .; then
+            echo "ERREUR: le code TEST a été accepté comme paquet PROD"
+            exit 1
+          else
+            echo "OK: la configuration TEST est refusée en production"
+          fi
