@@ -111,10 +111,12 @@ async function backup(client,rootFolder,progress=()=>{}){
  if(memberships.length!==1 || memberships[0].role!=="owner")
   throw Error("Sauvegarde complète réservée au propriétaire d’un seul garage");
  const garageId=memberships[0].garage_id;
- const members=await pageRows((from,to)=>client.from("garage_members")
-  .select("garage_id,user_id,role").eq("garage_id",garageId).range(from,to));
- if(!members.some(m=>m.user_id===uid && m.role==="owner") ||
-    members.some(m=>m.garage_id!==garageId))throw Error("Membres incohérents");
+ const memberResponse=await client.rpc("backup_garage_member_ids",{p_garage_id:garageId});
+ if(memberResponse.error || !Array.isArray(memberResponse.data))
+  throw Error("Inventaire des membres refusé : "+(memberResponse.error?.message||"invalide"));
+ const members=memberResponse.data;
+ if(!members.some(m=>m.user_id===uid) || !members.every(m=>validPath(m.user_id)))
+  throw Error("Membres incohérents");
  const garages=await pageRows((from,to)=>client.from("garage_data")
   .select("garage_id,user_id,data,version,updated_at")
   .eq("garage_id",garageId).range(from,to));
