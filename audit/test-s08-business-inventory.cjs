@@ -1,0 +1,13 @@
+"use strict";
+const assert=require("node:assert/strict"),fs=require("node:fs"),os=require("node:os"),path=require("node:path"),crypto=require("node:crypto"),cp=require("node:child_process");
+const root=fs.mkdtempSync(path.join(os.tmpdir(),"s08-business-"));
+const sha=x=>crypto.createHash("sha256").update(x).digest("hex");
+const snapshot={format:"atelier-test-full-garage-snapshot-v1",accountId:"owner",createdAt:"2026-11-23T12:00:00Z",garages:[{garage_id:"garage",user_id:"owner",data:{clients:[{id:"c1"}],vehicles:[],workorders:[],invoices:[],settings:{}}}],quotes:[{id:"q1",garage_id:"garage"}],operational:{garage_timer_sessions:[],garage_calendar_notes:[],garage_schedule_events:[]}};
+const manifest={format:"atelier-test-physical-backup-v1",source:"Supabase TEST",bucket:"wo-files",status:"INCOMPLETE",missingTables:["garage_timer_sessions","garage_calendar_notes","garage_schedule_events"],failed:[],unresolvedReferences:[],accountId:"owner",garageId:"garage",memberIds:["owner"],createdAt:snapshot.createdAt,quoteCount:1,operationalCounts:{garage_timer_sessions:0,garage_calendar_notes:0,garage_schedule_events:0},referencedPaths:0,ownedPathList:[],ownedPaths:0,files:[],fileCount:0,totalBytes:0};
+function write(){const bytes=Buffer.from(JSON.stringify(snapshot));manifest.snapshotBytes=bytes.length;manifest.snapshotSha256=sha(bytes);fs.writeFileSync(path.join(root,"garage-data.json"),bytes);fs.writeFileSync(path.join(root,"manifest.json"),JSON.stringify(manifest))}
+function run(){return cp.spawnSync(process.execPath,[path.join(__dirname,"s08-business-inventory.cjs"),root],{encoding:"utf8"})}
+try{
+ write();let r=run();assert.equal(r.status,0,r.stderr);let report=JSON.parse(r.stdout);assert.equal(report.sections.clients.count,1);assert.equal(report.quotes,1);console.log("inventory: verified fixture counted");
+ snapshot.garages[0].data.clients.push({id:"c1"});write();r=run();assert.notEqual(r.status,0);assert.match(r.stdout,/dupliqués/);console.log("inventory: duplicate ids flagged");
+ snapshot.garages[0].data.clients.pop();write();manifest.snapshotSha256="0".repeat(64);fs.writeFileSync(path.join(root,"manifest.json"),JSON.stringify(manifest));r=run();assert.notEqual(r.status,0);assert.match(r.stderr,/S08_INVENTORY_REFUSED/);console.log("inventory: corrupt manifest rejected");
+}finally{fs.rmSync(root,{recursive:true,force:true})}
