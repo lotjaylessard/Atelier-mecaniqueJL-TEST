@@ -39,3 +39,10 @@ Refaire un test SQL uniquement si sa fonction/policy a changé ou si une anomali
 - [x] Workflow `.github/workflows/s08-physical-verifier.yml` exécuté sur `integration-finale` : GitHub Actions run 45105615523, conclusion **success**, commit `fa763ed5`.
 - [x] Huit scénarios unitaires du vérificateur de sauvegarde passés en environnement Node.js, sans Supabase ni données réelles.
 - [ ] Toujours requis : export physique en navigateur, vérification d'un vrai dossier, restauration isolée et rapprochement métier. Le test unitaire n'atteste pas une sauvegarde réelle.
+
+## Contrôle de divergence des branches — 2026-11-22
+- [x] Comparaison GitHub `main...integration-finale` : **ahead 805, behind 0**, statut `ahead`; 170 fichiers modifiés/ajoutés/supprimés dans le diff.
+- [x] `index.html` comporte **11 434 lignes ajoutées/supprimées** au total dans le diff; ce chiffre mesure l'ampleur du changement, pas le nombre de bugs.
+- [x] GitHub indique une branche sans divergence (fusion fast-forward techniquement possible), **mais aucune fusion n'est autorisée par cette constatation**.
+- [ ] Avant fusion, recette réelle et restauration isolée toujours obligatoires; préserver une référence exacte de commit, faire un diff de déploiement et garder un retour arrière vérifiable.
+- [ ] Ne pas confondre GitHub `main` de TEST avec le dépôt/site de production; vérifier la cible exacte avant tout déploiement.
