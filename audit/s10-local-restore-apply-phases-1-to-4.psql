@@ -2,7 +2,6 @@
 -- Run with: psql -X -v ON_ERROR_STOP=1 -d atelier_jl_restore_test -f audit/s10-local-restore-apply-phases-1-to-4.psql
 -- Run only on a NEW restore of PROD. Phases 1-4 are not idempotent.
 \set ON_ERROR_STOP on
-\connect atelier_jl_restore_test
 DO $$
 BEGIN
   IF current_database() <> 'atelier_jl_restore_test' THEN
