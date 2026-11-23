@@ -75,6 +75,22 @@ async function verify(folder,progress=()=>{}){
     [...refs].some(path=>!paths.has(path)))failures.push("Références BT non sauvegardées");
  if(manifest.fileCount!==manifest.files.length||totalBytes!==manifest.totalBytes)
   failures.push("Totaux de fichiers ou octets incohérents");
+ // Contrôles croisés du manifeste : ne pas accepter un inventaire incomplet
+ // même si les empreintes des seuls fichiers présents sont correctes.
+ if(!Number.isSafeInteger(manifest.ownedPaths)||manifest.ownedPaths<0||
+    !Number.isSafeInteger(manifest.referencedPaths)||manifest.referencedPaths<0||
+    manifest.files.length<manifest.ownedPaths||manifest.files.length<manifest.referencedPaths)
+  failures.push("Inventaire Storage ou références incohérents");
+ if(manifest.files.some(entry=>typeof entry.referenced!=="boolean"||
+    entry.referenced!==refs.has(entry.path)))
+  failures.push("Indicateurs de références BT incohérents");
+ if(!Array.isArray(manifest.memberIds)||!manifest.memberIds.includes(manifest.accountId)||
+    new Set(manifest.memberIds).size!==manifest.memberIds.length)
+  failures.push("Inventaire des membres incohérent");
+ if(manifest.format!=="atelier-test-physical-backup-v1"||
+    snapshot.format!=="atelier-test-full-garage-snapshot-v1"||
+    manifest.source!=="Supabase TEST"||manifest.bucket!=="wo-files")
+  failures.push("Format ou source de sauvegarde inattendu");
  return {ok:failures.length===0,garageId:manifest.garageId,
   fileCount:manifest.files.length,totalBytes,quoteCount:snapshot.quotes.length,failures,
   note:"Vérification d'intégrité locale uniquement : restauration non testée."};
