@@ -79,3 +79,11 @@ Un propriétaire ne voit pas nécessairement les soumissions créées par son em
 - [ ] Ce test confirme la stratégie UPDATE conditionnelle, pas une contrainte globale de version imposée à toutes les écritures.
 - [ ] Frontend : détails/édition inter-employés encore désactivés dans la liste principale; validation navigateur à faire.
 - [ ] Production inchangée.
+
+## Mise à jour : rendez-vous inter-employés TEST
+- [x] Les deux requêtes du flux de replanification RDV par ID (SELECT et UPDATE) n'exigent plus `user_id=auth.user.id`.
+- [x] Les conditions `garage_id=ACTIVE_GARAGE_ID`, statut et version demeurent.
+- [x] Commit frontend TEST `f2f731f9`.
+- [ ] Tester le flux réel dans le navigateur avec deux comptes, y compris conflits et annulations.
+- [ ] L'édition de la fiche complète de SO entre collègues n'est pas encore activée.
+- [ ] Production inchangée.
