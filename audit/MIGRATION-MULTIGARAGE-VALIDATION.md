@@ -28,7 +28,7 @@ Dernière révision : 2026-11-22. Branche de travail : `integration-finale`.
 
 ## Bloquants à corriger et à tester
 - [x] **B1 — Accès employé (RLS TEST corrigée, simulations SQL validées; test navigateur restant).** La politique RLS `garage_data` utilise `auth.uid() = user_id`. Le compte employé du TEST est membre du garage mais n'est pas propriétaire de la ligne. Test simulé : aucune donnée active visible; seule une ancienne ligne sans garage reste visible. Définir précisément les droits owner/employee et remplacer la politique uniquement après tests d'isolation.
-- [ ] **B2 — Minuterie employé.** `s06_timer_check_work_order` et `s06_timer_post_labor` filtrent `garage_data` par `gd.user_id = p_uid/v_uid`. Adapter avec contrôle d'appartenance au garage, sans autoriser l'accès à un autre garage.
+- [x] **B2 — Minuterie employé (fonctions SQL TEST corrigées, création simulée et isolation validées; publication du temps à tester).** `s06_timer_check_work_order` et `s06_timer_post_labor` filtrent `garage_data` par `gd.user_id = p_uid/v_uid`. Adapter avec contrôle d'appartenance au garage, sans autoriser l'accès à un autre garage.
 - [ ] **B3 — Tests authentifiés.** Vérifier owner A, employee A, owner B : SELECT/UPDATE `garage_data`, BT, factures, minuterie, pièces jointes et calendriers. Les vérifications SQL administrateur ne remplacent pas ces tests.
 - [ ] **B4 — Fichiers.** Préserver les 55 fichiers PROD, vérifier les 49 références BT et examiner les 6 fichiers non référencés; convertir les anciennes URLs publiques en chemins privés et liens signés.
 - [ ] **B5 — Sauvegardes.** Export JSON PROD et fichiers Storage, sauvegarde de l'autre garage, test de restauration isolée et plan de retour arrière.
@@ -45,6 +45,14 @@ Dernière révision : 2026-11-22. Branche de travail : `integration-finale`.
 - [x] Tentative UPDATE `user_id` employé : rejetée par le déclencheur.
 - [ ] Tests navigateur avec vrais JWT et flux de sauvegarde complets.
 - [ ] Corriger les fonctions de minuterie filtrant encore sur `gd.user_id = p_uid`.
+
+## Minuterie : correctif TEST
+- [x] Migration `timer_member_garage_data_access_test` : `s06_timer_check_work_order` et `s06_timer_post_labor` ne requièrent plus `gd.user_id = acteur`; l'appartenance au garage et la propriété de session sont toujours vérifiées.
+- [x] RPC `s06_timer_transition(...,'create',...)` : employé A et propriétaire A peuvent créer une session sur un BT actif du garage A; propriétaire B refusé.
+- [x] RPC sur BT inexistant : refusée pour les trois comptes.
+- [x] Essais de création exécutés dans des transactions `ROLLBACK`.
+- [ ] Tester le transfert de temps `s06_timer_post_labor` avec session pausée, contrôle de version, prévention des doublons et isolation.
+- [ ] Tester interface navigateur avec de vrais JWT.
 
 ## Tests d'acceptation indispensables
 1. Owner A peut lire et modifier A; ne peut ni lire ni modifier B.
