@@ -32,7 +32,7 @@ const sha=async(str:string)=>new Uint8Array(await crypto.subtle.digest("SHA-256"
 const hex=(a:Uint8Array)=>Array.from(a,x=>x.toString(16).padStart(2,"0")).join("");
 // A Supabase Edge Function may receive an internal HTTP URL and a rewritten pathname.
 // OAuth redirects MUST use the exact public HTTPS URI registered at Google, never req.url.
-const GOOGLE_OAUTH_REDIRECT_URI="https://nraijzsodgojkpyigefu.supabase.co/functions/v1/garage-calendar-oauth";
+const GOOGLE_OAUTH_REDIRECT_URI=(Deno.env.get("SUPABASE_URL")||"").replace(/\/$/,"")+"/functions/v1/garage-calendar-oauth";
 async function rest(table:string,method:string,params:Record<string,string>|null,body?:unknown,extra:Record<string,string>={}){
  const u=new URL(dbUrl+"/rest/v1/"+table);
  for(const [k,v] of Object.entries(params||{}))u.searchParams.set(k,v);
