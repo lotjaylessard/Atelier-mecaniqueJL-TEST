@@ -5,7 +5,7 @@
  * node audit/s10-build-production-candidate.cjs <dossier-source-TEST> <dossier-sortie-NOUVEAU> <url-Supabase-PROD> <clé-publique-PROD>
  */
 "use strict";
-const fs=require("node:fs"),path=require("node:path"),cp=require("node:child_process");
+const fs=require("node:fs"),path=require("node:path");
 const [sourceArg,outArg,url,key]=process.argv.slice(2);
 function fail(msg){throw Error(msg)}
 try{
@@ -34,8 +34,7 @@ try{
  }
  fs.mkdirSync(out,{recursive:false});
  for(const [file,s] of Object.entries(replacements))fs.writeFileSync(path.join(out,file),s,{mode:0o600});
- const check=cp.spawnSync(process.execPath,[path.join(__dirname,"s10-check-production-bundle.cjs"),out],{encoding:"utf8"});
- if(check.status!==0)fail("Contrôle paquet refusé : "+check.stdout);
- console.log("S10_CANDIDATE_CREATED : "+out);
+ fs.writeFileSync(path.join(out,"NO-GO-PROTOTYPE.txt"),"PROTOTYPE NON DEPLOYABLE. Préfixe de stockage provisoire, données locales PROD non migrées, autres ressources et contrôles manquants. Ne jamais publier ce dossier.\n");
+ console.log("S10_PROTOTYPE_CREATED_NOT_DEPLOYABLE : "+out);
  console.log("ATTENTION: prototype de configuration uniquement. Pas de déploiement, pas de migration localStorage, pas de validation RLS/Auth/Storage. NO-GO.");
 }catch(e){console.error("S10_BUILD_REFUSED: "+e.message);process.exitCode=1}
