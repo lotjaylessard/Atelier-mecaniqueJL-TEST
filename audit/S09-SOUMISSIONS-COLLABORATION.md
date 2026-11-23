@@ -123,3 +123,11 @@ Un propriétaire ne voit pas nécessairement les soumissions créées par son em
 - [x] Commit frontend TEST `f92cf22c`.
 - [ ] Les requêtes serveur déjà parties ne sont pas annulées; seules leurs réponses UI sont ignorées. Vérification navigateur nécessaire.
 - [ ] Production inchangée.
+
+## Mise à jour : fiche ouverte et changement de contexte
+- [x] Avant publication de `refreshQuotes`, vérifier que le garage actif correspond toujours au garage de la requête.
+- [x] Fermer la fiche ouverte si l'utilisateur authentifié a changé depuis la précédente lecture réussie.
+- [x] Sur échec d'actualisation courant : fermer la fiche, vider `selectedQuote`, la liste et l'identité en cache.
+- [x] Commit frontend TEST `6d9988d2`.
+- [ ] Audit des autres chemins d'ouverture et des transitions de session à faire en navigateur.
+- [ ] Production inchangée.
