@@ -52,14 +52,41 @@ try{
      fail(file+": TEST identifier remains after conversion");
    result[file]=html;
  }
+ // Copy only the real runtime resources referenced by the application.
+ // Do not copy audits, test records, backups, SQL dumps or credentials.
+ const allowedRuntimeAssets=[
+   "img/logov2.png",
+   "audit/s06-live-test.js",
+   "audit/s06-wo-pilot.js",
+   "audit/s06-sidebar-persistent.js"
+ ];
+ const localLinks=[];
+ for(const html of Object.values(result)){
+   for(const match of html.matchAll(/<(?:script|img|link)\\b[^>]*?\\b(?:src|href)\\s*=\\s*["']([^"']+)["']/gi)){
+     const uri=match[1];
+     if(/^(?:https?:|data:|blob:|\/\/|#)/i.test(uri))continue;
+     const normalized=path.posix.normalize(uri.replace(/^\\.\\//,"").split(/[?#]/)[0]);
+     if(!normalized||normalized.startsWith("../")||normalized.startsWith("/"))
+       fail("Unexpected relative runtime asset path: "+uri);
+     localLinks.push(normalized);
+     if(!allowedRuntimeAssets.includes(normalized))
+       fail("Unreviewed runtime asset referenced: "+normalized);
+   }
+ }
+ for(const asset of [...new Set(localLinks)]){
+   const input=path.join(src,...asset.split("/"));
+   if(!fs.existsSync(input)||!fs.statSync(input).isFile())
+     fail("Runtime asset missing from source: "+asset);
+ }
+ // Validating every input BEFORE creating the output prevents partial candidates.
  fs.mkdirSync(out,{recursive:false});
  for(const [file,html] of Object.entries(result))
    fs.writeFileSync(path.join(out,file),html,{mode:0o600});
- // Copy static assets as-is, not TEST business data, backups or configuration.
- const logo=path.join(src,"img","logov2.png");
- if(fs.existsSync(logo)){
-   fs.mkdirSync(path.join(out,"img"));
-   fs.copyFileSync(logo,path.join(out,"img","logov2.png"));
+ for(const asset of [...new Set(localLinks)]){
+   const input=path.join(src,...asset.split("/"));
+   const output=path.join(out,...asset.split("/"));
+   fs.mkdirSync(path.dirname(output),{recursive:true});
+   fs.copyFileSync(input,output);
  }
  fs.writeFileSync(path.join(out,"NO-GO-PROTOTYPE.txt"),
    "PRODUCTION REVIEW CANDIDATE -- NOT DEPLOYABLE.\n"+
