@@ -115,3 +115,11 @@ Un propriétaire ne voit pas nécessairement les soumissions créées par son em
 - [x] Commit frontend TEST `9a50cdfc`.
 - [ ] Les courses entre plusieurs rafraîchissements et les autres vues déjà ouvertes demandent encore des vérifications.
 - [ ] Test navigateur non effectué; production inchangée.
+
+## Mise à jour : actualisations concurrentes TEST
+- [x] Jeton monotone `s09QuotesRefreshToken` dans `refreshQuotes()` : chaque appel invalide les résultats des appels antérieurs.
+- [x] Contrôles du jeton après authentification, SELECT initial, expiration et SELECT de rechargement, ainsi que dans `catch`.
+- [x] Publication atomique de `quotes` et `s09QuoteViewerUid` seulement pour le dernier appel réussi.
+- [x] Commit frontend TEST `f92cf22c`.
+- [ ] Les requêtes serveur déjà parties ne sont pas annulées; seules leurs réponses UI sont ignorées. Vérification navigateur nécessaire.
+- [ ] Production inchangée.
