@@ -81,6 +81,13 @@ async function verify(folder,progress=()=>{}){
     !Number.isSafeInteger(manifest.referencedPaths)||manifest.referencedPaths<0||
     manifest.files.length<manifest.ownedPaths||manifest.files.length<manifest.referencedPaths)
   failures.push("Inventaire Storage ou références incohérents");
+ // Contrôler les noms précis des objets Storage et non seulement leur nombre.
+ // Sans cette liste, un objet non référencé pourrait manquer sans être détecté.
+ if(!Array.isArray(manifest.ownedPathList) ||
+    manifest.ownedPathList.length!==manifest.ownedPaths ||
+    new Set(manifest.ownedPathList).size!==manifest.ownedPathList.length ||
+    manifest.ownedPathList.some(path=>!safePath(path)||!paths.has(path)))
+  failures.push("Inventaire nominatif Storage incomplet ou incohérent");
  if(manifest.files.some(entry=>typeof entry.referenced!=="boolean"||
     entry.referenced!==refs.has(entry.path)))
   failures.push("Indicateurs de références BT incohérents");
