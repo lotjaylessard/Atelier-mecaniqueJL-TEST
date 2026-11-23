@@ -53,21 +53,35 @@ try{
   assert.ok(rows.every(row=>row.garage_id===manifest.garageId&&row.user_id===manifest.accountId));
   assert.equal(new Set(rows.map(row=>row.id)).size,rows.length);
  }
+ assert.ok(Array.isArray(manifest.memberIds)&&manifest.memberIds.includes(manifest.accountId));
+ assert.equal(new Set(manifest.memberIds).size,manifest.memberIds.length);
  assert.ok(Array.isArray(manifest.files));
  assert.equal(manifest.files.length,manifest.fileCount);
  let total=0;
  const names=new Set();
+ const refs=new Set();
+ for(const garage of snapshot.garages){
+  for(const wo of (Array.isArray(garage.data?.workorders)?garage.data.workorders:[])){
+   for(const attachment of (Array.isArray(wo.attachments)?wo.attachments:[])){
+    if(typeof attachment.path==="string")refs.add(attachment.path);
+   }
+  }
+ }
+ assert.equal(refs.size,manifest.referencedPaths);
  for(const item of manifest.files){
   assert.ok(safePath(item.path)&&!names.has(item.path),"Fichier invalide ou dupliqué");
   names.add(item.path);
+  assert.equal(item.referenced,refs.has(item.path),"Référence incorrecte: "+item.path);
   const content=read("files/"+item.path);
   assert.equal(content.length,item.bytes,"Taille incorrecte: "+item.path);
   assert.equal(digest(content),item.sha256,"Empreinte incorrecte: "+item.path);
   total+=content.length;
  }
  assert.equal(total,manifest.totalBytes);
+ assert.ok([...refs].every(p=>names.has(p)),"Pièces jointes BT manquantes");
  assert.ok(Array.isArray(manifest.ownedPathList));
  assert.equal(manifest.ownedPathList.length,manifest.ownedPaths);
+ assert.equal(new Set(manifest.ownedPathList).size,manifest.ownedPathList.length);
  assert.ok(manifest.ownedPathList.every(p=>names.has(p)));
  console.log(JSON.stringify({result:"PREFLIGHT_OK",garageId:manifest.garageId,
   files:manifest.fileCount,quotes:manifest.quoteCount,
