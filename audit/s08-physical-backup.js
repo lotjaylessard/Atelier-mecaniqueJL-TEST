@@ -126,7 +126,11 @@ async function backup(client,rootFolder,progress=()=>{}){
   {p_garage_id:garageId}).range(from,to));
  if(quotes.some(q=>q.garage_id!==garageId))throw Error("Soumission hors garage");
  const refs=pathsFromGarages(garages);
- const owned=[...new Set((await Promise.all(members.map(m=>listOwned(client,m.user_id)))).flat())].sort();
+ const storageRows=await pageRows((from,to)=>client.rpc("backup_garage_storage_paths",
+  {p_garage_id:garageId}).range(from,to));
+ const owned=[...new Set(storageRows.map(row=>row.object_name))].sort();
+ if(owned.length!==storageRows.length || owned.some(path=>!validPath(path)))
+  throw Error("Inventaire Storage invalide ou dupliqué");
  const targetPaths=[...new Set([...owned,...refs])].sort();
  const stamp=new Date().toISOString().replace(/[:.]/g,"-");
  const folder=await rootFolder.getDirectoryHandle("garage-s08-physical-"+stamp,{create:true});
@@ -177,7 +181,9 @@ async function backup(client,rootFolder,progress=()=>{}){
      latestMemberResponse.data.length!==members.length ||
      latestMemberResponse.data.some((m,i)=>m.user_id!==members[i].user_id))
    manifest.failed.push({path:"garage_members",error:"La liste des membres a changé pendant l'export"});
-  const ownedAfter=[...new Set((await Promise.all(members.map(m=>listOwned(client,m.user_id)))).flat())].sort();
+  const storageRowsAfter=await pageRows((from,to)=>client.rpc("backup_garage_storage_paths",
+   {p_garage_id:garageId}).range(from,to));
+  const ownedAfter=storageRowsAfter.map(row=>row.object_name).sort();
   if(ownedAfter.length!==owned.length ||
      ownedAfter.some((path,index)=>path!==owned[index]))
    manifest.failed.push({path:"wo-files",error:"L'inventaire Storage a changé pendant l'export"});
