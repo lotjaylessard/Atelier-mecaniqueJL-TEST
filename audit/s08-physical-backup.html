@@ -13,7 +13,7 @@ button:disabled{opacity:.45;cursor:default}#status{white-space:pre-wrap;overflow
 <h1>Garage J.L. — Sauvegarde physique S08 (TEST)</h1>
 <p>Outil local de vérification des pièces jointes et des données du compte connecté. <strong>Aucune modification dans Supabase</strong>.</p>
 <p class="notice">Choisis un dossier sur ton ordinateur. L'outil télécharge les fichiers accessibles de ton compte TEST, les vérifie avec SHA-256 et sauvegarde aussi le JSON du garage, des notes et des soumissions. Ne ferme pas cette page pendant le processus.</p>
-<p>La restauration automatique demeure désactivée. Une sauvegarde est considérée complète uniquement si aucun fichier ne manque et si les versions cloud restent inchangées.</p>
+<p>La restauration automatique demeure désactivée. Pour l'instant, l'export reste volontairement <strong>INCOMPLET</strong> tant que la couverture des données des autres membres et la restauration isolée ne sont pas validées. Même sans erreur de téléchargement, ne l'utilise pas comme sauvegarde complète.</p>
 <p><button id="start" type="button" disabled>Vérification de connexion…</button></p>
 <div id="status" role="status" aria-live="polite">Connexion en cours…</div>
 <p><a href="../index.html" style="color:#b9dbff">Retour au garage TEST</a></p>
@@ -25,7 +25,7 @@ const client=createClient("https://nraijzsodgojkpyigefu.supabase.co","sb_publish
 const btn=document.getElementById("start"),status=document.getElementById("status");
 try {
   const {data,error}=await client.auth.getUser();
-  if(error||!data?.user)throw Error("Connecte-toi d'abord au garage TEST sur cette même adresse locale.");
+  if(error||!data?.user)throw Error("La session du garage TEST n'est pas disponible sur cette origine. Une connexion sur GitHub Pages n'est pas automatiquement partagée avec 127.0.0.1.");
   if(!window.isSecureContext||typeof window.showDirectoryPicker!=="function")
     throw Error("Utilise Chrome/Edge sur http://127.0.0.1:8765 (accès au dossier local requis).");
   if(!window.S08PhysicalBackup?.backup)throw Error("Module de sauvegarde introuvable.");
@@ -39,7 +39,7 @@ try {
       const result=await window.S08PhysicalBackup.backup(client,folder,msg=>status.textContent=msg);
       status.textContent=result.status==="COMPLETE"
         ?`Sauvegarde complète : ${result.fileCount} fichiers, ${result.totalBytes} octets. Vérifie manifest.json dans ton dossier.`
-        :`SAUVEGARDE INCOMPLÈTE : ${result.failed.length} erreurs. Consulte manifest.json. Conserve le dossier, ne supprime rien.`;
+        :`SAUVEGARDE INCOMPLÈTE : ${result.failed.length} erreur(s), ${result.missingTables.length} table(s) non couvertes. Consulte manifest.json. Ne considère pas ce dossier comme une sauvegarde restaurable.`;
     }catch(error){status.textContent="Aucune sauvegarde complète confirmée : "+String(error.message||error);}
     finally{btn.disabled=false}
   };
