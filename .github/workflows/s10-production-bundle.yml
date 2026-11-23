@@ -6,6 +6,8 @@ on:
       - audit/s10-check-production-bundle.cjs
       - audit/test-s10-production-bundle.cjs
       - audit/s10-inventory-runtime-dependencies.cjs
+      - audit/s10-check-storage-compat.cjs
+      - audit/test-s10-storage-compat.cjs
       - .github/workflows/s10-production-bundle.yml
   workflow_dispatch:
 permissions:
@@ -32,3 +34,13 @@ jobs:
 
       - name: Inventaire des références TEST dans les fichiers applicatifs
         run: node audit/s10-inventory-runtime-dependencies.cjs .
+      - name: Tester les garde-fous de stockage PROD
+        run: node audit/test-s10-storage-compat.cjs
+      - name: Vérifier que l'isolation localStorage TEST bloque PROD
+        run: |
+          if node audit/s10-check-storage-compat.cjs .; then
+            echo "ERREUR: isolation TEST acceptée pour PROD"
+            exit 1
+          else
+            echo "OK: le stockage TEST bloque le déploiement PROD"
+          fi
