@@ -12,6 +12,8 @@ on:
       - audit/test-s08-backup-verifier.cjs
       - audit/test-s08-physical-backup.cjs
       - audit/s08-verify-partial-export.cjs
+      - audit/s08-business-inventory.cjs
+      - audit/test-s08-business-inventory.cjs
       - audit/s08-stage-archive.py
       - audit/test-s08-stage-archive.py
       - audit/s08-stage-local-postgres.cjs
@@ -51,3 +53,5 @@ jobs:
         run: node audit/test-s08-stage-local-postgres.cjs
       - name: Tests archive ZIP S08 privée et anti-traversée
         run: python3 audit/test-s08-stage-archive.py
+      - name: Inventaire métier S08 et contrôles de doublons
+        run: node audit/test-s08-business-inventory.cjs
