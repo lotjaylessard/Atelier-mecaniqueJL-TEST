@@ -3,7 +3,7 @@ const assert=require("node:assert/strict");
 const fs=require("node:fs");
 const vm=require("node:vm");
 const html=fs.readFileSync(require("node:path").join(__dirname,"s08-physical-backup.html"),"utf8");
-const modules=[...html.matchAll(/<script\\s+type="module"[^>]*>([\\s\\S]*?)<\\/script>/g)];
+const modules=[...html.matchAll(/<script\s+type="module"[^>]*>([\s\S]*?)<\/script>/g)];
 assert.equal(modules.length,1,"One inline module expected");
 const js=modules[0][1];
 assert.ok(js.includes('signInWithPassword'),"Local TEST login missing");
@@ -11,7 +11,7 @@ assert.ok(js.includes("persistSession:false"),"Session must not persist on share
 assert.ok(js.includes("nraijzsodgojkpyigefu.supabase.co"),"TEST endpoint expected");
 assert.ok(!js.includes("service_role")&&!js.includes("sb_secret_"),"Secret key in public HTML");
 assert.ok(js.includes("window.showDirectoryPicker"),"Physical folder picker missing");
-const parsed=js.replace(/^import\\s+\\{[^\\n]+\\}\\s+from\\s+["'][^"']+["'];?\\s*$/m,"");
+const parsed=js.replace(/^import\s+\{[^\n]+\}\s+from\s+["'][^"']+["'];?\s*$/m,"");
 assert.notEqual(parsed,js,"Expected one pinned ESM import");
-new vm.Script("(async()=>{\\n"+parsed+"\\n})()");
+new vm.Script("(async()=>{\n"+parsed+"\n})()");
 console.log("S08 local page: login, TEST endpoint, ephemeral session, script syntax OK");
