@@ -146,6 +146,9 @@ async function backup(client,rootFolder,progress=()=>{}){
   format:"atelier-test-full-garage-snapshot-v1",
   accountId:uid,createdAt:manifest.createdAt,garages,quotes
  });
+ const snapshotBytes=await (await (await folder.getFileHandle("garage-data.json")).getFile()).arrayBuffer();
+ manifest.snapshotSha256=await sha256(snapshotBytes);
+ manifest.snapshotBytes=snapshotBytes.byteLength;
  let index=0;
  for(const path of targetPaths){
   index++;
