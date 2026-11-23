@@ -169,6 +169,11 @@ async function backup(client,rootFolder,progress=()=>{}){
    manifest.failed.push({path:"auth",error:"Compte différent à la fin de l'export"});
   // A file added/removed while exporting must not silently disappear
   // from a backup marked COMPLETE.
+  const latestMemberResponse=await client.rpc("backup_garage_member_ids",{p_garage_id:garageId});
+  if(latestMemberResponse.error || !Array.isArray(latestMemberResponse.data) ||
+     latestMemberResponse.data.length!==members.length ||
+     latestMemberResponse.data.some((m,i)=>m.user_id!==members[i].user_id))
+   manifest.failed.push({path:"garage_members",error:"La liste des membres a changé pendant l'export"});
   const ownedAfter=[...new Set((await Promise.all(members.map(m=>listOwned(client,m.user_id)))).flat())].sort();
   if(ownedAfter.length!==owned.length ||
      ownedAfter.some((path,index)=>path!==owned[index]))
