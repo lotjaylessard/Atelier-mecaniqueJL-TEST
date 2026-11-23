@@ -55,3 +55,17 @@ Lecture seule du schéma et des comptages Supabase **TEST** : l'export physique 
 Comptages TEST au moment du contrôle : `garage_timer_sessions` 10, `garage_calendar_notes` 6, `garage_schedule_events` 1, `garage_external_calendar_connections` 3, `garage_external_calendar_events` 828, `garage_external_calendar_tokens` 1, `garage_familywall_feed_secrets` 2, `garage_external_oauth_states` 4.
 
 **Décision : NO-GO sauvegarde/restauration complète.** Prioriser une sauvegarde/restauration tenant-scoped des sessions minuteur, notes et événements de planning, avec contrôle des propriétaires, IDs et nombres. Pour les connexions externes, distinguer les événements dérivés (re-synchronisables) des paramètres nécessaires à la reconnexion. Ne jamais inclure les tokens OAuth, secrets iCal ou états OAuth bruts dans une archive locale non chiffrée : prévoir réautorisation ou sauvegarde chiffrée avec procédure dédiée. Aucune modification PROD ou SQL n'a été effectuée lors de ce contrôle.
+
+
+## Décision de périmètre confirmée par le propriétaire — 23 novembre 2026
+
+**Ne migrer AUCUNE donnée métier provenant de Supabase TEST vers PROD.** La branche `integration-finale` est la source du **code** et des améliorations, pas une source de clients, véhicules, BT, factures, paiements, soumissions, fichiers ou historiques réels.
+
+- **Source des données métier à conserver :** la production actuelle, après sauvegarde vérifiée et inventaire de ses données. Les données du garage de l'ami feront l'objet d'une importation distincte, explicitement autorisée et cartographiée.
+- **Source du code :** les modifications TEST validées, avec revue des paramètres d'environnement et de connexion pour éviter toute référence au projet Supabase TEST dans le site publié.
+- **Destination des données TEST :** aucune. Conserver temporairement l'archive privée TEST uniquement comme preuve d'essai et de restauration en bac à sable, jamais comme charge utile d'import PROD.
+- **Anomalie TEST identifiée :** BT `1793673104406` avec `clientExists=true`, `vehicleExists=false`, une facture liée et un `vehicleId` différent. **Hors périmètre de migration PROD** ; aucune correction, suppression ou réaffectation nécessaire sur les données TEST pour déployer le code.
+- **Garde-fou de mise en production :** aucun script ne doit faire `INSERT`/`UPDATE`/`UPSERT` depuis `garage-data.json` TEST ou son archive; aucune copie de la table `garage_data` TEST vers PROD. Ne pas réutiliser les sessions, tokens OAuth ou identifiants de TEST.
+- **Validation encore nécessaire :** sauvegarde complète et test de restauration **des données PROD**, adaptation des schémas et RLS au code nouveau, vérification des relations clients/véhicules/BT/factures et des fichiers sur une copie isolée de PROD, puis tests navigateur et autorisation finale. Le staging local de l'archive TEST PARTIELLE ne satisfait pas ce critère.
+
+État GitHub en lecture seule au 23 novembre : `integration-finale` en avance de 870 commits sur `main`, sans retard, 190 fichiers modifiés. Cette comparaison ne constitue **pas** une autorisation de fusion ou de déploiement.
