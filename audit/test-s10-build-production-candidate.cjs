@@ -25,6 +25,11 @@ try{
  fs.writeFileSync(path.join(src,"index.html"),initial);
  fs.writeFileSync(path.join(src,"login.html"),`const db="${testUrl}"; const key="${testKey}";`);
  fs.mkdirSync(path.join(src,"img"));fs.writeFileSync(path.join(src,"img","logov2.png"),"static-only");
+ fs.mkdirSync(path.join(src,"audit"));
+ const runtime=["s06-live-test.js","s06-wo-pilot.js","s06-sidebar-persistent.js"];
+ for(const asset of runtime)fs.writeFileSync(path.join(src,"audit",asset),"// verified runtime "+asset);
+ fs.appendFileSync(path.join(src,"index.html"),
+   '<img src="./img/logov2.png">'+runtime.map(asset=>'<script src="audit/'+asset+'" defer></script>').join(""));
  let r=run(path.join(root,"out"));assert.equal(r.status,0,r.stderr);
  const out=fs.readFileSync(path.join(root,"out","index.html"),"utf8");
  assert.match(out,/PROD_STORAGE_PREFIX = "ar_prod_feeapfylfzlvgnqtglnh"/);
@@ -33,11 +38,18 @@ try{
  assert.match(out,/Preserve historical ar_<user>_\* local keys/);
  assert.match(out,/hydrateLocalFromCloud\(cloudData\)/);
  assert.equal(fs.readFileSync(path.join(root,"out","img","logov2.png"),"utf8"),"static-only");
+ for(const asset of runtime)assert.equal(
+   fs.readFileSync(path.join(root,"out","audit",asset),"utf8"),"// verified runtime "+asset);
  assert.ok(fs.readFileSync(path.join(root,"out","NO-GO-PROTOTYPE.txt"),"utf8").includes("NOT DEPLOYABLE"));
  assert.ok(fs.readFileSync(path.join(src,"index.html"),"utf8").includes(testUrl));
  r=run(path.join(root,"wrong"),"https://productionexample.supabase.co");assert.notEqual(r.status,0);
  r=run(path.join(root,"badkey"),prodUrl,testKey);assert.notEqual(r.status,0);
  r=run(src);assert.notEqual(r.status,0);
+ // Reject missing runtime dependency before any output directory is made.
+ fs.rmSync(path.join(src,"audit","s06-live-test.js"));
+ r=run(path.join(root,"missing-runtime"));assert.notEqual(r.status,0);
+ assert.ok(!fs.existsSync(path.join(root,"missing-runtime")));
+ fs.writeFileSync(path.join(src,"audit","s06-live-test.js"),"// verified runtime s06-live-test.js");
  // Fail closed if the source app's safe hydrating sequence is changed.
  fs.writeFileSync(path.join(src,"index.html"),initial.replace("hydrateLocalFromCloud(cloudData);","void(cloudData);"));
  r=run(path.join(root,"unsafe"));assert.notEqual(r.status,0);
