@@ -19,8 +19,15 @@ Dernière révision : 2026-11-22. Branche de travail : `integration-finale`.
 - [x] PROD : 87 BT, 87 factures, 55 fichiers Storage (89 068 008 octets).
 - [x] TEST : les fonctions de minuterie RPC exigent un utilisateur authentifié; pas de droit EXECUTE anonyme sur les trois fonctions exposées.
 
+## Tests RLS authentifiés simulés (lecture seule, transaction READ ONLY + ROLLBACK)
+- [x] Owner A : 1 ligne active A visible, 0 B, 0 héritage.
+- [x] Owner B : 1 ligne active B visible, 0 A, 0 héritage.
+- [x] Employee A : **0 ligne active** visible, 0 B, mais **1 ligne héritée sans garage** visible.
+- [x] Vérification du contexte : `current_user=authenticated`, `auth.uid()` correspond au compte simulé.
+- [ ] Retester ces quatre dimensions après correction RLS; les tests simulés ne remplacent pas un parcours navigateur réel.
+
 ## Bloquants à corriger et à tester
-- [ ] **B1 — Accès employé.** La politique RLS `garage_data` utilise `auth.uid() = user_id`. Le compte employé du TEST est membre du garage mais n'est pas propriétaire de la ligne. Définir précisément les droits owner/employee et remplacer la politique uniquement après tests d'isolation.
+- [ ] **B1 — Accès employé.** La politique RLS `garage_data` utilise `auth.uid() = user_id`. Le compte employé du TEST est membre du garage mais n'est pas propriétaire de la ligne. Test simulé : aucune donnée active visible; seule une ancienne ligne sans garage reste visible. Définir précisément les droits owner/employee et remplacer la politique uniquement après tests d'isolation.
 - [ ] **B2 — Minuterie employé.** `s06_timer_check_work_order` et `s06_timer_post_labor` filtrent `garage_data` par `gd.user_id = p_uid/v_uid`. Adapter avec contrôle d'appartenance au garage, sans autoriser l'accès à un autre garage.
 - [ ] **B3 — Tests authentifiés.** Vérifier owner A, employee A, owner B : SELECT/UPDATE `garage_data`, BT, factures, minuterie, pièces jointes et calendriers. Les vérifications SQL administrateur ne remplacent pas ces tests.
 - [ ] **B4 — Fichiers.** Préserver les 55 fichiers PROD, vérifier les 49 références BT et examiner les 6 fichiers non référencés; convertir les anciennes URLs publiques en chemins privés et liens signés.
