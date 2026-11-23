@@ -196,7 +196,8 @@ async function backup(client,rootFolder,progress=()=>{}){
   const latestMemberResponse=await client.rpc("backup_garage_member_ids",{p_garage_id:garageId});
   if(latestMemberResponse.error || !Array.isArray(latestMemberResponse.data) ||
      latestMemberResponse.data.length!==members.length ||
-     latestMemberResponse.data.some(m=>!members.some(original=>original.user_id===m.user_id)) ||\n     new Set(latestMemberResponse.data.map(m=>m.user_id)).size!==members.length)
+     latestMemberResponse.data.some(m=>!members.some(original=>original.user_id===m.user_id)) ||
+     new Set(latestMemberResponse.data.map(m=>m.user_id)).size!==members.length)
    manifest.failed.push({path:"garage_members",error:"La liste des membres a changé pendant l'export"});
   const storageRowsAfter=await pageRows((from,to)=>client.rpc("backup_garage_storage_paths",
    {p_garage_id:garageId}).range(from,to));
