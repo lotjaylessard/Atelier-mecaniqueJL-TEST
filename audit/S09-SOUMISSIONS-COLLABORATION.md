@@ -44,3 +44,9 @@ Un propriétaire ne voit pas nécessairement les soumissions créées par son em
 - [x] Commit frontend TEST `d813dc78`.
 - [ ] Liste principale et édition toujours limitées à l'auteur; ne pas annoncer le partage complet.
 - [ ] Tests navigateur multiutilisateur à réaliser.
+
+## Mise à jour : identité immuable des soumissions TEST
+- [x] Migration `s09_protect_quote_identity_test` : trigger BEFORE UPDATE refuse les changements de `id`, `garage_id`, `user_id`, `created_at` et `quote_number`.
+- [x] Essais SQL en transaction annulée : UPDATE sans changement d'identité accepté; tentative de changement de `user_id` rejetée avec SQLSTATE 23514.
+- [ ] Le frontend de la liste principale reste limité à l'auteur. Partage complet et tests navigateur en attente.
+- [ ] Production inchangée.
