@@ -19,6 +19,29 @@ BEGIN
                   AND column_name='garage_id') THEN
    RAISE EXCEPTION 'garage_data.garage_id is missing';
  END IF;
+ -- The path scheme <user-id>/... is safe only when a user belongs to one garage.
+ -- A future multi-membership feature must use <garage-id>/<user-id>/... instead.
+ IF EXISTS (
+   SELECT 1 FROM public.garage_members
+   GROUP BY user_id HAVING count(DISTINCT garage_id)>1
+ ) THEN
+   RAISE EXCEPTION 'Users belonging to multiple garages require garage-scoped storage paths';
+ END IF;
+ -- Fail closed: unknown permissive policies are OR-combined by PostgreSQL.
+ IF EXISTS (
+   SELECT 1 FROM pg_policies
+   WHERE schemaname='storage' AND tablename='objects'
+     AND policyname NOT IN (
+       'Allow authenticated delete 12vdd8i_0',
+       'Allow authenticated delete 12vdd8i_1',
+       'Allow authenticated read 12vdd8i_0',
+       'Allow authenticated upload 12vdd8i_0',
+       'S10 files read tenant',
+       'S10 files insert own prefix'
+     )
+ ) THEN
+   RAISE EXCEPTION 'Unexpected storage.objects policy: review all policies before S10';
+ END IF;
  IF EXISTS (
    SELECT 1 FROM storage.objects o
    WHERE o.bucket_id='wo-files' AND split_part(o.name,'/',1)='clients'
@@ -55,12 +78,12 @@ USING (
       split_part(name,'/',1)='clients'
       AND owner_id IS NOT NULL
       AND EXISTS (
-        SELECT 1 FROM public.garage_members file_owner
+        SELECT 1 FROM public.garage_data original_garage
         JOIN public.garage_members viewer
-          ON viewer.garage_id=file_owner.garage_id
-        WHERE file_owner.user_id::text=storage.objects.owner_id
+          ON viewer.garage_id=original_garage.garage_id
+        WHERE original_garage.user_id::text=storage.objects.owner_id
+          AND original_garage.garage_id IS NOT NULL
           AND viewer.user_id=(SELECT auth.uid())
-          AND file_owner.role IN ('owner','employee')
           AND viewer.role IN ('owner','employee')
       )
     )
