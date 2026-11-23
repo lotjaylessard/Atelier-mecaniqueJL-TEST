@@ -189,19 +189,19 @@ async function backup(client,rootFolder,progress=()=>{}){
    manifest.failed.push({path:"wo-files",error:"L'inventaire Storage a changé pendant l'export"});
   const latestQuotes=await pageRows((from,to)=>client.rpc("backup_garage_quotes",
    {p_garage_id:garageId}).range(from,to));
-  const quoteVersions=new Map(quotes.map(q=>[q.id,String(q.version)]));
+  const quoteSnapshots=new Map(quotes.map(q=>[q.id,JSON.stringify(q)]));
   if(latestQuotes.length!==quotes.length ||
     latestQuotes.some(q=>q.garage_id!==garageId||
-      quoteVersions.get(q.id)!==String(q.version)))
+      quoteSnapshots.get(q.id)!==JSON.stringify(q)))
    manifest.failed.push({path:"garage_quotes",error:"Les soumissions ont changé pendant l'export"});
   // Verify that all referenced BT paths were saved, including old shared files.
  
   const versions=await pageRows((from,to)=>client.from("garage_data")
-   .select("garage_id,version,user_id").eq("garage_id",garageId).range(from,to));
-  const original=new Map(garages.map(g=>[g.garage_id,String(g.version)]));
+   .select("garage_id,user_id,data,version,updated_at").eq("garage_id",garageId).range(from,to));
+  const original=new Map(garages.map(g=>[g.garage_id,JSON.stringify(g)]));
   if(versions.length!==garages.length ||
      versions.some(v=>v.user_id!==uid||!original.has(v.garage_id)||
-      String(v.version)!==original.get(v.garage_id))){
+      JSON.stringify(v)!==original.get(v.garage_id))){
    manifest.failed.push({path:"garage_data",error:"Les versions cloud ont changé pendant l'export"});
   }
  }catch(error){manifest.failed.push({path:"garage_data",error:"Impossible de revérifier les versions : "+String(error.message||error)})}
