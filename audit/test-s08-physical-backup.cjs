@@ -20,7 +20,7 @@ function client({duplicate=false,changed=false}={}){
  let reads=0;
  return {auth:{async getUser(){return {data:{user:{id:uid}}}}},
  storage:{from(){return {async download(){throw Error("unexpected download")}}}},
- from(table){return {select(){return this},eq(){return this},async range(){
+ from(table){return {select(){return this},eq(){return this},order(){return this},async range(){
  if(table==="garage_members")return {data:[{garage_id:garage,user_id:uid,role:"owner"}]};
  if(table==="garage_data")return {data:[{garage_id:garage,user_id:uid,data:{workorders:[]},version:1,updated_at:"2026-11-23"}]};
  if(operational.includes(table)){if(table==="garage_calendar_notes"&&changed&&++reads>1)return {data:[{id:"n1",garage_id:garage,user_id:uid}]};return {data:[]}}
