@@ -25,6 +25,18 @@ for(const file of files){
   [/garage-calendar-oauth[^\s"']*test/gi,"Endpoint OAuth TEST"]
  ];
  for(const [regex,label] of checks)if(regex.test(source))errors.push(file+" : "+label);
+ // Validate all local runtime resources (not just the two HTML entry points).
+ for(const match of source.matchAll(/<(?:script|img|link)\\b[^>]*?\\b(?:src|href)\\s*=\\s*["']([^"']+)["']/gi)){
+   const uri=match[1];
+   if(/^(?:https?:|data:|blob:|\\/\\/|#)/i.test(uri))continue;
+   const relative=path.posix.normalize(uri.replace(/^\\.\\//,"").split(/[?#]/)[0]);
+   if(!relative||relative.startsWith("../")||relative.startsWith("/")){
+     errors.push(file+" : chemin relatif interdit "+uri);continue;
+   }
+   const destination=path.resolve(base,...relative.split("/"));
+   if(!destination.startsWith(base+path.sep)||!fs.existsSync(destination)||!fs.statSync(destination).isFile())
+     errors.push(file+" : ressource locale manquante "+relative);
+ }
  const urls=[...source.matchAll(/https:\/\/([a-z0-9-]+)\.supabase\.co/gi)].map(m=>m[1].toLowerCase());
  const projects=[...new Set(urls)];
  if(projects.length!==1)errors.push(file+" : attendu exactement un projet Supabase, trouvé "+projects.length);
