@@ -8,6 +8,7 @@ on:
       - audit/s08-verify-physical-backup.js
       - audit/s08-physical-backup.js
       - audit/test-s08-backup-verifier.cjs
+      - audit/test-s08-physical-backup.cjs
       - .github/workflows/s08-physical-verifier.yml
   workflow_dispatch:
 
@@ -27,3 +28,5 @@ jobs:
         run: node --check audit/s08-physical-backup.js
       - name: Tests unitaires du manifeste physique (hors ligne)
         run: node audit/test-s08-backup-verifier.cjs
+      - name: Tests export physique simulé (hors ligne)
+        run: node audit/test-s08-physical-backup.cjs
