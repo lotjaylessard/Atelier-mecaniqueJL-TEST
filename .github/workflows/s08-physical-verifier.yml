@@ -1,0 +1,26 @@
+name: S08 verification sauvegarde physique TEST
+
+on:
+  push:
+    branches:
+      - integration-finale
+    paths:
+      - audit/s08-verify-physical-backup.js
+      - audit/test-s08-backup-verifier.cjs
+      - .github/workflows/s08-physical-verifier.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Tests unitaires du manifeste physique (hors ligne)
+        run: node audit/test-s08-backup-verifier.cjs
