@@ -123,6 +123,15 @@ async function backup(client,rootFolder,progress=()=>{}){
   .eq("garage_id",garageId).range(from,to));
  if(garages.length!==1 || garages[0].user_id!==uid)
   throw Error("Snapshot garage absent ou propriétaire incohérent");
+ // Capturer les lignes accessibles au propriétaire, sans prétendre couvrir
+ // les données privées des autres membres du garage.
+ const operational={};
+ for(const table of ["garage_timer_sessions","garage_calendar_notes","garage_schedule_events"]){
+  operational[table]=await pageRows((from,to)=>client.from(table)
+   .select("*").eq("garage_id",garageId).eq("user_id",uid).range(from,to));
+  if(operational[table].some(row=>row.garage_id!==garageId||row.user_id!==uid))
+   throw Error("Ligne opérationnelle hors compte : "+table);
+ }
  const quotes=await pageRows((from,to)=>client.rpc("backup_garage_quotes",
   {p_garage_id:garageId}).range(from,to));
  if(quotes.some(q=>q.garage_id!==garageId))throw Error("Soumission hors garage");
@@ -143,6 +152,7 @@ async function backup(client,rootFolder,progress=()=>{}){
   bucket:BUCKET,bytesIncluded:true,status:"INCOMPLETE",
   garageCount:garages.length,quoteCount:quotes.length,
   referencedPaths:refs.length,ownedPaths:owned.length,ownedPathList:owned,
+  operationalCounts:Object.fromEntries(Object.entries(operational).map(([table,rows])=>[table,rows.length])),
   files:[],failed:[],unresolvedReferences:[],
   // Bloquer le statut COMPLETE tant que les données relationnelles ne sont pas exportées.
   missingTables:["garage_timer_sessions","garage_calendar_notes","garage_schedule_events"],
@@ -155,7 +165,7 @@ async function backup(client,rootFolder,progress=()=>{}){
  progress("Inventaire : "+targetPaths.length+" fichier(s) accessibles à vérifier");
  await writeJson(folder,"garage-data.json",{
   format:"atelier-test-full-garage-snapshot-v1",
-  accountId:uid,createdAt:manifest.createdAt,garages,quotes
+  accountId:uid,createdAt:manifest.createdAt,garages,quotes,operational
  });
  const snapshotBytes=await (await (await folder.getFileHandle("garage-data.json")).getFile()).arrayBuffer();
  manifest.snapshotSha256=await sha256(snapshotBytes);
@@ -201,6 +211,14 @@ async function backup(client,rootFolder,progress=()=>{}){
     latestQuotes.some(q=>q.garage_id!==garageId||
       quoteSnapshots.get(q.id)!==JSON.stringify(q)))
    manifest.failed.push({path:"garage_quotes",error:"Les soumissions ont changé pendant l'export"});
+  for(const [table,rows] of Object.entries(operational)){
+   const latest=await pageRows((from,to)=>client.from(table)
+    .select("*").eq("garage_id",garageId).eq("user_id",uid).range(from,to));
+   const initial=new Map(rows.map(row=>[row.id,JSON.stringify(row)]));
+   if(latest.length!==rows.length || latest.some(row=>!initial.has(row.id)||
+      JSON.stringify(row)!==initial.get(row.id)))
+    manifest.failed.push({path:table,error:"Les lignes opérationnelles ont changé pendant l'export"});
+  }
   // Verify that all referenced BT paths were saved, including old shared files.
  
   const versions=await pageRows((from,to)=>client.from("garage_data")
