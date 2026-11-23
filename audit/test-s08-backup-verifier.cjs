@@ -18,10 +18,10 @@ const owner="owner-A",garage="garage-A",filePath="owner-A/attachment.pdf";
 const payload=bytes("sample attachment");
 const snapshot={createdAt:"2026-11-23T12:00:00.000Z",format:"atelier-test-full-garage-snapshot-v1",accountId:owner,
  garages:[{garage_id:garage,user_id:owner,data:{workorders:[{attachments:[{path:filePath}]}]}}],
- quotes:[{id:"q1",garage_id:garage}]};
+ quotes:[{id:"q1",garage_id:garage}],operational:{garage_timer_sessions:[],garage_calendar_notes:[],garage_schedule_events:[]}};
 const json=bytes(JSON.stringify(snapshot));
 const base={format:"atelier-test-physical-backup-v1",source:"Supabase TEST",
- bucket:"wo-files",status:"COMPLETE",createdAt:snapshot.createdAt,missingTables:[],accountId:owner,garageId:garage,
+ bucket:"wo-files",status:"COMPLETE",createdAt:snapshot.createdAt,missingTables:[],operationalCounts:{garage_timer_sessions:0,garage_calendar_notes:0,garage_schedule_events:0},accountId:owner,garageId:garage,
  memberIds:[owner,"employee-A"],garageCount:1,quoteCount:1,
  snapshotSha256:digest(json),snapshotBytes:json.length,
  referencedPaths:1,ownedPaths:1,ownedPathList:[filePath],fileCount:1,totalBytes:payload.length,
@@ -67,5 +67,7 @@ async function check(label,patch,expected){
  await check("snapshot timestamp missing",{createdAt:undefined},false);
  await check("missing relational tables",{missingTables:["garage_timer_sessions"]},false);
  await check("coverage declaration absent",{missingTables:undefined},false);
- console.log("S08 verifier: 21 scenarios OK");
+ await check("operational counts missing",{operationalCounts:undefined},false);
+ await check("operational count mismatch",{operationalCounts:{garage_timer_sessions:1,garage_calendar_notes:0,garage_schedule_events:0}},false);
+ console.log("S08 verifier: 23 scenarios OK");
 })().catch(error=>{console.error(error);process.exitCode=1});
