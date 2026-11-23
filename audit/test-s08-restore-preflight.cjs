@@ -19,4 +19,27 @@ try{
  manifest.status="COMPLETE";manifest.missingTables=["garage_calendar_notes"];write();assert.notEqual(run().status,0);console.log("preflight: missing table rejected");
  manifest.missingTables=[];manifest.snapshotSha256="0".repeat(64);write();assert.notEqual(run().status,0);console.log("preflight: checksum mismatch rejected");
  manifest.snapshotSha256=sha(data);manifest.files=[{path:"../escape",bytes:0,sha256:sha(Buffer.alloc(0))}];manifest.fileCount=1;write();assert.notEqual(run().status,0);console.log("preflight: traversal rejected");
+ manifest.files=[];manifest.fileCount=0;
+ const attachment="owner/workorders/test-document.pdf";
+ const content=Buffer.from("%PDF-1.4\\nfixture\\n");
+ fs.mkdirSync(path.join(base,"files","owner","workorders"),{recursive:true});
+ fs.writeFileSync(path.join(base,"files",attachment),content);
+ snapshot.garages[0].data.workorders=[{attachments:[{path:attachment}]}];
+ const updated=Buffer.from(JSON.stringify(snapshot));
+ fs.writeFileSync(path.join(base,"garage-data.json"),updated);
+ manifest.snapshotSha256=sha(updated);manifest.snapshotBytes=updated.length;
+ manifest.referencedPaths=1;manifest.ownedPaths=1;manifest.ownedPathList=[attachment];
+ manifest.files=[{path:attachment,bytes:content.length,sha256:sha(content),referenced:true}];
+ manifest.fileCount=1;manifest.totalBytes=content.length;
+ fs.writeFileSync(path.join(base,"manifest.json"),JSON.stringify(manifest));
+ assert.equal(run().status,0,"Physical attachment fixture should pass");
+ console.log("preflight: physical attachment OK");
+ fs.writeFileSync(path.join(base,"files",attachment),Buffer.from("tampered"));
+ assert.notEqual(run().status,0,"Tampered physical attachment must be refused");
+ console.log("preflight: tampered physical attachment rejected");
+ fs.writeFileSync(path.join(base,"files",attachment),content);
+ manifest.ownedPathList=["owner/workorders/missing.pdf"];
+ fs.writeFileSync(path.join(base,"manifest.json"),JSON.stringify(manifest));
+ assert.notEqual(run().status,0,"Missing inventory object must be refused");
+ console.log("preflight: missing Storage inventory rejected");
 }finally{fs.rmSync(base,{recursive:true,force:true})}
