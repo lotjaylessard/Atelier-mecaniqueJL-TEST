@@ -8,6 +8,7 @@ const root=path.resolve(__dirname);
 const draft=fs.readFileSync(path.join(root,"s10-schema-draft-NO-GO.sql"),"utf8");
 const read=name=>JSON.parse(fs.readFileSync(path.join(root,"s10-test-"+name+"-snapshot.json"),"utf8")).items;
 const constraints=read("constraints"),indexes=read("indexes"),policies=read("policies");
+const functions=JSON.parse(fs.readFileSync(path.join(root,"s10-test-rpc-functions-snapshot.json"),"utf8")).functions;
 const quote=s=>'"'+s.replaceAll('"','""')+'"';
 const out=[];
 out.push("-- S10 TEST TRANSACTIONNEL SEULEMENT. NE PAS EXECUTER SUR PROD.");
@@ -27,6 +28,12 @@ for(const x of indexes){
  if(x.indexname.endsWith("_pkey"))continue;
  out.push(x.indexdef+";");
 }
+out.push("-- Fonctions SQL réellement présentes dans TEST (sans données métier).");
+for(const f of functions)out.push(f.definition.trimEnd().replace(/;?\s*$/,";"));
+out.push("-- Triggers TEST: fonctions définies ci-dessus.");
+out.push("CREATE TRIGGER protect_garage_data_ids_trigger BEFORE UPDATE ON public.garage_data FOR EACH ROW EXECUTE FUNCTION public.protect_garage_data_ids();");
+out.push("CREATE TRIGGER s08_assign_quote_tracking_number_before_insert BEFORE INSERT ON public.garage_quotes FOR EACH ROW EXECUTE FUNCTION public.s08_assign_quote_tracking_number();");
+out.push("CREATE TRIGGER s09_quote_identity_immutable BEFORE UPDATE ON public.garage_quotes FOR EACH ROW EXECUTE FUNCTION public.s09_protect_quote_identity();");
 out.push("-- RLS: les anciennes policies PROD peuvent coexister et ouvrir des accès inattendus.");
 out.push("-- Ne PAS déployer ces policies sans suppression/revue transactionnelle des anciennes règles.");
 for(const x of policies){
