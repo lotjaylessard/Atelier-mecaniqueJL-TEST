@@ -20639,34 +20639,41 @@ if (window.garageSupabase) {
     return changed;
   }
   let s09QuoteViewerUid=null;
+  let s09QuotesRefreshToken=0;
   async function refreshQuotes(){
+    const token=++s09QuotesRefreshToken;
     try{
       const {sb,garageId}=context();
       const {data:auth,error:authError}=await sb.auth.getUser();
+      if(token!==s09QuotesRefreshToken)return;
       if(authError||!auth?.user?.id)throw Error("Session expirée.");
-      s09QuoteViewerUid=auth.user.id;
       const {data,error:readError}=await sb.from("garage_quotes")
         .select("id,user_id,quote_number,status,content,created_at,version,converted_bt_id")
         .eq("garage_id",garageId)
         .order("created_at",{ascending:false}).limit(200);
+      if(token!==s09QuotesRefreshToken)return;
       if(readError)throw readError;
-      quotes=Array.isArray(data)?data:[];
-      // Expiration évaluée lors de l'ouverture/rafraîchissement du module.
-      const expired=await expireDueSentQuotes(quotes,sb,garageId,auth.user.id);
+      let nextQuotes=Array.isArray(data)?data:[];
+      // Les écritures d'expiration restent limitées à l'auteur; ignorer les réponses périmées.
+      const expired=await expireDueSentQuotes(nextQuotes,sb,garageId,auth.user.id);
+      if(token!==s09QuotesRefreshToken)return;
       if(expired){
         const {data:reloaded,error:reloadError}=await sb.from("garage_quotes")
           .select("id,user_id,quote_number,status,content,created_at,version,converted_bt_id")
-        .eq("garage_id",garageId)
+          .eq("garage_id",garageId)
           .order("created_at",{ascending:false}).limit(200);
+        if(token!==s09QuotesRefreshToken)return;
         if(reloadError)throw reloadError;
-        quotes=Array.isArray(reloaded)?reloaded:[];
+        nextQuotes=Array.isArray(reloaded)?reloaded:[];
       }
+      if(token!==s09QuotesRefreshToken)return;
+      s09QuoteViewerUid=auth.user.id;
+      quotes=nextQuotes;
       renderQuoteList();
-      // Actualisation directe du compteur Dashboard à chaque relecture des SO.
       window.dispatchEvent(new Event("s08-quotes-refreshed"));
     }catch(err){
+      if(token!==s09QuotesRefreshToken)return;
       console.warn("[S08] Liste des soumissions indisponible",err);
-      // Ne jamais conserver une liste ou un auteur authentifié d'une session précédente.
       s09QuoteViewerUid=null;
       quotes=[];
       renderQuoteList();
