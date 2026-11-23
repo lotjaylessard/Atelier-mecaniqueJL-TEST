@@ -20667,6 +20667,8 @@ if (window.garageSupabase) {
         nextQuotes=Array.isArray(reloaded)?reloaded:[];
       }
       if(token!==s09QuotesRefreshToken)return;
+      if(garageId!==ACTIVE_GARAGE_ID)throw Error("Garage actif modifié pendant la lecture.");
+      if(s09QuoteViewerUid&&s09QuoteViewerUid!==auth.user.id&&!viewer.hidden)closeViewer();
       s09QuoteViewerUid=auth.user.id;
       quotes=nextQuotes;
       renderQuoteList();
@@ -20676,6 +20678,8 @@ if (window.garageSupabase) {
       console.warn("[S08] Liste des soumissions indisponible",err);
       s09QuoteViewerUid=null;
       quotes=[];
+      if(!viewer.hidden)closeViewer();
+      selectedQuote=null;
       renderQuoteList();
       get("s08QuoteCount").textContent="Liste indisponible — vérifier la connexion.";
     }
