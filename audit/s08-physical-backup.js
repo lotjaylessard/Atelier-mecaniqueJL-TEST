@@ -122,8 +122,8 @@ async function backup(client,rootFolder,progress=()=>{}){
   .eq("garage_id",garageId).range(from,to));
  if(garages.length!==1 || garages[0].user_id!==uid)
   throw Error("Snapshot garage absent ou propriétaire incohérent");
- const quotes=await pageRows((from,to)=>client.from("garage_quotes")
-  .select("*").eq("garage_id",garageId).order("created_at",{ascending:true}).range(from,to));
+ const quotes=await pageRows((from,to)=>client.rpc("backup_garage_quotes",
+  {p_garage_id:garageId}).range(from,to));
  if(quotes.some(q=>q.garage_id!==garageId))throw Error("Soumission hors garage");
  const refs=pathsFromGarages(garages);
  const owned=[...new Set((await Promise.all(members.map(m=>listOwned(client,m.user_id)))).flat())].sort();
@@ -173,9 +173,8 @@ async function backup(client,rootFolder,progress=()=>{}){
   if(ownedAfter.length!==owned.length ||
      ownedAfter.some((path,index)=>path!==owned[index]))
    manifest.failed.push({path:"wo-files",error:"L'inventaire Storage a changé pendant l'export"});
-  const latestQuotes=await pageRows((from,to)=>client.from("garage_quotes")
-   .select("id,user_id,garage_id,version").eq("garage_id",garageId)
-   .order("created_at",{ascending:true}).range(from,to));
+  const latestQuotes=await pageRows((from,to)=>client.rpc("backup_garage_quotes",
+   {p_garage_id:garageId}).range(from,to));
   const quoteVersions=new Map(quotes.map(q=>[q.id,String(q.version)]));
   if(latestQuotes.length!==quotes.length ||
     latestQuotes.some(q=>q.garage_id!==garageId||
