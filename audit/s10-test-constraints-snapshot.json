@@ -1,0 +1,330 @@
+{
+  "source": "Supabase TEST read-only 2026-11-23",
+  "type": "constraints",
+  "items": [
+    {
+      "table_name": "garage_calendar_notes",
+      "name": "garage_calendar_notes_note_text_check",
+      "type": "c",
+      "definition": "CHECK (((char_length(btrim(note_text)) >= 1) AND (char_length(btrim(note_text)) <= 4000)))"
+    },
+    {
+      "table_name": "garage_calendar_notes",
+      "name": "garage_calendar_notes_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table_name": "garage_data",
+      "name": "garage_data_garage_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (garage_id) REFERENCES garages(id)"
+    },
+    {
+      "table_name": "garage_data",
+      "name": "garage_data_garage_id_unique",
+      "type": "u",
+      "definition": "UNIQUE (garage_id)"
+    },
+    {
+      "table_name": "garage_data",
+      "name": "garage_data_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (user_id)"
+    },
+    {
+      "table_name": "garage_data",
+      "name": "garage_data_user_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE RESTRICT"
+    },
+    {
+      "table_name": "garage_external_calendar_connections",
+      "name": "garage_external_calendar_conn_garage_id_user_id_provider_ca_key",
+      "type": "u",
+      "definition": "UNIQUE (garage_id, user_id, provider, calendar_id)"
+    },
+    {
+      "table_name": "garage_external_calendar_connections",
+      "name": "garage_external_calendar_connections_calendar_id_check",
+      "type": "c",
+      "definition": "CHECK (((char_length(calendar_id) >= 1) AND (char_length(calendar_id) <= 512)))"
+    },
+    {
+      "table_name": "garage_external_calendar_connections",
+      "name": "garage_external_calendar_connections_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table_name": "garage_external_calendar_connections",
+      "name": "garage_external_calendar_connections_provider_check",
+      "type": "c",
+      "definition": "CHECK ((provider = ANY (ARRAY['google'::text, 'microsoft'::text, 'familywall'::text])))"
+    },
+    {
+      "table_name": "garage_external_calendar_connections",
+      "name": "garage_external_calendar_connections_sync_status_check",
+      "type": "c",
+      "definition": "CHECK ((sync_status = ANY (ARRAY['not_connected'::text, 'connected'::text, 'syncing'::text, 'needs_reconnect'::text, 'error'::text])))"
+    },
+    {
+      "table_name": "garage_external_calendar_events",
+      "name": "garage_external_calendar_even_connection_id_provider_event__key",
+      "type": "u",
+      "definition": "UNIQUE (connection_id, provider_event_id)"
+    },
+    {
+      "table_name": "garage_external_calendar_events",
+      "name": "garage_external_calendar_events_categories_array",
+      "type": "c",
+      "definition": "CHECK ((jsonb_typeof(categories) = 'array'::text))"
+    },
+    {
+      "table_name": "garage_external_calendar_events",
+      "name": "garage_external_calendar_events_connection_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (connection_id) REFERENCES garage_external_calendar_connections(id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "garage_external_calendar_events",
+      "name": "garage_external_calendar_events_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table_name": "garage_external_calendar_events",
+      "name": "garage_external_calendar_events_provider_event_id_check",
+      "type": "c",
+      "definition": "CHECK (((char_length(provider_event_id) >= 1) AND (char_length(provider_event_id) <= 512)))"
+    },
+    {
+      "table_name": "garage_external_calendar_events",
+      "name": "valid_dates",
+      "type": "c",
+      "definition": "CHECK (((start_date IS NULL) OR (end_date IS NULL) OR (end_date >= start_date)))"
+    },
+    {
+      "table_name": "garage_external_calendar_events",
+      "name": "valid_times",
+      "type": "c",
+      "definition": "CHECK (((start_at IS NULL) OR (end_at IS NULL) OR (end_at >= start_at)))"
+    },
+    {
+      "table_name": "garage_external_calendar_tokens",
+      "name": "garage_external_calendar_tokens_connection_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (connection_id) REFERENCES garage_external_calendar_connections(id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "garage_external_calendar_tokens",
+      "name": "garage_external_calendar_tokens_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (connection_id)"
+    },
+    {
+      "table_name": "garage_external_oauth_states",
+      "name": "garage_external_oauth_states_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (state_hash)"
+    },
+    {
+      "table_name": "garage_external_oauth_states",
+      "name": "garage_external_oauth_states_provider_check",
+      "type": "c",
+      "definition": "CHECK ((provider = ANY (ARRAY['google'::text, 'microsoft'::text])))"
+    },
+    {
+      "table_name": "garage_external_oauth_states",
+      "name": "garage_external_oauth_states_state_hash_check",
+      "type": "c",
+      "definition": "CHECK ((length(state_hash) = 64))"
+    },
+    {
+      "table_name": "garage_external_oauth_states",
+      "name": "oauth_state_expiry",
+      "type": "c",
+      "definition": "CHECK ((expires_at > created_at))"
+    },
+    {
+      "table_name": "garage_familywall_feed_secrets",
+      "name": "garage_familywall_feed_secrets_connection_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (connection_id) REFERENCES garage_external_calendar_connections(id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "garage_familywall_feed_secrets",
+      "name": "garage_familywall_feed_secrets_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (connection_id)"
+    },
+    {
+      "table_name": "garage_members",
+      "name": "garage_members_garage_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (garage_id) REFERENCES garages(id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "garage_members",
+      "name": "garage_members_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (garage_id, user_id)"
+    },
+    {
+      "table_name": "garage_members",
+      "name": "garage_members_role_check",
+      "type": "c",
+      "definition": "CHECK ((role = ANY (ARRAY['owner'::text, 'admin'::text, 'employee'::text])))"
+    },
+    {
+      "table_name": "garage_members",
+      "name": "garage_members_user_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "table_name": "garage_quotes",
+      "name": "garage_quotes_garage_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (garage_id) REFERENCES garages(id)"
+    },
+    {
+      "table_name": "garage_quotes",
+      "name": "garage_quotes_number_format",
+      "type": "c",
+      "definition": "CHECK ((quote_number ~ '^SO-([0-9]{4,}|[A-Z0-9]{1,12}-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{4,})$'::text))"
+    },
+    {
+      "table_name": "garage_quotes",
+      "name": "garage_quotes_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table_name": "garage_quotes",
+      "name": "garage_quotes_status_check",
+      "type": "c",
+      "definition": "CHECK ((status = ANY (ARRAY['draft'::text, 'sent'::text, 'approved'::text, 'declined'::text, 'expired'::text, 'converted'::text])))"
+    },
+    {
+      "table_name": "garage_quotes",
+      "name": "garage_quotes_unique_number",
+      "type": "u",
+      "definition": "UNIQUE (garage_id, quote_number)"
+    },
+    {
+      "table_name": "garage_quotes",
+      "name": "garage_quotes_user_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id)"
+    },
+    {
+      "table_name": "garage_quotes",
+      "name": "garage_quotes_version_check",
+      "type": "c",
+      "definition": "CHECK ((version >= 0))"
+    },
+    {
+      "table_name": "garage_schedule_events",
+      "name": "garage_schedule_events_event_type_check",
+      "type": "c",
+      "definition": "CHECK ((event_type = ANY (ARRAY['unavailable'::text, 'closed'::text, 'reserved'::text])))"
+    },
+    {
+      "table_name": "garage_schedule_events",
+      "name": "garage_schedule_events_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table_name": "garage_schedule_events",
+      "name": "garage_schedule_events_title_check",
+      "type": "c",
+      "definition": "CHECK (((char_length(btrim(title)) >= 1) AND (char_length(btrim(title)) <= 200)))"
+    },
+    {
+      "table_name": "garage_schedule_events",
+      "name": "garage_schedule_events_visibility_check",
+      "type": "c",
+      "definition": "CHECK ((visibility = ANY (ARRAY['private'::text, 'workshop'::text])))"
+    },
+    {
+      "table_name": "garage_schedule_events",
+      "name": "schedule_dates",
+      "type": "c",
+      "definition": "CHECK ((end_date >= start_date))"
+    },
+    {
+      "table_name": "garage_schedule_events",
+      "name": "schedule_hours",
+      "type": "c",
+      "definition": "CHECK ((((all_day = true) AND (start_time IS NULL) AND (end_time IS NULL)) OR ((all_day = false) AND (start_time IS NOT NULL) AND (end_time IS NOT NULL) AND ((end_date > start_date) OR (end_time > start_time)))))"
+    },
+    {
+      "table_name": "garage_schedule_events",
+      "name": "schedule_visibility_kind",
+      "type": "c",
+      "definition": "CHECK (((visibility <> 'private'::text) OR (event_type = 'unavailable'::text)))"
+    },
+    {
+      "table_name": "garage_timer_sessions",
+      "name": "garage_timer_sessions_confirmed_ms_check",
+      "type": "c",
+      "definition": "CHECK (((confirmed_ms >= 0) AND (confirmed_ms <= '86400000000'::bigint)))"
+    },
+    {
+      "table_name": "garage_timer_sessions",
+      "name": "garage_timer_sessions_garage_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (garage_id) REFERENCES garages(id) ON DELETE RESTRICT"
+    },
+    {
+      "table_name": "garage_timer_sessions",
+      "name": "garage_timer_sessions_manual_adjusted_ms_check",
+      "type": "c",
+      "definition": "CHECK ((manual_adjusted_ms >= 0))"
+    },
+    {
+      "table_name": "garage_timer_sessions",
+      "name": "garage_timer_sessions_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table_name": "garage_timer_sessions",
+      "name": "garage_timer_sessions_revision_check",
+      "type": "c",
+      "definition": "CHECK ((revision >= 0))"
+    },
+    {
+      "table_name": "garage_timer_sessions",
+      "name": "garage_timer_sessions_status_check",
+      "type": "c",
+      "definition": "CHECK ((status = ANY (ARRAY['paused'::text, 'running'::text, 'posted'::text])))"
+    },
+    {
+      "table_name": "garage_timer_sessions",
+      "name": "garage_timer_sessions_user_id_fkey",
+      "type": "f",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE RESTRICT"
+    },
+    {
+      "table_name": "garage_timer_sessions",
+      "name": "garage_timer_sessions_work_order_id_check",
+      "type": "c",
+      "definition": "CHECK (((char_length(btrim(work_order_id)) >= 1) AND (char_length(btrim(work_order_id)) <= 120)))"
+    },
+    {
+      "table_name": "garage_timer_sessions",
+      "name": "s06_timer_state",
+      "type": "c",
+      "definition": "CHECK ((((status = 'running'::text) AND (last_heartbeat_at IS NOT NULL) AND (posted_labor_id IS NULL)) OR ((status = 'paused'::text) AND (last_heartbeat_at IS NULL) AND (posted_labor_id IS NULL)) OR ((status = 'posted'::text) AND (last_heartbeat_at IS NULL) AND (posted_labor_id IS NOT NULL))))"
+    },
+    {
+      "table_name": "garages",
+      "name": "garages_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    }
+  ]
+}
