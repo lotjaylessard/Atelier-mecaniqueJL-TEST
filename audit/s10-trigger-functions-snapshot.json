@@ -1,0 +1,20 @@
+{
+  "source": "TEST 2026-11-23",
+  "functions": [
+    {
+      "proname": "protect_garage_data_ids",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.protect_garage_data_ids()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\r\nBEGIN\r\n  IF NEW.garage_id IS DISTINCT FROM OLD.garage_id\r\n     OR NEW.user_id IS DISTINCT FROM OLD.user_id THEN\r\n    RAISE EXCEPTION\r\n      'Modification de garage_id ou user_id interdite';\r\n  END IF;\r\n\r\n  RETURN NEW;\r\nEND;\r\n$function$\n"
+    },
+    {
+      "proname": "s08_assign_quote_tracking_number",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.s08_assign_quote_tracking_number()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n  first_letters text;\nBEGIN\n  -- Uses the unique global sequence value already assigned by the column default.\n  -- Never overwrites existing records; this is an INSERT trigger only.\n  IF NEW.quote_number !~ '^SO-[0-9]{4,}$' THEN RETURN NEW; END IF;\n  SELECT string_agg(left(word,1),'') INTO first_letters\n  FROM regexp_split_to_table(trim(coalesce(NEW.content->>'clientName','')),'[[:space:]]+') AS word\n  WHERE word<>'';\n  first_letters:=left(regexp_replace(upper(coalesce(first_letters,'')),'[^A-Z0-9]','','g'),12);\n  IF first_letters='' THEN RAISE EXCEPTION 'Client name required for quote number'; END IF;\n  NEW.quote_number:='SO-'||first_letters||'-'||\n    to_char(now() at time zone 'America/Toronto','YYYY-MM-DD')||'-'||\n    substring(NEW.quote_number from 4);\n  RETURN NEW;\nEND\n$function$\n"
+    },
+    {
+      "proname": "s09_protect_quote_identity",
+      "arguments": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.s09_protect_quote_identity()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\nbegin\n if new.id is distinct from old.id or\n    new.garage_id is distinct from old.garage_id or\n    new.user_id is distinct from old.user_id or\n    new.created_at is distinct from old.created_at or\n    new.quote_number is distinct from old.quote_number\n then\n  raise exception 'Quote identity is immutable' using errcode='23514';\n end if;\n return new;\nend;\n$function$\n"
+    }
+  ]
+}
