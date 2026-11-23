@@ -6,6 +6,8 @@ on:
       - audit/s10-check-production-bundle.cjs
       - audit/test-s10-production-bundle.cjs
       - audit/s10-inventory-runtime-dependencies.cjs
+      - audit/s10-build-production-candidate.cjs
+      - audit/test-s10-build-production-candidate.cjs
       - audit/s10-check-storage-compat.cjs
       - audit/test-s10-storage-compat.cjs
       - .github/workflows/s10-production-bundle.yml
@@ -44,3 +46,5 @@ jobs:
           else
             echo "OK: le stockage TEST bloque le déploiement PROD"
           fi
+      - name: Tester la génération isolée d'un candidat PROD
+        run: node audit/test-s10-build-production-candidate.cjs
