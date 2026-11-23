@@ -87,3 +87,11 @@ Un propriétaire ne voit pas nécessairement les soumissions créées par son em
 - [ ] Tester le flux réel dans le navigateur avec deux comptes, y compris conflits et annulations.
 - [ ] L'édition de la fiche complète de SO entre collègues n'est pas encore activée.
 - [ ] Production inchangée.
+
+## Mise à jour : fiches de collègues consultables en lecture seule TEST
+- [x] La liste principale ouvre désormais aussi les SO des collègues.
+- [x] Dans `viewQuote`, pour `q.user_id !== s09QuoteViewerUid`, masquer édition, réactivation, approbation, conversion, préflight, panneau de statut et planification.
+- [x] Consultation/impression conservées; les fiches personnelles restent inchangées.
+- [x] Commit frontend TEST `9b0d7124`.
+- [ ] Cette protection est une mesure d'interface; RLS autorise toujours les UPDATE same-garage. Audit complet des autres chemins d'écriture et tests navigateur requis avant édition partagée.
+- [ ] Production inchangée.
