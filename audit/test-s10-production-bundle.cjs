@@ -27,5 +27,12 @@ try{
  r=run('const db="'+prod+'";','const db="'+prod+'";');
  assert.equal(r.status,1,"A marked review candidate must NEVER pass the PROD gate");
  assert.match(r.stdout,/NON DÉPLOYABLE/);
- console.log("S10_BUNDLE_TESTS_OK : 6 scénarios.");
+ fs.rmSync(path.join(root,"NO-GO-PROTOTYPE.txt"));
+ r=run('const db="'+prod+'"; <script src="audit/missing-runtime.js"></script>','const db="'+prod+'";');
+ assert.equal(r.status,1,"Local script missing must fail deployment");
+ assert.match(r.stdout,/ressource locale manquante/);
+ r=run('const db="'+prod+'"; <img src="../private.json">','const db="'+prod+'";');
+ assert.equal(r.status,1,"Parent path must fail deployment");
+ assert.match(r.stdout,/chemin relatif interdit/);
+ console.log("S10_BUNDLE_TESTS_OK : 8 scénarios.");
 }finally{fs.rmSync(root,{recursive:true,force:true})}
