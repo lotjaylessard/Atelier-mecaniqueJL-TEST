@@ -40,8 +40,14 @@ async function verify(folder,progress=()=>{}){
     snapshot.quotes.length!==manifest.quoteCount)
   failures.push("Nombre de garages ou de soumissions incohérent");
  if(snapshot.accountId!==manifest.accountId||
-    snapshot.garages.some(g=>g.garage_id!==manifest.garageId))
-  failures.push("Identité du garage incohérente");
+    snapshot.garages.some(g=>g.garage_id!==manifest.garageId||
+      g.user_id!==manifest.accountId)||
+    snapshot.quotes.some(q=>q.garage_id!==manifest.garageId))
+  failures.push("Identité du garage ou soumissions incohérente");
+ if(new Set(snapshot.quotes.map(q=>q.id)).size!==snapshot.quotes.length)
+  failures.push("Soumissions dupliquées");
+ if(new Set(snapshot.garages.map(g=>g.garage_id)).size!==snapshot.garages.length)
+  failures.push("Garages dupliqués");
  const refs=new Set();
  for(const garage of snapshot.garages){
   for(const wo of (Array.isArray(garage.data?.workorders)?garage.data.workorders:[])){
