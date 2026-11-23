@@ -8971,7 +8971,6 @@ const isPaid = invoice && invoice.status === "paid";
 // Ne pas activer en PROD avant de deployer/valider la RPC correspondante.
 const S10_BT_ATOMIC_OWNER_ENABLED = true;
 const S10_BT_ATOMIC_OWNER_RPC = "s10_finalize_bt_invoice_owner_candidate";
-let S10_BT_ATOMIC_OWNER_CACHE = {garageId: null, userId: null, isOwner: false};
 async function s10CanFinalizeAsOwner(expectedGarage, expectedUser) {
   if (!S10_BT_ATOMIC_OWNER_ENABLED || !sb || !expectedGarage || !expectedUser ||
       SUPABASE_USER?.id !== expectedUser || ACTIVE_GARAGE_ID !== expectedGarage) return false;
