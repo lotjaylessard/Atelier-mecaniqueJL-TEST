@@ -125,6 +125,11 @@ Dernière révision : 2026-11-22. Branche de travail : `integration-finale`.
 - [ ] Tester réellement la page sous Chrome/Edge en HTTPS avec une sauvegarde physique produite, puis avec une copie volontairement altérée.
 - [ ] L'outil d'export physique n'a pas encore d'interface utilisateur intégrée ni d'exécution réelle vérifiée.
 
+## Contrôles d'appartenance dans le snapshot
+- [x] Vérificateur renforcé : refuse les soumissions dont `garage_id` diffère du garage sauvegardé, les lignes garage dont le propriétaire ne correspond pas, et les doublons de garage/soumission.
+- [x] Essais JavaScript isolés avec système de fichiers et hachage simulés : snapshot cohérent accepté; soumission transférée fictivement à un autre garage rejetée.
+- [ ] Essai réel de Web Crypto, export navigateur et restauration toujours requis.
+
 ## Tests d'acceptation indispensables
 1. Owner A peut lire et modifier A; ne peut ni lire ni modifier B.
 2. Employee A peut effectuer uniquement les actions autorisées sur A; ne voit rien de B.
