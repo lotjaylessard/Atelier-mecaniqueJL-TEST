@@ -14277,7 +14277,7 @@ async function jlAppointmentPersist(cancel){
   if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
   const {data:quote,error:readError}=await db.from("garage_quotes")
    .select("id,garage_id,user_id,status,version,content,quote_number")
-   .eq("id",id).eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id).maybeSingle();
+   .eq("id",id).eq("garage_id",ACTIVE_GARAGE_ID).maybeSingle();
   if(readError||!quote)throw Error("Soumission introuvable ou inaccessible");
   if(!["sent","converted","draft"].includes(quote.status)||!quote.content?.approvalConfirmedAt)
    throw Error("Cette soumission n'est plus admissible à une modification de rendez-vous");
@@ -14289,7 +14289,7 @@ async function jlAppointmentPersist(cancel){
   const {data:updated,error:saveError}=await db.from("garage_quotes")
    .update({content:{...quote.content,appointment:next},
      version:Number(quote.version)+1,updated_at:new Date().toISOString()})
-   .eq("id",quote.id).eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id)
+   .eq("id",quote.id).eq("garage_id",ACTIVE_GARAGE_ID)
    .eq("status",quote.status).eq("version",quote.version)
    .select("id,version").maybeSingle();
   if(saveError||!updated||Number(updated.version)!==Number(quote.version)+1)
