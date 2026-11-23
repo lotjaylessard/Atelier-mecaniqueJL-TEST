@@ -11,6 +11,9 @@ try{
  fs.writeFileSync(path.join(src,"login.html"),'const db="'+testUrl+'"; const key="'+testKey+'";');
  let r=run(path.join(root,"out"));assert.equal(r.status,0,r.stderr);
  const out=fs.readFileSync(path.join(root,"out","index.html"),"utf8");
+ assert.ok(fs.readFileSync(path.join(root,"out","NO-GO-PROTOTYPE.txt"),"utf8").includes("NON DEPLOYABLE"));
+ const checker=cp.spawnSync(process.execPath,[path.join(__dirname,"s10-check-production-bundle.cjs"),path.join(root,"out")],{encoding:"utf8"});
+ assert.notEqual(checker.status,0,"Le prototype ne doit pas passer la vérification PROD");
  assert.ok(out.includes(prodUrl));assert.ok(out.includes(prodKey));assert.ok(!out.includes(testUrl));
  assert.ok(fs.readFileSync(path.join(src,"index.html"),"utf8").includes(testUrl));
  r=run(path.join(root,"bad"),testUrl);assert.notEqual(r.status,0);
