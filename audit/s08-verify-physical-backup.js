@@ -31,6 +31,8 @@ async function verify(folder,progress=()=>{}){
     await hash(snapshotBytes)!==manifest.snapshotSha256)
   failures.push("Empreinte du snapshot JSON invalide");
  if(manifest.status!=="COMPLETE")failures.push("Manifeste non COMPLETE");
+ if(!Array.isArray(manifest.missingTables)||manifest.missingTables.length)
+  failures.push("Tables relationnelles non sauvegardées ou couverture non déclarée");
  if(!Array.isArray(manifest.files)||!Array.isArray(manifest.failed)||
     !Array.isArray(manifest.unresolvedReferences))throw Error("Manifeste invalide");
  if(manifest.failed.length||manifest.unresolvedReferences.length)
