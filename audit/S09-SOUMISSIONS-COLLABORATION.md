@@ -1,0 +1,26 @@
+# S09 — Soumissions et collaboration multigarage (audit TEST)
+
+Date : 2026-11-22. Périmètre : branche `integration-finale`, Supabase TEST uniquement.
+
+## Constat vérifié
+- `public.garage_quotes` : politiques RLS SELECT/INSERT/UPDATE/DELETE limitées à `user_id=auth.uid()` avec appartenance au garage.
+- `index.html` : plusieurs lectures et mises à jour de `garage_quotes` ajoutent explicitement `.eq("user_id", auth.user.id)`, en plus de `.eq("garage_id", ACTIVE_GARAGE_ID)`.
+- La RPC `backup_garage_quotes` est volontairement réservée au propriétaire pour sauvegarder toutes les soumissions. Elle n'est **pas** une API de collaboration.
+- Les notes de calendrier et les sessions de minuteur ont aussi des règles liées à l'auteur, mais leur confidentialité/appropriation peut être intentionnelle.
+
+## Conséquence
+Un propriétaire ne voit pas nécessairement les soumissions créées par son employé; un employé ne voit pas celles de son collègue. Modifier seulement la RLS ne suffira pas : les filtres frontend resteront restrictifs.
+
+## Plan de correction — non appliqué
+1. Définir explicitement la règle métier : soumissions partagées par garage, avec attribution de l'auteur conservée et journalisation des modifications.
+2. Modifier **sur TEST seulement** les politiques SELECT et, si approuvé, UPDATE de `garage_quotes` pour les membres du même garage; conserver INSERT avec auteur = utilisateur authentifié et interdire le changement de `garage_id`/`user_id`.
+3. Évaluer les droits DELETE : préférer archivage/annulation plutôt que suppression ouverte à tous les employés.
+4. Corriger **toutes** les requêtes du frontend qui filtrent les soumissions par auteur (listes, calendrier, conversion, édition, historique et synchronisation).
+5. Tester propriétaire A / employé A / propriétaire B, concurrence des versions, changement d'auteur, et cloisonnement strict entre garages.
+6. Ne déployer qu'après test de bout en bout et sauvegarde vérifiée.
+
+## Statut
+- [x] Risque identifié par inspection des politiques RLS TEST et du frontend TEST.
+- [x] Plan d'action documenté.
+- [ ] Changement RLS et frontend non effectué : nécessite modification coordonnée et tests.
+- [ ] Aucune modification en production.
