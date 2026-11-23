@@ -20668,7 +20668,18 @@ if (window.garageSupabase) {
       }
       if(token!==s09QuotesRefreshToken)return;
       if(garageId!==ACTIVE_GARAGE_ID)throw Error("Garage actif modifié pendant la lecture.");
-      if(s09QuoteViewerUid&&s09QuoteViewerUid!==auth.user.id&&!viewer.hidden)closeViewer();
+      if(!viewer.hidden&&selectedQuote){
+        const current=nextQuotes.find(q=>q.id===selectedQuote.id);
+        // Une fiche ouverte ne doit pas conserver un statut ou une version périmés.
+        if(!current||
+           (s09QuoteViewerUid&&s09QuoteViewerUid!==auth.user.id)||
+           Number(current.version)!==Number(selectedQuote.version)||
+           current.status!==selectedQuote.status||
+           current.user_id!==selectedQuote.user_id){
+          closeViewer();
+          selectedQuote=null;
+        }
+      }
       s09QuoteViewerUid=auth.user.id;
       quotes=nextQuotes;
       renderQuoteList();
