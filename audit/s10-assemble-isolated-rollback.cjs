@@ -15,9 +15,10 @@ out.push("-- Exécuter uniquement dans une restauration ISOLÉE et jetable de PR
 out.push("-- Ce script ne réconcilie PAS les politiques RLS héritées ni les droits Auth/Storage.");
 out.push("-- Il n'est PAS une migration de production. ROLLBACK INCONDITIONNEL.");
 out.push(draft.replace(/^BEGIN;\s*/m,"").replace(/\s*-- STOP:[\s\S]*$/,"").trim());
-out.push("-- Contraintes TEST; contraintes de clés étrangères dépendantes de auth.users doivent être vérifiées.");
+out.push("-- Contraintes TEST. Les contraintes existantes PROD sur garage_data.user_id sont conservées.");
+out.push("-- PROD conserve ON DELETE CASCADE sur garage_data.user_id; TEST utilise RESTRICT : divergence à arbitrer.");
 for(const x of constraints){
- if(x.table_name==="garage_data"&&x.name==="garage_data_pkey")continue;
+ if(x.table_name==="garage_data"&&["garage_data_pkey","garage_data_user_id_fkey"].includes(x.name))continue;
  out.push("ALTER TABLE public."+quote(x.table_name)+" ADD CONSTRAINT "+quote(x.name)+" "+x.definition+";");
 }
 out.push("-- Index secondaires seulement : les index de PK/UNIQUE sont créés par les contraintes.");
@@ -27,6 +28,7 @@ for(const x of indexes){
  out.push(x.indexdef+";");
 }
 out.push("-- RLS: les anciennes policies PROD peuvent coexister et ouvrir des accès inattendus.");
+out.push("-- Ne PAS déployer ces policies sans suppression/revue transactionnelle des anciennes règles.");
 for(const x of policies){
  const roles=x.roles.slice(1,-1).split(",").map(r=>r.trim()).join(", ");
  const cmd=x.cmd==="ALL"?"ALL":x.cmd;
