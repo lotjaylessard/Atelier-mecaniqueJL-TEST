@@ -33,3 +33,11 @@ Ne plus annoncer de pourcentage pseudo-précis. Communiquer uniquement les **cri
 Supabase TEST : nraijzsodgojkpyigefu.
 GitHub TEST : lotjaylessard/Atelier-mecaniqueJL-TEST, branche integration-finale.
 PROD : aucune modification autorisée par ce document.
+
+## Contrôle SQL supplémentaire — 2026-11-22 (lecture seule)
+- [x] `garage_quotes` : 14 lignes; 0 auteur sans membership dans le garage; 0 numéro vide; 0 version NULL.
+- [x] `garage_members` : 3 lignes; 0 `garage_id` NULL.
+- [x] `garage_data` : 3 lignes; 1 ligne héritée avec `garage_id` NULL; 0 enregistrement rattaché à un garage sans membership du propriétaire.
+- [ ] Identifier le statut de la ligne `garage_data` sans garage avant de décider d'un traitement; ne pas la supprimer automatiquement.
+- [ ] Les contrôles SQL de cohérence ne remplacent pas la recette réelle multi-comptes.
+- [ ] Production inchangée.
