@@ -37,3 +37,10 @@ Un propriétaire ne voit pas nécessairement les soumissions créées par son em
 - [x] Commit frontend TEST `195b9303`.
 - [ ] Autres écrans de soumissions, historique, conversion et modifications demeurent liés à l'auteur : ne pas annoncer la collaboration complète.
 - [ ] Validation navigateur avec deux utilisateurs du même garage à effectuer ultérieurement.
+
+## Mise à jour : historique TEST
+- [x] Lecture de l'historique `declined/expired` sans filtre d'auteur, avec `garage_id=ACTIVE_GARAGE_ID`.
+- [x] Ouverture d'une soumission historique par ID sans filtre d'auteur, avec `garage_id=garageId`.
+- [x] Commit frontend TEST `d813dc78`.
+- [ ] Liste principale et édition toujours limitées à l'auteur; ne pas annoncer le partage complet.
+- [ ] Tests navigateur multiutilisateur à réaliser.
