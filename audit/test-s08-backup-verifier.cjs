@@ -29,7 +29,7 @@ const base={format:"atelier-test-physical-backup-v1",source:"Supabase TEST",
  files:[{path:filePath,bytes:payload.length,sha256:digest(payload),referenced:true}]};
 function folder(manifest){
  const files={"manifest.json":bytes(JSON.stringify(manifest)),
- "garage-data.json":json,"files/"+filePath:payload};
+ "garage-data.json":json,["files/"+filePath]:payload};
  function directory(prefix=""){
   return {async getDirectoryHandle(name){return directory(prefix+name+"/")},
    async getFileHandle(name){
