@@ -18,6 +18,8 @@ for(const file of files){
  const checks=[
   [/nraijzsodgojkpyigefu/gi,"Référence projet Supabase TEST"],
   [/ar_test_nraijzsodgojkpyigefu/gi,"Préfixe de stockage TEST"],
+  [/ar_prod_candidate/gi,"Préfixe provisoire de stockage non validé"],
+  [/MIGRATION DES ANCIENNES CLES NON VALIDEE POUR PROD/gi,"Migration du stockage local non validée"],
   [/garage-calendar-oauth[^\s"']*test/gi,"Endpoint OAuth TEST"]
  ];
  for(const [regex,label] of checks)if(regex.test(source))errors.push(file+" : "+label);
