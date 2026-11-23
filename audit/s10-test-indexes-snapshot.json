@@ -1,0 +1,131 @@
+{
+  "source": "Supabase TEST read-only 2026-11-23",
+  "type": "indexes",
+  "items": [
+    {
+      "tablename": "garage_calendar_notes",
+      "indexname": "garage_calendar_notes_owner_day_idx",
+      "indexdef": "CREATE INDEX garage_calendar_notes_owner_day_idx ON public.garage_calendar_notes USING btree (garage_id, user_id, note_date, created_at)"
+    },
+    {
+      "tablename": "garage_calendar_notes",
+      "indexname": "garage_calendar_notes_pkey",
+      "indexdef": "CREATE UNIQUE INDEX garage_calendar_notes_pkey ON public.garage_calendar_notes USING btree (id)"
+    },
+    {
+      "tablename": "garage_data",
+      "indexname": "garage_data_garage_id_unique",
+      "indexdef": "CREATE UNIQUE INDEX garage_data_garage_id_unique ON public.garage_data USING btree (garage_id)"
+    },
+    {
+      "tablename": "garage_data",
+      "indexname": "garage_data_pkey",
+      "indexdef": "CREATE UNIQUE INDEX garage_data_pkey ON public.garage_data USING btree (user_id)"
+    },
+    {
+      "tablename": "garage_external_calendar_connections",
+      "indexname": "garage_external_calendar_conn_garage_id_user_id_provider_ca_key",
+      "indexdef": "CREATE UNIQUE INDEX garage_external_calendar_conn_garage_id_user_id_provider_ca_key ON public.garage_external_calendar_connections USING btree (garage_id, user_id, provider, calendar_id)"
+    },
+    {
+      "tablename": "garage_external_calendar_connections",
+      "indexname": "garage_external_calendar_connections_pkey",
+      "indexdef": "CREATE UNIQUE INDEX garage_external_calendar_connections_pkey ON public.garage_external_calendar_connections USING btree (id)"
+    },
+    {
+      "tablename": "garage_external_calendar_connections",
+      "indexname": "gce_owner_idx",
+      "indexdef": "CREATE INDEX gce_owner_idx ON public.garage_external_calendar_connections USING btree (garage_id, user_id)"
+    },
+    {
+      "tablename": "garage_external_calendar_events",
+      "indexname": "garage_external_calendar_even_connection_id_provider_event__key",
+      "indexdef": "CREATE UNIQUE INDEX garage_external_calendar_even_connection_id_provider_event__key ON public.garage_external_calendar_events USING btree (connection_id, provider_event_id)"
+    },
+    {
+      "tablename": "garage_external_calendar_events",
+      "indexname": "garage_external_calendar_events_pkey",
+      "indexdef": "CREATE UNIQUE INDEX garage_external_calendar_events_pkey ON public.garage_external_calendar_events USING btree (id)"
+    },
+    {
+      "tablename": "garage_external_calendar_events",
+      "indexname": "gee_owner_range_idx",
+      "indexdef": "CREATE INDEX gee_owner_range_idx ON public.garage_external_calendar_events USING btree (garage_id, user_id, start_date, end_date)"
+    },
+    {
+      "tablename": "garage_external_calendar_tokens",
+      "indexname": "garage_external_calendar_tokens_pkey",
+      "indexdef": "CREATE UNIQUE INDEX garage_external_calendar_tokens_pkey ON public.garage_external_calendar_tokens USING btree (connection_id)"
+    },
+    {
+      "tablename": "garage_external_oauth_states",
+      "indexname": "garage_external_oauth_states_pkey",
+      "indexdef": "CREATE UNIQUE INDEX garage_external_oauth_states_pkey ON public.garage_external_oauth_states USING btree (state_hash)"
+    },
+    {
+      "tablename": "garage_external_oauth_states",
+      "indexname": "garage_oauth_states_expire",
+      "indexdef": "CREATE INDEX garage_oauth_states_expire ON public.garage_external_oauth_states USING btree (expires_at)"
+    },
+    {
+      "tablename": "garage_familywall_feed_secrets",
+      "indexname": "garage_familywall_feed_secrets_pkey",
+      "indexdef": "CREATE UNIQUE INDEX garage_familywall_feed_secrets_pkey ON public.garage_familywall_feed_secrets USING btree (connection_id)"
+    },
+    {
+      "tablename": "garage_members",
+      "indexname": "garage_members_pkey",
+      "indexdef": "CREATE UNIQUE INDEX garage_members_pkey ON public.garage_members USING btree (garage_id, user_id)"
+    },
+    {
+      "tablename": "garage_members",
+      "indexname": "garage_members_user_id_idx",
+      "indexdef": "CREATE INDEX garage_members_user_id_idx ON public.garage_members USING btree (user_id)"
+    },
+    {
+      "tablename": "garage_quotes",
+      "indexname": "garage_quotes_pkey",
+      "indexdef": "CREATE UNIQUE INDEX garage_quotes_pkey ON public.garage_quotes USING btree (id)"
+    },
+    {
+      "tablename": "garage_quotes",
+      "indexname": "garage_quotes_unique_number",
+      "indexdef": "CREATE UNIQUE INDEX garage_quotes_unique_number ON public.garage_quotes USING btree (garage_id, quote_number)"
+    },
+    {
+      "tablename": "garage_schedule_events",
+      "indexname": "garage_schedule_events_pkey",
+      "indexdef": "CREATE UNIQUE INDEX garage_schedule_events_pkey ON public.garage_schedule_events USING btree (id)"
+    },
+    {
+      "tablename": "garage_schedule_events",
+      "indexname": "schedule_events_scope_idx",
+      "indexdef": "CREATE INDEX schedule_events_scope_idx ON public.garage_schedule_events USING btree (garage_id, start_date, end_date)"
+    },
+    {
+      "tablename": "garage_timer_sessions",
+      "indexname": "garage_timer_sessions_pkey",
+      "indexdef": "CREATE UNIQUE INDEX garage_timer_sessions_pkey ON public.garage_timer_sessions USING btree (id)"
+    },
+    {
+      "tablename": "garage_timer_sessions",
+      "indexname": "s06_timer_once_posted",
+      "indexdef": "CREATE UNIQUE INDEX s06_timer_once_posted ON public.garage_timer_sessions USING btree (user_id, posted_labor_id) WHERE (posted_labor_id IS NOT NULL)"
+    },
+    {
+      "tablename": "garage_timer_sessions",
+      "indexname": "s06_timer_one_running_per_user",
+      "indexdef": "CREATE UNIQUE INDEX s06_timer_one_running_per_user ON public.garage_timer_sessions USING btree (user_id) WHERE (status = 'running'::text)"
+    },
+    {
+      "tablename": "garage_timer_sessions",
+      "indexname": "s06_timer_user_work_order",
+      "indexdef": "CREATE INDEX s06_timer_user_work_order ON public.garage_timer_sessions USING btree (user_id, garage_id, work_order_id)"
+    },
+    {
+      "tablename": "garages",
+      "indexname": "garages_pkey",
+      "indexdef": "CREATE UNIQUE INDEX garages_pkey ON public.garages USING btree (id)"
+    }
+  ]
+}
