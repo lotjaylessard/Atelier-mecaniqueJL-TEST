@@ -16,12 +16,12 @@ const bytes=x=>Buffer.from(x);
 const digest=x=>crypto.createHash("sha256").update(x).digest("hex");
 const owner="owner-A",garage="garage-A",filePath="owner-A/attachment.pdf";
 const payload=bytes("sample attachment");
-const snapshot={format:"atelier-test-full-garage-snapshot-v1",accountId:owner,
+const snapshot={createdAt:"2026-11-23T12:00:00.000Z",format:"atelier-test-full-garage-snapshot-v1",accountId:owner,
  garages:[{garage_id:garage,user_id:owner,data:{workorders:[{attachments:[{path:filePath}]}]}}],
  quotes:[{id:"q1",garage_id:garage}]};
 const json=bytes(JSON.stringify(snapshot));
 const base={format:"atelier-test-physical-backup-v1",source:"Supabase TEST",
- bucket:"wo-files",status:"COMPLETE",accountId:owner,garageId:garage,
+ bucket:"wo-files",status:"COMPLETE",createdAt:snapshot.createdAt,accountId:owner,garageId:garage,
  memberIds:[owner,"employee-A"],garageCount:1,quoteCount:1,
  snapshotSha256:digest(json),snapshotBytes:json.length,
  referencedPaths:1,ownedPaths:1,ownedPathList:[filePath],fileCount:1,totalBytes:payload.length,
@@ -63,5 +63,7 @@ async function check(label,patch,expected){
  await check("owned path missing but count matches",{ownedPathList:["owner-A/missing.pdf"]},false);
  await check("owned path list absent",{ownedPathList:undefined},false);
  await check("owned path duplicated",{ownedPaths:2,ownedPathList:[filePath,filePath]},false);
- console.log("S08 verifier: 17 scenarios OK");
+ await check("snapshot timestamp mismatch",{createdAt:"2026-11-24T12:00:00.000Z"},false);
+ await check("snapshot timestamp missing",{createdAt:undefined},false);
+ console.log("S08 verifier: 19 scenarios OK");
 })().catch(error=>{console.error(error);process.exitCode=1});
