@@ -100,6 +100,12 @@ Dernière révision : 2026-11-22. Branche de travail : `integration-finale`.
 - [ ] Exécuter et tester les deux scripts dans un navigateur HTTPS compatible File System Access API; vérifier un cas intact et des corruptions volontaires sur une copie.
 - [ ] Vérifier la restauration fonctionnelle dans un environnement isolé. Le vérificateur seul ne constitue pas une restauration.
 
+## Vérificateur : essais isolés
+- [x] Exécution du vérificateur JavaScript dans un environnement simulé avec fichiers en mémoire : manifeste cohérent accepté.
+- [x] Modification d'un octet d'une pièce jointe : refus et identification du fichier.
+- [ ] Ces essais utilisaient un substitut déterministe de la fonction de hachage, et ne valident PAS la Web Crypto API réelle.
+- [ ] Essai complet sur navigateur HTTPS et sauvegarde physique réelle toujours requis.
+
 ## Tests d'acceptation indispensables
 1. Owner A peut lire et modifier A; ne peut ni lire ni modifier B.
 2. Employee A peut effectuer uniquement les actions autorisées sur A; ne voit rien de B.
