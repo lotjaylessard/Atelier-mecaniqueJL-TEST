@@ -115,8 +115,9 @@ async function backup(client,rootFolder,progress=()=>{}){
  if(memberResponse.error || !Array.isArray(memberResponse.data))
   throw Error("Inventaire des membres refusé : "+(memberResponse.error?.message||"invalide"));
  const members=memberResponse.data;
- if(!members.some(m=>m.user_id===uid) || !members.every(m=>validPath(m.user_id)))
-  throw Error("Membres incohérents");
+ if(!members.some(m=>m.user_id===uid) || !members.every(m=>validPath(m.user_id)) ||
+    new Set(members.map(m=>m.user_id)).size!==members.length)
+  throw Error("Membres incohérents ou dupliqués");
  const garages=await pageRows((from,to)=>client.from("garage_data")
   .select("garage_id,user_id,data,version,updated_at")
   .eq("garage_id",garageId).range(from,to));
