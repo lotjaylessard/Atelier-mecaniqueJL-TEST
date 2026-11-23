@@ -6,6 +6,8 @@ on:
       - audit/s10-check-production-bundle.cjs
       - audit/test-s10-production-bundle.cjs
       - audit/s10-inventory-runtime-dependencies.cjs
+      - audit/s10-compare-cloud-snapshots.cjs
+      - audit/s10-cloud-reference/**
       - audit/s10-check-edge-functions.cjs
       - audit/test-s10-edge-functions.cjs
       - audit/s10-build-production-candidate.cjs
@@ -56,3 +58,5 @@ jobs:
         run: |
           node audit/s10-check-edge-functions.cjs . > edge-functions-report.json || true
           cat edge-functions-report.json
+      - name: Rapporter dérive des sources Google et FamilyWall
+        run: node audit/s10-compare-cloud-snapshots.cjs .
