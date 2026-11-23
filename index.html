@@ -20618,7 +20618,7 @@ if (window.garageSupabase) {
     // Les anciennes SO sans sentAt ne doivent jamais expirer rétroactivement.
     const now=Date.now(),duration=quoteValidityDays()*86400000;
     let changed=false;
-    const due=rows.filter(q=>q.status==="sent"&&!q.content?.approvalConfirmedAt&&
+    const due=rows.filter(q=>q.user_id===userId&&q.status==="sent"&&!q.content?.approvalConfirmedAt&&
       typeof q.content?.sentAt==="string"&&Number.isFinite(Date.parse(q.content.sentAt))&&
       now-Date.parse(q.content.sentAt)>=duration);
     for(const q of due.slice(0,25)){
