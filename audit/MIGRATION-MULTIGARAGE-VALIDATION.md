@@ -72,6 +72,13 @@ Dernière révision : 2026-11-22. Branche de travail : `integration-finale`.
 - [x] Les politiques INSERT/UPDATE/DELETE n'ont pas été modifiées et restent limitées au préfixe UID; UPDATE/DELETE exigent un fichier non référencé dans un BT.
 - [ ] Tester les liens signés et le téléchargement en session navigateur; vérifier le comportement de migration des chemins PROD et les fichiers orphelins.
 
+## Inventaire Storage versus références BT (lecture seule)
+- [x] PROD : 49 références de pièces jointes dans les BT, 49 objets correspondants, 0 manquant; 55 objets au total et 6 non référencés.
+- [x] TEST actif : 4 références BT, 4 objets correspondants, 0 manquant; 6 objets au total et 2 non référencés.
+- [x] TEST : 3 références BT utilisent le préfixe UID du propriétaire et 1 celui de l'employé.
+- [ ] Préserver tous les fichiers non référencés lors des sauvegardes; ne rien supprimer automatiquement.
+- [ ] Vérifier l'intégrité binaire et les liens signés après transfert.
+
 ## Tests d'acceptation indispensables
 1. Owner A peut lire et modifier A; ne peut ni lire ni modifier B.
 2. Employee A peut effectuer uniquement les actions autorisées sur A; ne voit rien de B.
