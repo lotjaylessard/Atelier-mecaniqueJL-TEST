@@ -131,3 +131,11 @@ Un propriétaire ne voit pas nécessairement les soumissions créées par son em
 - [x] Commit frontend TEST `6d9988d2`.
 - [ ] Audit des autres chemins d'ouverture et des transitions de session à faire en navigateur.
 - [ ] Production inchangée.
+
+## Mise à jour : fiche SO périmée après actualisation
+- [x] À la fin du dernier `refreshQuotes()` réussi, comparer la SO sélectionnée avec la liste fraîche (id, version, statut, auteur).
+- [x] Fermer la fiche et vider `selectedQuote` si elle est absente ou différente, ou si l'utilisateur courant a changé.
+- [x] Commit frontend TEST `61ed4a84`.
+- [ ] Ne détecte les modifications externes qu'au prochain rafraîchissement; pas de synchronisation temps réel.
+- [ ] Tester en navigateur avec deux sessions et vérifier l'expérience utilisateur.
+- [ ] Production inchangée.
