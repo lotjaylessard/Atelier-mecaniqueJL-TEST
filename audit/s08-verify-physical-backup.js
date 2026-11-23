@@ -44,6 +44,12 @@ async function verify(folder,progress=()=>{}){
       g.user_id!==manifest.accountId)||
     snapshot.quotes.some(q=>q.garage_id!==manifest.garageId))
   failures.push("Identité du garage ou soumissions incohérente");
+ if(snapshot.createdAt!==manifest.createdAt ||
+    !Array.isArray(snapshot.garages) || !Array.isArray(snapshot.quotes) ||
+    snapshot.garages.length!==1 ||
+    snapshot.garages.some(g=>!g || typeof g!=="object" || !g.data || typeof g.data!=="object") ||
+    snapshot.quotes.some(q=>!q || typeof q!=="object" || !q.id))
+  failures.push("Structure ou horodatage du snapshot incohérent");
  if(new Set(snapshot.quotes.map(q=>q.id)).size!==snapshot.quotes.length)
   failures.push("Soumissions dupliquées");
  if(new Set(snapshot.garages.map(g=>g.garage_id)).size!==snapshot.garages.length)
