@@ -119,6 +119,12 @@ Dernière révision : 2026-11-22. Branche de travail : `integration-finale`.
 - [ ] Essais d'intégration navigateur requis : simuler une modification pendant le téléchargement, vérifier que `manifest.status` reste `INCOMPLETE`.
 - [ ] Aucun export physique complet ni restauration vérifiée à ce stade.
 
+## Interface de vérification locale
+- [x] Ajout de `audit/s08-verify.html` dans la branche TEST `integration-finale` : choix du dossier via File System Access API et exécution de `S08BackupVerifier.verify` avec rapport détaillé.
+- [x] Interface de lecture seule : aucun envoi des données du dossier vers un serveur, aucun accès à Supabase.
+- [ ] Tester réellement la page sous Chrome/Edge en HTTPS avec une sauvegarde physique produite, puis avec une copie volontairement altérée.
+- [ ] L'outil d'export physique n'a pas encore d'interface utilisateur intégrée ni d'exécution réelle vérifiée.
+
 ## Tests d'acceptation indispensables
 1. Owner A peut lire et modifier A; ne peut ni lire ni modifier B.
 2. Employee A peut effectuer uniquement les actions autorisées sur A; ne voit rien de B.
