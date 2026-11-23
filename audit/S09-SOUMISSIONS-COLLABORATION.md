@@ -64,3 +64,11 @@ Un propriétaire ne voit pas nécessairement les soumissions créées par son em
 - [x] Transaction annulée : aucune SO de test conservée.
 - [ ] Pas de test JWT navigateur réel ni de validation du workflow de modification.
 - [ ] Production inchangée.
+
+## Mise à jour : UPDATE entre collègues TEST
+- [x] Migration `s09_quotes_same_garage_update_test` : UPDATE autorisé aux membres owner/employee du garage de la soumission; SELECT déjà partagé.
+- [x] Trigger immutabilité S09 toujours actif pour `id`, `garage_id`, `user_id`, `created_at`, `quote_number`.
+- [x] Test SQL avec soumission fictive d'employé A : propriétaire A modifie 1 ligne; propriétaire B modifie 0 ligne; transaction annulée.
+- [ ] Frontend : filtres `user_id` et garde-fous de consultation/édition des collègues restent à adapter avant utilisation.
+- [ ] DELETE reste limité au créateur. Test navigateur et contrôle de concurrence de bout en bout en attente.
+- [ ] Production inchangée.
