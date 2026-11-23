@@ -10,7 +10,7 @@ vm.runInNewContext(source,context);
 const backup=context.S08PhysicalBackup.backup;
 function directory(){
  const files=new Map(),dirs=new Map();
- return {files,async getDirectoryHandle(name){if(!dirs.has(name))dirs.set(name,directory());return dirs.get(name)},
+ return {files,dirs,async getDirectoryHandle(name){if(!dirs.has(name))dirs.set(name,directory());return dirs.get(name)},
  async getFileHandle(name){return {async createWritable(){let content;return {async write(value){content=Buffer.from(value)},async close(){files.set(name,content)},async abort(){}}},async getFile(){const data=files.get(name);if(!data)throw Error("Missing "+name);return {async arrayBuffer(){return data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength)},async text(){return data.toString("utf8")}}}}}};
 }
 function client({duplicate=false,changed=false}={}){
@@ -39,7 +39,9 @@ function client({duplicate=false,changed=false}={}){
  const saved=[...root.files.keys()];
  assert.equal(saved.length,0);
  const savedFolder=[...root.getDirectoryHandle ? [] : []];
- const physicalFolder=await root.getDirectoryHandle("garage-s08-physical-"+manifest.createdAt.replace(/[:.]/g,"-"));
+ const backupDirs=[...root.dirs.entries()].filter(([name])=>name.startsWith("garage-s08-physical-"));
+ assert.equal(backupDirs.length,1);
+ const physicalFolder=backupDirs[0][1];
  const manifestFile=await physicalFolder.getFileHandle("manifest.json");
  const writtenManifest=JSON.parse(await (await manifestFile.getFile()).text());
  assert.equal(writtenManifest.status,"INCOMPLETE");
