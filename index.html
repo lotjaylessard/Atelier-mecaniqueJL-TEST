@@ -14468,7 +14468,7 @@ async function jlScheduleLoad(){
     const [quotesResult,notesResult,eventsResult]=await Promise.all([
       db.from("garage_quotes")
         .select("id,quote_number,status,created_at,content")
-        .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id)
+        .eq("garage_id",ACTIVE_GARAGE_ID)
         .in("status",["sent","converted"])
         .order("created_at",{ascending:false}).limit(1000),
       db.from("garage_calendar_notes")
@@ -15539,7 +15539,7 @@ async function dashboardRefreshPendingQuotes(){
     const {data:rows,error}=await db.from("garage_quotes")
       .select("id,quote_number,created_at,status,content")
       .eq("garage_id",ACTIVE_GARAGE_ID)
-      .eq("user_id",auth.user.id)
+      
       .in("status",["sent","converted"])
       .order("created_at",{ascending:false})
       .limit(500);
@@ -20222,7 +20222,7 @@ if (window.garageSupabase) {
       if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
       const {data:rows,error}=await db.from("garage_quotes")
         .select("id,quote_number,status,content")
-        .eq("garage_id",ACTIVE_GARAGE_ID).eq("user_id",auth.user.id)
+        .eq("garage_id",ACTIVE_GARAGE_ID)
         .in("status",["draft","sent","converted"])
         .order("created_at",{ascending:false}).limit(500);
       if(error||!Array.isArray(rows))throw Error("Lecture des rendez-vous refusée");
