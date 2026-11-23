@@ -87,6 +87,13 @@ Dernière révision : 2026-11-22. Branche de travail : `integration-finale`.
 - [ ] Vérifier manifest `COMPLETE`, empreintes SHA-256, intégrité binaire, et restauration d'essai.
 - [ ] Revalider le script en navigateur; aucune sauvegarde physique n'a encore été produite.
 
+## Sauvegarde : soumissions de tous les auteurs
+- [x] Constat : RLS `garage_quotes` limite SELECT aux soumissions de l'auteur; export propriétaire par requête simple pouvait omettre celles d'un employé.
+- [x] Migration TEST `owner_only_complete_quotes_backup_test` : RPC `backup_garage_quotes`, réservée au propriétaire du garage.
+- [x] Test : propriétaire A voit 14 soumissions; employé A et propriétaire B voient 0 soumission du garage A via RPC.
+- [x] Script de sauvegarde corrigé pour exporter les soumissions par RPC, recontrôler leurs versions et détecter les changements de membres pendant l'export.
+- [ ] Tester le script dans un navigateur réel et produire un manifeste complet avec tous les octets; aucun export physique terminé à ce stade.
+
 ## Tests d'acceptation indispensables
 1. Owner A peut lire et modifier A; ne peut ni lire ni modifier B.
 2. Employee A peut effectuer uniquement les actions autorisées sur A; ne voit rien de B.
