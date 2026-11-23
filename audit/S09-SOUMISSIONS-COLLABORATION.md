@@ -108,3 +108,10 @@ Un propriétaire ne voit pas nécessairement les soumissions créées par son em
 - [x] Commits frontend TEST `b209c94c`, `e0d9fcbd`.
 - [ ] Contrôle statique seulement; tests navigateur à faire.
 - [ ] Production inchangée.
+
+## Mise à jour : échec d'actualisation des soumissions
+- [x] En cas d'erreur dans `refreshQuotes()`, remettre `s09QuoteViewerUid=null` et `quotes=[]`, puis réafficher une liste vide avant le message d'erreur.
+- [x] Empêche de conserver dans la liste principale des données d'une lecture antérieure après une erreur réseau/session.
+- [x] Commit frontend TEST `9a50cdfc`.
+- [ ] Les courses entre plusieurs rafraîchissements et les autres vues déjà ouvertes demandent encore des vérifications.
+- [ ] Test navigateur non effectué; production inchangée.
