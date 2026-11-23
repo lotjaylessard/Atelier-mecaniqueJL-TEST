@@ -11,6 +11,8 @@ const base=path.resolve(root);
 const files=["index.html","login.html"];
 const errors=[];
 const info=[];
+if(fs.existsSync(path.join(base,"NO-GO-PROTOTYPE.txt")))
+  errors.push("Dossier marqué NON DÉPLOYABLE : recette de PROD et sauvegarde/restauration non validées");
 for(const file of files){
  const filename=path.join(base,file);
  if(!fs.existsSync(filename)){errors.push(file+" absent");continue}
