@@ -44,7 +44,8 @@ async function verify(folder,progress=()=>{}){
       g.user_id!==manifest.accountId)||
     snapshot.quotes.some(q=>q.garage_id!==manifest.garageId))
   failures.push("Identité du garage ou soumissions incohérente");
- if(snapshot.createdAt!==manifest.createdAt ||
+ if(typeof manifest.createdAt!=="string" || !manifest.createdAt ||
+    snapshot.createdAt!==manifest.createdAt ||
     !Array.isArray(snapshot.garages) || !Array.isArray(snapshot.quotes) ||
     snapshot.garages.length!==1 ||
     snapshot.garages.some(g=>!g || typeof g!=="object" || !g.data || typeof g.data!=="object") ||
