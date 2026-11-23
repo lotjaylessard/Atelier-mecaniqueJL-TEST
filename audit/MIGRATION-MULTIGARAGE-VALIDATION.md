@@ -51,8 +51,17 @@ Dernière révision : 2026-11-22. Branche de travail : `integration-finale`.
 - [x] RPC `s06_timer_transition(...,'create',...)` : employé A et propriétaire A peuvent créer une session sur un BT actif du garage A; propriétaire B refusé.
 - [x] RPC sur BT inexistant : refusée pour les trois comptes.
 - [x] Essais de création exécutés dans des transactions `ROLLBACK`.
-- [ ] Tester le transfert de temps `s06_timer_post_labor` avec session pausée, contrôle de version, prévention des doublons et isolation.
+- [x] Tester le transfert de temps `s06_timer_post_labor` avec session pausée, contrôle de version, prévention des doublons et isolation (SQL transactionnel avec ROLLBACK).
 - [ ] Tester interface navigateur avec de vrais JWT.
+
+## Tests complets de transfert de minuterie (TEST, ROLLBACK)
+- [x] Employé A : transfert d'une session pausée de 42 secondes à 90 $/h → 1,05 $, 0,011666666667 h, auteur employé; versions incrémentées.
+- [x] Propriétaire B : impossible de transférer une session de l'employé A (session non autorisée).
+- [x] Version garage périmée : refus SQLSTATE 40001.
+- [x] Révision de session périmée : refus SQLSTATE 40001.
+- [x] Double transfert : second appel rejeté, une seule ligne de main-d'œuvre et une session `posted` dans la transaction.
+- [x] Tous les scénarios utilisent `ROLLBACK`; aucune donnée métier de test conservée.
+- [ ] Vérification navigateur réelle, notamment synchronisation UI et conflits réseau.
 
 ## Tests d'acceptation indispensables
 1. Owner A peut lire et modifier A; ne peut ni lire ni modifier B.
