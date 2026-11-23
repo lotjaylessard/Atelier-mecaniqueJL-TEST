@@ -106,6 +106,13 @@ Dernière révision : 2026-11-22. Branche de travail : `integration-finale`.
 - [ ] Ces essais utilisaient un substitut déterministe de la fonction de hachage, et ne valident PAS la Web Crypto API réelle.
 - [ ] Essai complet sur navigateur HTTPS et sauvegarde physique réelle toujours requis.
 
+## Inventaire SQL indépendant pour sauvegarde Storage
+- [x] Migration TEST `owner_only_storage_inventory_backup_test` : RPC propriétaire `backup_garage_storage_paths` énumérant les objets Storage du garage (préfixes des membres + références BT).
+- [x] Tests d'autorisation SQL simulés : propriétaire A obtient 6 objets; employé A et propriétaire B n'obtiennent aucun objet du garage A.
+- [x] Script `audit/s08-physical-backup.js` utilise désormais cet inventaire SQL pour les fichiers à exporter et le recontrôle final, plutôt qu'une énumération de dossiers qui pourrait omettre des orphelins.
+- [ ] Valider en navigateur la RPC paginée, les téléchargements et la sauvegarde COMPLETE avec empreintes réelles.
+- [ ] La fonction SQL donne un inventaire, mais ne prouve pas encore le téléchargement physique.
+
 ## Tests d'acceptation indispensables
 1. Owner A peut lire et modifier A; ne peut ni lire ni modifier B.
 2. Employee A peut effectuer uniquement les actions autorisées sur A; ne voit rien de B.
