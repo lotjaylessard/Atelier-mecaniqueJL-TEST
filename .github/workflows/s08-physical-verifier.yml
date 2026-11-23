@@ -10,6 +10,7 @@ on:
       - audit/test-s08-backup-verifier.cjs
       - audit/test-s08-physical-backup.cjs
       - audit/s08-restore-preflight.cjs
+      - audit/test-s08-restore-preflight.cjs
       - .github/workflows/s08-physical-verifier.yml
   workflow_dispatch:
 
@@ -33,3 +34,5 @@ jobs:
         run: node audit/test-s08-physical-backup.cjs
       - name: Syntaxe preflight restauration isolée
         run: node --check audit/s08-restore-preflight.cjs
+      - name: Tests de refus du preflight restauration
+        run: node audit/test-s08-restore-preflight.cjs
