@@ -1,16 +1,18 @@
 -- S10 Phase 10: API privileges for newly created tenant tables.
 -- RLS remains mandatory: GRANT never bypasses row policies.
+-- Membership/garage creation and timer transitions are server-controlled;
+-- client table writes are intentionally denied until explicit RLS policies exist.
 -- Sensitive token/OAuth/feed-secret tables deliberately have NO client grants.
 -- STAGING ONLY: not approved for production execution.
 BEGIN;
 REVOKE ALL ON TABLE public.garages FROM anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.garages TO authenticated;
+GRANT SELECT ON TABLE public.garages TO authenticated;
 REVOKE ALL ON TABLE public.garage_members FROM anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.garage_members TO authenticated;
+GRANT SELECT ON TABLE public.garage_members TO authenticated;
 REVOKE ALL ON TABLE public.garage_quotes FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.garage_quotes TO authenticated;
 REVOKE ALL ON TABLE public.garage_timer_sessions FROM anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.garage_timer_sessions TO authenticated;
+GRANT SELECT ON TABLE public.garage_timer_sessions TO authenticated;
 REVOKE ALL ON TABLE public.garage_calendar_notes FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.garage_calendar_notes TO authenticated;
 REVOKE ALL ON TABLE public.garage_schedule_events FROM anon;
