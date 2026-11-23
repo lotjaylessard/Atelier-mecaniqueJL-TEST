@@ -25,7 +25,7 @@ function client({duplicate=false,changed=false}={}){
  if(table==="garage_data")return {data:[{garage_id:garage,user_id:uid,data:{workorders:[]},version:1,updated_at:"2026-11-23"}]};
  if(operational.includes(table)){if(table==="garage_calendar_notes"&&changed&&++reads>1)return {data:[{id:"n1",garage_id:garage,user_id:uid}]};return {data:[]}}
  throw Error("Unexpected table "+table);
- }}}},
+ }}},
  rpc(name){const data=name==="backup_garage_member_ids"?members:[];return {data,error:null,async range(){return {data}}}}
  };
 }
