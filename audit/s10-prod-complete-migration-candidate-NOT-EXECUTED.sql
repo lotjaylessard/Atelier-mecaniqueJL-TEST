@@ -1467,13 +1467,13 @@ GRANT EXECUTE ON FUNCTION public.s10_finalize_bt_invoice_owner_candidate(uuid,te
 
 -- ===== s10-phase10-api-table-grants.sql =====
 REVOKE ALL ON TABLE public.garages FROM anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.garages TO authenticated;
+GRANT SELECT ON TABLE public.garages TO authenticated;
 REVOKE ALL ON TABLE public.garage_members FROM anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.garage_members TO authenticated;
+GRANT SELECT ON TABLE public.garage_members TO authenticated;
 REVOKE ALL ON TABLE public.garage_quotes FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.garage_quotes TO authenticated;
 REVOKE ALL ON TABLE public.garage_timer_sessions FROM anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.garage_timer_sessions TO authenticated;
+GRANT SELECT ON TABLE public.garage_timer_sessions TO authenticated;
 REVOKE ALL ON TABLE public.garage_calendar_notes FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.garage_calendar_notes TO authenticated;
 REVOKE ALL ON TABLE public.garage_schedule_events FROM anon;
