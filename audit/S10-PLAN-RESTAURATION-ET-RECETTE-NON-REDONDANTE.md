@@ -34,3 +34,8 @@ Les registres `MIGRATION-MULTIGARAGE-VALIDATION.md`, `S09-SOUMISSIONS-COLLABORAT
 Refaire un test SQL uniquement si sa fonction/policy a changé ou si une anomalie concrète est observée. Les tests navigateur et restauration ci-dessus ne sont **pas** des répétitions des simulations SQL.
 
 **État :** documentation prête; navigateur réel, export physique et restauration restent à exécuter. Production intacte.
+
+## Vérification automatique S08 — 2026-11-22
+- [x] Workflow `.github/workflows/s08-physical-verifier.yml` exécuté sur `integration-finale` : GitHub Actions run 45105615523, conclusion **success**, commit `fa763ed5`.
+- [x] Huit scénarios unitaires du vérificateur de sauvegarde passés en environnement Node.js, sans Supabase ni données réelles.
+- [ ] Toujours requis : export physique en navigateur, vérification d'un vrai dossier, restauration isolée et rapprochement métier. Le test unitaire n'atteste pas une sauvegarde réelle.
