@@ -14,6 +14,8 @@ on:
       - audit/s10-cloud-reference/**
       - audit/s10-check-edge-functions.cjs
       - audit/test-s10-edge-functions.cjs
+      - audit/test-s10-edge-prod-readiness.cjs
+      - audit/edge-candidate/**
       - audit/s10-build-production-candidate.cjs
       - audit/test-s10-build-production-candidate.cjs
       - audit/test-s10-real-source-bundle.cjs
@@ -77,6 +79,8 @@ jobs:
         run: node audit/test-s10-build-production-candidate.cjs
       - name: Assembler et verifier le vrai site web PROD temporaire (NO-GO)
         run: node audit/test-s10-real-source-bundle.cjs
+      - name: Valider les quatre candidats Edge PROD sans secret ni URL TEST
+        run: node audit/test-s10-edge-prod-readiness.cjs
       - name: Tester l'inventaire des Edge Functions
         run: node audit/test-s10-edge-functions.cjs
       - name: Signaler les Edge Functions non versionnées sans casser les tests existants
