@@ -36,7 +36,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002',true);
 INSERT INTO public.garage_quotes (garage_id,user_id,quote_number,content)
 SELECT id,'00000000-0000-4000-8000-000000000002',
- 'SO-9001','{"test":true}'::jsonb
+ 'SO-9001','{"clientName":"Synthetic Client","test":true}'::jsonb
 FROM public.garages WHERE name='Atelier Mécanique JL';
 
 DO $test$
