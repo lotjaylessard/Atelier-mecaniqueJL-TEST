@@ -69,6 +69,11 @@ DROP POLICY IF EXISTS "S10 files insert own prefix" ON storage.objects;
 -- NOT grant all garage users access merely because they have a garage_id.
 -- New UUID-prefixed paths: owner or valid same-garage membership; match
 -- storage owner_id to path prefix so a forged prefix cannot be used.
+-- This function is explicitly protected by auth.uid() + same-garage membership.
+-- Full S10 migration revoked its default EXECUTE permission.
+-- Grant only to authenticated callers, never anon or PUBLIC.
+GRANT EXECUTE ON FUNCTION public.can_read_garage_file(uuid) TO authenticated;
+
 CREATE POLICY "S10 files read tenant" ON storage.objects
 FOR SELECT TO authenticated
 USING (
@@ -92,16 +97,30 @@ USING (
       AND owner_id=(SELECT auth.uid())::text
     )
     OR (
+      -- The role's garage_members SELECT RLS exposes only its OWN membership.
+      -- Use the audited SECURITY DEFINER helper, which verifies the caller's
+      -- own membership and the file owner's membership on the same garage.
       owner_id=split_part(name,'/',1)
-      AND EXISTS (
-        SELECT 1 FROM public.garage_members file_owner
-        JOIN public.garage_members viewer
-          ON viewer.garage_id=file_owner.garage_id
-        WHERE file_owner.user_id::text=split_part(storage.objects.name,'/',1)
-          AND viewer.user_id=(SELECT auth.uid())
-          AND file_owner.role IN ('owner','employee')
-          AND viewer.role IN ('owner','employee')
-      )
+      AND CASE WHEN owner_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
+  )
+);
+CREATE POLICY "S10 files insert own prefix" ON storage.objects
+FOR INSERT TO authenticated
+WITH CHECK (
+  bucket_id='wo-files'
+  AND split_part(name,'/',1)=(SELECT auth.uid())::text
+  AND EXISTS (
+    SELECT 1 FROM public.garage_members m
+    WHERE m.user_id=(SELECT auth.uid())
+      AND m.role IN ('owner','employee')
+  )
+);
+-- Intentionally no UPDATE / DELETE policy. Server-validated attachment
+-- deletion workflow must be reviewed separately before enabling those.
+COMMIT;
+
+        THEN public.can_read_garage_file(owner_id::uuid)
+        ELSE false END
     )
   )
 );
