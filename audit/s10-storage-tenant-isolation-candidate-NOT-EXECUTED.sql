@@ -97,30 +97,13 @@ USING (
       AND owner_id=(SELECT auth.uid())::text
     )
     OR (
-      -- The role's garage_members SELECT RLS exposes only its OWN membership.
-      -- Use the audited SECURITY DEFINER helper, which verifies the caller's
-      -- own membership and the file owner's membership on the same garage.
+      -- Cross-member lookup must bypass membership SELECT RLS safely.
       owner_id=split_part(name,'/',1)
-      AND CASE WHEN owner_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
-  )
-);
-CREATE POLICY "S10 files insert own prefix" ON storage.objects
-FOR INSERT TO authenticated
-WITH CHECK (
-  bucket_id='wo-files'
-  AND split_part(name,'/',1)=(SELECT auth.uid())::text
-  AND EXISTS (
-    SELECT 1 FROM public.garage_members m
-    WHERE m.user_id=(SELECT auth.uid())
-      AND m.role IN ('owner','employee')
-  )
-);
--- Intentionally no UPDATE / DELETE policy. Server-validated attachment
--- deletion workflow must be reviewed separately before enabling those.
-COMMIT;
-
+      AND CASE
+        WHEN owner_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
         THEN public.can_read_garage_file(owner_id::uuid)
-        ELSE false END
+        ELSE false
+      END
     )
   )
 );
