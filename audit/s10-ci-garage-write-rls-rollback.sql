@@ -62,13 +62,13 @@ BEGIN
  END IF;
  -- Authorized update of own quote should work.
  UPDATE public.garage_quotes SET status='sent'
-   WHERE quote_number='SO-9001' AND garage_id=a;
+   WHERE user_id='00000000-0000-4000-8000-000000000002' AND garage_id=a AND content->>'test'='true';
  GET DIAGNOSTICS n=ROW_COUNT;
  IF n<>1 THEN RAISE EXCEPTION 'Employee cannot update authorized quote'; END IF;
  -- Changing garage assignment must be rejected by WITH CHECK.
  BEGIN
    UPDATE public.garage_quotes SET garage_id=b
-   WHERE quote_number='SO-9001' AND garage_id=a;
+   WHERE user_id='00000000-0000-4000-8000-000000000002' AND garage_id=a AND content->>'test'='true';
    RAISE EXCEPTION 'CROSS_GARAGE_QUOTE_MOVE_ALLOWED';
  EXCEPTION
    WHEN insufficient_privilege OR check_violation THEN NULL;
@@ -85,7 +85,7 @@ DO $test$
 DECLARE n int;
 BEGIN
  UPDATE public.garage_quotes SET status='approved'
- WHERE quote_number='SO-9001';
+ WHERE user_id='00000000-0000-4000-8000-000000000002' AND content->>'test'='true';
  GET DIAGNOSTICS n=ROW_COUNT;
  IF n<>0 THEN RAISE EXCEPTION 'Owner B updated Garage A quote'; END IF;
  UPDATE public.garage_data SET version=version+1
