@@ -46,3 +46,24 @@ Le propriétaire a ouvert directement `Settings > Pages` du dépôt PROD `lotjay
 La destination GitHub Pages PROD est donc **confirmée**, et non plus un blocage. Aucune modification des paramètres Pages ne sera nécessaire. La publication finale reste interdite sans GO détaillé; un rollback web par commit ne restaure pas les données Supabase.
 
 **Blocages restants :** authentification navigateur multi-compte bout-en-bout, pièces jointes via signed URLs réelles sur environnement isolé, secrets/callbacks Google, 3 Edge Functions PROD, plan de rollback DB + Storage, checkpoint frais après gel. Ne pas répéter les audits locaux déjà réussis.
+
+
+## Précontrôle Storage PROD en lecture seule — 24 novembre 2026
+
+Requête exécutée directement sur Supabase PROD **sans modification**, dans le cadre du rapprochement du Storage historique avec les politiques S10 candidates :
+
+| Indicateur réel PROD | Valeur |
+|---|---:|
+| Objets `wo-files` | 55 |
+| Objets avec premier segment `clients/` | 55 |
+| Objets sans `owner_id` | 0 |
+| Objets dont le propriétaire n'existe pas dans `auth.users` | 0 |
+| Objets d'un autre préfixe | 0 |
+| Bucket actuellement public | oui |
+| Politiques historiques | les quatre attendues, aucun nom supplémentaire |
+
+Ces indicateurs satisfont les préconditions **de forme et d'attribution des propriétaires** de la migration Storage, mais **ne prouvent pas** le contenu physique ni la validité des URL signées. La candidate de migration refuse toujours une bascule si d'autres politiques apparaissent, si les identités diffèrent ou si les utilisateurs appartiennent à plusieurs garages.
+
+Le test statique existant `audit/test-s10-storage-tenant-policy.cjs` exige déjà l'usage de `createSignedUrl` dans les miniatures et l'aperçu, interdit `getPublicUrl`, vérifie le préfixe `auth.uid` à l'upload et la protection des vieux chemins `clients/`. Ne pas dupliquer ces tests.
+
+**IMPORTANT :** le bucket PROD est encore public, tel que prévu avant la bascule atomique approuvée. Ne pas annoncer que les fichiers PROD sont déjà privés, ni changer le bucket avant l'accord du propriétaire.
