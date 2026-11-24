@@ -35,6 +35,8 @@ on:
       - audit/s10-ci-synthetic-prod-restore-fixture.sql
       - audit/s10-ci-supabase-runtime-stubs.sql
       - audit/s10-ci-garage-data-rls-isolation.sql
+      - audit/s10-ci-storage-legacy-fixture.sql
+      - audit/s10-ci-storage-rls-isolation.sql
       - audit/s10-prod-complete-migration-candidate-NOT-EXECUTED.sql
       - audit/s10-local-restore-apply-phases-1-to-4.psql
       - audit/s10-phase1-local-additive-garage-data.sql
@@ -197,6 +199,12 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f audit/s10-prod-complete-migration-candidate-NOT-EXECUTED.sql
       - name: Vérifier l'isolation owner/employee/second garage et les droits
         run: psql -X -v ON_ERROR_STOP=1 -f audit/s10-ci-garage-data-rls-isolation.sql
+      - name: Migrer les anciennes politiques Storage sur bucket privé fictif
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f audit/s10-ci-storage-legacy-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f audit/s10-storage-tenant-isolation-candidate-NOT-EXECUTED.sql
+      - name: Vérifier accès Storage ancien/nouveau pour owner, employé, autre garage
+        run: psql -X -v ON_ERROR_STOP=1 -f audit/s10-ci-storage-rls-isolation.sql
       - name: Vérifier la conservation des données et le schéma final
         shell: bash
         run: |
