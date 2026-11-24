@@ -1,4 +1,4 @@
-// S09 TEST — Outlook iCal, read-only private feed. Never expose iCal URL to client.
+// S09 PROD — Outlook iCal, read-only private feed. Never expose iCal URL to client.
 import {parseOutlookICS,validateOutlookUrl} from "./ics.js";
 const dbUrl=Deno.env.get("SUPABASE_URL")||"";
 const envKey=(legacy:string,modern:string)=>{
@@ -116,9 +116,9 @@ async function refresh(userId:string,garageId:string,connectionId:string,force=f
 }
 Deno.serve(async(req:Request)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
- if(req.method==="GET")return respond({available:configured(),provider:"microsoft",mode:"read_only",phase:"TEST"});
+ if(req.method==="GET")return respond({available:configured(),provider:"microsoft",mode:"read_only",phase:"PROD"});
  if(req.method!=="POST")return respond({error:"Méthode non permise"},405);
- if(!configured())return respond({error:"Serveur Outlook TEST non configuré"},503);
+ if(!configured())return respond({error:"Serveur Outlook PROD non configuré"},503);
  const body=await req.json().catch(()=>({}));
  const action=String(body?.action||"");
  const garageId=String(body?.garage_id||"");
@@ -179,7 +179,7 @@ Deno.serve(async(req:Request)=>{
   else if(raw==="OUTLOOK_INVALID_ICS"){kind="INVALID_ICS";help="Le contenu reçu n'est pas reconnu comme calendrier iCal." ;}
   else if(raw==="OUTLOOK_TOO_LARGE"){kind="FEED_TOO_LARGE";help="Le calendrier est trop volumineux pour l'importation.";}
   else if(raw==="OUTLOOK_PARSE_FAILED"){kind="PARSE_FAILED";help="Le format d'un événement du calendrier n'est pas encore reconnu.";}
-  else if(raw.includes("La base TEST a refusé")){kind="DATABASE_ERROR";help="L'enregistrement des événements a été refusé par la base TEST.";}
+  else if(raw.includes("La base PROD a refusé")){kind="DATABASE_ERROR";help="L'enregistrement des événements a été refusé par la base PROD.";}
   return respond({error:"Outlook ["+kind+"] : "+help,code:kind},400);
  }
 });
