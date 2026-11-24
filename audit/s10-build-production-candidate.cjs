@@ -102,7 +102,7 @@ try{
  }
  fs.writeFileSync(path.join(out,"REQUIRES-ORIGINAL-PROD-ASSETS.json"),
    JSON.stringify({requiredOriginalProdAssets,installation:"overlay-existing-PROD-repository-only",
-    warning:"Never delete original PROD assets. Asset SHA must be rechecked at release time."},null,2)+"\\n");
+    warning:"Never delete original PROD assets. Asset SHA must be rechecked at release time."},null,2)+"\n");
  fs.writeFileSync(path.join(out,"NO-GO-PROTOTYPE.txt"),
    "PRODUCTION REVIEW CANDIDATE -- NOT DEPLOYABLE.\n"+
    "Cloud PROD is authoritative, existing localStorage keys must remain untouched.\n"+
