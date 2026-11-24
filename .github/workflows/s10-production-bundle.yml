@@ -136,7 +136,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          psql -X -v ON_ERROR_STOP=1 -A -t -f audit/s10-local-post-phase-1-to-4-integrity-READ-ONLY.psql | tee /tmp/s10-local-synthetic-integrity.json
+          docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -A -t -f - < audit/s10-local-post-phase-1-to-4-integrity-READ-ONLY.psql | tee /tmp/s10-local-synthetic-integrity.json
           grep -q 'LOCAL_SCHEMA_INTEGRITY_PASS' /tmp/s10-local-synthetic-integrity.json
           ! grep -q 'LOCAL_SCHEMA_INTEGRITY_FAIL' /tmp/s10-local-synthetic-integrity.json
       - name: Vérifier que la base SQL cible est bien locale et ne contient aucune donnée réelle
