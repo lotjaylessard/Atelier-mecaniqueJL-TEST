@@ -1,4 +1,4 @@
-// Garage S09 TEST — Google Calendar OAuth. Server-only state and AES-GCM encrypted refresh tokens.
+// Garage S09 PROD — Google Calendar OAuth. Server-only state and AES-GCM encrypted refresh tokens.
 // This endpoint has verify_jwt=false ONLY because Google redirects back without a Supabase JWT.
 // POST /start individually verifies the Supabase user's bearer token and garage membership.
 // All secrets remain Supabase Edge Function environment variables. NO credentials in HTML/GitHub.
@@ -23,8 +23,8 @@ const json=(value:unknown,code=200)=>new Response(JSON.stringify(value),{status:
 // The Supabase Edge gateway can render callback HTML as literal text in some browsers.
 // Return readable UTF-8 plain text instead of showing raw markup.
 const html=(message:string,code=200)=>new Response(
- "GARAGE — CALENDRIER GOOGLE TEST\n\n"+message+
- "\n\nRetourne dans ton garage TEST : Paramètres → Calendriers personnels — connexions.",
+ "GARAGE — CALENDRIER GOOGLE PROD\n\n"+message+
+ "\n\nRetourne dans ton garage PROD : Paramètres → Calendriers personnels — connexions.",
  {status:code,headers:{...cors,"Content-Type":"text/plain; charset=utf-8","Referrer-Policy":"no-referrer"}});
 const bytes=(len:number)=>crypto.getRandomValues(new Uint8Array(len));
 const base64url=(a:Uint8Array)=>btoa(String.fromCharCode(...a)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
@@ -37,7 +37,7 @@ async function rest(table:string,method:string,params:Record<string,string>|null
  const u=new URL(dbUrl+"/rest/v1/"+table);
  for(const [k,v] of Object.entries(params||{}))u.searchParams.set(k,v);
  const response=await fetch(u,{method,headers:{"apikey":serviceKey,"Authorization":"Bearer "+serviceKey,"Content-Type":"application/json","Prefer":method==="POST"?"resolution=merge-duplicates,return=representation":"return=representation",...extra},body:body===undefined?undefined:JSON.stringify(body)});
- if(!response.ok)throw Error("La base TEST a refusé l'opération ("+response.status+")");
+ if(!response.ok)throw Error("La base PROD a refusé l'opération ("+response.status+")");
  return response.status===204?[]:await response.json();
 }
 async function getCaller(req:Request){
@@ -67,7 +67,7 @@ async function decryptRefreshToken(ciphertext:string,nonce:string){
 async function disconnect(req:Request,body:Record<string,unknown>){
  // Deleting a connection also cascade-deletes its encrypted token and private event cache.
  // Only the authenticated connection owner may request it, never by an untrusted user id.
- if(!serviceKey||!anonKey)return json({error:"Service TEST indisponible"},503);
+ if(!serviceKey||!anonKey)return json({error:"Service PROD indisponible"},503);
  const userId=await getCaller(req);
  const garageId=String(body?.garage_id||""),connectionId=String(body?.connection_id||"");
  if(!uuid.test(garageId)||!uuid.test(connectionId))return json({error:"Identifiant de connexion invalide"},400);
@@ -107,7 +107,7 @@ async function disconnect(req:Request,body:Record<string,unknown>){
  return json({disconnected:true,google_access_revoked:revoked});
 }
 async function start(req:Request,provided?:Record<string,unknown>){
- if(!ready())return json({error:"Connexion Google TEST non configurée : identifiants OAuth manquants."},503);
+ if(!ready())return json({error:"Connexion Google PROD non configurée : identifiants OAuth manquants."},503);
  const userId=await getCaller(req);
  const body=provided||await req.json().catch(()=>({}));
  const garageId=String(body?.garage_id||"");
@@ -141,11 +141,11 @@ async function callback(req:Request){
  await rest("garage_external_oauth_states","DELETE",{state_hash:"eq."+stateHash},undefined,{"Prefer":"return=minimal"});
  if(record.provider!=="google"||new Date(record.expires_at).getTime()<=Date.now())return html("Demande expirée.",400);
  if(query.get("error"))return html("Autorisation Google refusée ou annulée.",400);
- if(!code||code.length>4096||!ready())return html("La configuration Google TEST est incomplète.",503);
+ if(!code||code.length>4096||!ready())return html("La configuration Google PROD est incomplète.",503);
  const redirectUri=GOOGLE_OAUTH_REDIRECT_URI;
  const form=new URLSearchParams({code,client_id:clientId,client_secret:clientSecret,redirect_uri:redirectUri,grant_type:"authorization_code",code_verifier:record.pkce_verifier});
  const exchange=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:form});
- if(!exchange.ok)return html("Google n'a pas confirmé la connexion. Vérifie la configuration OAuth TEST.",400);
+ if(!exchange.ok)return html("Google n'a pas confirmé la connexion. Vérifie la configuration OAuth PROD.",400);
  const tokens=await exchange.json();
  if(typeof tokens.refresh_token!=="string"||typeof tokens.access_token!=="string")return html("Google n'a pas fourni de renouvellement d'accès. Réessaie en autorisant l'accès.",400);
  const calendars=await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=100",{headers:{"Authorization":"Bearer "+tokens.access_token}});
@@ -174,11 +174,11 @@ async function callback(req:Request){
  await rest("garage_external_calendar_connections","PATCH",{id:"eq."+connectionId},{
   sync_status:"connected",updated_at:new Date().toISOString()
  });
- return html("Connexion Google autorisée et enregistrée dans le TEST. Aucune modification de ton agenda Google n'a été effectuée.");
+ return html("Connexion Google autorisée et enregistrée dans le PROD. Aucune modification de ton agenda Google n'a été effectuée.");
 }
 
 async function syncGoogle(req:Request,body:Record<string,unknown>){
- if(!ready())return json({error:"Google TEST non configuré"},503);
+ if(!ready())return json({error:"Google PROD non configuré"},503);
  const userId=await getCaller(req);
  const garageId=String(body.garage_id||""),connectionId=String(body.connection_id||"");
  const min=String(body.min||""),max=String(body.max||"");
@@ -283,6 +283,6 @@ Deno.serve(async(req:Request)=>{
   return json({error:"Méthode non permise"},405);
  }catch(_err){
   // Never echo OAuth codes, provider responses, tokens, user data or secrets in error text.
-  return json({error:"Connexion Google TEST indisponible. Vérifie la configuration."},500);
+  return json({error:"Connexion Google PROD indisponible. Vérifie la configuration."},500);
  }
 });
