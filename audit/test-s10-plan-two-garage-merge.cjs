@@ -38,4 +38,16 @@ assert.equal(output.rows[1].data.workorders[0].id,"BT-0");
 assert.equal(output.rows[0].data.workorders[0].id,"BT-0");
 assert.notEqual(output.rows[0].garage_id,output.rows[1].garage_id);
 assert.notEqual(output.rows[0].user_id,output.rows[1].user_id);
+// Rejection matrix: each unsafe condition must be refused, independently of wording.
+const deny=/S10_TWO_GARAGE_MERGE_REFUSED/;
+assert.throws(()=>planTwoGarages({...input,garageB:{...input.garageB,owner_uid:ua}}),deny);
+assert.throws(()=>planTwoGarages({...input,garageB:{...input.garageB,garage_id:ga}}),deny);
+assert.throws(()=>planTwoGarages({...input,garageB:{...input.garageB,data:B}}),deny);
+assert.throws(()=>planTwoGarages({...input,friendStoragePlan:{...fp,files:fp.files.slice(1)}}),deny);
+const missing=structuredClone(input);
+missing.garageB.data.workorders[0].attachments[0].path="invalid/path";
+assert.throws(()=>planTwoGarages(missing),deny);
+const dup=structuredClone(input);
+dup.garageB.data.clients[1].id=dup.garageB.data.clients[0].id;
+assert.throws(()=>planTwoGarages(dup),deny);
 console.log("S10_TWO_GARAGE_MERGE_PLAN_PASS : separate owner rows, 51 clients, 104 BT, 102 invoices, 19 friend files, zero writes");
