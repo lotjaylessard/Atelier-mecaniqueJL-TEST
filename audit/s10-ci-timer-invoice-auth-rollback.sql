@@ -15,6 +15,10 @@ BEGIN
  THEN RAISE EXCEPTION 'REFUSED: disposable S10 synthetic database only'; END IF;
 END $preflight$;
 
+-- CI fixture lacks Supabase's standard auth schema USAGE grant; emulate it
+-- within this transaction only, so auth.uid() can resolve for invoker RPCs.
+GRANT USAGE ON SCHEMA auth TO authenticated;
+
 -- All IDs/data fabricated in this job. Insert as superuser only to build
 -- a synthetic timer session; authenticated role may not insert directly.
 INSERT INTO auth.users(id) VALUES
