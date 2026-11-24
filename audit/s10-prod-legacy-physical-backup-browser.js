@@ -51,7 +51,7 @@ async function collectPaths(client,prefix="clients") {
     const path=folder+"/"+entry.name;
     assert(pathValid(path),"Invalid Storage object path");
     if(!entry.id&&!entry.metadata)queue.push(path);
-    else assert(!seen.has(path) && !seen.add(path),"Duplicate Storage path");
+    else {assert(!seen.has(path),"Duplicate Storage path");seen.add(path)}
    }
    if(data.length<PAGE)break;
    offset+=PAGE;
