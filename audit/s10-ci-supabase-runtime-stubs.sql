@@ -31,3 +31,17 @@ RETURNS uuid LANGUAGE sql STABLE AS $fn$
 $fn$;
 -- These roles/functions only simulate SQL resolution and catalog grants.
 -- They DO NOT demonstrate a real authenticated Supabase browser session.
+
+-- Recreate the five legacy PROD policies and excessive grants in CI.
+-- The candidate must remove these exact policies before adding tenant access.
+GRANT ALL ON TABLE public.garage_data TO anon, authenticated;
+CREATE POLICY "Allow authenticated users" ON public.garage_data
+ FOR ALL TO authenticated USING (auth.uid()=user_id) WITH CHECK (auth.uid()=user_id);
+CREATE POLICY "Deny anon" ON public.garage_data
+ FOR ALL TO anon USING (false) WITH CHECK (false);
+CREATE POLICY "Users can insert their own data" ON public.garage_data
+ FOR INSERT TO PUBLIC WITH CHECK (auth.uid()=user_id);
+CREATE POLICY "Users can read their own data" ON public.garage_data
+ FOR SELECT TO PUBLIC USING (auth.uid()=user_id);
+CREATE POLICY "Users can update their own data" ON public.garage_data
+ FOR UPDATE TO PUBLIC USING (auth.uid()=user_id);
