@@ -23,6 +23,14 @@
 - **Référence web pour rollback :** `https://github.com/lotjaylessard/Atelier-mecaniqueJL/commit/f7e7450da11617c21958e5b616bd96ec93711a8e`. Conserver aussi le commit immédiatement avant la publication finale. Un retour arrière **web** ne restaure pas automatiquement le schéma Supabase, les politiques Storage, les fichiers ni les écritures nouvelles.
 - Le dépôt n'apparaissait pas dans l'inventaire restreint de la connexion GitHub, mais son `index.html` et son commit ont bien été lus explicitement en tant que dépôt public. **Le blocage « dépôt PROD introuvable » est résolu.**
 
+## Dépendance HTML PROD confirmée
+
+- La page `login.html` de PROD, tout comme la candidate TEST, référence l'image `/Atelier-mecaniqueJL/img/login-bg.jpg`.
+- Cette image est présente dans le dépôt PROD au commit de référence (blob Git `cb4a1c46f8973df1509df074ddd1f54ac0981ed2`), mais **absente du dépôt TEST**. Ne jamais publier un nouveau dossier web autonome en effaçant cette image.
+- Le constructeur `audit/s10-build-production-candidate.cjs` écrit désormais `REQUIRES-ORIGINAL-PROD-ASSETS.json`, stipulant une installation `overlay-existing-PROD-repository-only`. Le paquet reste marqué `NO-GO-PROTOTYPE.txt`.
+- Une publication future doit conserver les ressources originales du dépôt PROD et seulement superposer les fichiers générés après vérification de la branche source et de l'empreinte des ressources.
+- L'URL GitHub Pages et sa source effective ne sont toujours **pas vérifiées en direct**. Le chemin `/Atelier-mecaniqueJL/` est appuyé par le lien CSS publié, mais ne constitue pas à lui seul une preuve de l'URL active.
+
 ## Bloc A — avant toute écriture dans PROD
 
 **A1. Reprise de la copie du bureau :** sur le portable du bureau, vérifier la présence du dump, des 55 fichiers et du manifeste; contrôler qu'ils sont lisibles et couvrent la même date. La base `atelier_jl_restore_test` existe déjà et ne doit pas recevoir une deuxième fois les phases 1–4. Exécuter seulement la procédure `audit/s10-run-existing-local-restore-continuation.ps1` lorsqu'on est sur ce portable : elle doit refuser d'écraser `atelier_jl_s10_continuation` si déjà présente.
