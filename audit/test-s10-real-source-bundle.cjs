@@ -58,6 +58,11 @@ try{
  for(const asset of expected)assert.ok(linked.includes(asset),"Critical runtime asset absent: "+asset);
  assert.ok(index.includes("const PROD_STORAGE_PREFIX = \"ar_prod_feeapfylfzlvgnqtglnh\""));
  assert.ok(index.includes("hydrateLocalFromCloud(cloudData)"));
+ const manifest=JSON.parse(fs.readFileSync(path.join(dest,"REQUIRES-ORIGINAL-PROD-ASSETS.json"),"utf8"));
+ assert.equal(manifest.installation,"overlay-existing-PROD-repository-only");
+ assert.equal(manifest.requiredOriginalProdAssets.length,1);
+ assert.equal(manifest.requiredOriginalProdAssets[0].git_blob_sha,"cb4a1c46f8973df1509df074ddd1f54ac0981ed2");
+ assert.ok(fs.readFileSync(path.join(dest,"login.html"),"utf8").includes("/Atelier-mecaniqueJL/img/login-bg.jpg"));
  assert.ok(fs.existsSync(path.join(dest,"NO-GO-PROTOTYPE.txt")),"Missing mandatory NO-GO marker");
  const check=node("s10-check-production-bundle.cjs",dest);
  assert.notEqual(check.status,0,"Review candidate unexpectedly eligible for live deployment");
