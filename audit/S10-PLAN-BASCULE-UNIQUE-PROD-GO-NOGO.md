@@ -13,6 +13,10 @@
 - Un ancien dump physique **a déjà été fait sur le portable du bureau** ; ne pas en réclamer une répétition pour une simple recette. Le dump reste un *checkpoint historique*, pas un gel final.
 - La simulation GitHub CI a réussi pour la migration complète sur données fictives, la reprise phases 5–10 après phases 1–4, l'isolation SQL et la conversion atomique Storage. Cela ne vaut pas test Auth navigateur.
 
+## Vérification du dépôt GitHub relié
+
+- Inventaire du connecteur GitHub : **seul** `lotjaylessard/Atelier-mecaniqueJL-TEST` est accessible pour ce propriétaire. Le dépôt de l'ancien site réellement publié n'est pas accessible via ce connecteur : il est impossible de garantir un rollback web automatique. Sa localisation et son commit doivent être obtenus avant tout GO, **sans supposer** qu'il est identique au dépôt TEST.
+
 ## Bloc A — avant toute écriture dans PROD
 
 **A1. Reprise de la copie du bureau :** sur le portable du bureau, vérifier la présence du dump, des 55 fichiers et du manifeste; contrôler qu'ils sont lisibles et couvrent la même date. La base `atelier_jl_restore_test` existe déjà et ne doit pas recevoir une deuxième fois les phases 1–4. Exécuter seulement la procédure `audit/s10-run-existing-local-restore-continuation.ps1` lorsqu'on est sur ce portable : elle doit refuser d'écraser `atelier_jl_s10_continuation` si déjà présente.
