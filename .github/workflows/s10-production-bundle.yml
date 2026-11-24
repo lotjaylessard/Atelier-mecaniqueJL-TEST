@@ -42,6 +42,7 @@ on:
       - audit/s10-ci-supabase-runtime-stubs.sql
       - audit/s10-ci-garage-data-rls-isolation.sql
       - audit/s10-ci-garage-write-rls-rollback.sql
+      - audit/s10-ci-timer-invoice-auth-rollback.sql
       - audit/s10-ci-storage-legacy-fixture.sql
       - audit/s10-ci-storage-rls-isolation.sql
       - audit/s10-ci-storage-public-reset.sql
@@ -262,6 +263,10 @@ jobs:
         run: |
           docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-ci-garage-write-rls-rollback.sql
           docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -Atc "SELECT 1 / CASE WHEN (SELECT count(*) FROM auth.users)=1 AND (SELECT count(*) FROM public.garage_data)=1 AND (SELECT count(*) FROM public.garage_quotes)=0 AND (SELECT count(*) FROM public.garage_members)=1 THEN 1 ELSE 0 END"
+      - name: Tester refus des RPC minuterie et facture inter-garages sans persistance
+        run: |
+          docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-ci-timer-invoice-auth-rollback.sql
+          docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -Atc "SELECT 1 / CASE WHEN (SELECT count(*) FROM auth.users)=1 AND (SELECT count(*) FROM public.garage_data)=1 AND (SELECT count(*) FROM public.garage_timer_sessions)=0 AND (SELECT count(*) FROM public.garage_members)=1 THEN 1 ELSE 0 END"
       - name: Migrer les anciennes politiques Storage sur bucket privé fictif
         run: |
           docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-ci-storage-legacy-fixture.sql
