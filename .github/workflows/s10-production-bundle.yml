@@ -52,6 +52,8 @@ on:
       - audit/test-s10-prepare-legacy-prod-auth-hotfix.cjs
       - audit/s10-friend-physical-backup-browser.js
       - audit/test-s10-friend-physical-backup.cjs
+      - audit/s10-build-garage-b-import-SQL.cjs
+      - audit/test-s10-build-garage-b-import-SQL.cjs
       - audit/s10-ci-storage-legacy-fixture.sql
       - audit/s10-ci-storage-rls-isolation.sql
       - audit/s10-ci-storage-public-reset.sql
@@ -90,6 +92,8 @@ jobs:
         run: node audit/test-s10-prepare-legacy-prod-auth-hotfix.cjs
       - name: Tester transfert complet des 19 fichiers source de l'ami (fictif)
         run: node audit/test-s10-friend-physical-backup.cjs
+      - name: Valider génération hors ligne de l'import des données garage B (fictif)
+        run: node audit/test-s10-build-garage-b-import-SQL.cjs
       - name: Tests du contrôle de déploiement
         run: node audit/test-s10-production-bundle.cjs
       - name: Vérifier que la branche TEST est refusée comme paquet PROD
