@@ -1,4 +1,4 @@
-// S09 TEST — FamilyWall iCal, read-only private feed. Never expose iCal URL to client.
+// S09 PROD — FamilyWall iCal, read-only private feed. Never expose iCal URL to client.
 import {parseFamilyWallICS,validateFamilyWallUrl} from "./ics.js";
 const dbUrl=Deno.env.get("SUPABASE_URL")||"";
 const envKey=(legacy:string,modern:string)=>{
@@ -97,9 +97,9 @@ async function refresh(userId:string,garageId:string,connectionId:string,force=f
 }
 Deno.serve(async(req:Request)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
- if(req.method==="GET")return respond({available:configured(),provider:"familywall",mode:"read_only",phase:"TEST"});
+ if(req.method==="GET")return respond({available:configured(),provider:"familywall",mode:"read_only",phase:"PROD"});
  if(req.method!=="POST")return respond({error:"Méthode non permise"},405);
- if(!configured())return respond({error:"Serveur FamilyWall TEST non configuré"},503);
+ if(!configured())return respond({error:"Serveur FamilyWall PROD non configuré"},503);
  const body=await req.json().catch(()=>({}));
  const action=String(body?.action||"");
  const garageId=String(body?.garage_id||"");
