@@ -1,4 +1,4 @@
-// Garage TEST — Microsoft Outlook/Hotmail OAuth, private read-only sync.
+// Garage PROD — Microsoft Outlook/Hotmail OAuth, private read-only sync.
 const url=Deno.env.get("SUPABASE_URL")||"";
 function envKey(a:string,b:string){const v=Deno.env.get(a);if(v)return v;try{const x=JSON.parse(Deno.env.get(b)||"{}");return String(x.default||"")}catch{return ""}}
 const service=envKey("SUPABASE_SERVICE_ROLE_KEY","SUPABASE_SECRET_KEYS");
@@ -12,7 +12,7 @@ const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GE
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ready=()=>!!(url&&service&&pub&&client&&secret&&/^[a-f0-9]{64}$/i.test(keyHex));
 const json=(x:unknown,status=200)=>new Response(JSON.stringify(x),{status,headers:{...cors,"Content-Type":"application/json; charset=utf-8"}});
-const message=(msg:string,status=200)=>new Response("GARAGE TEST — OUTLOOK / HOTMAIL\n\n"+msg+"\n\nRetourne dans Paramètres → Calendriers personnels.",{status,headers:{...cors,"Content-Type":"text/plain; charset=utf-8","Referrer-Policy":"no-referrer"}});
+const message=(msg:string,status=200)=>new Response("GARAGE PROD — OUTLOOK / HOTMAIL\n\n"+msg+"\n\nRetourne dans Paramètres → Calendriers personnels.",{status,headers:{...cors,"Content-Type":"text/plain; charset=utf-8","Referrer-Policy":"no-referrer"}});
 function b64(a:Uint8Array){return btoa(String.fromCharCode(...a)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")}
 function rnd(n:number){return crypto.getRandomValues(new Uint8Array(n))}
 async function hash(s:string){return new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s)))}
@@ -94,7 +94,7 @@ async function sync(user:string,garage:string,id:string,force=false){
  return {synced:true,count:rows.length};
 }
 async function connect(req:Request,body:any){
- if(!ready())return json({error:"Outlook TEST : configuration OAuth Microsoft requise."},503);
+ if(!ready())return json({error:"Outlook PROD : configuration OAuth Microsoft requise."},503);
  const garage=String(body.garage_id||""),user=await caller(req,garage);
  const state=b64(rnd(32)),verifier=b64(rnd(48));
  await db("garage_external_oauth_states","POST",{}, {state_hash:await stateHash(state),garage_id:garage,user_id:user,provider:"microsoft",pkce_verifier:verifier,expires_at:new Date(Date.now()+600000).toISOString()});
@@ -121,13 +121,13 @@ async function callback(req:Request){
  const connection=created?.[0]?.id;if(!uuid.test(String(connection||"")))return message("Connexion non enregistrée.",500);
  await db("garage_external_calendar_tokens","POST",{on_conflict:"connection_id"},{connection_id:connection,...await seal(tokens.refresh_token),updated_at:new Date().toISOString()});
  try{await sync(item.user_id,item.garage_id,connection,true)}catch{ /* Connection remains, next refresh can retry. */ }
- return message("Connexion Outlook autorisée dans TEST. Retourne au garage et actualise Horaire.");
+ return message("Connexion Outlook autorisée dans PROD. Retourne au garage et actualise Horaire.");
 }
 Deno.serve(async(req:Request)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
  try{
   if(req.method==="GET"&&new URL(req.url).searchParams.has("state"))return await callback(req);
-  if(req.method==="GET")return json({microsoft_available:ready(),read_only:true,phase:"TEST"});
+  if(req.method==="GET")return json({microsoft_available:ready(),read_only:true,phase:"PROD"});
   if(req.method!=="POST")return json({error:"Méthode refusée"},405);
   const body=await req.json().catch(()=>({})),action=String(body.action||"connect");
   if(action==="connect")return await connect(req,body);
@@ -140,5 +140,5 @@ Deno.serve(async(req:Request)=>{
    return json({disconnected:true});
   }
   return json({error:"Action inconnue"},400);
- }catch(_e){return json({error:"Outlook TEST : opération impossible. Vérifie la connexion Microsoft."},400)}
+ }catch(_e){return json({error:"Outlook PROD : opération impossible. Vérifie la connexion Microsoft."},400)}
 });
