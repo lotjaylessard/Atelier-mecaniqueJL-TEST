@@ -29,3 +29,20 @@
 4. Vérifier les vraies sessions, données de plusieurs garages, fichiers HTTPS signés, calendriers et paiements avant publication du site puis lever le gel.
 
 **Aucune des étapes nécessitant une écriture PROD n'est autorisée par un « next » ou « go » générique.**
+
+
+## GitHub Pages PROD — confirmé par captures du propriétaire, 24 novembre 2026
+
+Le propriétaire a ouvert directement `Settings > Pages` du dépôt PROD `lotjaylessard/Atelier-mecaniqueJL`. Les deux captures confirment :
+
+- URL publique : `https://lotjaylessard.github.io/Atelier-mecaniqueJL/`.
+- Publication : **Deploy from a branch**.
+- Branche : **main**.
+- Dossier : **/(root)**.
+- HTTPS : **Enforce HTTPS**, activé et requis.
+- Domaine personnalisé : aucun.
+- La page indique **Your site is live**, avec un déploiement par l'environnement `github-pages`.
+
+La destination GitHub Pages PROD est donc **confirmée**, et non plus un blocage. Aucune modification des paramètres Pages ne sera nécessaire. La publication finale reste interdite sans GO détaillé; un rollback web par commit ne restaure pas les données Supabase.
+
+**Blocages restants :** authentification navigateur multi-compte bout-en-bout, pièces jointes via signed URLs réelles sur environnement isolé, secrets/callbacks Google, 3 Edge Functions PROD, plan de rollback DB + Storage, checkpoint frais après gel. Ne pas répéter les audits locaux déjà réussis.
