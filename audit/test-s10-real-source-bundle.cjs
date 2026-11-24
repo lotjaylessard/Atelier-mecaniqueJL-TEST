@@ -22,10 +22,10 @@ function node(script,...args){
 }
 function pathsFromHtml(html){
  const urls=[];
- const regex=/<(?:script|img|link)\\b[^>]*?\\b(?:src|href)\\s*=\\s*["']([^"']+)["']/gi;
+ const regex=/<(?:script|img|link)\b[^>]*?\b(?:src|href)\s*=\s*["']([^"']+)["']/gi;
  for(const m of html.matchAll(regex)){
   const uri=m[1];
-  if(/^(?:https?:|data:|blob:|\\/\\/|#)/i.test(uri))continue;
+  if(/^(?:https?:|data:|blob:|\/\/|#)/i.test(uri))continue;
   const rel=path.posix.normalize((uri.startsWith("./")?uri.slice(2):uri).split(/[?#]/)[0]);
   assert.ok(rel && !rel.startsWith("../") && !rel.startsWith("/"),"Unsafe local reference: "+uri);
   urls.push(rel);
