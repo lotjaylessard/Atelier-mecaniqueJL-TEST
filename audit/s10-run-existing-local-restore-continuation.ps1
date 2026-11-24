@@ -17,7 +17,7 @@ function Invoke-LocalQuery([string]$db,[string]$sql) {
  return ($output -join "`n").Trim()
 }
 # Refuse accidental wrong cluster/project even if a network override is configured.
-$endpoint=Invoke-LocalQuery 'postgres' "SELECT current_setting('port') || '|' || inet_server_addr()::text"
+$endpoint=Invoke-LocalQuery 'postgres' "SELECT current_setting('port') || '|' || host(inet_server_addr())"
 if($endpoint -ne '5432|127.0.0.1') {
  throw "REFUSED: unexpected PostgreSQL endpoint $endpoint"
 }
