@@ -19,35 +19,53 @@ BEGIN
 END $roles$;
 CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE
 AS $fn$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $fn$;
--- A previous failed pg_restore may have omitted all RLS policies.
--- Create the exact original five PROD rules ONLY when none exist.
+-- Original local pg_restore can yield 0, 3 or 5 legacy policies.
+-- 3 is the observed backup state: insert/select/update owned rows survived,
+-- while legacy "Allow authenticated users" and "Deny anon" did not.
+-- Never replace unexpected rules or touch the existing restore.
 DO $policies$
-DECLARE count_policy int;
+DECLARE n int;
 BEGIN
- SELECT count(*) INTO count_policy FROM pg_policies
-  WHERE schemaname='public' AND tablename='garage_data';
- IF count_policy NOT IN (0,5) THEN
-   RAISE EXCEPTION 'REFUSED: unexpected % legacy garage_data RLS policies',count_policy;
+ SELECT count(*) INTO n FROM pg_policies WHERE schemaname='public' AND tablename='garage_data';
+ IF n NOT IN (0,3,5) THEN
+   RAISE EXCEPTION 'REFUSED: unexpected % legacy garage_data RLS policies',n;
  END IF;
- IF count_policy=5 AND EXISTS (
-  SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='garage_data'
-  AND policyname NOT IN ('Allow authenticated users','Deny anon',
-   'Users can insert their own data','Users can read their own data',
-   'Users can update their own data')
- ) THEN
-  RAISE EXCEPTION 'REFUSED: garage_data policies do not match the original PROD';
- END IF;
- IF count_policy=0 THEN
-  CREATE POLICY "Allow authenticated users" ON public.garage_data
-    FOR ALL TO authenticated USING (auth.uid()=user_id) WITH CHECK (auth.uid()=user_id);
-  CREATE POLICY "Deny anon" ON public.garage_data
-    FOR ALL TO anon USING(false) WITH CHECK(false);
+ IF n IN (3,5) AND (
+  (SELECT count(*) FROM pg_policies
+    WHERE schemaname='public' AND tablename='garage_data'
+      AND policyname IN ('Users can insert their own data',
+        'Users can read their own data','Users can update their own data')
+      AND ((policyname='Users can insert their own data' AND cmd='INSERT') OR
+           (policyname='Users can read their own data' AND cmd='SELECT') OR
+           (policyname='Users can update their own data' AND cmd='UPDATE'))
+      AND roles='{public}' AND permissive='PERMISSIVE')<>3
+  OR EXISTS(
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='garage_data'
+    AND policyname NOT IN ('Users can insert their own data','Users can read their own data',
+      'Users can update their own data','Allow authenticated users','Deny anon'))
+ ) THEN RAISE EXCEPTION 'REFUSED: unexpected inherited RLS rule'; END IF;
+ IF n=5 AND (
+    (SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='garage_data'
+    AND ((policyname='Allow authenticated users' AND cmd='ALL' AND roles='{authenticated}') OR
+         (policyname='Deny anon' AND cmd='ALL' AND roles='{anon}')))<>2)
+ THEN RAISE EXCEPTION 'REFUSED: unexpected inherited extra RLS rules'; END IF;
+ IF n=0 THEN
   CREATE POLICY "Users can insert their own data" ON public.garage_data
     FOR INSERT TO PUBLIC WITH CHECK(auth.uid()=user_id);
   CREATE POLICY "Users can read their own data" ON public.garage_data
     FOR SELECT TO PUBLIC USING(auth.uid()=user_id);
   CREATE POLICY "Users can update their own data" ON public.garage_data
     FOR UPDATE TO PUBLIC USING(auth.uid()=user_id);
+ END IF;
+ IF n IN (0,3) THEN
+  CREATE POLICY "Allow authenticated users" ON public.garage_data
+    FOR ALL TO authenticated USING (auth.uid()=user_id) WITH CHECK (auth.uid()=user_id);
+  CREATE POLICY "Deny anon" ON public.garage_data
+    FOR ALL TO anon USING(false) WITH CHECK(false);
+ END IF;
+ IF (SELECT count(*) FROM pg_policies
+   WHERE schemaname='public' AND tablename='garage_data')<>5 THEN
+   RAISE EXCEPTION 'Legacy RLS reconstruction failed';
  END IF;
 END $policies$;
 GRANT USAGE ON SCHEMA auth TO authenticated,anon;
