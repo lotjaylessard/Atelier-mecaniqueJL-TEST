@@ -8,8 +8,18 @@ function refuse(msg){throw Error("AUTH_HOTFIX_REFUSED: "+msg)}
 function patchLegacy(html){
  if(typeof html!=="string")refuse("source must be text");
  let s=html;
- const old=/async function supabaseLogin\(\)\s*\{\s*const email\s*=\s*["'][^"'\n]+["'];\s*const password\s*=\s*["'][^"'\n]+["'];\s*const \{ data, error \} = await sb\.auth\.signInWithPassword\(\{\s*email,\s*password\s*\}\);[\s\S]*?SUPABASE_USER\s*=\s*data\.user;[\s\S]*?\}/;
- if(!old.test(s))refuse("exact legacy embedded-password function not found; manual review needed");
+ const startMarker="async function supabaseLogin(){";
+ const boundaryMarker="/* ===================== CLOUD LOAD ===================== */";
+ const start=s.indexOf(startMarker), boundary=s.indexOf(boundaryMarker,start);
+ if(start<0||boundary<0||s.indexOf(startMarker,start+1)!==-1)
+   refuse("unique legacy login function and cloud-load boundary required");
+ const fragment=s.slice(start,boundary);
+ if(!/const email\\s*=\\s*["'][^"'\\n]+["']/.test(fragment)||
+    !/const password\\s*=\\s*["'][^"'\\n]+["']/.test(fragment)||
+    !fragment.includes("sb.auth.signInWithPassword")||
+    !fragment.includes("SUPABASE_USER = data.user"))
+   refuse("expected hard-coded login signature missing");
+ if(!/\\}\\s*$/.test(fragment))refuse("legacy login not properly terminated");
  const safe=[
  "async function supabaseLogin(){",
  "  // Read the already-authenticated user's session; NEVER embed credentials.",
@@ -22,7 +32,7 @@ function patchLegacy(html){
  "  return true;",
  "}"
  ].join("\n");
- s=s.replace(old,safe);
+ s=s.slice(0,start)+safe+"\n\n  "+s.slice(boundary);
  const oldInit=/\(async function initApp\(\)\s*\{\s*await supabaseLogin\(\);\s*await loadCloudData\(\);\s*\}\)\(\);/;
  if(!oldInit.test(s))refuse("legacy init not found");
  s=s.replace(oldInit,'(async function initApp(){\n  if(!await supabaseLogin())return;\n  await loadCloudData();\n})();');
