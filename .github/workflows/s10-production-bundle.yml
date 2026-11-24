@@ -130,6 +130,10 @@ jobs:
           sudo apt-get install -y -qq postgresql-client
       - name: Créer une copie SYNTHÉTIQUE de l'ancienne PROD
         run: psql -X -v ON_ERROR_STOP=1 -f audit/s10-ci-synthetic-prod-restore-fixture.sql
+      - name: Capturer l'empreinte exacte du JSON métier avant la migration
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -Atc "SELECT md5(data::text) FROM public.garage_data;" > /tmp/s10-before-business-data.md5
+          test "$(wc -l < /tmp/s10-before-business-data.md5)" -eq 1
       - name: Exécuter réellement les phases 1 à 4 sur le PostgreSQL jetable
         run: psql -X -v ON_ERROR_STOP=1 -f audit/s10-local-restore-apply-phases-1-to-4.psql
       - name: Contrôler propriétaire, conservation des pièces jointes et isolation
@@ -139,6 +143,12 @@ jobs:
           docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -A -t -f - < audit/s10-local-post-phase-1-to-4-integrity-READ-ONLY.psql | tee /tmp/s10-local-synthetic-integrity.json
           grep -q 'LOCAL_SCHEMA_INTEGRITY_PASS' /tmp/s10-local-synthetic-integrity.json
           ! grep -q 'LOCAL_SCHEMA_INTEGRITY_FAIL' /tmp/s10-local-synthetic-integrity.json
+      - name: Confirmer que clients, BT, factures et montants sont inchangés octet pour octet dans le JSON logique
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -Atc "SELECT md5(data::text) FROM public.garage_data;" > /tmp/s10-after-business-data.md5
+          cmp /tmp/s10-before-business-data.md5 /tmp/s10-after-business-data.md5
       - name: Vérifier que la base SQL cible est bien locale et ne contient aucune donnée réelle
         run: |
           psql -X -v ON_ERROR_STOP=1 -Atc "SELECT 1 / CASE WHEN current_database()='atelier_jl_restore_test' AND (SELECT count(*) FROM public.garage_data)=1 AND (SELECT count(*) FROM storage.objects)=55 THEN 1 ELSE 0 END;"
