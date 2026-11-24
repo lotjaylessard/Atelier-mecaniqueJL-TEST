@@ -46,14 +46,14 @@ BEGIN
  SELECT id INTO a FROM public.garages WHERE name='Atelier Mécanique JL';
  b:='10000000-0000-4000-8000-000000000002';
  BEGIN
-   INSERT INTO public.garage_quotes(garage_id,user_id,quote_number)
-     VALUES(b,'00000000-0000-4000-8000-000000000002','SO-9002');
+   INSERT INTO public.garage_quotes(garage_id,user_id,quote_number,content)
+     VALUES(b,'00000000-0000-4000-8000-000000000002','SO-9002','{"clientName":"Synthetic Client"}');
  EXCEPTION WHEN insufficient_privilege OR check_violation THEN
    denied_other_garage:=true;
  END;
  BEGIN
-   INSERT INTO public.garage_quotes(garage_id,user_id,quote_number)
-     VALUES(a,'00000000-0000-4000-8000-000000000001','SO-9003');
+   INSERT INTO public.garage_quotes(garage_id,user_id,quote_number,content)
+     VALUES(a,'00000000-0000-4000-8000-000000000001','SO-9003','{"clientName":"Synthetic Client"}');
  EXCEPTION WHEN insufficient_privilege OR check_violation THEN
    denied_spoofed_user:=true;
  END;
