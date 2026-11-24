@@ -13,9 +13,15 @@
 - Un ancien dump physique **a déjà été fait sur le portable du bureau** ; ne pas en réclamer une répétition pour une simple recette. Le dump reste un *checkpoint historique*, pas un gel final.
 - La simulation GitHub CI a réussi pour la migration complète sur données fictives, la reprise phases 5–10 après phases 1–4, l'isolation SQL et la conversion atomique Storage. Cela ne vaut pas test Auth navigateur.
 
-## Vérification du dépôt GitHub relié
+## Dépôt GitHub PROD retrouvé et vérifié
 
-- Inventaire du connecteur GitHub : **seul** `lotjaylessard/Atelier-mecaniqueJL-TEST` est accessible pour ce propriétaire. Le dépôt de l'ancien site réellement publié n'est pas accessible via ce connecteur : il est impossible de garantir un rollback web automatique. Sa localisation et son commit doivent être obtenus avant tout GO, **sans supposer** qu'il est identique au dépôt TEST.
+- **Dépôt PROD d'origine** : `lotjaylessard/Atelier-mecaniqueJL` (distinct du dépôt TEST `lotjaylessard/Atelier-mecaniqueJL-TEST`).
+- **Branche par défaut** : `main`; état observé via l'API GitHub : `f7e7450da11617c21958e5b616bd96ec93711a8e`.
+- `index.html` Git blob `1d5ae297562d39bdbc0f8c4194271c3d3333894b`; `login.html` Git blob `dec1f5e40bde9540f865f459a9967836e01fe615`.
+- La configuration HTML de ce commit vise uniquement **Supabase PROD** `feeapfylfzlvgnqtglnh`. L'API GitHub confirme `has_pages=true`.
+- La configuration `main` /`(root)` avait été confirmée lors de la création du site; néanmoins, l'API Pages actuelle n'est pas encore consultable à partir de ce connecteur. Ne pas prétendre avoir validé le déploiement GitHub Pages en direct, son URL active ou son état réseau.
+- **Référence web pour rollback :** `https://github.com/lotjaylessard/Atelier-mecaniqueJL/commit/f7e7450da11617c21958e5b616bd96ec93711a8e`. Conserver aussi le commit immédiatement avant la publication finale. Un retour arrière **web** ne restaure pas automatiquement le schéma Supabase, les politiques Storage, les fichiers ni les écritures nouvelles.
+- Le dépôt n'apparaissait pas dans l'inventaire restreint de la connexion GitHub, mais son `index.html` et son commit ont bien été lus explicitement en tant que dépôt public. **Le blocage « dépôt PROD introuvable » est résolu.**
 
 ## Bloc A — avant toute écriture dans PROD
 
@@ -25,7 +31,7 @@
 
 **A3. Identité de l'ami :** documenter le mécanisme d'inscription Auth/membership du garage B, la conservation ou le remappage de ses données, et le sort de sa ligne historique sans `garage_id` dans TEST. Ne rien supprimer ni transférer de TEST sans traitement explicite.
 
-**A4. Source GitHub Pages PROD :** identifier le dépôt/site réellement publié, enregistrer son commit précédent, vérifier son chemin de publication et préparer une sortie réversible du nouveau bundle. Ne pas confondre le dépôt TEST avec le site PROD.
+**A4. Source GitHub Pages PROD :** **dépôt `lotjaylessard/Atelier-mecaniqueJL`, branche `main`, commit source `f7e7450da11617c21958e5b616bd96ec93711a8e` vérifiés.** Reste à confirmer directement la configuration GitHub Pages actuelle (dossier de publication et URL) et les droits d'écriture/rollback avant GO. Ne pas confondre le dépôt TEST avec le site PROD.
 
 **A5. Autorisation :** demander un GO explicite avec la cible choisie et le moment de gel. Un test CI vert ne constitue jamais ce GO.
 
