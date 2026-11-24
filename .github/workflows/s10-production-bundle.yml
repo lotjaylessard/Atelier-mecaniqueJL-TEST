@@ -184,32 +184,28 @@ jobs:
       PGPASSWORD: s10_fake_ci_password_only
     steps:
       - uses: actions/checkout@v4
-      - name: Installer le client PostgreSQL
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client
       - name: Préparer exclusivement les données synthétiques et stubs Supabase
         run: |
-          psql -X -v ON_ERROR_STOP=1 -f audit/s10-ci-synthetic-prod-restore-fixture.sql
-          psql -X -v ON_ERROR_STOP=1 -f audit/s10-ci-supabase-runtime-stubs.sql
-          psql -X -v ON_ERROR_STOP=1 -Atc "SELECT md5(data::text) FROM public.garage_data" > /tmp/s10-full-before.md5
+          docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-ci-synthetic-prod-restore-fixture.sql
+          docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-ci-supabase-runtime-stubs.sql
+          docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -Atc "SELECT md5(data::text) FROM public.garage_data" > /tmp/s10-full-before.md5
       - name: Vérifier la cible jetable et exécuter le candidat SQL complet
         run: |
-          psql -X -v ON_ERROR_STOP=1 -Atc "SELECT 1 / CASE WHEN current_database()='atelier_jl_restore_test' AND (SELECT count(*) FROM auth.users)=1 THEN 1 ELSE 0 END"
-          psql -X -v ON_ERROR_STOP=1 -f audit/s10-prod-complete-migration-candidate-NOT-EXECUTED.sql
+          docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -Atc "SELECT 1 / CASE WHEN current_database()='atelier_jl_restore_test' AND (SELECT count(*) FROM auth.users)=1 THEN 1 ELSE 0 END"
+          docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-prod-complete-migration-candidate-NOT-EXECUTED.sql
       - name: Vérifier l'isolation owner/employee/second garage et les droits
-        run: psql -X -v ON_ERROR_STOP=1 -f audit/s10-ci-garage-data-rls-isolation.sql
+        run: docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-ci-garage-data-rls-isolation.sql
       - name: Migrer les anciennes politiques Storage sur bucket privé fictif
         run: |
-          psql -X -v ON_ERROR_STOP=1 -f audit/s10-ci-storage-legacy-fixture.sql
-          psql -X -v ON_ERROR_STOP=1 -f audit/s10-storage-tenant-isolation-candidate-NOT-EXECUTED.sql
+          docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-ci-storage-legacy-fixture.sql
+          docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-storage-tenant-isolation-candidate-NOT-EXECUTED.sql
       - name: Vérifier accès Storage ancien/nouveau pour owner, employé, autre garage
-        run: psql -X -v ON_ERROR_STOP=1 -f audit/s10-ci-storage-rls-isolation.sql
+        run: docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-ci-storage-rls-isolation.sql
       - name: Vérifier la conservation des données et le schéma final
         shell: bash
         run: |
           set -euo pipefail
-          psql -X -v ON_ERROR_STOP=1 -Atc "SELECT md5(data::text) FROM public.garage_data" > /tmp/s10-full-after.md5
+          docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -Atc "SELECT md5(data::text) FROM public.garage_data" > /tmp/s10-full-after.md5
           cmp /tmp/s10-full-before.md5 /tmp/s10-full-after.md5
-          psql -X -v ON_ERROR_STOP=1 -Atc "SELECT 1 / CASE WHEN (SELECT count(*) FROM public.garage_data)=1 AND (SELECT count(*) FROM public.garages)=1 AND (SELECT count(*) FROM public.garage_members WHERE role='owner')=1 AND (SELECT count(*) FROM storage.objects WHERE bucket_id='wo-files')=55 AND (SELECT count(*) FROM public.garage_quotes)=0 AND to_regprocedure('public.s06_timer_transition(uuid,text,bigint,text)') IS NOT NULL AND to_regprocedure('public.s08_convert_quote_to_workorder(uuid,bigint,bigint,boolean)') IS NOT NULL THEN 1 ELSE 0 END;"
+          docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -Atc "SELECT 1 / CASE WHEN (SELECT count(*) FROM public.garage_data)=1 AND (SELECT count(*) FROM public.garages)=1 AND (SELECT count(*) FROM public.garage_members WHERE role='owner')=1 AND (SELECT count(*) FROM storage.objects WHERE bucket_id='wo-files')=55 AND (SELECT count(*) FROM public.garage_quotes)=0 AND to_regprocedure('public.s06_timer_transition(uuid,text,bigint,text)') IS NOT NULL AND to_regprocedure('public.s08_convert_quote_to_workorder(uuid,bigint,bigint,boolean)') IS NOT NULL THEN 1 ELSE 0 END;"
           echo S10_FULL_SQL_SYNTHETIC_VALIDATION_OK
