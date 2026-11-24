@@ -35,11 +35,37 @@ SELECT CASE WHEN current_database()='atelier_jl_restore_test'
 $preflight=Invoke-LocalQuery $sourceDb $check
 if($preflight -ne 'PHASE1_TO4_PRESENT') { throw "Refused: original local restore is not exactly at phases 1-4" }
 $existing=Invoke-LocalQuery 'postgres' "SELECT count(*) FROM pg_database WHERE datname='atelier_jl_s10_continuation'"
-if($existing -ne '0') { throw "REFUSED: local clone already exists. Never overwrite it." }
+if($existing -notin @('0','1')) { throw 'REFUSED: unexpected clone count' }
 $originalHash=Invoke-LocalQuery $sourceDb 'SELECT md5(data::text) FROM public.garage_data'
+if($existing -eq '1') {
+  # Resume ONLY the throwaway clone created by our earlier unsuccessful script.
+  # No DROP DATABASE, no replacement, and no mutation of the original restore.
+  $cloneFingerprint=Invoke-LocalQuery $cloneDb @'
+SELECT CASE WHEN current_database()='atelier_jl_s10_continuation'
+ AND (SELECT count(*) FROM public.garage_data)=1
+ AND (SELECT count(*) FROM auth.users)=1
+ AND (SELECT count(*) FROM public.garage_members WHERE role='owner')=1
+ AND (SELECT count(*) FROM storage.objects WHERE bucket_id='wo-files')=55
+ AND to_regclass('public.garage_quotes') IS NOT NULL
+ AND to_regclass('public.garage_external_calendar_connections') IS NOT NULL
+ AND to_regprocedure('public.s06_timer_transition(uuid,text,bigint,text)') IS NULL
+ AND (SELECT count(*) FROM pg_policies
+   WHERE schemaname='public' AND tablename='garage_data')=3
+ AND (SELECT count(*) FROM pg_policies
+   WHERE schemaname='public' AND tablename='garage_data'
+   AND policyname IN ('Users can insert their own data',
+    'Users can read their own data','Users can update their own data'))=3
+ THEN md5((SELECT data::text FROM public.garage_data))
+ ELSE 'REFUSED' END;
+'@
+  if($cloneFingerprint -ne $originalHash) {
+    throw 'REFUSED: existing clone differs from original restore or was changed; no overwrite'
+  }
+  Write-Host 'Resuming previously created LOCAL clone (3 historical RLS policies); no database replaced.'
+}
 if($originalHash -notmatch '^[0-9a-f]{32}$') { throw 'Could not capture source business hash' }
 # Fetch only schema/script sources, never client data or Storage.
-$commit='527a90f767de3e76f15e70871f69d8b0c859576d'
+$commit='19353285eae8222f95e8e6ccedf0bfcd1fb331ef'
 $baseUrl="https://raw.githubusercontent.com/lotjaylessard/Atelier-mecaniqueJL-TEST/$commit/audit"
 $runFolder=Join-Path $BackupRoot ('S10-local-continuation-'+(Get-Date).ToUniversalTime().ToString('yyyyMMdd-HHmmss'))
 if(Test-Path -LiteralPath $runFolder){throw 'Refusing to overwrite an existing work folder'}
@@ -83,7 +109,9 @@ END $s10_local_clone_guard$;
 [IO.File]::WriteAllText($phaseFile,$guard+$remainder+"`n")
 # Non-destructive copy using PostgreSQL's native database TEMPLATE.
 # Will fail safely if the source DB has active connections. No forced termination.
-$created=Invoke-LocalQuery 'postgres' "CREATE DATABASE atelier_jl_s10_continuation TEMPLATE atelier_jl_restore_test"
+if($existing -eq '0') {
+  $created=Invoke-LocalQuery 'postgres' "CREATE DATABASE atelier_jl_s10_continuation TEMPLATE atelier_jl_restore_test"
+}
 function Invoke-LocalScript([string]$sqlPath){
  $result=@(& $psql.Source -X -h 127.0.0.1 -p 5432 -U postgres -d $cloneDb -v ON_ERROR_STOP=1 -f $sqlPath 2>&1)
  if($LASTEXITCODE -ne 0){throw ("Local clone phase failed; source restore untouched. " + ($result | Out-String))}
