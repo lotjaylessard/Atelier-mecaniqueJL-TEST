@@ -79,7 +79,7 @@ SELECT CASE WHEN current_database()='atelier_jl_s10_continuation'
          AND tablename='garage_data')
  ELSE 'REFUSED' END;
 '@
-  $parts=$cloneState -split '\\|'
+  $parts=$cloneState -split '\|'
   if($parts.Count -ne 2 -or $parts[0] -ne $originalHash -or
      $parts[1] -notin @('3','5')) {
     throw 'REFUSED: existing local clone is not in an approved pre-migration state; not overwriting'
