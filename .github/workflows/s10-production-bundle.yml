@@ -41,6 +41,8 @@ on:
       - audit/s10-ci-garage-data-rls-isolation.sql
       - audit/s10-ci-storage-legacy-fixture.sql
       - audit/s10-ci-storage-rls-isolation.sql
+      - audit/s10-ci-storage-public-reset.sql
+      - audit/s10-build-atomic-storage-cutover.cjs
       - audit/s10-prod-complete-migration-candidate-NOT-EXECUTED.sql
       - audit/s10-local-restore-apply-phases-1-to-4.psql
       - audit/s10-generate-local-phase5-to-10.cjs
@@ -251,6 +253,15 @@ jobs:
           docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-storage-tenant-isolation-candidate-NOT-EXECUTED.sql
       - name: Vérifier accès Storage ancien/nouveau pour owner, employé, autre garage
         run: docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-ci-storage-rls-isolation.sql
+      - name: Simuler une bascule atomique bucket public vers prive avec RLS dans la meme transaction
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-ci-storage-public-reset.sql
+          node audit/s10-build-atomic-storage-cutover.cjs /tmp/s10-atomic-storage-NOT-EXECUTED.sql
+          docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < /tmp/s10-atomic-storage-NOT-EXECUTED.sql
+          docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-ci-storage-rls-isolation.sql
+          echo S10_ATOMIC_STORAGE_PUBLIC_PRIVATE_RLS_OK
       - name: Vérifier la conservation des données et le schéma final
         shell: bash
         run: |
