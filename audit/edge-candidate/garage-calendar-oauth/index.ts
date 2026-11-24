@@ -272,7 +272,7 @@ Deno.serve(async(req:Request)=>{
  try{
   const u=new URL(req.url);
   if(req.method==="GET"&&u.searchParams.has("state"))return await callback(req);
-  if(req.method==="GET")return json({google_available:ready(),phase:"test",read_only:true});
+  if(req.method==="GET")return json({google_available:ready(),phase:"PROD",read_only:true});
   if(req.method==="POST"){
    const body=await req.json().catch(()=>({}));
    if(body?.action==="disconnect")return await disconnect(req,body);
