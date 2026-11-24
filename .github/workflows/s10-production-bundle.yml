@@ -203,6 +203,7 @@ jobs:
           # Reproduce the REAL office restore: only 3 owner policies survived pg_restore.
           # Synthetic source contains 0 policies; recreate precisely the 3 rules
           # observed on the office machine, while keeping the source DB untouched.
+          docker exec ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_s10_continuation -c 'CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $ SELECT nullif(current_setting(''request.jwt.claim.sub'',true),'''')::uuid $;'
           docker exec ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_s10_continuation -c 'CREATE POLICY "Users can insert their own data" ON public.garage_data FOR INSERT TO PUBLIC WITH CHECK(auth.uid()=user_id); CREATE POLICY "Users can read their own data" ON public.garage_data FOR SELECT TO PUBLIC USING(auth.uid()=user_id); CREATE POLICY "Users can update their own data" ON public.garage_data FOR UPDATE TO PUBLIC USING(auth.uid()=user_id);'
           docker exec ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_s10_continuation -Atc "SELECT 1 / CASE WHEN (SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='garage_data')=3 THEN 1 ELSE 0 END"
           docker cp audit/s10-local-clone-supabase-shims.sql ${{ job.services.postgres.id }}:/tmp/s10-audit/s10-local-clone-supabase-shims.sql
