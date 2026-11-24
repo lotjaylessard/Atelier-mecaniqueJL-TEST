@@ -41,6 +41,7 @@ on:
       - audit/s10-ci-synthetic-prod-restore-fixture.sql
       - audit/s10-ci-supabase-runtime-stubs.sql
       - audit/s10-ci-garage-data-rls-isolation.sql
+      - audit/s10-ci-garage-write-rls-rollback.sql
       - audit/s10-ci-storage-legacy-fixture.sql
       - audit/s10-ci-storage-rls-isolation.sql
       - audit/s10-ci-storage-public-reset.sql
@@ -257,6 +258,10 @@ jobs:
           docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-prod-complete-migration-candidate-NOT-EXECUTED.sql
       - name: Vérifier l'isolation owner/employee/second garage et les droits
         run: docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-ci-garage-data-rls-isolation.sql
+      - name: Tester mutations autorisées et refusées avec ROLLBACK intégral
+        run: |
+          docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-ci-garage-write-rls-rollback.sql
+          docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -Atc "SELECT 1 / CASE WHEN (SELECT count(*) FROM auth.users)=1 AND (SELECT count(*) FROM public.garage_data)=1 AND (SELECT count(*) FROM public.garage_quotes)=0 AND (SELECT count(*) FROM public.garage_members)=1 THEN 1 ELSE 0 END"
       - name: Migrer les anciennes politiques Storage sur bucket privé fictif
         run: |
           docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-ci-storage-legacy-fixture.sql
