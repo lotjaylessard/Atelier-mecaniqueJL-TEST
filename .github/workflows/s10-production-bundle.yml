@@ -27,6 +27,8 @@ on:
       - audit/s10-check-storage-compat.cjs
       - audit/test-s10-storage-compat.cjs
       - audit/test-s10-storage-tenant-policy.cjs
+      - audit/s10-prod-legacy-physical-backup-browser.js
+      - audit/test-s10-prod-legacy-physical-backup.cjs
       - audit/s10-storage-tenant-isolation-candidate-NOT-EXECUTED.sql
       - audit/s10-local-restore-business-integrity-READ-ONLY.psql
       - audit/s10-verify-local-restore-vs-checkpoint.ps1
@@ -80,6 +82,8 @@ jobs:
           else
             echo "OK: le stockage TEST bloque le déploiement PROD"
           fi
+      - name: Tester sauvegarde physique ancienne PROD dans un navigateur simulé (sans données réelles)
+        run: node audit/test-s10-prod-legacy-physical-backup.cjs
       - name: Vérifier l'isolation du stockage privé et les liens signés
         run: node audit/test-s10-storage-tenant-policy.cjs
       - name: Verifier le garde-fou de controle de restauration locale
