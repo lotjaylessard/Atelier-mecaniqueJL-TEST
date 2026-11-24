@@ -29,6 +29,7 @@ on:
       - audit/test-s10-storage-tenant-policy.cjs
       - audit/s10-prod-legacy-physical-backup-browser.js
       - audit/test-s10-prod-legacy-physical-backup.cjs
+      - audit/s10-export-prod-physical-files.ps1
       - audit/s10-storage-tenant-isolation-candidate-NOT-EXECUTED.sql
       - audit/s10-local-restore-business-integrity-READ-ONLY.psql
       - audit/s10-verify-local-restore-vs-checkpoint.ps1
@@ -82,6 +83,16 @@ jobs:
           else
             echo "OK: le stockage TEST bloque le déploiement PROD"
           fi
+      - name: Vérifier syntaxe PowerShell export réel sans exécuter ni télécharger
+        shell: pwsh
+        run: |
+          $tokens=$null
+          $errors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path (Get-Location) 'audit/s10-export-prod-physical-files.ps1'),
+            [ref]$tokens, [ref]$errors)
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
+          Write-Host 'S10_POWERSHELL_EXPORT_PARSE_OK'
       - name: Tester sauvegarde physique ancienne PROD dans un navigateur simulé (sans données réelles)
         run: node audit/test-s10-prod-legacy-physical-backup.cjs
       - name: Vérifier l'isolation du stockage privé et les liens signés
