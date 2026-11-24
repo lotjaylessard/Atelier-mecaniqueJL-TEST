@@ -34,6 +34,7 @@ on:
       - audit/s10-local-post-phase-1-to-4-integrity-READ-ONLY.psql
       - audit/s10-ci-synthetic-prod-restore-fixture.sql
       - audit/s10-ci-supabase-runtime-stubs.sql
+      - audit/s10-ci-garage-data-rls-isolation.sql
       - audit/s10-prod-complete-migration-candidate-NOT-EXECUTED.sql
       - audit/s10-local-restore-apply-phases-1-to-4.psql
       - audit/s10-phase1-local-additive-garage-data.sql
@@ -194,6 +195,8 @@ jobs:
         run: |
           psql -X -v ON_ERROR_STOP=1 -Atc "SELECT 1 / CASE WHEN current_database()='atelier_jl_restore_test' AND (SELECT count(*) FROM auth.users)=1 THEN 1 ELSE 0 END"
           psql -X -v ON_ERROR_STOP=1 -f audit/s10-prod-complete-migration-candidate-NOT-EXECUTED.sql
+      - name: Vérifier l'isolation owner/employee/second garage et les droits
+        run: psql -X -v ON_ERROR_STOP=1 -f audit/s10-ci-garage-data-rls-isolation.sql
       - name: Vérifier la conservation des données et le schéma final
         shell: bash
         run: |
