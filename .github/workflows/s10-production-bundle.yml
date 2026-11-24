@@ -48,6 +48,8 @@ on:
       - audit/s10-plan-two-garage-merge.cjs
       - audit/test-s10-plan-two-garage-merge.cjs
       - audit/test-s10-invite-password-setup.cjs
+      - audit/s10-prepare-legacy-prod-auth-hotfix.cjs
+      - audit/test-s10-prepare-legacy-prod-auth-hotfix.cjs
       - audit/s10-ci-storage-legacy-fixture.sql
       - audit/s10-ci-storage-rls-isolation.sql
       - audit/s10-ci-storage-public-reset.sql
@@ -82,6 +84,8 @@ jobs:
         run: node audit/test-s10-plan-two-garage-merge.cjs
       - name: Contrôler la première connexion du propriétaire invité (sans données réelles)
         run: node audit/test-s10-invite-password-setup.cjs
+      - name: Vérifier la préparation du correctif legacy PROD sans publication
+        run: node audit/test-s10-prepare-legacy-prod-auth-hotfix.cjs
       - name: Tests du contrôle de déploiement
         run: node audit/test-s10-production-bundle.cjs
       - name: Vérifier que la branche TEST est refusée comme paquet PROD
