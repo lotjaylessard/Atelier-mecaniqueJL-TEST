@@ -23,6 +23,10 @@ for(const name of names){
  assert.ok(code.includes("/auth/v1/user"),name+" missing application JWT verification endpoint");
  assert.match(code,/authorization/i,name+" missing bearer handling");
  assert.match(code,/Deno\.serve\(/,name+" missing HTTP handler");
+ if(name==="garage-calendar-oauth")
+   assert.match(code,/google_available:ready\(\),phase:"PROD",read_only:true/,
+     "Google PROD status must not identify itself as TEST");
+
  assert.ok(!code.includes("nraijzsodgojkpyigefu"),name+" contains TEST project URL");
  assert.ok(!code.includes("feeapfylfzlvgnqtglnh"),name+" contains a fixed PROD project URL");
  assert.ok(!/sb_secret_[a-z0-9_-]{10,}/i.test(code),name+" contains embedded secret key");
