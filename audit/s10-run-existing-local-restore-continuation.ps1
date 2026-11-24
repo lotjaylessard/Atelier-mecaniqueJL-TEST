@@ -113,8 +113,23 @@ if($existing -eq '0') {
   $created=Invoke-LocalQuery 'postgres' "CREATE DATABASE atelier_jl_s10_continuation TEMPLATE atelier_jl_restore_test"
 }
 function Invoke-LocalScript([string]$sqlPath){
- $result=@(& $psql.Source -X -h 127.0.0.1 -p 5432 -U postgres -d $cloneDb -v ON_ERROR_STOP=1 -f $sqlPath 2>&1)
- if($LASTEXITCODE -ne 0){throw ("Local clone phase failed; source restore untouched. " + ($result | Out-String))}
+ # Windows PowerShell 5.1 treats PostgreSQL NOTICE on stderr as a terminating
+ # NativeCommandError if ErrorActionPreference=Stop. Only the process exit code
+ # indicates actual SQL success/failure. Capture streams separately.
+ $step=[IO.Path]::GetFileNameWithoutExtension($sqlPath)
+ $outLog=Join-Path $runFolder ($step+'.stdout.log')
+ $errLog=Join-Path $runFolder ($step+'.stderr.log')
+ $args=@('-X','-h','127.0.0.1','-p','5432','-U','postgres','-d',$cloneDb,
+   '-v','ON_ERROR_STOP=1','-f',('"' + $sqlPath + '"'))
+ $proc=Start-Process -FilePath $psql.Source -ArgumentList $args -Wait -PassThru -NoNewWindow -RedirectStandardOutput $outLog -RedirectStandardError $errLog
+ $details=if(Test-Path -LiteralPath $errLog){Get-Content -LiteralPath $errLog -Raw}else{''}
+ if($proc.ExitCode -ne 0) {
+   throw ("Local SQL phase failed (exit "+$proc.ExitCode+"); original restore untouched. Details: "+$details)
+ }
+ Write-Host ("LOCAL_SQL_OK: "+$step+"; exit="+$proc.ExitCode)
+ if($details -and $details -match 'NOTICE:') {
+   Write-Host "PostgreSQL informational NOTICE messages saved to local log."
+ }
 }
 Invoke-LocalScript $shimsFile
 Invoke-LocalScript $phaseFile
