@@ -45,6 +45,7 @@ on:
       - audit/s10-local-restore-apply-phases-1-to-4.psql
       - audit/s10-generate-local-phase5-to-10.cjs
       - audit/s10-local-clone-supabase-shims.sql
+      - audit/s10-run-existing-local-restore-continuation.ps1
       - audit/s10-phase1-local-additive-garage-data.sql
       - audit/s10-phase2-local-garage-members.sql
       - audit/s10-phase3-local-operational-tables.sql
@@ -96,6 +97,16 @@ jobs:
             [ref]$tokens, [ref]$errors)
           if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
           Write-Host 'S10_POWERSHELL_EXPORT_PARSE_OK'
+      - name: Verifier syntaxe du lancement sur restauration locale existante
+        shell: pwsh
+        run: |
+          $tokens=$null
+          $errors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path (Get-Location) 'audit/s10-run-existing-local-restore-continuation.ps1'),
+            [ref]$tokens, [ref]$errors)
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
+          Write-Host 'S10_EXISTING_LOCAL_RESTORE_PS_PARSE_OK'
       - name: Exécuter réellement PowerShell sur 55 fichiers fictifs sans réseau
         shell: pwsh
         run: ./audit/test-s10-export-prod-physical-files.ps1
