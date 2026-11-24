@@ -41,6 +41,16 @@ SELECT '30000000-0000-4000-8000-000000000001',
        '00000000-0000-4000-8000-000000000001',id,'BT-SYNTHETIC-1'
 FROM public.garages WHERE name='Atelier Mécanique JL';
 
+-- Capture Garage A's ID before switching to a role that cannot SELECT it.
+-- The test must pass a real inaccessible garage UUID, not NULL.
+SELECT set_config('s10.test_garage_a',
+ (SELECT id::text FROM public.garages WHERE name='Atelier Mécanique JL'),true);
+DO $check_fixture$
+BEGIN
+ IF nullif(current_setting('s10.test_garage_a',true),'') IS NULL
+ THEN RAISE EXCEPTION 'S10 fixture garage A is missing'; END IF;
+END $check_fixture$;
+
 -- An authenticated Garage B owner must not operate an A-owned timer or
 -- finalize an A-owned invoice, even though these RPCs have EXECUTE grants.
 SET LOCAL ROLE authenticated;
@@ -51,7 +61,7 @@ DECLARE timer_denied boolean:=false;
         invoice_denied boolean:=false;
         v_a uuid;
 BEGIN
- SELECT id INTO v_a FROM public.garages WHERE name='Atelier Mécanique JL';
+ v_a:=current_setting('s10.test_garage_a')::uuid;
  BEGIN
   PERFORM public.s06_timer_transition('30000000-0000-4000-8000-000000000001','pause',0,NULL);
  EXCEPTION WHEN insufficient_privilege THEN timer_denied:=true;
@@ -80,7 +90,7 @@ SELECT set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002'
 DO $deny_employee$
 DECLARE timer_denied boolean:=false; invoice_denied boolean:=false; v_a uuid;
 BEGIN
- SELECT id INTO v_a FROM public.garages WHERE name='Atelier Mécanique JL';
+ v_a:=current_setting('s10.test_garage_a')::uuid;
  BEGIN
   PERFORM public.s06_timer_transition('30000000-0000-4000-8000-000000000001','pause',0,NULL);
  EXCEPTION WHEN insufficient_privilege THEN timer_denied:=true;
