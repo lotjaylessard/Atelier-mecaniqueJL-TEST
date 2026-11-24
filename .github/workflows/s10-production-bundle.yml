@@ -15,6 +15,8 @@ on:
       - audit/s10-check-edge-functions.cjs
       - audit/test-s10-edge-functions.cjs
       - audit/test-s10-edge-prod-readiness.cjs
+      - audit/test-s10-calendar-prod-contract.cjs
+      - audit/S10-CALENDRIERS-PROD-DEPLOIEMENT.md
       - audit/edge-candidate/**
       - audit/s10-build-production-candidate.cjs
       - audit/test-s10-build-production-candidate.cjs
@@ -124,6 +126,8 @@ jobs:
         run: node audit/test-s10-build-production-candidate.cjs
       - name: Assembler et verifier le vrai site web PROD temporaire (NO-GO)
         run: node audit/test-s10-real-source-bundle.cjs
+      - name: Vérifier contrat navigateur, OAuth et calendrier PROD
+        run: node audit/test-s10-calendar-prod-contract.cjs
       - name: Valider les quatre candidats Edge PROD sans secret ni URL TEST
         run: node audit/test-s10-edge-prod-readiness.cjs
       - name: Tester l'inventaire des Edge Functions
