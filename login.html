@@ -197,10 +197,21 @@
 
     const byId=id=>document.getElementById(id);
     const status=byId("loginError");
-    const recoveryHint=new URLSearchParams(location.search).has("recovery") ||
-      new URLSearchParams(location.hash.replace(/^#/,"")).get("type")==="recovery";
+    const searchParams=new URLSearchParams(location.search);
+    const fragmentParams=new URLSearchParams(location.hash.replace(/^#/,""));
+    const recoveryHint=searchParams.has("recovery") || fragmentParams.get("type")==="recovery";
+    // An invitation supplies an actual Supabase auth token/code, not just ?invite=1.
+    // Capture these markers BEFORE supabase-js processes the redirect hash.
+    const inviteHint=fragmentParams.get("type")==="invite" ||
+      searchParams.get("type")==="invite" || searchParams.has("invite");
+    const inviteProof=Boolean(
+      (fragmentParams.has("access_token") && fragmentParams.has("refresh_token")) ||
+      searchParams.has("token_hash") || searchParams.has("code")
+    );
     let recoveryMode=recoveryHint;
     let recoveryReady=false;
+    let inviteMode=inviteHint && inviteProof && !recoveryHint;
+    let inviteReady=false;
     let busy=false;
     function notice(message,ok=false){
       status.textContent=message;
@@ -213,12 +224,18 @@
       byId("newPasswordForm").hidden=mode!=="reset";
       notice("");
     }
-    display(recoveryMode?"reset":"login");
-    // Priorité au lien de récupération : ne jamais rediriger directement vers le garage.
+    display(recoveryMode||inviteMode?"reset":"login");
+    // Invite link MUST contain Supabase proof and establish an actual session.
+    // Ordinary sessions and bare ?invite=1 must not enable password setup.
     supabase.auth.onAuthStateChange((event,session)=>{
       if(event==="PASSWORD_RECOVERY"){
         recoveryMode=true;
         recoveryReady=!!session;
+        inviteMode=false;inviteReady=false;
+        display("reset");
+      }else if(inviteMode && inviteProof && session &&
+                (event==="SIGNED_IN" || event==="INITIAL_SESSION")){
+        inviteReady=true;
         display("reset");
       }
     });
@@ -229,6 +246,14 @@
       if(!recoveryReady){
         display("forgot");
         notice("Lien expiré ou invalide. Demande un nouveau courriel de réinitialisation.");
+      }
+    }else if(inviteMode){
+      if(initial.data?.session && inviteProof){
+        inviteReady=true;display("reset");
+      }else{
+        inviteMode=false;inviteReady=false;
+        display("login");
+        notice("Invitation expirée ou invalide. Demande un nouveau lien à l'administrateur.");
       }
     }else if(initial.data?.session){
       location.replace("index.html");
@@ -283,12 +308,14 @@
       busy=true;byId("saveNewPassword").disabled=true;notice("");
       try{
         const {data:{session},error:sessionError}=await supabase.auth.getSession();
-        if(sessionError||!session||!recoveryMode||!recoveryReady)throw Error("Invalid recovery session");
+        if(sessionError||!session||!((recoveryMode&&recoveryReady)||(inviteMode&&inviteReady&&inviteProof)))
+          throw Error("Invalid password setup session");
         const {error}=await supabase.auth.updateUser({password});
         if(error)throw error;
         byId("newPassword").value="";byId("confirmPassword").value="";
         await supabase.auth.signOut();
         recoveryMode=false;recoveryReady=false;
+        inviteMode=false;inviteReady=false;
         history.replaceState(null,"",location.pathname);
         display("login");
         notice("Mot de passe modifié. Tu peux maintenant te connecter.",true);
