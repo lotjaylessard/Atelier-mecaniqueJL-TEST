@@ -54,6 +54,14 @@ try{
  r=run(path.join(root,"missing-runtime"));assert.notEqual(r.status,0);
  assert.ok(!fs.existsSync(path.join(root,"missing-runtime")));
  fs.writeFileSync(path.join(src,"audit","s06-live-test.js"),"// verified runtime s06-live-test.js");
+ // A future TEST endpoint inside an externally copied script must block
+ // release, even though the HTML itself gets rewritten to PROD.
+ fs.writeFileSync(path.join(src,"audit","s06-live-test.js"),
+   "// accidentally hardwired TEST endpoint https://nraijzsodgojkpyigefu.supabase.co");
+ r=run(path.join(root,"test-runtime-leak"));assert.notEqual(r.status,0);
+ assert.match(r.stderr,/Runtime asset contains TEST credentials/);
+ assert.ok(!fs.existsSync(path.join(root,"test-runtime-leak")));
+ fs.writeFileSync(path.join(src,"audit","s06-live-test.js"),"// verified runtime s06-live-test.js");
  // Fail closed if the source app's safe hydrating sequence is changed.
  fs.writeFileSync(path.join(src,"index.html"),initial.replace("hydrateLocalFromCloud(cloudData);","void(cloudData);"));
  r=run(path.join(root,"unsafe"));assert.notEqual(r.status,0);
