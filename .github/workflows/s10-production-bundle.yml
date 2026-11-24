@@ -136,7 +136,14 @@ jobs:
           docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -Atc "SELECT md5(data::text) FROM public.garage_data;" > /tmp/s10-before-business-data.md5
           test "$(wc -l < /tmp/s10-before-business-data.md5)" -eq 1
       - name: Exécuter réellement les phases 1 à 4 sur le PostgreSQL jetable
-        run: docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f - < audit/s10-local-restore-apply-phases-1-to-4.psql
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker exec ${{ job.services.postgres.id }} mkdir -p /tmp/s10-audit
+          for file in s10-local-restore-apply-phases-1-to-4.psql s10-phase1-local-additive-garage-data.sql s10-phase2-local-garage-members.sql s10-phase3-local-operational-tables.sql s10-phase4-local-external-calendars.sql; do
+            docker cp "audit/$file" ${{ job.services.postgres.id }}:/tmp/s10-audit/"$file"
+          done
+          docker exec ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -f /tmp/s10-audit/s10-local-restore-apply-phases-1-to-4.psql
       - name: Contrôler propriétaire, conservation des pièces jointes et isolation
         shell: bash
         run: |
