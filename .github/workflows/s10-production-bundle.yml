@@ -16,6 +16,12 @@ on:
       - audit/test-s10-edge-functions.cjs
       - audit/s10-build-production-candidate.cjs
       - audit/test-s10-build-production-candidate.cjs
+      - audit/test-s10-real-source-bundle.cjs
+      - index.html
+      - login.html
+      - audit/s06-live-test.js
+      - audit/s06-wo-pilot.js
+      - audit/s06-sidebar-persistent.js
       - audit/s10-check-storage-compat.cjs
       - audit/test-s10-storage-compat.cjs
       - audit/test-s10-storage-tenant-policy.cjs
@@ -69,6 +75,8 @@ jobs:
         run: node audit/test-s10-local-post-phase-integrity.cjs
       - name: Tester la génération isolée d'un candidat PROD
         run: node audit/test-s10-build-production-candidate.cjs
+      - name: Assembler et verifier le vrai site web PROD temporaire (NO-GO)
+        run: node audit/test-s10-real-source-bundle.cjs
       - name: Tester l'inventaire des Edge Functions
         run: node audit/test-s10-edge-functions.cjs
       - name: Signaler les Edge Functions non versionnées sans casser les tests existants
