@@ -43,6 +43,8 @@ on:
       - audit/s10-ci-storage-rls-isolation.sql
       - audit/s10-prod-complete-migration-candidate-NOT-EXECUTED.sql
       - audit/s10-local-restore-apply-phases-1-to-4.psql
+      - audit/s10-generate-local-phase5-to-10.cjs
+      - audit/s10-local-clone-supabase-shims.sql
       - audit/s10-phase1-local-additive-garage-data.sql
       - audit/s10-phase2-local-garage-members.sql
       - audit/s10-phase3-local-operational-tables.sql
@@ -176,6 +178,21 @@ jobs:
           set -euo pipefail
           docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -Atc "SELECT md5(data::text) FROM public.garage_data;" > /tmp/s10-after-business-data.md5
           cmp /tmp/s10-before-business-data.md5 /tmp/s10-after-business-data.md5
+      - name: Cloner les phases 1-4 sans toucher à la source puis continuer 5-10
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker exec ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres -c "CREATE DATABASE atelier_jl_s10_continuation TEMPLATE atelier_jl_restore_test"
+          docker cp audit/s10-local-clone-supabase-shims.sql ${{ job.services.postgres.id }}:/tmp/s10-audit/s10-local-clone-supabase-shims.sql
+          docker exec ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_s10_continuation -f /tmp/s10-audit/s10-local-clone-supabase-shims.sql
+          node audit/s10-generate-local-phase5-to-10.cjs /tmp/s10-continuation.sql
+          docker cp /tmp/s10-continuation.sql ${{ job.services.postgres.id }}:/tmp/s10-audit/s10-continuation.sql
+          docker exec ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_s10_continuation -f /tmp/s10-audit/s10-continuation.sql
+          src=$(docker exec ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -Atc "SELECT md5(data::text) FROM public.garage_data")
+          dst=$(docker exec ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_s10_continuation -Atc "SELECT md5(data::text) FROM public.garage_data")
+          test "$src" = "$dst"
+          docker exec ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_s10_continuation -Atc "SELECT 1 / CASE WHEN (SELECT count(*) FROM public.garage_members WHERE role='owner')=1 AND (SELECT count(*) FROM storage.objects WHERE bucket_id='wo-files')=55 AND (SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='garage_data')=2 AND to_regprocedure('public.s06_timer_transition(uuid,text,bigint,text)') IS NOT NULL THEN 1 ELSE 0 END"
+          echo S10_EXISTING_LOCAL_RESTORE_CONTINUATION_OK
       - name: Vérifier que la base SQL cible est bien locale et ne contient aucune donnée réelle
         run: |
           docker exec -i ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_restore_test -Atc "SELECT 1 / CASE WHEN current_database()='atelier_jl_restore_test' AND (SELECT count(*) FROM public.garage_data)=1 AND (SELECT count(*) FROM storage.objects)=55 THEN 1 ELSE 0 END;"
