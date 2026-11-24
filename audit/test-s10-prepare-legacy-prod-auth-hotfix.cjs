@@ -24,6 +24,7 @@ async function supabaseLogin(){
   SUPABASE_USER = data.user;
   console.log("Supabase connecté", SUPABASE_USER.email);
 }
+/* ===================== CLOUD LOAD ===================== */
 (async function initApp(){
   await supabaseLogin();
   await loadCloudData();
