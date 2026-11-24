@@ -14,12 +14,12 @@ function patchLegacy(html){
  if(start<0||boundary<0||s.indexOf(startMarker,start+1)!==-1)
    refuse("unique legacy login function and cloud-load boundary required");
  const fragment=s.slice(start,boundary);
- if(!/const email\\s*=\\s*["'][^"'\\n]+["']/.test(fragment)||
-    !/const password\\s*=\\s*["'][^"'\\n]+["']/.test(fragment)||
+ if(!/const email\s*=\s*["'][^"'\n]+["']/.test(fragment)||
+    !/const password\s*=\s*["'][^"'\n]+["']/.test(fragment)||
     !fragment.includes("sb.auth.signInWithPassword")||
     !fragment.includes("SUPABASE_USER = data.user"))
    refuse("expected hard-coded login signature missing");
- if(!/\\}\\s*$/.test(fragment))refuse("legacy login not properly terminated");
+ if(!/\}\s*$/.test(fragment))refuse("legacy login not properly terminated");
  const safe=[
  "async function supabaseLogin(){",
  "  // Read the already-authenticated user's session; NEVER embed credentials.",
@@ -40,7 +40,7 @@ function patchLegacy(html){
  const dangling=/\n\s*\/\/ Pas connecté -> dehors\s*\n\s*if \(!session\)\s*\{\s*window\.location\.replace\("login\.html"\);\s*\}/;
  if(!dangling.test(s))refuse("legacy dangling-session block not found");
  s=s.replace(dangling,"\n  // The auth check is performed by supabaseLogin via getUser().");
- if(s.includes("Hemidugaz2026!") || /const password\s*=\s*["'][^"'\n]+["']/.test(s))
+ if(/const password\s*=\s*["'][^"'\n]+["']/.test(s))
    refuse("literal password still present in generated source");
  if(!s.includes("sb.auth.getUser()")||!s.includes("if(!await supabaseLogin())return"))
    refuse("session guard not present");
