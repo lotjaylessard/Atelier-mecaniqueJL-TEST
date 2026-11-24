@@ -89,6 +89,15 @@ try{
    const input=path.join(src,...asset.split("/"));
    if(!fs.existsSync(input)||!fs.statSync(input).isFile())
      fail("Runtime asset missing from source: "+asset);
+   // Runtime JS is copied unchanged: fail closed if a future commit adds
+   // credentials or a hardwired TEST endpoint outside index/login.
+   if(asset.endsWith(".js")){
+     const source=fs.readFileSync(input,"utf8");
+     if(source.includes(TEST_REF)||source.includes(testUrl)||source.includes(testKey)||
+        /sb_secret_[a-zA-Z0-9_-]{10,}/.test(source)||
+        /service_role/.test(source)&&/createClient\s*\(/.test(source))
+       fail("Runtime asset contains TEST credentials or a server-only key: "+asset);
+   }
  }
  // Validating every input BEFORE creating the output prevents partial candidates.
  fs.mkdirSync(out,{recursive:false});
