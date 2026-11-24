@@ -33,6 +33,8 @@ on:
       - audit/test-s10-restore-checkpoint.cjs
       - audit/s10-local-post-phase-1-to-4-integrity-READ-ONLY.psql
       - audit/s10-ci-synthetic-prod-restore-fixture.sql
+      - audit/s10-ci-supabase-runtime-stubs.sql
+      - audit/s10-prod-complete-migration-candidate-NOT-EXECUTED.sql
       - audit/s10-local-restore-apply-phases-1-to-4.psql
       - audit/s10-phase1-local-additive-garage-data.sql
       - audit/s10-phase2-local-garage-members.sql
@@ -152,3 +154,51 @@ jobs:
       - name: Vérifier que la base SQL cible est bien locale et ne contient aucune donnée réelle
         run: |
           psql -X -v ON_ERROR_STOP=1 -Atc "SELECT 1 / CASE WHEN current_database()='atelier_jl_restore_test' AND (SELECT count(*) FROM public.garage_data)=1 AND (SELECT count(*) FROM storage.objects)=55 THEN 1 ELSE 0 END;"
+
+  full-candidate-sql-rehearsal:
+    name: S10 SQL complet — PostgreSQL fictif / NO PROD
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: s10_fake_ci_password_only
+          POSTGRES_DB: atelier_jl_restore_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d atelier_jl_restore_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGDATABASE: atelier_jl_restore_test
+      PGPASSWORD: s10_fake_ci_password_only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Installer le client PostgreSQL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Préparer exclusivement les données synthétiques et stubs Supabase
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f audit/s10-ci-synthetic-prod-restore-fixture.sql
+          psql -X -v ON_ERROR_STOP=1 -f audit/s10-ci-supabase-runtime-stubs.sql
+          psql -X -v ON_ERROR_STOP=1 -Atc "SELECT md5(data::text) FROM public.garage_data" > /tmp/s10-full-before.md5
+      - name: Vérifier la cible jetable et exécuter le candidat SQL complet
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -Atc "SELECT 1 / CASE WHEN current_database()='atelier_jl_restore_test' AND (SELECT count(*) FROM auth.users)=1 THEN 1 ELSE 0 END"
+          psql -X -v ON_ERROR_STOP=1 -f audit/s10-prod-complete-migration-candidate-NOT-EXECUTED.sql
+      - name: Vérifier la conservation des données et le schéma final
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -Atc "SELECT md5(data::text) FROM public.garage_data" > /tmp/s10-full-after.md5
+          cmp /tmp/s10-full-before.md5 /tmp/s10-full-after.md5
+          psql -X -v ON_ERROR_STOP=1 -Atc "SELECT 1 / CASE WHEN (SELECT count(*) FROM public.garage_data)=1 AND (SELECT count(*) FROM public.garages)=1 AND (SELECT count(*) FROM public.garage_members WHERE role='owner')=1 AND (SELECT count(*) FROM storage.objects WHERE bucket_id='wo-files')=55 AND (SELECT count(*) FROM public.garage_quotes)=0 AND to_regprocedure('public.s06_timer_transition(uuid,text,bigint,text)') IS NOT NULL AND to_regprocedure('public.s08_convert_quote_to_workorder(uuid,bigint,bigint,boolean)') IS NOT NULL THEN 1 ELSE 0 END;"
+          echo S10_FULL_SQL_SYNTHETIC_VALIDATION_OK
