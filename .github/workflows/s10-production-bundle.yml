@@ -32,6 +32,12 @@ on:
       - audit/s10-verify-local-restore-vs-checkpoint.ps1
       - audit/test-s10-restore-checkpoint.cjs
       - audit/s10-local-post-phase-1-to-4-integrity-READ-ONLY.psql
+      - audit/s10-ci-synthetic-prod-restore-fixture.sql
+      - audit/s10-local-restore-apply-phases-1-to-4.psql
+      - audit/s10-phase1-local-additive-garage-data.sql
+      - audit/s10-phase2-local-garage-members.sql
+      - audit/s10-phase3-local-operational-tables.sql
+      - audit/s10-phase4-local-external-calendars.sql
       - audit/test-s10-local-post-phase-integrity.cjs
       - .github/workflows/s10-production-bundle.yml
   workflow_dispatch:
@@ -91,3 +97,48 @@ jobs:
         run: node audit/s10-compare-cloud-snapshots.cjs .
       - name: Tester assemblage SQL avec ROLLBACK obligatoire
         run: node audit/test-s10-assemble-isolated-rollback.cjs
+
+  isolated-postgres-rehearsal:
+    name: S10 PostgreSQL 17 — phases 1-4 sur données fictives
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: s10_fake_ci_password_only
+          POSTGRES_DB: atelier_jl_restore_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d atelier_jl_restore_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGDATABASE: atelier_jl_restore_test
+      PGPASSWORD: s10_fake_ci_password_only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Installer seulement le client PostgreSQL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Créer une copie SYNTHÉTIQUE de l'ancienne PROD
+        run: psql -X -v ON_ERROR_STOP=1 -f audit/s10-ci-synthetic-prod-restore-fixture.sql
+      - name: Exécuter réellement les phases 1 à 4 sur le PostgreSQL jetable
+        run: psql -X -v ON_ERROR_STOP=1 -f audit/s10-local-restore-apply-phases-1-to-4.psql
+      - name: Contrôler propriétaire, conservation des pièces jointes et isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -A -t -f audit/s10-local-post-phase-1-to-4-integrity-READ-ONLY.psql | tee /tmp/s10-local-synthetic-integrity.json
+          grep -q 'LOCAL_SCHEMA_INTEGRITY_PASS' /tmp/s10-local-synthetic-integrity.json
+          ! grep -q 'LOCAL_SCHEMA_INTEGRITY_FAIL' /tmp/s10-local-synthetic-integrity.json
+      - name: Vérifier que la base SQL cible est bien locale et ne contient aucune donnée réelle
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -Atc "SELECT 1 / CASE WHEN current_database()='atelier_jl_restore_test' AND (SELECT count(*) FROM public.garage_data)=1 AND (SELECT count(*) FROM storage.objects)=55 THEN 1 ELSE 0 END;"
