@@ -1175,6 +1175,67 @@ USING ((EXISTS ( SELECT 1
    FROM garage_members
   WHERE ((garage_members.garage_id = garages.id) AND (garage_members.user_id = ( SELECT auth.uid() AS uid))))));
 
+-- ===== S10 GARAGE DATA LIVE RLS CUTOVER (REVIEW ONLY) =====
+-- Original PROD has five permissive policies and broader grants than TEST.
+-- All five must be replaced as one atomic transaction, not merely OR-combined.
+-- Reject unexpected policies rather than silently preserving a cross-garage bypass.
+DO $s10_garage_data_guard$
+DECLARE expected text[]:=ARRAY[
+ 'Allow authenticated users','Deny anon','Users can insert their own data',
+ 'Users can read their own data','Users can update their own data'];
+BEGIN
+ IF (SELECT count(*) FROM pg_policies
+     WHERE schemaname='public' AND tablename='garage_data') <> 5
+    OR EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname='public' AND tablename='garage_data'
+      AND policyname <> ALL(expected)
+    )
+    OR (SELECT NOT relrowsecurity FROM pg_class
+        WHERE oid='public.garage_data'::regclass)
+ THEN RAISE EXCEPTION 'S10 ABORT: unexpected legacy garage_data RLS; review before cutover'; END IF;
+ IF (SELECT count(*) FROM public.garage_members WHERE role='owner') <> 1
+    OR EXISTS(SELECT 1 FROM public.garage_data WHERE garage_id IS NULL)
+ THEN RAISE EXCEPTION 'S10 ABORT: owner membership not mapped'; END IF;
+END $s10_garage_data_guard$;
+
+DROP POLICY "Allow authenticated users" ON public.garage_data;
+DROP POLICY "Deny anon" ON public.garage_data;
+DROP POLICY "Users can insert their own data" ON public.garage_data;
+DROP POLICY "Users can read their own data" ON public.garage_data;
+DROP POLICY "Users can update their own data" ON public.garage_data;
+
+-- Match the tested TEST policy: owner and employee may read/update their own
+-- active garage. NULL legacy rows are invisible. No INSERT/DELETE browser policy.
+CREATE POLICY "Garage members read active garage data" ON public.garage_data
+ AS PERMISSIVE FOR SELECT TO authenticated
+ USING (garage_id IS NOT NULL AND EXISTS(
+   SELECT 1 FROM public.garage_members gm
+   WHERE gm.garage_id=garage_data.garage_id
+     AND gm.user_id=(SELECT auth.uid())
+     AND gm.role IN ('owner','employee')
+ ));
+CREATE POLICY "Garage members update active garage data" ON public.garage_data
+ AS PERMISSIVE FOR UPDATE TO authenticated
+ USING (garage_id IS NOT NULL AND EXISTS(
+   SELECT 1 FROM public.garage_members gm
+   WHERE gm.garage_id=garage_data.garage_id
+     AND gm.user_id=(SELECT auth.uid())
+     AND gm.role IN ('owner','employee')
+ ))
+ WITH CHECK (garage_id IS NOT NULL AND EXISTS(
+   SELECT 1 FROM public.garage_members gm
+   WHERE gm.garage_id=garage_data.garage_id
+     AND gm.user_id=(SELECT auth.uid())
+     AND gm.role IN ('owner','employee')
+ ));
+
+-- Old PROD grants included anon and authenticated DELETE, TRUNCATE and TRIGGER.
+-- Only minimal new browser privileges may survive the migration.
+REVOKE ALL ON TABLE public.garage_data FROM PUBLIC, anon, authenticated;
+GRANT SELECT, UPDATE ON TABLE public.garage_data TO authenticated;
+-- End garage_data RLS cutover.
+
 -- ===== s10-phase8-performance-and-unique-indexes.sql =====
 
 CREATE INDEX IF NOT EXISTS garage_calendar_notes_owner_day_idx ON public.garage_calendar_notes USING btree (garage_id, user_id, note_date, created_at);
