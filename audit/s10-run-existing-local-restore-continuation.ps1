@@ -37,10 +37,12 @@ if($preflight -ne 'PHASE1_TO4_PRESENT') { throw "Refused: original local restore
 $existing=Invoke-LocalQuery 'postgres' "SELECT count(*) FROM pg_database WHERE datname='atelier_jl_s10_continuation'"
 if($existing -notin @('0','1')) { throw 'REFUSED: unexpected clone count' }
 $originalHash=Invoke-LocalQuery $sourceDb 'SELECT md5(data::text) FROM public.garage_data'
+$resumePolicies = 'NONE'
 if($existing -eq '1') {
-  # Resume ONLY the throwaway clone created by our earlier unsuccessful script.
-  # No DROP DATABASE, no replacement, and no mutation of the original restore.
-  $cloneFingerprint=Invoke-LocalQuery $cloneDb @'
+  # Resume the already-created LOCAL clone with three inherited policies or
+  # with the full five policies installed by the previous successful shim run.
+  # Any partially applied later phase, unexpected policy or altered data = STOP.
+  $cloneState=Invoke-LocalQuery $cloneDb @'
 SELECT CASE WHEN current_database()='atelier_jl_s10_continuation'
  AND (SELECT count(*) FROM public.garage_data)=1
  AND (SELECT count(*) FROM auth.users)=1
@@ -49,19 +51,41 @@ SELECT CASE WHEN current_database()='atelier_jl_s10_continuation'
  AND to_regclass('public.garage_quotes') IS NOT NULL
  AND to_regclass('public.garage_external_calendar_connections') IS NOT NULL
  AND to_regprocedure('public.s06_timer_transition(uuid,text,bigint,text)') IS NULL
- AND (SELECT count(*) FROM pg_policies
-   WHERE schemaname='public' AND tablename='garage_data')=3
- AND (SELECT count(*) FROM pg_policies
-   WHERE schemaname='public' AND tablename='garage_data'
-   AND policyname IN ('Users can insert their own data',
-    'Users can read their own data','Users can update their own data'))=3
- THEN md5((SELECT data::text FROM public.garage_data))
+ AND (SELECT count(*) FROM pg_policies WHERE schemaname='public'
+      AND tablename='garage_data') IN (3,5)
+ AND (SELECT count(*) FROM pg_policies WHERE schemaname='public'
+      AND tablename='garage_data'
+      AND policyname IN ('Users can insert their own data',
+        'Users can read their own data','Users can update their own data')
+      AND roles='{public}' AND permissive='PERMISSIVE'
+      AND ((policyname='Users can insert their own data' AND cmd='INSERT')
+        OR (policyname='Users can read their own data' AND cmd='SELECT')
+        OR (policyname='Users can update their own data' AND cmd='UPDATE')))=3
+ AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public'
+       AND tablename='garage_data' AND policyname NOT IN
+       ('Users can insert their own data','Users can read their own data',
+        'Users can update their own data','Allow authenticated users','Deny anon'))
+ AND (SELECT count(*) FROM pg_policies WHERE schemaname='public'
+       AND tablename='garage_data' AND policyname IN
+       ('Allow authenticated users','Deny anon')) IN (0,2)
+ AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public'
+       AND tablename='garage_data' AND policyname IN
+       ('Allow authenticated users','Deny anon') AND
+       NOT ((policyname='Allow authenticated users' AND cmd='ALL'
+             AND roles='{authenticated}') OR
+            (policyname='Deny anon' AND cmd='ALL' AND roles='{anon}')))
+ THEN md5((SELECT data::text FROM public.garage_data)) || '|' ||
+      (SELECT count(*)::text FROM pg_policies WHERE schemaname='public'
+         AND tablename='garage_data')
  ELSE 'REFUSED' END;
 '@
-  if($cloneFingerprint -ne $originalHash) {
-    throw 'REFUSED: existing clone differs from original restore or was changed; no overwrite'
+  $parts=$cloneState -split '\\|'
+  if($parts.Count -ne 2 -or $parts[0] -ne $originalHash -or
+     $parts[1] -notin @('3','5')) {
+    throw 'REFUSED: existing local clone is not in an approved pre-migration state; not overwriting'
   }
-  Write-Host 'Resuming previously created LOCAL clone (3 historical RLS policies); no database replaced.'
+  $resumePolicies=$parts[1]
+  Write-Host ("Resuming existing LOCAL clone with "+$resumePolicies+" inherited policies; no database replaced.")
 }
 if($originalHash -notmatch '^[0-9a-f]{32}$') { throw 'Could not capture source business hash' }
 # Fetch only schema/script sources, never client data or Storage.
@@ -131,7 +155,11 @@ function Invoke-LocalScript([string]$sqlPath){
    Write-Host "PostgreSQL informational NOTICE messages saved to local log."
  }
 }
-Invoke-LocalScript $shimsFile
+if($resumePolicies -ne '5') {
+  Invoke-LocalScript $shimsFile
+} else {
+  Write-Host 'LOCAL_SHIMS_ALREADY_APPLIED: skipping duplicate legacy-policy changes.'
+}
 Invoke-LocalScript $phaseFile
 $afterHash=Invoke-LocalQuery $cloneDb 'SELECT md5(data::text) FROM public.garage_data'
 $originalAfterHash=Invoke-LocalQuery $sourceDb 'SELECT md5(data::text) FROM public.garage_data'
