@@ -200,6 +200,9 @@ jobs:
         run: |
           set -euo pipefail
           docker exec ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres -c "CREATE DATABASE atelier_jl_s10_continuation TEMPLATE atelier_jl_restore_test"
+          # Reproduce the REAL office restore: only 3 owner policies survived pg_restore.
+          docker exec ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_s10_continuation -c 'DROP POLICY IF EXISTS "Allow authenticated users" ON public.garage_data; DROP POLICY IF EXISTS "Deny anon" ON public.garage_data;'
+          docker exec ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_s10_continuation -Atc "SELECT 1 / CASE WHEN (SELECT count(*) FROM pg_policies WHERE schemaname='public' AND tablename='garage_data')=3 THEN 1 ELSE 0 END"
           docker cp audit/s10-local-clone-supabase-shims.sql ${{ job.services.postgres.id }}:/tmp/s10-audit/s10-local-clone-supabase-shims.sql
           docker exec ${{ job.services.postgres.id }} psql -X -v ON_ERROR_STOP=1 -U postgres -d atelier_jl_s10_continuation -f /tmp/s10-audit/s10-local-clone-supabase-shims.sql
           node audit/s10-generate-local-phase5-to-10.cjs /tmp/s10-continuation.sql
