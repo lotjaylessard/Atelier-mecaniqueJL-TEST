@@ -23,7 +23,7 @@ try{
    Ne jamais recopier les donnees locales de production dans TEST.
    La base Supabase TEST est la seule source pour l'hydratation initiale. */`;
  fs.writeFileSync(path.join(src,"index.html"),initial);
- fs.writeFileSync(path.join(src,"login.html"),`const db="${testUrl}"; const key="${testKey}";`);
+ fs.writeFileSync(path.join(src,"login.html"),`const db="${testUrl}"; const key="${testKey}"; background:url(/Atelier-mecaniqueJL/img/login-bg.jpg);`);
  fs.mkdirSync(path.join(src,"img"));fs.writeFileSync(path.join(src,"img","logov2.png"),"static-only");
  fs.mkdirSync(path.join(src,"audit"));
  const runtime=["s06-live-test.js","s06-wo-pilot.js","s06-sidebar-persistent.js"];
@@ -40,6 +40,10 @@ try{
  assert.equal(fs.readFileSync(path.join(root,"out","img","logov2.png"),"utf8"),"static-only");
  for(const asset of runtime)assert.equal(
    fs.readFileSync(path.join(root,"out","audit",asset),"utf8"),"// verified runtime "+asset);
+ const dependencies=JSON.parse(fs.readFileSync(path.join(root,"out","REQUIRES-ORIGINAL-PROD-ASSETS.json"),"utf8"));
+ assert.equal(dependencies.installation,"overlay-existing-PROD-repository-only");
+ assert.equal(dependencies.requiredOriginalProdAssets[0].path,"img/login-bg.jpg");
+ assert.equal(dependencies.requiredOriginalProdAssets[0].commit,"f7e7450da11617c21958e5b616bd96ec93711a8e");
  assert.ok(fs.readFileSync(path.join(root,"out","NO-GO-PROTOTYPE.txt"),"utf8").includes("NOT DEPLOYABLE"));
  assert.ok(fs.readFileSync(path.join(src,"index.html"),"utf8").includes(testUrl));
  r=run(path.join(root,"wrong"),"https://productionexample.supabase.co");assert.notEqual(r.status,0);
