@@ -52,6 +52,18 @@ try{
      fail(file+": TEST identifier remains after conversion");
    result[file]=html;
  }
+ // CSS background lives in the original PROD repo, not in TEST sources.
+ // Retain the exact public repository path; never silently omit this asset.
+ const requiredOriginalProdAssets=[
+  {path:"img/login-bg.jpg",repo:"lotjaylessard/Atelier-mecaniqueJL",
+   commit:"f7e7450da11617c21958e5b616bd96ec93711a8e",
+   git_blob_sha:"cb4a1c46f8973df1509df074ddd1f54ac0981ed2"}
+ ];
+ const originalCss="/Atelier-mecaniqueJL/img/login-bg.jpg";
+ if(!result["login.html"].includes(originalCss))
+   fail("Original PROD login background path changed; review asset migration before packaging");
+ // This package must be installed into a checkout of the existing PROD repo,
+ // retaining its verified binary image. Never publish as a standalone folder.
  // Copy only the real runtime resources referenced by the application.
  // Do not copy audits, test records, backups, SQL dumps or credentials.
  const allowedRuntimeAssets=[
@@ -88,6 +100,9 @@ try{
    fs.mkdirSync(path.dirname(output),{recursive:true});
    fs.copyFileSync(input,output);
  }
+ fs.writeFileSync(path.join(out,"REQUIRES-ORIGINAL-PROD-ASSETS.json"),
+   JSON.stringify({requiredOriginalProdAssets,installation:"overlay-existing-PROD-repository-only",
+    warning:"Never delete original PROD assets. Asset SHA must be rechecked at release time."},null,2)+"\\n");
  fs.writeFileSync(path.join(out,"NO-GO-PROTOTYPE.txt"),
    "PRODUCTION REVIEW CANDIDATE -- NOT DEPLOYABLE.\n"+
    "Cloud PROD is authoritative, existing localStorage keys must remain untouched.\n"+
