@@ -41,3 +41,28 @@ const settled={status:"paid",paidDate:"2026-02-15",paidAmount:1000,payments:[{da
 assert.deepEqual(at("2026-03-02",settled),at("2026-12-31",settled));
 const snapshot=JSON.stringify(multiple);at("2026-03-02",multiple);assert.equal(JSON.stringify(multiple),snapshot);
 console.log("Extended boundary assertions passed");
+
+const engine=globalThis.JLInvoiceInterestPreview;
+const first=engine.applyPayment(inv,"2026-03-02","cash",100000);
+assert.equal(first.ok,true);
+assert.equal(first.invoice.status,"partial");
+assert.equal(first.invoice.paidAmount,1000);
+assert.equal(first.remainingCents,1479);
+assert.equal(calc(first.invoice,"2026-04-02").interestCents,1479);
+const second=engine.applyPayment(first.invoice,"2026-04-02","card",500);
+assert.equal(second.invoice.status,"partial");
+assert.equal(second.invoice.interestPayments[0].amount,5);
+assert.equal(second.remainingCents,979);
+const final=engine.applyPayment(second.invoice,"2026-04-03","transfer");
+assert.equal(final.invoice.status,"paid");
+assert.equal(final.invoice.paidDate,"2026-04-03");
+assert.equal(final.remainingCents,0);
+assert.equal(final.invoice.paidAmount,1000);
+assert.equal(final.invoice.interestPayments.reduce((sum,p)=>sum+Math.round(p.amount*100),0),1479);
+assert.equal(engine.applyPayment(final.invoice,"2026-04-04","cash").ok,false);
+assert.equal(engine.applyPayment(inv,"2026-03-02","cash",101480).ok,false);
+assert.equal(engine.applyPayment(inv,"2026-03-02","invalid").ok,false);
+assert.equal(inv.paidAmount,0);
+assert.equal(inv.payments.length,0);
+assert.equal(at("2026-03-02",{paidAmount:1100,payments:[{date:"2026-02-01",amount:1100}]}).eligible,false);
+console.log("Payment lifecycle assertions passed");
