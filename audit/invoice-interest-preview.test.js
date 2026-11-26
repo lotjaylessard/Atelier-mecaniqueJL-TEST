@@ -87,3 +87,15 @@ assert.equal(waivedAfterPrincipal.invoice.paidAmount,1000);
 assert.equal(waivedAfterPrincipal.invoice.paidDate,"2026-04-02");
 assert.deepEqual(waivedAfterPrincipal.invoice.payments,first.invoice.payments);
 console.log("Interest waiver assertions passed");
+
+const summary=engine.balanceSummary(second.invoice,"2026-04-03");
+assert.equal(summary.eligible,true);
+assert.equal(summary.principalRemainingCents,0);
+assert.equal(summary.interestPaidCents,500);
+assert.equal(summary.interestRemainingCents,979);
+assert.equal(summary.dueCents,979);
+assert.equal(engine.balanceSummary(final.invoice,"2026-12-31").dueCents,0);
+assert.equal(engine.balanceSummary({...second.invoice,interestPayments:[{date:"2027-01-01",amount:5}]},"2026-04-03").eligible,false);
+assert.equal(engine.balanceSummary({...second.invoice,interestPayments:[{date:"2026-04-02",amount:100}]},"2026-04-03").eligible,false);
+assert.equal(engine.balanceSummary(waived.invoice,"2026-04-03").eligible,false);
+console.log("Interest balance summary assertions passed");
