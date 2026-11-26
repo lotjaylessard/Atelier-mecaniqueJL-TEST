@@ -1938,11 +1938,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
 #page-settings .jl-calendar-compact .jl-cal-color-panel{padding:7px 9px;margin:8px 0 0}
 #page-settings .jl-calendar-compact .jl-cal-color-panel summary{font-size:13px;cursor:pointer}
 #page-settings .jl-cal-help{position:relative;display:inline-flex;flex:none}
-#page-settings .jl-cal-help-button{
-  width:24px;height:24px;padding:0!important;display:grid;place-items:center;
-  border:1px solid var(--accent);border-radius:6px;background:transparent;color:var(--accent);
-  font-weight:700;cursor:pointer
-}
+
 #page-settings .jl-cal-help-popup{
   display:none;position:absolute;right:0;top:calc(100% + 7px);z-index:20;
   width:max-content;max-width:min(340px,75vw);padding:10px 12px;
@@ -1952,7 +1948,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
 }
 #page-settings .jl-cal-help:hover .jl-cal-help-popup,
 #page-settings .jl-cal-help:focus-within .jl-cal-help-popup{display:block}
-#page-settings .jl-cal-help-button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
 #page-settings #jlCalendarColorsSettings{margin-top:8px}
 @media(max-width:650px){
   #page-settings .jl-cal-ics-row{display:block}
@@ -2018,9 +2014,17 @@ button.jl-edit-icon:focus-visible{outline:2px solid var(--accent);outline-offset
 </style>
 <style id="jl-compact-help-style">
 .jl-compact-help{margin:4px 0 6px;font-size:12px}
-.jl-compact-help>summary{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid currentColor;border-radius:50%;cursor:pointer;list-style:none;font-weight:600;opacity:.75}
+.jl-help-control{
+  box-sizing:border-box;width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;
+  padding:0!important;margin:0;display:inline-flex!important;align-items:center;justify-content:center;flex:none;
+  border:1px solid var(--accent)!important;border-radius:6px!important;background:transparent!important;color:var(--accent)!important;
+  font-family:inherit;font-size:13px;font-weight:700;line-height:1;
+  cursor:pointer;list-style:none;box-shadow:none!important;opacity:1;
+}
+.jl-help-control:hover{background:color-mix(in srgb,var(--accent) 12%,transparent)!important}
+.jl-help-control:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .jl-compact-help>summary::-webkit-details-marker{display:none}
-.jl-compact-help>summary:hover,.jl-compact-help>summary:focus-visible{opacity:1}
+
 .jl-compact-help>p{margin:6px 0 0;max-width:70ch}
 @media print{.jl-compact-help{display:none!important}}
 </style>
@@ -2176,7 +2180,7 @@ button.jl-edit-icon:focus-visible{outline:2px solid var(--accent);outline-offset
   <p id="jlFinanceCaveat" class="muted jl-finance-caveat"></p>
   <details class="jl-settings-backup" id="jlSubcontractExpensesPanel" style="margin-top:12px">
     <summary>🧾 Dépenses de sous-traitance — ajouter / consulter</summary>
-    <details class="jl-compact-help"><summary aria-label="Afficher l’aide" title="Afficher l’aide">?</summary><p class="muted">Saisis les frais réels des sous-traitants. Ces dépenses sont indépendantes des factures et ne modifient aucun paiement ni coût de pièce.</p></details>
+    <details class="jl-compact-help"><summary class="jl-help-control" aria-label="Afficher l’aide" title="Afficher l’aide">?</summary><p class="muted">Saisis les frais réels des sous-traitants. Ces dépenses sont indépendantes des factures et ne modifient aucun paiement ni coût de pièce.</p></details>
     <div class="jl-settings-actions" style="gap:7px;flex-wrap:wrap">
       <label>Date <input type="date" id="jlSubcontractDate"></label>
       <label>Sous-traitant <input type="text" id="jlSubcontractName" maxlength="80" placeholder="Nom du sous-traitant"></label>
@@ -2352,7 +2356,7 @@ button.jl-edit-icon:focus-visible{outline:2px solid var(--accent);outline-offset
             <tbody><tr><td colspan="7" class="muted s08-quote-empty">Aucune soumission enregistrée.</td></tr></tbody>
           </table>
         </div>
-        <details class="jl-compact-help"><summary aria-label="Afficher l’aide" title="Afficher l’aide">?</summary><p class="muted">Les soumissions sont conservées séparément des bons de travail. Une soumission approuvée reste consultable et conserve le numéro du BT créé.</p></details>
+        <details class="jl-compact-help"><summary class="jl-help-control" aria-label="Afficher l’aide" title="Afficher l’aide">?</summary><p class="muted">Les soumissions sont conservées séparément des bons de travail. Une soumission approuvée reste consultable et conserve le numéro du BT créé.</p></details>
       </div>
 
       <div class="card" id="s08QuoteEditor" hidden>
@@ -2411,7 +2415,7 @@ button.jl-edit-icon:focus-visible{outline:2px solid var(--accent);outline-offset
           <label>Service existant
             <select id="s08CatalogService" aria-label="Choisir un service enregistré"><option value="">— Sélectionner un service —</option></select>
           </label>
-          <details class="jl-compact-help"><summary aria-label="Afficher l’aide" title="Afficher l’aide">?</summary><p class="muted">Le choix préremplit les champs ci-dessous. Clique ensuite sur « Ajouter la ligne ». Les catalogues restent inchangés.</p></details>
+          <details class="jl-compact-help"><summary class="jl-help-control" aria-label="Afficher l’aide" title="Afficher l’aide">?</summary><p class="muted">Le choix préremplit les champs ci-dessous. Clique ensuite sur « Ajouter la ligne ». Les catalogues restent inchangés.</p></details>
         </div>
         <div class="s08-line-add">
           <label>Type<select id="s08LineType"><option value="part">Pièce</option><option value="labor">Main-d’œuvre / Service</option><option value="other">Autre</option></select></label>
@@ -3060,7 +3064,7 @@ button.jl-edit-icon:focus-visible{outline:2px solid var(--accent);outline-offset
   <div class="jl-cal-provider-row">
     <div class="jl-cal-provider-head">
       <div id="jlScheduleExternalGoogle" class="jl-schedule-external-provider">Google Calendar — non connecté</div>
-      <span class="jl-cal-help"><button type="button" class="jl-cal-help-button" aria-label="Aide Google Calendar" aria-describedby="jlHelpGoogle">?</button><span id="jlHelpGoogle" class="jl-cal-help-popup" role="tooltip">Calendrier personnel privé. Tes événements et tes disponibilités ne sont pas partagés avec les employés.</span></span>
+      <span class="jl-cal-help"><button type="button" class="jl-cal-help-button jl-help-control" aria-label="Aide Google Calendar" aria-describedby="jlHelpGoogle">?</button><span id="jlHelpGoogle" class="jl-cal-help-popup" role="tooltip">Calendrier personnel privé. Tes événements et tes disponibilités ne sont pas partagés avec les employés.</span></span>
     </div>
     <div class="jl-cal-provider-actions"><button type="button" id="jlScheduleConnectGoogle" class="ghost" disabled>Connecter Google Calendar</button></div>
     <p id="jlScheduleExternalStatus" class="muted jl-cal-status" role="status" aria-live="polite"></p>
@@ -3069,7 +3073,7 @@ button.jl-edit-icon:focus-visible{outline:2px solid var(--accent);outline-offset
   <div class="jl-cal-provider-row">
     <div class="jl-cal-provider-head">
       <div id="jlScheduleExternalMicrosoft" class="jl-schedule-external-provider">Outlook / Hotmail — non connecté</div>
-      <span class="jl-cal-help"><button type="button" class="jl-cal-help-button" aria-label="Aide Outlook Hotmail" aria-describedby="jlHelpOutlook">?</button><span id="jlHelpOutlook" class="jl-cal-help-popup" role="tooltip">Connexion iCal en lecture seule, sans Microsoft Entra. Chaque compte Garage voit uniquement ses calendriers personnels. Ton lien ICS est confidentiel.</span></span>
+      <span class="jl-cal-help"><button type="button" class="jl-cal-help-button jl-help-control" aria-label="Aide Outlook Hotmail" aria-describedby="jlHelpOutlook">?</button><span id="jlHelpOutlook" class="jl-cal-help-popup" role="tooltip">Connexion iCal en lecture seule, sans Microsoft Entra. Chaque compte Garage voit uniquement ses calendriers personnels. Ton lien ICS est confidentiel.</span></span>
     </div>
     <div class="jl-outlook-ical-settings">
       <div class="jl-cal-ics-row">
@@ -3083,7 +3087,7 @@ button.jl-edit-icon:focus-visible{outline:2px solid var(--accent);outline-offset
       <p class="muted jl-cal-status" id="jlScheduleMicrosoftStatus" role="status" aria-live="polite"></p>
       <details id="jlOutlookColorsSettings" class="jl-familywall-colors jl-cal-color-panel">
         <summary>🎨 Couleurs Outlook</summary>
-        <details class="jl-compact-help"><summary aria-label="Afficher l’aide" title="Afficher l’aide">?</summary><p class="muted">Le lien ICS ne transmet pas toujours les catégories. Associe des mots-clés des titres aux couleurs (AC, TR, TODO, etc.). Ces préférences restent privées dans ton navigateur.</p></details>
+        <details class="jl-compact-help"><summary class="jl-help-control" aria-label="Afficher l’aide" title="Afficher l’aide">?</summary><p class="muted">Le lien ICS ne transmet pas toujours les catégories. Associe des mots-clés des titres aux couleurs (AC, TR, TODO, etc.). Ces préférences restent privées dans ton navigateur.</p></details>
         <div id="jlOutlookColorRules" class="jl-familywall-color-rules"></div>
         <div class="jl-settings-actions">
           <button type="button" id="jlOutlookAddColorRule" class="ghost">+ Ajouter une couleur</button>
@@ -3097,7 +3101,7 @@ button.jl-edit-icon:focus-visible{outline:2px solid var(--accent);outline-offset
   <div class="jl-cal-provider-row">
     <div class="jl-cal-provider-head">
       <div id="jlScheduleExternalFamilyWall" class="jl-schedule-external-provider">FamilyWall — non connecté</div>
-      <span class="jl-cal-help"><button type="button" class="jl-cal-help-button" aria-label="Aide FamilyWall" aria-describedby="jlHelpFamilyWall">?</button><span id="jlHelpFamilyWall" class="jl-cal-help-popup" role="tooltip">Calendrier familial privé en lecture seule. Pour obtenir le lien : FamilyWall → Calendrier → Paramètres → Ton cercle → Générer un iCal. Ne partage pas ce lien.</span></span>
+      <span class="jl-cal-help"><button type="button" class="jl-cal-help-button jl-help-control" aria-label="Aide FamilyWall" aria-describedby="jlHelpFamilyWall">?</button><span id="jlHelpFamilyWall" class="jl-cal-help-popup" role="tooltip">Calendrier familial privé en lecture seule. Pour obtenir le lien : FamilyWall → Calendrier → Paramètres → Ton cercle → Générer un iCal. Ne partage pas ce lien.</span></span>
     </div>
     <div class="jl-familywall-settings">
       <div class="jl-cal-ics-row">
@@ -3111,7 +3115,7 @@ button.jl-edit-icon:focus-visible{outline:2px solid var(--accent);outline-offset
       <p class="muted jl-cal-status" id="jlScheduleFamilyWallStatus" role="status" aria-live="polite"></p>
       <details id="jlFamilyWallColorsSettings" class="jl-familywall-colors jl-cal-color-panel">
         <summary>🎨 Couleurs FamilyWall</summary>
-        <details class="jl-compact-help"><summary aria-label="Afficher l’aide" title="Afficher l’aide">?</summary><p class="muted">Les couleurs ne sont pas toujours incluses dans le lien iCal. Ajoute des mots-clés et leurs couleurs : la première règle correspondante s'applique. Ces préférences restent dans ton navigateur.</p></details>
+        <details class="jl-compact-help"><summary class="jl-help-control" aria-label="Afficher l’aide" title="Afficher l’aide">?</summary><p class="muted">Les couleurs ne sont pas toujours incluses dans le lien iCal. Ajoute des mots-clés et leurs couleurs : la première règle correspondante s'applique. Ces préférences restent dans ton navigateur.</p></details>
         <div id="jlFamilyWallColorRules" class="jl-familywall-color-rules"></div>
         <div class="jl-settings-actions">
           <button type="button" id="jlFamilyWallAddColorRule" class="ghost">+ Ajouter une couleur</button>
@@ -3124,7 +3128,7 @@ button.jl-edit-icon:focus-visible{outline:2px solid var(--accent);outline-offset
 </section>
     <details class="jl-settings-subsection" id="jlCalendarColorsSettings">
       <summary>🎨 Couleurs de mes calendriers</summary>
-      <details class="jl-compact-help"><summary aria-label="Afficher l’aide" title="Afficher l’aide">?</summary><p class="muted">Personnalise les couleurs par catégorie, sans modifier les événements ni les calendriers des autres utilisateurs. Les préférences restent dans ton navigateur. Pour FamilyWall, les couleurs par mot-clé se trouvent dans « Calendriers personnels — connexions ».</p></details>
+      <details class="jl-compact-help"><summary class="jl-help-control" aria-label="Afficher l’aide" title="Afficher l’aide">?</summary><p class="muted">Personnalise les couleurs par catégorie, sans modifier les événements ni les calendriers des autres utilisateurs. Les préférences restent dans ton navigateur. Pour FamilyWall, les couleurs par mot-clé se trouvent dans « Calendriers personnels — connexions ».</p></details>
       <div class="jl-palette-grid">
         <label>Travaux <input type="color" data-jl-palette="work" value="#ef6161"></label>
         <label>Notes <input type="color" data-jl-palette="note" value="#5da9ff"></label>
