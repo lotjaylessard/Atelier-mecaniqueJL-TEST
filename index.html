@@ -147,6 +147,12 @@ function resetInactivityTimer() {
     if (myGeneration !== inactivityGeneration) {
       return;
     }
+    // Une intervention active dans cet onglet reste une activité de travail.
+    // Ne pas prolonger la session pour un simple brouillon abandonné.
+    if(window.jlTimerHasActiveWork?.()===true){
+      resetInactivityTimer();
+      return;
+    }
     clearInterval(countdownInterval);
     removeWarningBanner();
 
@@ -160,7 +166,7 @@ function resetInactivityTimer() {
 
     try {
       const success = await window.attemptSafeLogout(
-        () => myGeneration === inactivityGeneration
+        () => myGeneration === inactivityGeneration && window.jlTimerHasActiveWork?.()!==true
       );
 
       if (success) {
@@ -203,7 +209,7 @@ function resetInactivityTimer() {
 
 
 // Activité utilisateur
-["click","mousemove","keydown","scroll","touchstart"].forEach(event => {
+["click","mousemove","keydown","scroll","touchstart","input"].forEach(event => {
   document.addEventListener(event, resetInactivityTimer);
 });
 
@@ -1986,6 +1992,22 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0"></script>
 
 
+
+<style id="jlPostMigrationLayoutFix">
+#s08QuoteViewer .s08-viewer-panel{max-width:1120px}
+#s08QuoteViewer .s08-viewer-head{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:8px 12px}
+#s08QuoteViewer .s08-viewer-controls{margin-left:auto;justify-content:flex-end;flex:0 1 auto}
+#s08QuoteViewer .s08-viewer-head h2{flex:0 1 auto;min-width:0;overflow-wrap:anywhere}
+#woPartsTable td:nth-child(n+4):nth-child(-n+7),#woLaborTable td:nth-child(3),#woLaborTable td:nth-child(4){white-space:nowrap}
+#woPartsTable td input,#woLaborTable td input{min-width:0!important}
+#woPartsTable td:last-child,#woLaborTable td:last-child{width:1%;white-space:nowrap}
+.jl-wo-inline-actions{display:flex;align-items:center;gap:5px;flex-wrap:nowrap}
+.jl-wo-inline-actions button{padding:7px 9px;white-space:nowrap}
+#invoiceEditContent .jl-invoice-preview-table :is(th,td):first-child{min-width:105px;white-space:nowrap}
+#invoiceEditContent .jl-invoice-preview-table :is(th,td):nth-last-child(-n+3){white-space:nowrap;min-width:64px}
+#invoiceEditContent .jl-invoice-preview-table :is(th,td):nth-child(2){overflow-wrap:anywhere}
+@media(max-width:720px){#s08QuoteViewer .s08-viewer-head{align-items:flex-start;flex-direction:column}#s08QuoteViewer .s08-viewer-controls{margin-left:0;justify-content:flex-start;width:100%}}
+</style>
 </head>
 <body>
 
@@ -2043,7 +2065,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
       <img src="./img/logov2.png"
            alt="Garage JL"
      style="height:32px;">
-      <h1 style="font-size:18px;">Garage-Atelier Mécanique J.L</h1>
+      <h1 style="font-size:18px;">Atelier Mécanique J.L</h1>
     </div>
     <div style="display:flex;gap:10px;align-items:center;">
   <span id="headerGreeting" class="header-greeting">
@@ -2373,7 +2395,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
           <label>Service existant
             <select id="s08CatalogService" aria-label="Choisir un service enregistré"><option value="">— Sélectionner un service —</option></select>
           </label>
-          <p class="muted">Le choix préremplit les champs ci-dessous. Clique ensuite sur « Ajouter la ligne ». Les catalogues et le stock restent inchangés.</p>
+          <p class="muted">Le choix préremplit les champs ci-dessous. Clique ensuite sur « Ajouter la ligne ». Les catalogues restent inchangés.</p>
         </div>
         <div class="s08-line-add">
           <label>Type<select id="s08LineType"><option value="part">Pièce</option><option value="labor">Main-d’œuvre / Service</option><option value="other">Autre</option></select></label>
@@ -2757,7 +2779,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
           <option value="Divers">Divers</option>
             </select>
           </label>
-          <label>Quantité en stock<input id="partInvQty" type="number" value="1" /></label>
+          <label id="jlStockField">Quantité en stock<input id="partInvQty" type="number" value="1" /></label>
           <label>Prix coûtant ($)<input id="partInvCost" type="number" step="0.01" /></label>
           <label>Prix de vente ($)<input id="partInvPrice" type="number" step="0.01" /></label>
         </div>
@@ -2767,7 +2789,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
 
       <div class="card s05-catalog"><div class="module-search-toolbar">
       <button type="button" id="s08NewPart">➕ Nouvelle pièce</button>
-      <input id="partInvSearch" type="search" placeholder="🔎 Rechercher : nom, numéro, catégorie, stock..." aria-label="Rechercher une pièce" />
+      <input id="partInvSearch" type="search" placeholder="🔎 Rechercher : nom, numéro, catégorie..." aria-label="Rechercher une pièce" />
       <select id="partInvFilter">
         <option value="">Toutes catégories</option>
         <option value="Moteur">Moteur</option>
@@ -2832,7 +2854,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
           </select>
         </div>
       </div>
-      <h2>Soumissions archivées (refusées / expirées)</h2>
+      <h2>Soumissions archivées</h2>
       <div class="card">
         <div id="historyQuoteResultCount" class="module-result-count" role="status" aria-live="polite">Chargement des soumissions…</div>
         <div class="s08-quotes-table" role="region" aria-label="Historique des soumissions" style="overflow-x:auto">
@@ -2843,7 +2865,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
             <tbody><tr><td colspan="6" class="muted">Chargement…</td></tr></tbody>
           </table>
         </div>
-        <p class="muted" style="font-size:12px">Seules les soumissions refusées ou expirées apparaissent ici. Les factures payées archivées sont dans « Historique des factures » ci-dessous. Les données sont conservées sans suppression.</p>
+        <p class="muted" style="font-size:12px">Les soumissions refusées, expirées, archivées ou terminées et payées sont présentées ici selon leur statut. Les factures payées archivées figurent dans « Historique des factures » ci-dessous.</p>
       </div>
       <h2>Historique des bons de travail</h2>
       <div class="card">
@@ -3303,23 +3325,23 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
 
   
 /* ===================== HELPERS & STORAGE ===================== */
-// TEST uniquement : espace local distinct de la production GitHub Pages.
-// Ne jamais lire, migrer ou effacer les anciennes cles de production.
-const TEST_STORAGE_PREFIX = "ar_test_nraijzsodgojkpyigefu";
+// PROD candidate: namespace cache by project and garage.
+// Preserve historical ar_<user>_* local keys without reading or deleting them.
+const PROD_STORAGE_PREFIX = "ar_prod_nraijzsodgojkpyigefu";
 
 // Avant identification du garage, utiliser un espace provisoire TEST.
 // Aucune cle historique non prefixee ne doit etre utilisee.
 let STORAGE = {
-  invoices: `${TEST_STORAGE_PREFIX}_bootstrap_invoices_v2`,
-  settings: `${TEST_STORAGE_PREFIX}_bootstrap_settings_v1`,
-  invoiceCounter: `${TEST_STORAGE_PREFIX}_bootstrap_invoice_counter_v1`,
-  clients: `${TEST_STORAGE_PREFIX}_bootstrap_clients_v1`,
-  parts: `${TEST_STORAGE_PREFIX}_bootstrap_parts_inventory_v1`,
-  services: `${TEST_STORAGE_PREFIX}_bootstrap_services_v1`,
-  notes: `${TEST_STORAGE_PREFIX}_bootstrap_notes_v1`,
-  links: `${TEST_STORAGE_PREFIX}_bootstrap_links_v1`,
-  workorders: `${TEST_STORAGE_PREFIX}_bootstrap_workorders_v1`,
-  history: `${TEST_STORAGE_PREFIX}_bootstrap_history_v1`
+  invoices: `${PROD_STORAGE_PREFIX}_bootstrap_invoices_v2`,
+  settings: `${PROD_STORAGE_PREFIX}_bootstrap_settings_v1`,
+  invoiceCounter: `${PROD_STORAGE_PREFIX}_bootstrap_invoice_counter_v1`,
+  clients: `${PROD_STORAGE_PREFIX}_bootstrap_clients_v1`,
+  parts: `${PROD_STORAGE_PREFIX}_bootstrap_parts_inventory_v1`,
+  services: `${PROD_STORAGE_PREFIX}_bootstrap_services_v1`,
+  notes: `${PROD_STORAGE_PREFIX}_bootstrap_notes_v1`,
+  links: `${PROD_STORAGE_PREFIX}_bootstrap_links_v1`,
+  workorders: `${PROD_STORAGE_PREFIX}_bootstrap_workorders_v1`,
+  history: `${PROD_STORAGE_PREFIX}_bootstrap_history_v1`
 };
 
 function configureGarageStorage(garageId) {
@@ -3327,7 +3349,7 @@ function configureGarageStorage(garageId) {
     throw new Error("Identifiant du garage manquant");
   }
 
-  const prefix = `${TEST_STORAGE_PREFIX}_${garageId}`;
+  const prefix = `${PROD_STORAGE_PREFIX}_${garageId}`;
   STORAGE = {
     invoices: `${prefix}_invoices_v2`,
     settings: `${prefix}_settings_v1`,
@@ -3369,11 +3391,13 @@ function configureGarageStorage(garageId) {
 
 
 
-/* MIGRATION DES ANCIENNES CLES DESACTIVEE EN TEST.
-   Ne jamais recopier les donnees locales de production dans TEST.
-   La base Supabase TEST est la seule source pour l'hydratation initiale. */
+/* PROD candidate: cloud garage_data is authoritative after membership checks.
+   Do not import browser legacy data, TEST data or unsynced recovery snapshots.
+   Preserve old localStorage keys; require verified PROD backup before cutover. */
 
 const $ = id => document.getElementById(id);
+// Gestion du stock suspendue : conserver les quantités et le code pour réactivation future.
+const JL_STOCK_ENABLED = false;
 // S04 audit : formatage monetaire identique aux montants encaisses.
 // Number.toFixed(2) sur 114.975 peut afficher 114.97 en binaire.
 function money(n){
@@ -3407,6 +3431,13 @@ function money(n){
 }
 
 
+// Profit réel sur facture : inclure l'escompte et exclure les taxes.
+function jlActualInvoiceProfit(inv,wo){
+  if(!inv||!wo)return 0;
+  const net=Number(inv.total)-Number(inv.gst??0)-Number(inv.qst??0);
+  const cost=(wo.parts||[]).reduce((sum,p)=>sum+Number(p.qty||0)*Number(p.cost||0),0);
+  return Number.isFinite(net)&&Number.isFinite(cost)?Math.round((net-cost)*100)/100:0;
+}
 function initWorkOrderAttachments(wo){
 
   const input = document.getElementById("woFileInput");
@@ -3531,7 +3562,7 @@ const filePath =
           fileName: file.name
         };
         try {
-          const key = `${TEST_STORAGE_PREFIX}_${expectedGarage}_unlinked_attachment_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+          const key = `${PROD_STORAGE_PREFIX}_${expectedGarage}_unlinked_attachment_${Date.now()}_${Math.random().toString(36).slice(2)}`;
           localStorage.setItem(key, JSON.stringify(recovery));
         } catch (recoveryError) {
           console.error("[S08] Copie locale de récupération indisponible",recoveryError);
@@ -4009,8 +4040,8 @@ function s06LaborHoursLabel(l){
   // Uniformiser la présentation des heures sans arrondir la valeur stockée.
   return Number.isFinite(hours)?hours.toFixed(2):String(l?.hours??"");
 }
-function recalcInvoice(inv){
-  if (invoiceHasPaymentActivity(inv)) return; // Verrouiller le total historique.
+function recalcInvoice(inv, explicitPartialEdit=false, taxSettings=SETTINGS){
+  if (invoiceHasPaymentActivity(inv) && !(explicitPartialEdit && inv.status==="partial" && !inv.archived)) return; // Verrouiller le total historique.
 
   const baseSubTotal = (inv.items || []).reduce(
     (sum, it) => sum + s06InvoiceItemAmount(it),
@@ -4035,11 +4066,11 @@ function recalcInvoice(inv){
   const applyQST = inv.applyQST !== false;
 
   const gst = applyGST
-    ? taxableSubTotal * (Number(SETTINGS.gst || 0) / 100)
+    ? taxableSubTotal * (Number(taxSettings.gst || 0) / 100)
     : 0;
 
   const qst = applyQST
-    ? taxableSubTotal * (Number(SETTINGS.qst || 0) / 100)
+    ? taxableSubTotal * (Number(taxSettings.qst || 0) / 100)
     : 0;
 
   // Arrondir chaque taxe au cent avant la somme (ex. 100 $ -> 5,00 + 9,98).
@@ -4301,15 +4332,15 @@ function showPage(id){
         name: $("partInvName").value.trim(),
         number: $("partInvNumber").value.trim(),
         category: $("partInvCategory").value,
-        qty: Number($("partInvQty").value || 0),
+        qty: JL_STOCK_ENABLED ? Number($("partInvQty").value || 0) : (PARTS.find(p=>String(p.id)===String(EDITING_PART_ID))?.qty ?? 1),
         cost: Number($("partInvCost").value || 0),
         price: Number($("partInvPrice").value || 0)
       };
       if(!data.name){show("Nom de la pièce requis.","#ff8080");return;}
-      if(!Number.isFinite(data.qty)||data.qty<0||
+      if((JL_STOCK_ENABLED && (!Number.isFinite(data.qty)||data.qty<0))||
          !Number.isFinite(data.cost)||data.cost<0||
          !Number.isFinite(data.price)||data.price<0){
-        show("Stock et prix doivent être des valeurs positives ou zéro.","#ff8080");return;
+        show(JL_STOCK_ENABLED?"Stock et prix doivent être des valeurs positives ou zéro.":"Les prix doivent être des valeurs positives ou zéro.","#ff8080");return;
       }
       const previous=PARTS.slice();
       const editing=EDITING_PART_ID;
@@ -4645,6 +4676,7 @@ function hydrateLocalFromCloud(data){
   }
 
   // 🔁 Recharger les variables mémoire
+  loadSettings(); // Les taux cloud doivent remplacer les valeurs par défaut, même à 0 %.
   loadInvoices();
   loadWorkOrders();
   CLIENTS = loadArrayFromStorage(STORAGE.clients);
@@ -4946,7 +4978,7 @@ function preserveFailedCloudSnapshot(reason, payload) {
     data: payload || captureLocalGarageSnapshot()
   };
   // Une cle unique empeche qu'un deuxieme conflit ecrase le premier.
-  const key = `${TEST_STORAGE_PREFIX}_${ACTIVE_GARAGE_ID}_unsynced_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const key = `${PROD_STORAGE_PREFIX}_${ACTIVE_GARAGE_ID}_unsynced_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   try {
     localStorage.setItem(key, JSON.stringify(backup));
     showCloudRecoveryBanner(key);
@@ -4965,7 +4997,7 @@ function preserveFailedCloudSnapshot(reason, payload) {
 // Lecture seule : aucune donnee recuperee n'est reinjectee dans le garage.
 function restoreCloudRecoveryBanner() {
   if (!ACTIVE_GARAGE_ID || !SUPABASE_USER?.id) return;
-  const prefix = `${TEST_STORAGE_PREFIX}_${ACTIVE_GARAGE_ID}_unsynced_`;
+  const prefix = `${PROD_STORAGE_PREFIX}_${ACTIVE_GARAGE_ID}_unsynced_`;
   const matches = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
@@ -4992,7 +5024,7 @@ function restoreCloudRecoveryBanner() {
 // Un objet non rattaché reste dans Storage. Le JSON exporté ne contient PAS ses octets.
 function showUnlinkedAttachmentRecoveryNotice(){
   if (!SUPABASE_USER?.id || !ACTIVE_GARAGE_ID) return;
-  const prefix = `${TEST_STORAGE_PREFIX}_${ACTIVE_GARAGE_ID}_unlinked_attachment_`;
+  const prefix = `${PROD_STORAGE_PREFIX}_${ACTIVE_GARAGE_ID}_unlinked_attachment_`;
   const noticeUserId = SUPABASE_USER.id;
   const noticeGarageId = ACTIVE_GARAGE_ID;
   const records = [];
@@ -6431,7 +6463,7 @@ if (error) {
   
 /* ===================== GLOBAL DATA ===================== */
 let SETTINGS = {
-  garageName: 'Garage-Atelier Mécanique J.L',
+  garageName: 'Atelier Mécanique J.L',
   gst: 5,
   qst: 9.975,
   defaultHourlyRate: 90,  // Taux existant
@@ -6794,7 +6826,7 @@ function addServiceToCurrentWO(serviceId){
   });
 
   // 5️⃣ Sauvegarde + rafraîchissement
-  persistActiveWO(wo);
+  if(persistActiveWO(wo)===false){wo.labor.pop();woRenderLines(wo);return;}
   woRenderLines(wo);
 
   alert(`Service "${srv.name}" ajouté au bon de travail.`);
@@ -6838,7 +6870,7 @@ function addServiceToCurrentWO(serviceId){
 });
 
   // 5️⃣ Sauvegarde + rafraîchissement
-  persistActiveWO(wo);
+  if(persistActiveWO(wo)===false){wo.parts.pop();woRenderLines(wo);return;}
   woRenderLines(wo);
 
   alert(`Pièce "${part.name}" ajoutée au bon de travail.`);
@@ -7059,8 +7091,7 @@ function woCanEditFinancials(wo){
   }
   const inv = woLinkedInvoice(wo);
   if (wo.status === "en_cours") return !inv;
-  return wo.status === "termine" && !!inv && inv.status === "unpaid" &&
-    !woInvoiceHasPayment(inv) && CLOUD_DATA_READY && !CLOUD_SYNC_FAILED &&
+  return ["termine","billed"].includes(wo.status) && !!inv && (invoiceMayEditFinancials(inv)||invoiceMayCorrectPartial(inv)) && CLOUD_DATA_READY && !CLOUD_SYNC_FAILED &&
     String(window.__woClosedEditId) === String(wo.id);
 }
 function woCanEditNotes(wo){
@@ -7071,7 +7102,7 @@ function woCanEditNotes(wo){
 }
 function woRequireFinancialEdit(wo){
   if (woCanEditFinancials(wo)) return true;
-  alert("Modification refusée : active Modifier le BT et vérifie que la facture est impayée.");
+  alert("Modification refusée : active Modifier le BT et vérifie que la facture conserve un solde à payer.");
   return false;
 }
 // Les lignes de la facture peuvent avoir ete modifiees directement.
@@ -7079,13 +7110,14 @@ function woRequireFinancialEdit(wo){
 function woInvoiceItemsFromWO(wo){
   return [
     ...(wo.parts || []).map(p=>({
-      type:"Pièce",desc:`${p.name || ""}${p.number ? " (#"+p.number+")" : ""}`.trim(),
+      type:"Pièce",desc:String(p.name || "").trim(),
       number:p.number||"",supplier:p.supplier||"",
       qty:Number(p.qty),rate:Number(p.rate),total:Number(p.qty)*Number(p.rate)
     })),
     ...(wo.labor || []).map(l=>({
       type:"Main-d'œuvre",desc:String(l.description || ""),
-      qty:Number(l.hours),rate:Number(l.rate),total:Number(l.hours)*Number(l.rate)
+      qty:Number(l.hours),rate:Number(l.rate),total:s06LaborLineAmount(l),
+      ...(l.timerSessionId?{timerSessionId:l.timerSessionId,confirmedMs:l.confirmedMs}:{})
     }))
   ];
 }
@@ -7095,21 +7127,43 @@ function woInvoiceMatchesWO(wo,invoice){
   if (!Array.isArray(current) || expected.length !== current.length) return false;
   return expected.every((item,i)=>{
     const saved=current[i];
-    return !!saved && String(saved.type || "") === item.type &&
-      String(saved.desc || "").trim() === item.desc &&
-      Number(saved.qty) === item.qty && Number(saved.rate) === item.rate;
+    if(!saved || String(saved.type||"").trim()!==item.type ||
+       Number(saved.qty)!==item.qty || Number(saved.rate)!==item.rate) return false;
+    const desc=String(saved.desc||"").trim();
+    const number=String(item.number||"").trim();
+    const legacyDesc=number?item.desc+" (#"+number+")":item.desc;
+    if(desc!==item.desc && desc!==legacyDesc)return false;
+    if(item.type==="Pièce"){
+      if(String(saved.number||"").trim()!==number && !(number&&!saved.number&&desc===legacyDesc))return false;
+      if(String(saved.supplier||"").trim()!==String(item.supplier||"").trim())return false;
+    }
+    if(String(saved.timerSessionId||"")!==String(item.timerSessionId||""))return false;
+    if(item.timerSessionId && Number(saved.confirmedMs)!==Number(item.confirmedMs))return false;
+    return Math.round(s06InvoiceItemAmount(saved)*100)===Math.round(item.total*100);
   });
+}
+function invoiceMayCorrectPartial(inv){
+  return !!inv && inv.status==="partial" && !inv.archived && !invoicePaymentMismatch(inv);
+}
+function invoiceCorrectionCandidate(inv,patch){
+  if(!invoiceMayEditFinancials(inv)&&!invoiceMayCorrectPartial(inv))return null;
+  const next={...inv,...patch};
+  recalcInvoice(next,true);
+  const received=Math.round(Number(inv.paidAmount||0)*100);
+  const total=Math.round(Number(next.total)*100);
+  // Equality requires the separate, explicit final-payment workflow.
+  if(!Number.isFinite(total)||total<0||(inv.status==="partial"&&total<=received))return null;
+  return next;
 }
 function woSyncUnpaidInvoice(wo){
   const invoice = woLinkedInvoice(wo);
-  if (!invoice || invoice.status !== "unpaid" || woInvoiceHasPayment(invoice) ||
+  if (!invoice || !(invoiceMayEditFinancials(invoice)||invoiceMayCorrectPartial(invoice)) ||
       !CLOUD_DATA_READY || CLOUD_SYNC_FAILED) return false;
   const items = woInvoiceItemsFromWO(wo);
   if (items.some(it=>!it.desc || !Number.isFinite(it.qty) || it.qty <= 0 ||
     !Number.isFinite(it.rate) || it.rate < 0)) return false;
-  const next = {...invoice,items};
-  recalcInvoice(next); // Preserve taxes, rabais et historique de paiement.
-  if (!Number.isFinite(next.total) || next.total < 0) return false;
+  const next = invoiceCorrectionCandidate(invoice,{items});
+  if (!next) return false;
   Object.assign(invoice,next);
   wo.estimateTotal = items.reduce((sum,it)=>sum+it.total,0);
   localStorage.setItem(STORAGE.workorders,JSON.stringify(WORKORDERS));
@@ -7124,7 +7178,7 @@ function persistActiveWO(wo){
   if (wo.status !== "en_cours" && !wo.__fromInvoice) {
     if (!woRequireFinancialEdit(wo)) return false;
     if (!woSyncUnpaidInvoice(wo)) {
-      alert("Synchronisation BT/facture refusée. Aucune nouvelle sauvegarde confirmée.");
+      alert("Correction refusée : vérifie le solde restant après les paiements et la synchronisation.");
       return false;
     }
     return true;
@@ -7718,7 +7772,7 @@ function saveManualLabor(){
     rate
   });
 
-  persistActiveWO(wo);
+  if(persistActiveWO(wo)===false){wo.labor.pop();woRenderLines(wo);return;}
   woRenderLines(wo);
 
   // reset + fermer
@@ -7816,7 +7870,36 @@ function jlWoRenderNotes(wo){
   const list=document.getElementById("jlWoNotesHistory");
   if(!list)return;
   const actor=jlWoNoteAuthor();
-  const entries=jlWoNotes(wo).slice().sort((a,b)=>
+  // Présentation uniquement : conserver le journal original de la RPC.
+  const storedEntries=Array.isArray(wo.technicalNoteEntries)?wo.technicalNoteEntries:[];
+  let legacy=String(wo.notes||"");
+  const timerEntries=[];
+  const seen=new Set();
+  for(const line of (Array.isArray(wo.labor)?wo.labor:[])){
+    const sid=String(line.timerSessionId||"");
+    if(!/^[0-9a-f-]{36}$/i.test(sid)||seen.has(sid))continue;
+    seen.add(sid);
+    const marker="[S06 minuterie : "+sid+"]";
+    const start=legacy.indexOf(marker);
+    let text=String(line.description||"");
+    let authorId=String(line.actor_id||"");
+    let createdAt=String(line.confirmed_at||"");
+    if(start>=0){
+      const rest=legacy.slice(start+marker.length);
+      const match=rest.match(/^\r?\nDate UTC : ([^\r\n]+)\r?\nCompte auteur : ([^\r\n]+)\r?\nTravail effectue : ([\s\S]*?)\r?\nTemps confirme : (\d+) ms\r?\nMain-d'oeuvre : [^\r\n]+/);
+      if(match){
+        createdAt=createdAt||match[1];authorId=authorId||match[2];
+        text=match[3]||text;
+        legacy=legacy.slice(0,start)+legacy.slice(start+marker.length+match[0].length);
+      }
+    }
+    if(!storedEntries.some(n=>String(n.timerSessionId||"")===sid)){
+      const ms=Number(line.confirmedMs);
+      const duration=Number.isFinite(ms)&&ms>=0?formatDuration(ms):"Durée non disponible";
+      timerEntries.push({id:"timer-"+sid,timerSessionId:sid,authorId,authorName:"Employé",createdAt,text:text+"\nTemps confirmé : "+duration+" · "+money(s06LaborLineAmount(line))+" $",timerReadOnly:true});
+    }
+  }
+  const entries=storedEntries.concat(timerEntries).sort((a,b)=>
     String(b.createdAt||"").localeCompare(String(a.createdAt||"")) ||
     String(b.id||"").localeCompare(String(a.id||"")));
   const cards=entries.map(note=>{
@@ -7831,18 +7914,18 @@ function jlWoRenderNotes(wo){
       +'<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><b>'+name+'</b>'
       +'<span class="muted" style="font-size:12px">'+escapeHTML(jlWoDate(note.createdAt))+changed+'</span></div>'
       +'<div style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px">'+body+'</div>'
-      +(own&&woCanEditNotes(wo)?'<button type="button" class="ghost" data-jl-note-edit="'+id+'" style="margin-top:6px">✏️ Modifier</button>':'')
+      +(own&&!note.timerReadOnly&&woCanEditNotes(wo)?'<button type="button" class="ghost" data-jl-note-edit="'+id+'" style="margin-top:6px">✏️ Modifier</button>':'')
       +'</div>';
   });
   // Les notes originales n'ont pas d'auteur individuel connu : ne jamais en inventer un.
-  if(String(wo.notes||"").trim())cards.push(
+  if(legacy.trim())cards.push(
     '<div class="card" style="margin:8px 0;padding:12px"><b>Anciennes notes techniques</b>'
     +'<div class="muted" style="font-size:12px">Historique antérieur au nouveau module</div>'
     +'<div style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px">'
-    +escapeHTML(wo.notes)+'</div></div>');
+    +escapeHTML(legacy.trim())+'</div></div>');
   list.innerHTML=cards.join("")||'<div class="muted">Aucune note enregistrée.</div>';
   const count=document.getElementById("jlWoNotesCount");
-  if(count)count.textContent=entries.length+" note"+(entries.length>1?"s":"")+(String(wo.notes||"").trim()?" + anciennes notes":"");
+  if(count)count.textContent=entries.length+" note"+(entries.length>1?"s":"")+(legacy.trim()?" + anciennes notes":"");
 }
 function jlWoInitNotes(wo){
   const field=document.getElementById("jlWoNewNote");
@@ -8120,7 +8203,7 @@ function woAddPartLine(wo) {
       <div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:8px;">
         <b>${partIcon(p.category)} ${p.name}</b> <span class="muted">#${p.number || ""}</span><br>
         <span class="muted">Catégorie : ${p.category || "Divers"}</span><br>
-        <span class="muted">Stock : ${stock}</span><br>
+        ${JL_STOCK_ENABLED?`<span class="muted">Stock : ${stock}</span><br>`:""}
         <span class="muted">Coûtant : ${money(p.cost || 0)} $</span><br>
         <span class="muted">Vente : ${money(p.price || 0)} $</span><br>
         <button class="ghost" data-wo-part-index="${idx}">➕ Utiliser pour ce bon</button>
@@ -8141,7 +8224,7 @@ function woAddPartLine(wo) {
       if (!qty || qty <= 0) return;
 
       const stock = Number(part.qty || 0);
-      if (qty > stock) {
+      if (JL_STOCK_ENABLED && qty > stock) {
         alert("Attention : la quantité demandée dépasse le stock actuel (" + stock + ").");
       }
 
@@ -8156,7 +8239,7 @@ function woAddPartLine(wo) {
         total: qty * Number(part.price || 0)
       });
 
-      persistActiveWO(wo);
+      if(persistActiveWO(wo)===false){wo.parts.pop();woRenderLines(wo);return;}
       woRenderLines(wo);
 
       modal.style.display = "none";
@@ -8232,7 +8315,7 @@ function woAddLaborLine(wo) {
         total: hours * rate
       });
 
-      persistActiveWO(wo);
+      if(persistActiveWO(wo)===false){wo.labor.pop();woRenderLines(wo);return;}
       woRenderLines(wo);
 
       modal.style.display = "none";
@@ -8296,7 +8379,7 @@ function woRenderLines(wo) {
   }).join("");
   // Edition directe des cellules des pièces (BT), si modifications autorisées.
   if(woCanEditFinancials(wo))pBody.querySelectorAll("tr").forEach((row,i)=>{
-    [0,1,2,3,4,7].forEach(column=>{
+    [0,1,2,3,4,5].forEach(column=>{
       const cell=row.cells[column];if(!cell)return;
       cell.style.cursor="pointer";cell.tabIndex=0;cell.title="Cliquer pour modifier";
       cell.addEventListener("click",()=>woInlineEditLine(wo.id,"part",i,column));
@@ -8345,7 +8428,7 @@ if (manualLaborSave){
       total: hours * rate
     });
 
-    persistActiveWO(wo);
+    if(persistActiveWO(wo)===false){wo.labor.pop();woRenderLines(wo);return;}
     woRenderLines(wo);
 
     // reset + fermer
@@ -8379,7 +8462,7 @@ lBody.innerHTML = wo.labor.map((l,i)=>{
 
       <!-- ✅ NOUVELLE COLONNE PROFIT -->
       <td style="color:#4CAF50;">
-        ${money(total)} $ <span class="muted">(100%)</span>
+        ${money(total)} $ <span class="muted">${total>0?"(100%)":"(—)"}</span>
       </td>
 
       <td>
@@ -8524,7 +8607,7 @@ function woInlineEditLine(woId,type,index,focusColumn=0){
     input.setAttribute("aria-label",key);
     if(type==="number"){input.step=key==="qty"||key==="hours"?"any":"0.01";input.min=key==="qty"||key==="hours"?"0.01":"0";}
     input.style.cssText="width:100%;min-width:65px;box-sizing:border-box;padding:6px";
-    row.cells[isPart&&key==="supplier"?7:j].replaceChildren(input);
+    row.cells[isPart?[0,1,3,4,5,2][j]:j].replaceChildren(input);
     if(key==="supplier"){input.maxLength=80;input.setAttribute("list","jlSupplierChoices");}
     return input;
   });
@@ -8532,7 +8615,9 @@ function woInlineEditLine(woId,type,index,focusColumn=0){
   const ok=document.createElement("button"),cancel=document.createElement("button");
   ok.type="button";ok.textContent="✓";ok.title="Confirmer";
   cancel.type="button";cancel.textContent="Annuler";cancel.className="ghost";
-  actions.replaceChildren(ok,cancel);
+  const actionGroup=document.createElement('div');
+  actionGroup.className='jl-wo-inline-actions';
+  actionGroup.append(ok,cancel);actions.replaceChildren(actionGroup);
   function finishCancel(){woInlineEditing=false;woRenderLines(wo);}
   function confirm(){
     if(!woCanEditFinancials(wo)){alert("Ce BT n'est plus modifiable.");finishCancel();return;}
@@ -8573,7 +8658,7 @@ function woInlineEditLine(woId,type,index,focusColumn=0){
     if(event.key==="Enter" && !event.isComposing){event.preventDefault();event.stopPropagation();confirm();}
     if(event.key==="Escape"){event.preventDefault();event.stopPropagation();finishCancel();}
   }));
-  controls[isPart&&focusColumn===7?5:Math.min(focusColumn,controls.length-1)].focus();
+  controls[isPart?([0,1,5,2,3,4][focusColumn]??0):Math.min(focusColumn,controls.length-1)].focus();
 }
 function woEditLine(woId, type, index) {
   const wo = getActiveWOById(woId);
@@ -8654,16 +8739,16 @@ function woEditLine(woId, type, index) {
 function woRemovePart(woId,index){
   const wo = getActiveWOById(woId);
   if (!wo || !woRequireFinancialEdit(wo)) return;
-  wo.parts.splice(index,1);
-  persistActiveWO(wo);
+  const removed=wo.parts.splice(index,1);
+  if(persistActiveWO(wo)===false)wo.parts.splice(index,0,...removed);
   woRenderLines(wo);
 }
 
 function woRemoveLabor(woId,index){
   const wo = getActiveWOById(woId);
   if (!wo || !woRequireFinancialEdit(wo)) return;
-  wo.labor.splice(index,1);
-  persistActiveWO(wo);
+  const removed=wo.labor.splice(index,1);
+  if(persistActiveWO(wo)===false)wo.labor.splice(index,0,...removed);
   woRenderLines(wo);
 }
 
@@ -9267,7 +9352,13 @@ invoice.subTotal = invoice.items.reduce(
 // S04 audit final : reutiliser le calcul fiscal central de la facture.
 // Evite une TVQ calculee sur TPS+montant alors que le resume
 // et les corrections ulterieures utilisent la base taxable seule.
-recalcInvoice(invoice);
+const confirmedTaxes = CLOUD_LAST_CONFIRMED_SNAPSHOT?.settings;
+  if (!confirmedTaxes || ![confirmedTaxes.gst, confirmedTaxes.qst].every(v =>
+      v !== null && v !== undefined && String(v).trim() !== "" &&
+      Number.isFinite(Number(v)) && Number(v) >= 0 && Number(v) <= 100)) {
+    throw Error("Taux de taxes du garage non confirmés : actualise avant de terminer le BT.");
+  }
+  recalcInvoice(invoice, false, confirmedTaxes);
 
   // S10 : transaction atomique pour le proprietaire du garage actif.
   // Les autres roles conservent temporairement le parcours existant.
@@ -9418,6 +9509,8 @@ function openWorkOrderDetail(wo){
         <thead>
           <tr>
             <th>Description</th>
+            <th># pièce</th>
+            <th class="jl-supplier-internal">Fournisseur</th>
             <th>Qté</th>
             <th>Coûtant</th>
             <th>Vente</th>
@@ -9457,12 +9550,7 @@ function openWorkOrderDetail(wo){
 
     <div class="card">
   <h3>Notes techniques</h3>
-
-  <textarea 
-    id="woNotes"
-    placeholder="Notes du bon de travail..."
-    style="min-height:120px;"
-  >${escapeHTML(wo.notes || "")}</textarea>
+  <div id="jlWoNotesHistory"></div>
 </div>
 
 <!-- PHOTOS & FICHIERS -->
@@ -9543,6 +9631,7 @@ function openWorkOrderDetail(wo){
 
   // rendu des lignes
   woRenderLines(wo);
+  jlWoRenderNotes(wo);
 
   // 🔥 RENDU PHOTOS & FICHIERS
 initWorkOrderAttachments(wo);
@@ -9638,8 +9727,7 @@ if (typeof calcWorkOrderProfit === "function") {
 // demandees explicitement sur facture impayee activent les commandes financieres.
 function woCanStartClosedEdit(wo){
   const inv = woLinkedInvoice(wo);
-  return wo?.status === "termine" && !!inv && inv.status === "unpaid" &&
-    !woInvoiceHasPayment(inv) && CLOUD_DATA_READY && !CLOUD_SYNC_FAILED;
+  return ["termine","billed"].includes(wo?.status) && !!inv && (invoiceMayEditFinancials(inv)||invoiceMayCorrectPartial(inv)) && CLOUD_DATA_READY && !CLOUD_SYNC_FAILED;
 }
 function applyClosedWOControls(wo,detail){
   if (!detail || wo?.status === "en_cours" && !woLinkedInvoice(wo)) return;
@@ -9648,9 +9736,10 @@ function applyClosedWOControls(wo,detail){
     // S04-F14-Fix : permettre la saisie des formulaires de pieces et services
     // UNIQUEMENT en mode correction de la facture impayee.
     // Le KM, la description historique et les fichiers restent verrouilles.
-    const financialField = Boolean(el.closest("#woManualPartBox, #woManualLaborBox"));
+    const financialField = Boolean(el.closest("#woManualPartBox, #woManualLaborBox, #woPartsTable, #woLaborTable"));
+    const metadataField = ["woKmInput","woDescriptionEdit"].includes(el.id) && ["unpaid","partial"].includes(woLinkedInvoice(wo)?.status) && CLOUD_DATA_READY && !CLOUD_SYNC_FAILED;
     const allowedNote = el.id === "jlWoNewNote" && woCanEditNotes(wo);
-    el.disabled = !(allowedNote || (isEditing && financialField));
+    el.disabled = !(allowedNote || metadataField || (isEditing && financialField));
   });
   const editBtn = detail.querySelector("#woEditClosedBtn");
   const finishBtn = detail.querySelector("#woFinishClosedEditBtn");
@@ -9678,7 +9767,7 @@ function beginClosedWOEdit(woId){
   const wo = WORKORDERS.find(w=>String(w.id)===String(woId));
   loadInvoices();
   if (!wo || !woCanStartClosedEdit(wo)) {
-    alert("Modification indisponible : facture payée, partiellement payée ou synchronisation bloquée.");
+    alert("Modification indisponible : facture payée, paiements incohérents ou synchronisation bloquée.");
     return;
   }
   if (!woInvoiceMatchesWO(wo,woLinkedInvoice(wo))) {
@@ -9686,12 +9775,14 @@ function beginClosedWOEdit(woId){
     return;
   }
   window.__woClosedEditId = String(wo.id);
+  woRenderLines(wo);
   applyClosedWOControls(wo,document.getElementById("woDetailContent"));
 }
 function endClosedWOEdit(woId){
   const wo = WORKORDERS.find(w=>String(w.id)===String(woId));
   if (!wo) return;
   window.__woClosedEditId = null;
+  woRenderLines(wo);
   applyClosedWOControls(wo,document.getElementById("woDetailContent"));
 }
 
@@ -9970,7 +10061,7 @@ const statusLabel =
 
     <table id="woLaborTable" style="margin-top:10px;">
       <thead>
-        <tr><th>Description</th><th>Heures</th><th>Taux</th><th>Total</th><th></th></tr>
+        <tr><th>Description</th><th>Heures</th><th>Taux</th><th>Total</th><th>Profit</th><th></th></tr>
       </thead>
       <tbody></tbody>
     </table>
@@ -10100,7 +10191,17 @@ setTimeout(() => {
   if (!kmInput) return;
 
   const saveKm = () => {
-    if (woReadOnly) return;
+    if (woReadOnly) {
+      const inv=woLinkedInvoice(wo);
+      const km=Number(kmInput.value);
+      if (!inv || !["unpaid","partial"].includes(inv.status) || !CLOUD_DATA_READY || CLOUD_SYNC_FAILED || !Number.isSafeInteger(km) || km<=0) return;
+      if(Number(wo.vehicleKm)===km && Number(inv.vehicleKm)===km)return;
+      wo.vehicleKm=km;inv.vehicleKm=km;
+      localStorage.setItem(STORAGE.workorders,JSON.stringify(WORKORDERS));
+      localStorage.setItem(STORAGE.invoices,JSON.stringify(INVOICES));
+      scheduleCloudSync();
+      return;
+    }
     syncKmEverywhereFromWO(wo, kmInput.value);
 
     // 🔥 INVALIDATION CACHE VÉHICULES (OBLIGATOIRE)
@@ -10131,6 +10232,15 @@ setTimeout(() => {
 }, 0);
 
     
+    const descriptionField=$("woDescriptionEdit");
+    if(woReadOnly && descriptionField)descriptionField.addEventListener("change",()=>{
+      const inv=woLinkedInvoice(wo);
+      if(!inv || !["unpaid","partial"].includes(inv.status) || !CLOUD_DATA_READY || CLOUD_SYNC_FAILED)return;
+      const value=descriptionField.value.trim();
+      if(value===String(wo.description||""))return;
+      wo.description=value;
+      saveWorkOrders();
+    });
     woRenderLines(wo);
     initWorkOrderAttachments(wo);
 
@@ -10173,7 +10283,7 @@ wo.parts.push({
 });
 
     // TEST #22E : recalculer le total AVANT la sauvegarde
-persistActiveWO(wo);
+if(persistActiveWO(wo)===false){wo.parts.pop();woRenderLines(wo);return;}
 woRenderLines(wo);
 
     // reset + fermer
@@ -11251,6 +11361,7 @@ function findInventoryPartFromText(text){
 
   
 function adjustStockForLinkedItem(item, deltaQty){
+  if(!JL_STOCK_ENABLED)return;
   if(!item || !item.invNumber) return;
   const num = String(item.invNumber);
   const part = PARTS.find(p=>String(p.number)===num);
@@ -11264,6 +11375,7 @@ function adjustStockForLinkedItem(item, deltaQty){
 
   
 function linkNewItemToInventory(item){
+  if(!JL_STOCK_ENABLED)return true;
   if(!item || !item.desc || !item.type || !item.type.toLowerCase().includes('pièce')) return;
   const part = findInventoryPartFromText(item.desc);
   if(!part) return;
@@ -12658,7 +12770,7 @@ function renderParts_OLD_DO_NOT_USE(){
       <h3 style="margin-bottom:10px;color:var(--accent);">${PART_ICONS[p.category] || "📦"} ${p.name}</h3>
       <div class="small"># Pièce : <b>${p.number||''}</b></div>
       <div class="small">Catégorie : <b>${p.category||'Divers'}</b></div>
-      <div class="small">Stock : <b>${p.qty}</b></div>
+      ${JL_STOCK_ENABLED?`<div class="small">Stock : <b>${p.qty}</b></div>`:""}
       <div class="small">Coût : <b>${money(p.cost)} $</b></div>
       <div class="small">Prix : <b>${money(p.price)} $</b></div>
       <div class="small">Marge : <b>${profit}%</b></div>
@@ -12690,7 +12802,7 @@ function renderParts_OLD_DO_NOT_USE(){
       const newName=prompt("Nom de la pièce :",p.name)||p.name;
       const newNumber=prompt("Numéro de pièce :",p.number||"")||p.number;
       const newCat=prompt("Catégorie :",p.category||'Divers')||p.category||'Divers';
-      const newQty=Number(prompt("Quantité :",p.qty)||p.qty);
+      const newQty=JL_STOCK_ENABLED?Number(prompt("Quantité :",p.qty)||p.qty):p.qty;
       const newCost=Number(prompt("Prix coûtant :",p.cost)||p.cost);
       const newPrice=Number(prompt("Prix de vente :",p.price)||p.price);
       PARTS[id]={name:newName,number:newNumber,category:newCat,qty:newQty,cost:newCost,price:newPrice};
@@ -12704,13 +12816,11 @@ function renderParts_OLD_DO_NOT_USE(){
       const p=PARTS[id];
       if(!p) return;
       const currentQty=Number(p.qty||0);
-      if(currentQty<=0){
+      if(JL_STOCK_ENABLED && currentQty<=0){
         alert("Stock insuffisant pour cette pièce.");
         return;
       }
-      p.qty=currentQty-1;
-      saveParts();
-      renderDashboard();
+      if(JL_STOCK_ENABLED){p.qty=currentQty-1;saveParts();renderDashboard();}
       const newItem={
         type:"Pièce (Inventaire)",
         desc:`${p.name} (#${p.number})`,
@@ -12746,7 +12856,7 @@ function initPartsModule(){
       return;
     }
 
-    if (qty < 0){
+    if (JL_STOCK_ENABLED && qty < 0){
       alert("Quantité invalide");
       return;
     }
@@ -12956,7 +13066,7 @@ function renderServicesList(){
 let S07_PART_SORT_KEY="name";
 let S07_PART_SORT_DIRECTION="asc";
 function s07SortPartsBy(key){
-  const allowed=["name","number","category","qty","cost","price","margin"];
+  const allowed=["name","number","category",...(JL_STOCK_ENABLED?["qty"]:[]),"cost","price","margin"];
   if(!allowed.includes(key))return;
   if(S07_PART_SORT_KEY===key){
     S07_PART_SORT_DIRECTION=S07_PART_SORT_DIRECTION==="asc"?"desc":"asc";
@@ -12968,6 +13078,8 @@ function s07SortPartsBy(key){
 }
 function renderPartsList(){
   const list = $("partsInventoryList");
+  if($("jlStockField"))$("jlStockField").style.display=JL_STOCK_ENABLED?"":"none";
+  if (!JL_STOCK_ENABLED && S07_PART_SORT_KEY==="qty") S07_PART_SORT_KEY="name";
   if (!list) return;
 
   const search = $("partInvSearch")?.value || "";
@@ -12976,7 +13088,7 @@ function renderPartsList(){
   list.innerHTML = "";
 
   const filtered = PARTS.filter(p=>{
-    if (search && !moduleMatchesSearch([p.name,p.number,p.category,p.qty,p.cost,p.price],search)) return false;
+    if (search && !moduleMatchesSearch([p.name,p.number,p.category,...(JL_STOCK_ENABLED?[p.qty]:[]),p.cost,p.price],search)) return false;
     if (category && p.category !== category) return false;
     return true;
   });
@@ -12994,7 +13106,7 @@ function renderPartsList(){
   );
   // S07-F09a : mêmes colonnes et dimensions pour toutes les pièces.
   // Ne modifier que le rendu : recherche, tri, stock et actions restent intacts.
-  const colStyle="display:grid;grid-template-columns: minmax(185px,2fr) minmax(110px,1.1fr) minmax(115px,1.1fr) 75px 100px 100px 85px minmax(305px,auto);gap:12px;align-items:center;min-width:1180px;";
+  const colStyle="display:grid;grid-template-columns: minmax(185px,2fr) minmax(110px,1.1fr) minmax(115px,1.1fr) "+(JL_STOCK_ENABLED?"75px ":"")+"100px 100px 85px minmax(305px,auto);gap:12px;align-items:center;min-width:"+(JL_STOCK_ENABLED?"1180":"1093")+"px;";
   list.style.overflowX="auto";
   const header=(key,label,align="left")=>{
     const active=S07_PART_SORT_KEY===key;
@@ -13003,7 +13115,7 @@ function renderPartsList(){
   };
   list.innerHTML=`<div style="${colStyle}padding:10px 8px;background:#333;border-radius:6px;font-weight:700;color:var(--accent);">
     ${header("name","Nom")}${header("number","No pièce")}${header("category","Catégorie")}
-    ${header("qty","Stock","right")}${header("cost","Coûtant","right")}${header("price","Vente","right")}
+    ${JL_STOCK_ENABLED?header("qty","Stock","right"):""}${header("cost","Coûtant","right")}${header("price","Vente","right")}
     ${header("margin","Marge","right")}<span style="text-align:right">Actions</span>
   </div>`;
   sorted.forEach(p=>{
@@ -13013,7 +13125,7 @@ function renderPartsList(){
         <strong style="color:var(--accent);overflow-wrap:anywhere">${escapeHTML(p.name||"")}</strong>
         <span style="overflow-wrap:anywhere">${escapeHTML(p.number||"—")}</span>
         <span>${escapeHTML(p.category||"—")}</span>
-        <span style="text-align:right;white-space:nowrap">${Number(p.qty||0)}</span>
+        ${JL_STOCK_ENABLED?`<span style="text-align:right;white-space:nowrap">${Number(p.qty||0)}</span>`:""}
         <span style="text-align:right;white-space:nowrap">${money(p.cost)} $</span>
         <span style="text-align:right;white-space:nowrap">${money(p.price)} $</span>
         <span style="text-align:right;white-space:nowrap">${calcMargin(p.cost,p.price)}%</span>
@@ -13388,10 +13500,10 @@ function renderPartPicker() {
         <b>${partIcon(p.category)} ${p.name}</b> (#${p.number})<br>
         Catégorie : ${p.category}<br>
         Prix : ${money(p.price)} $<br>
-        Stock : ${p.qty}<br>
+        ${JL_STOCK_ENABLED?`Stock : ${p.qty}<br>`:""}
 
         <label style="font-size:0.8rem; color:var(--muted);">Quantité :</label>
-        <input type="number" min="1" max="${p.qty}" value="1"
+        <input type="number" min="1" ${JL_STOCK_ENABLED?`max="${p.qty}"`:""} value="1"
                id="qty_${p.number}"
                style="width:70px; padding:4px; margin-top:4px; background:#111; color:white; border:1px solid var(--border); border-radius:4px;">
 
@@ -13418,15 +13530,13 @@ let qtyToAdd = Number(qField?.value || 1);
 if (qtyToAdd < 1) qtyToAdd = 1;
 
 // Vérifie stock
-if (part.qty < qtyToAdd) {
+if (JL_STOCK_ENABLED && part.qty < qtyToAdd) {
     alert("Stock insuffisant. Disponible : " + part.qty);
     return;
 }
 
 // Décrémente le stock
-part.qty -= qtyToAdd;
-saveParts();
-renderDashboard();
+if(JL_STOCK_ENABLED){part.qty -= qtyToAdd;saveParts();renderDashboard();}
 
 // Ajoute dans la facture
 items.push({
@@ -13516,7 +13626,7 @@ function historyInvoiceValue(inv,key){
     case "total":return Number(inv.total)||0;
     case "profit":{
       const wo=WORKORDERS.find(w=>String(w.number)===String(inv.workOrderNumber));
-      return wo?calcWorkOrderProfit(wo):0;
+      return jlActualInvoiceProfit(inv,wo);
     }
     default:return "";
   }
@@ -13557,7 +13667,7 @@ function renderHistoryTable(){
         String(w.number) === String(inv.workOrderNumber)
       );
 
-      const profit = wo ? calcWorkOrderProfit(wo) : 0;
+      const profit = jlActualInvoiceProfit(inv,wo);
 
       totalFacture += Number(inv.total || 0);
       totalProfit += Number(profit || 0);
@@ -13612,13 +13722,12 @@ function renderHistoryTable(){
 }
 
 
-  // S04 audit : un BT n'entre dans l'historique definitif que lorsque
-  // sa facture liee est payee ET archivee. Aucune mutation des donnees.
+  // Stabilisation : un BT payé est consultable immédiatement, sans attendre l’archivage de la facture.
   function isWorkOrderArchivedInHistory(wo, invoices = INVOICES){
     if (!wo || !wo.number || !["termine","billed"].includes(wo.status)) return false;
     return Array.isArray(invoices) && invoices.some(inv =>
       String(inv.workOrderNumber) === String(wo.number) &&
-      inv.status === "paid" && inv.archived === true
+      inv.status === "paid"
     );
   }
 
@@ -13888,6 +13997,12 @@ function jlScheduleMonthStart(){
   return first;
 }
 function jlScheduleISO(date){return jlCalendarISO(date);}
+function jlQuoteLinkedWorkOrder(q){
+  if(!q||q.status!=="converted"||!Array.isArray(WORKORDERS))return null;
+  return WORKORDERS.find(w=>String(w.sourceQuoteId||"")===String(q.id)||String(w.sourceQuoteNumber||"")===String(q.quote_number)|| (q.converted_bt_id&&[w.id,w.number].some(v=>String(v)===String(q.converted_bt_id))))||null;
+}
+function jlQuoteCompleted(q){const wo=jlQuoteLinkedWorkOrder(q);return !!wo&&(["termine","billed"].includes(wo.status)||INVOICES.some(i=>String(i.workOrderNumber)===String(wo.number)&&i.status==="paid"));}
+function jlQuoteArchived(q){const wo=jlQuoteLinkedWorkOrder(q);return ["declined","expired"].includes(q.status)||!!wo&&INVOICES.some(i=>String(i.workOrderNumber)===String(wo.number)&&i.status==="paid");}
 function jlScheduleJobsFor(date){
   return jlScheduleQuotes.filter(q=>q.content?.appointment?.date===date)
     .sort((a,b)=>String(a.content.appointment.time||"").localeCompare(String(b.content.appointment.time||"")));
@@ -14322,7 +14437,7 @@ function jlScheduleDayRender(){
     const link=document.createElement("button");link.type="button";
     const first=document.createElement("strong"),desc=document.createElement("span");
     first.textContent=String(ap.time||"—")+" · "+String(q.quote_number||"SO")+" · "+
-      String(q.content.clientName||"Client");
+      String(q.content.clientName||"Client")+(jlQuoteCompleted(q)?" · ✓ Terminé":"");
     desc.textContent="\n"+[q.content.vehicleLabel,q.content.description].filter(Boolean).join(" · ");
     link.append(first,desc);
     link.addEventListener("click",()=>jlAppointmentOpen(q));
@@ -14331,7 +14446,7 @@ function jlScheduleDayRender(){
     edit.textContent="Modifier / annuler";edit.addEventListener("click",()=>jlAppointmentOpen(q));
     const quote=document.createElement("button");quote.type="button";quote.className="ghost";
     quote.textContent="Soumission";quote.addEventListener("click",()=>jlDashboardOpenQuote(q.id));
-    actions.append(edit,quote);entry.append(link,actions);jobs.append(entry);
+    if(jlQuoteCompleted(q)){link.disabled=true;actions.append(quote);entry.style.opacity=".7";}else actions.append(edit,quote);entry.append(link,actions);jobs.append(entry);
   }
   if(!jobs.childElementCount)jlScheduleText(jobs,jlScheduleLoaded?
     "Aucun travail planifié.":"Travaux en cours de chargement.");
@@ -14411,7 +14526,8 @@ function jlScheduleRender(){
     for(const q of visibleJobs){
       const el=document.createElement("button");el.type="button";
       el.className="jl-schedule-mini work";
-      el.textContent=String(q.content.appointment.time||"—")+" · "+String(q.content.clientName||"Client");
+      el.textContent=String(q.content.appointment.time||"—")+" · "+String(q.content.clientName||"Client")+(jlQuoteCompleted(q)?" · ✓ Terminé":"");
+      if(jlQuoteCompleted(q)){el.style.opacity=".7";el.disabled=true;}
       el.title=String(q.quote_number||"SO")+" · "+String(q.content.description||"");
       el.addEventListener("click",()=>jlAppointmentOpen(q));cell.append(el);
     }
@@ -14470,7 +14586,7 @@ async function jlScheduleLoad(){
     if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
     const [quotesResult,notesResult,eventsResult]=await Promise.all([
       db.from("garage_quotes")
-        .select("id,quote_number,status,created_at,content")
+        .select("id,quote_number,status,created_at,content,converted_bt_id")
         .eq("garage_id",ACTIVE_GARAGE_ID)
         .in("status",["sent","converted"])
         .order("created_at",{ascending:false}).limit(1000),
@@ -14636,6 +14752,7 @@ function jlScheduleEventConflict(){
   };
   const eventConflicts=candidates.filter(e=>overlaps(candidate,e)).length;
   const jobConflicts=jlScheduleQuotes.filter(q=>{
+    if(jlQuoteCompleted(q))return false;
     const ap=q.content?.appointment||{},date=String(ap.date||"");
     if(date<candidate.start_date||date>candidate.end_date)return false;
     if(candidate.all_day||candidate.start_date!==candidate.end_date)return true;
@@ -15270,7 +15387,8 @@ function jlDayAgendaRender(){
     time.textContent=(start||"—")+finish;
     const open=document.createElement("button");open.type="button";
     const title=document.createElement("strong");
-    title.textContent=String(q.quote_number||"SO")+" · "+String(q.content.clientName||"Client");
+    title.textContent=String(q.quote_number||"SO")+" · "+String(q.content.clientName||"Client")+(jlQuoteCompleted(q)?" · ✓ Terminé":"");
+    if(jlQuoteCompleted(q))open.disabled=true;
     const description=document.createElement("span");description.style.display="block";
     description.textContent=[q.content.vehicleLabel,q.content.description].filter(Boolean).join(" · ");
     open.append(title,description);
@@ -15443,7 +15561,8 @@ function jlCalendarRender(){
       const vehicle=String(q.content.vehicleLabel||"").trim().split(/\s+/).slice(0,4).join(" ");
       const description=String(q.content.description||"").trim()||"Travail non précisé";
       const heading=document.createElement("strong");
-      heading.textContent=String(ap.time||"—")+" · "+String(q.content.clientName||"Client");
+      heading.textContent=String(ap.time||"—")+" · "+String(q.content.clientName||"Client")+(jlQuoteCompleted(q)?" · ✓ Terminé":"");
+      if(jlQuoteCompleted(q)){event.style.opacity=".7";event.disabled=true;}
       const work=document.createElement("span");
       work.textContent=description;
       work.style.cssText="display:block;margin-top:3px;font-weight:600;color:var(--accent);";
@@ -15540,7 +15659,7 @@ async function dashboardRefreshPendingQuotes(){
     // Lire les deux statuts : la conversion garde le rendez-vous sur la SO
     // d'origine, même si la date n'est pas encore copiée dans le BT.
     const {data:rows,error}=await db.from("garage_quotes")
-      .select("id,quote_number,created_at,status,content")
+      .select("id,quote_number,created_at,status,content,converted_bt_id")
       .eq("garage_id",ACTIVE_GARAGE_ID)
       
       .in("status",["sent","converted"])
@@ -15654,7 +15773,7 @@ const revenue = archivedInvoices.reduce(
   let vehiclesCount=0;
   CLIENTS.forEach(c=>vehiclesCount+=(c.vehicles||[]).length);
   const partsCount=PARTS.reduce((s,p)=>s+Number(p.qty||0),0);
-  const lowStock=PARTS.filter(p=>Number(p.qty||0)<=2).length;
+  const lowStock=JL_STOCK_ENABLED?PARTS.filter(p=>Number(p.qty||0)<=2).length:0;
 
   // === WORK ORDERS EN COURS ===
 const woInProgressCount = WORKORDERS.filter(
@@ -15680,7 +15799,7 @@ const paidWorkOrders = WORKORDERS.filter(wo => {
 });
 
 const totalProfit = paidWorkOrders.reduce((sum, wo) => {
-  return sum + calcWorkOrderProfit(wo);
+  return sum + jlActualInvoiceProfit(INVOICES.find(inv=>String(inv.workOrderNumber)===String(wo.number)&&inv.status==='paid'),wo);
 }, 0);
 
 
@@ -16197,6 +16316,13 @@ function renderMonthlyRevenueChart(){
 
   /* ===================== Ouvrir WO a partir du Dashboard ===================== */
 function openWorkOrderFromDashboard(id){
+  loadWorkOrders();
+  loadInvoices();
+  const target=WORKORDERS.find(w=>String(w.id)===String(id));
+  if(target && isWorkOrderArchivedInHistory(target)){
+    openWorkOrderReadOnly(target.id);
+    return;
+  }
   showPage("page-workorders");
   setTimeout(()=>{
     const row=Array.from(document.querySelectorAll("#woTable tbody tr[data-id]"))
@@ -16269,7 +16395,7 @@ if (clientObj && Array.isArray(clientObj.vehicles)){
   paymentsHtml += `
     <tr>
       <td>${i+1}</td>
-      <td>${p.date}</td>
+      <td>${escapeHTML(String(p.date||'').slice(0,10))}</td>
       <td>${invoicePaymentMethodLabel(p.method)}</td>
       <td style="text-align:right;">${money(p.amount)} $</td>
     </tr>
@@ -16295,7 +16421,7 @@ if (clientObj && Array.isArray(clientObj.vehicles)){
 
 // Encaisser le solde reste permis apres paiement PARTIEL.
 const isLocked = inv.status === "paid" || inv.archived === true;
-const financialLocked = !invoiceMayEditFinancials(inv);
+const financialLocked = !(invoiceMayEditFinancials(inv)||invoiceMayCorrectPartial(inv));
 const paymentWarning = invoicePaymentMismatch(inv);
 
   
@@ -16612,11 +16738,14 @@ if (financialLocked){
   if (qstBox) qstBox.checked = (inv.applyQST !== false);
 
   const applyAndRefresh = () => {
-    if (!invoiceMayEditFinancials(inv)) return;
-    if (gstBox) inv.applyGST = !!gstBox.checked;
-    if (qstBox) inv.applyQST = !!qstBox.checked;
-
-    recalcInvoice(inv);
+    const next=invoiceCorrectionCandidate(inv,{applyGST:gstBox?!!gstBox.checked:inv.applyGST,applyQST:qstBox?!!qstBox.checked:inv.applyQST});
+    if(!next){
+      if(gstBox)gstBox.checked=inv.applyGST!==false;
+      if(qstBox)qstBox.checked=inv.applyQST!==false;
+      s07InvoiceStatus("Correction refusée : le solde doit rester positif après les paiements.","#ff8080");
+      return;
+    }
+    Object.assign(inv,next);
     if(!s07SaveInvoiceSettings())return;
 
     // ✅ update visuel immédiat
@@ -16632,11 +16761,15 @@ if (financialLocked){
 
 if (discountInput && discountType){
   const onDiscountChange = () => {
-    if (!invoiceMayEditFinancials(inv)) return;
-    inv.discountValue = Number(discountInput.value || 0);
-    inv.discountType  = discountType.value;
-
-    recalcInvoice(inv);
+    const value=Number(discountInput.value||0);
+    const next=Number.isFinite(value)&&value>=0?invoiceCorrectionCandidate(inv,{discountValue:value,discountType:discountType.value}):null;
+    if(!next){
+      discountInput.value=String(inv.discountValue||0);
+      discountType.value=inv.discountType||"amount";
+      s07InvoiceStatus("Escompte refusé : le solde doit rester positif après les paiements.","#ff8080");
+      return;
+    }
+    Object.assign(inv,next);
     if(!s07SaveInvoiceSettings())return;
     renderInvoiceTotals(inv, content);
     renderInvoiceDiscount(inv, content);
@@ -17888,7 +18021,7 @@ function initLinksModule() {
 
   // Nom affiché tel qu'enregistré dans Paramètres (sans suffixe ajouté).
   function updateGarageNameUI(){
-    const name=String(SETTINGS.garageName||"").trim()||"Garage";
+    const name=String(SETTINGS.garageName||"").trim().replace(/^Garage\s*-\s*/i,"")||"Garage";
     const title=document.querySelector(".topbar h1");
     if(title)title.textContent=name;
     document.title=name;
@@ -18393,7 +18526,8 @@ clone.querySelectorAll("h3").forEach(h=>{
 .jl-print-body .jl-invoice-preview-table td{padding:6px 6px!important;border-bottom:1px solid #ddd;font-size:10px}
 .jl-print-body .jl-invoice-preview-table th{background:#eee!important;border-bottom:1px solid #bbb}
 .jl-print-body .jl-invoice-preview-table th:nth-last-child(-n+3),
-.jl-print-body .jl-invoice-preview-table td:nth-last-child(-n+3){text-align:right}
+.jl-print-body .jl-invoice-preview-table td:nth-last-child(-n+3){text-align:right;white-space:nowrap}
+.jl-print-body .jl-invoice-preview-table td:first-child{white-space:nowrap}
 .jl-print-body thead{display:table-header-group}
 .jl-print-body tr{break-inside:avoid;page-break-inside:avoid}
 .jl-print-body .jl-invoice-totals-shell{margin:4px 0 0!important;display:block!important}
@@ -18436,9 +18570,9 @@ clone.querySelectorAll("h3").forEach(h=>{
       </style>
     </head>
     <body>
-      <header class="jl-print-header"><span>Garage-Atelier Mécanique J.L</span><span class="jl-print-kind">Facture</span></header>
+      <header class="jl-print-header"><span>Atelier Mécanique J.L</span><span class="jl-print-kind">Facture</span></header>
       <main class="jl-print-body">${clone.innerHTML}</main>
-      <footer class="jl-print-footer"><span>Garage-Atelier Mécanique J.L</span><span>Facture</span></footer>
+      <footer class="jl-print-footer"><span>Atelier Mécanique J.L</span><span>Facture</span></footer>
 </body>
     </html>
   `);
@@ -19366,7 +19500,7 @@ if (window.garageSupabase) {
     }
     cells[9].replaceChildren(confirmButton,cancelButton);
     cells[9].style.whiteSpace="nowrap";
-    ({1:desc,2:partNumber,3:qty,4:cost,5:price,8:supplier})[focusedCell]?.focus();
+    fields.find(([position])=>position===focusedCell)?.[1]?.focus();
   }
   start.addEventListener("click",()=>{
     if(!editor.hidden)return;
@@ -19995,9 +20129,9 @@ if (window.garageSupabase) {
       '.s08-view-total{text-align:right;font-size:16px;font-weight:700;margin:12px 0 5px}'+
       '.muted{color:#555;font-size:10px}button{display:none}'+
       '</style></head><body>'+
-      '<header class="jl-print-header"><span>Garage-Atelier Mécanique J.L</span><span class="jl-print-kind">Soumission</span></header>'+
+      '<header class="jl-print-header"><span>Atelier Mécanique J.L</span><span class="jl-print-kind">Soumission</span></header>'+
       '<main class="jl-print-body">'+noScripts+'</main>'+
-      '<footer class="jl-print-footer"><span>Garage-Atelier Mécanique J.L</span><span>Soumission</span></footer>'+
+      '<footer class="jl-print-footer"><span>Atelier Mécanique J.L</span><span>Soumission</span></footer>'+
       '</body></html>');
     popup.document.close();
     popup.focus();
@@ -20116,7 +20250,7 @@ if (window.garageSupabase) {
         .update({content:newContent,version:Number(q.version)+1,updated_at:new Date().toISOString()})
         .eq("id",q.id).eq("garage_id",garageId).eq("user_id",auth.user.id)
         .eq("status",q.status).eq("version",q.version)
-        .select("id,quote_number,status,version,content,created_at,converted_bt_id").maybeSingle();
+        .select("id,user_id,quote_number,status,version,content,created_at,converted_bt_id").maybeSingle();
       if(error||!updated||Number(updated.version)!==Number(q.version)+1)
         throw Error("Conflit de version : aucune modification confirmée. Rouvre la soumission.");
       selectedQuote=updated;
@@ -20224,7 +20358,7 @@ if (window.garageSupabase) {
       const {data:auth,error:authError}=await db.auth.getUser();
       if(authError||!auth?.user?.id)throw Error("Compte non vérifié");
       const {data:rows,error}=await db.from("garage_quotes")
-        .select("id,quote_number,status,content")
+        .select("id,quote_number,status,content,converted_bt_id")
         .eq("garage_id",ACTIVE_GARAGE_ID)
         .in("status",["draft","sent","converted"])
         .order("created_at",{ascending:false}).limit(500);
@@ -20232,7 +20366,7 @@ if (window.garageSupabase) {
       if(token!==s09BookingsToken||scheduleDate.value!==date)return;
       s09BookingsPartial=rows.length>=500;
       s09Bookings=rows.filter(q=>String(q.id)!==String(selectedQuote?.id)&&
-        q.content?.approvalConfirmedAt&&q.content?.appointment?.date===date)
+        !jlQuoteCompleted(q)&&q.content?.approvalConfirmedAt&&q.content?.appointment?.date===date)
         .sort((a,b)=>String(a.content.appointment.time||"").localeCompare(String(b.content.appointment.time||"")));
       s09DisplayBookings();
     }catch(error){
@@ -20573,8 +20707,8 @@ if (window.garageSupabase) {
     const search=(get("s08QuoteSearch").value||"").toLocaleLowerCase("fr");
     const filter=get("s08QuoteStatus").value;
     const rows=quotes.filter(q=>(
-      filter==="active"?!["declined","expired"].includes(q.status):
-      filter==="archived"?["declined","expired"].includes(q.status):
+      filter==="active"?!jlQuoteArchived(q):
+      filter==="archived"?jlQuoteArchived(q):
       !filter||(
         filter==="approved"?q.status==="sent"&&!!q.content?.approvalConfirmedAt:q.status===filter
       )
@@ -20807,7 +20941,7 @@ function jlHistoryRenderQuotes(){
   if(!table||!count)return;
   table.replaceChildren();
   const search=String(document.getElementById("historySearch")?.value||"").toLocaleLowerCase("fr");
-  const rows=jlHistoryQuotes.filter(q=>["declined","expired"].includes(q.status)).filter(q=>
+  const rows=jlHistoryQuotes.filter(jlQuoteArchived).filter(q=>
     [q.quote_number,q.content?.clientName,q.content?.vehicleLabel,q.content?.description,q.status]
       .join(" ").toLocaleLowerCase("fr").includes(search));
   count.textContent=jlHistoryQuotesLoaded
@@ -20822,7 +20956,7 @@ function jlHistoryRenderQuotes(){
   const statuses={draft:"Brouillon",sent:"Envoyée",converted:"Convertie",declined:"Refusée",expired:"Expirée"};
   for(const q of rows){
     const d=q.content||{},tr=document.createElement("tr");
-    const label=q.status==="sent"&&d.approvalConfirmedAt?"Approuvée":(statuses[q.status]||q.status);
+    const label=q.status==="converted"&&jlQuoteArchived(q)?"Terminée — payée":q.status==="sent"&&d.approvalConfirmedAt?"Approuvée":(statuses[q.status]||q.status);
     const total=Number(d.totalCents);
     const amount=Number.isFinite(total)?(total/100).toLocaleString("fr-CA",{minimumFractionDigits:2,maximumFractionDigits:2})+" $":"—";
     for(const value of [q.quote_number,String(q.created_at||"").slice(0,10),
@@ -20859,9 +20993,9 @@ async function jlHistoryLoadQuotes(){
     const {data:auth,error:authError}=await db.auth.getUser();
     if(authError||!auth?.user?.id)throw Error("Session indisponible");
     const {data,error,count}=await db.from("garage_quotes")
-      .select("id,quote_number,status,created_at,content",{count:"exact"})
+      .select("id,quote_number,status,created_at,content,converted_bt_id",{count:"exact"})
       .eq("garage_id",ACTIVE_GARAGE_ID)
-      .in("status",["declined","expired"])
+      .in("status",["declined","expired","converted"])
       .order("created_at",{ascending:false}).limit(1000);
     if(error)throw error;
     if(token!==jlHistoryQuotesRequest)return;
