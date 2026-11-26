@@ -72,5 +72,21 @@ function applyPayment(inv,asOf,method,amountCents){
   if(plan.fullyPaid)next.paymentMethod=method;
   return {...plan,invoice:next};
 }
-root.JLInvoiceInterestPreview=Object.freeze({calculate,planPayment,applyPayment});
+/* Waive only unpaid interest, retaining the original terms and audit history.
+   A waiver after any interest receipt is deliberately blocked pending refund support. */
+function waiveInterest(inv,asOf,reason){
+  const fail=reason=>({ok:false,reason});
+  if(!inv||inv.status==="paid"||inv.archived===true)return fail("not-payable");
+  const preview=calculate(inv,asOf);
+  if(!preview.eligible)return fail("invalid-interest");
+  if(!String(reason||"").trim())return fail("reason-required");
+  if(inv.interestPayments!=null&&(!Array.isArray(inv.interestPayments)||inv.interestPayments.length))return fail("interest-receipts-exist");
+  const next={...inv,interestTerms:{...inv.interestTerms,waived:true,waivedDate:asOf,waivedReason:String(reason).trim(),waivedInterestCents:preview.interestCents}};
+  if(preview.principalRemainingCents===0){
+    next.status="paid";next.paidDate=asOf;
+    next.paymentMethod=inv.payments?.[inv.payments.length-1]?.method||"unspecified";
+  }
+  return {ok:true,invoice:next};
+}
+root.JLInvoiceInterestPreview=Object.freeze({calculate,planPayment,applyPayment,waiveInterest});
 })(typeof globalThis==="object"?globalThis:window);
