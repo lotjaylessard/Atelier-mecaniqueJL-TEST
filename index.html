@@ -2094,7 +2094,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
               <span class="stat-label">Factures partiellement payées</span><strong class="stat-value" id="statPartialInvoices">0</strong>
             </button>
             <button type="button" class="jl-dashboard-kpi" onclick="dashboardOpenModule('page-workorders')">
-              <span class="stat-label">Work Orders en cours</span><strong class="stat-value" id="statWOInProgress">0</strong>
+              <span class="stat-label">Bons de travail en cours</span><strong class="stat-value" id="statWOInProgress">0</strong>
             </button>
             <button type="button" class="jl-dashboard-kpi" onclick="dashboardOpenModule('page-quotes','sent')">
               <span class="stat-label">Soumissions en attente d'approbation</span><strong class="stat-value" id="statPendingQuotes">—</strong>
@@ -2557,7 +2557,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
                  style="flex:1;min-width:200px;">
           
 <select id="woStatusFilter">
-  <option value="">-- Status --</option>
+  <option value="">Tous les statuts</option>
   <option value="en_cours">En cours</option>
   <option value="termine">Terminé</option>
 </select>
@@ -2633,7 +2633,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
             <tr>
               <th data-module-sort="name" aria-sort="none"><button type="button" class="module-sort-button" onclick="setClientSort('name')">Nom <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
               <th data-module-sort="phone" aria-sort="none"><button type="button" class="module-sort-button" onclick="setClientSort('phone')">Téléphone <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
-              <th data-module-sort="email" aria-sort="none"><button type="button" class="module-sort-button" onclick="setClientSort('email')">Email <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th data-module-sort="email" aria-sort="none"><button type="button" class="module-sort-button" onclick="setClientSort('email')">Courriel <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
               <th data-module-sort="address" aria-sort="none"><button type="button" class="module-sort-button" onclick="setClientSort('address')">Adresse <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
               <th data-module-sort="vehicles" aria-sort="none"><button type="button" class="module-sort-button" onclick="setClientSort('vehicles')">Véhicules <span class="module-sort-arrow" aria-hidden="true">↕</span></button></th>
             </tr>
@@ -6782,6 +6782,13 @@ function payInvoiceWithMethod(number, method){
   
   /* ===================== WORK ORDERS (Bons de travail) ===================== */
 
+function jlCatalogEditableWO(){
+  if($("woDetailCard")?.style.display!=="block")return null;
+  const id=$("woEditId")?.value;
+  if(!id)return null;
+  const wo=WORKORDERS.find(w=>String(w.id)===String(id));
+  return wo && !wo.__fromHistory && CLOUD_DATA_READY && !CLOUD_SYNC_FAILED && woCanEditFinancials(wo)?wo:null;
+}
 function addServiceToCurrentWO(serviceId){
   // 1️⃣ Identifier le WO actuellement ouvert
   const woId = $("woEditId")?.value;
@@ -6790,9 +6797,9 @@ function addServiceToCurrentWO(serviceId){
     return;
   }
 
-  const wo = getActiveWOById(woId);
+  const wo = jlCatalogEditableWO();
   if (!wo) {
-    alert("Bon de travail introuvable.");
+    alert("Aucun bon de travail modifiable ouvert.");
     return;
   }
 
@@ -6832,7 +6839,7 @@ function addServiceToCurrentWO(serviceId){
   alert(`Service "${srv.name}" ajouté au bon de travail.`);
 }
 
-  function addPartToCurrentWO(partIndex){
+  function addPartToCurrentWO(partId){
   // 1️⃣ Identifier le WO actuellement ouvert
   const woId = $("woEditId")?.value;
   if (!woId){
@@ -6840,14 +6847,14 @@ function addServiceToCurrentWO(serviceId){
     return;
   }
 
-  const wo = getActiveWOById(woId);
+  const wo = jlCatalogEditableWO();
   if (!wo){
-    alert("Bon de travail introuvable.");
+    alert("Aucun bon de travail modifiable ouvert.");
     return;
   }
 
-  // 2️⃣ Récupérer la pièce
-  const part = PARTS[partIndex];
+  // 2️⃣ Récupérer la pièce par identifiant stable
+  const part = PARTS.find(p=>String(p.id)===String(partId));
   if (!part) return;
 
   // 3️⃣ Demander la quantité
@@ -13027,7 +13034,7 @@ function renderServicesList(){
     if(["hours","rate"].includes(key))return isFixed(s)?null:Number(s[key]||0);
     return String(s[key]||"");
   });
-  const gridStyle="display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1.4fr) minmax(0,1fr) minmax(0,.65fr) minmax(0,.6fr) minmax(0,.8fr) minmax(0,.85fr) minmax(350px,2.35fr);gap:8px;align-items:center;width:100%;box-sizing:border-box;";
+  const gridStyle="display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1.4fr) minmax(0,1fr) minmax(0,.65fr) minmax(0,.6fr) minmax(0,.8fr) minmax(0,.85fr) "+(jlCatalogEditableWO()?"minmax(260px,1.8fr)":"minmax(125px,.85fr)")+";gap:8px;align-items:center;width:100%;box-sizing:border-box;";
   const header=(key,label,align="left")=>{
     const active=S07_SERVICE_SORT_KEY===key;
     const arrow=active?(S07_SERVICE_SORT_DIRECTION==="asc"?"▲":"▼"):"↕";
@@ -13052,8 +13059,8 @@ function renderServicesList(){
       <span style="text-align:right;white-space:nowrap">${money(amount(s))} $</span>
       <div class="s07-service-actions" style="display:flex;justify-content:flex-end;gap:4px;align-items:center;flex-wrap:nowrap;min-width:0;white-space:nowrap;">
         <button class="ghost" onclick="editService('${id}')">Modifier</button>
-        <button class="ghost danger" onclick="deleteService('${id}')">Supprimer</button>
-        <button onclick="addServiceToCurrentWO('${id}')">+ Bon de travail</button>
+        <button type="button" class="ghost danger" title="Supprimer le service" aria-label="Supprimer le service" onclick="deleteService('${id}')">🗑</button>
+        ${jlCatalogEditableWO()?`<button onclick="addServiceToCurrentWO('${id}')">+ Bon de travail</button>`:""}
       </div>
     </div>`;
   });
@@ -13106,7 +13113,7 @@ function renderPartsList(){
   );
   // S07-F09a : mêmes colonnes et dimensions pour toutes les pièces.
   // Ne modifier que le rendu : recherche, tri, stock et actions restent intacts.
-  const colStyle="display:grid;grid-template-columns: minmax(185px,2fr) minmax(110px,1.1fr) minmax(115px,1.1fr) "+(JL_STOCK_ENABLED?"75px ":"")+"100px 100px 85px minmax(305px,auto);gap:12px;align-items:center;min-width:"+(JL_STOCK_ENABLED?"1180":"1093")+"px;";
+  const colStyle="display:grid;grid-template-columns: minmax(185px,2fr) minmax(110px,1.1fr) minmax(115px,1.1fr) "+(JL_STOCK_ENABLED?"75px ":"")+"100px 100px 85px "+(jlCatalogEditableWO()?"minmax(250px,auto)":"minmax(125px,auto)")+";gap:12px;align-items:center;min-width:"+((JL_STOCK_ENABLED?1180:1093)-(jlCatalogEditableWO()?55:180))+"px;";
   list.style.overflowX="auto";
   const header=(key,label,align="left")=>{
     const active=S07_PART_SORT_KEY===key;
@@ -13131,8 +13138,8 @@ function renderPartsList(){
         <span style="text-align:right;white-space:nowrap">${calcMargin(p.cost,p.price)}%</span>
         <div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;white-space:nowrap;">
           <button class="ghost" onclick="editPart('${id}')">Modifier</button>
-          <button class="ghost danger" onclick="deletePart('${id}')">Supprimer</button>
-          <button onclick="addPartToCurrentWO('${id}')">+ Bon de travail</button>
+          <button type="button" class="ghost danger" title="Supprimer la pièce" aria-label="Supprimer la pièce" onclick="deletePart('${id}')">🗑</button>
+          ${jlCatalogEditableWO()?`<button onclick="addPartToCurrentWO('${id}')">+ Bon de travail</button>`:""}
         </div>
       </div>`;
   });
