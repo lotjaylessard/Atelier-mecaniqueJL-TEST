@@ -14,3 +14,30 @@ assert.equal(at("2026-03-02",{interestTerms:{...inv.interestTerms,waived:true}})
 assert.equal(at("2026-03-02",{paidAmount:600}).eligible,false);
 assert.equal(at("2026-03-02",{status:"paid",paidDate:"2026-02-15",paidAmount:1000,payments:[{date:"2026-02-15",amount:1000}]}).interestCents,740);
 console.log("9 interest preview assertions passed");
+
+// Boundary cases and protection against accidental retroactive interest.
+assert.equal(at("2026-01-01").interestCents,0);
+assert.equal(at("2026-01-30").interestCents,0);
+assert.equal(at("2026-02-30").eligible,false);
+assert.equal(at("2025-12-31").eligible,false);
+assert.equal(at("2026-03-02",{interestTerms:{...inv.interestTerms,acceptedDate:"2026-01-02"}}).eligible,false);
+assert.equal(at("2026-03-02",{interestTerms:{...inv.interestTerms,accepted:false}}).eligible,false);
+assert.equal(at("2026-03-02",{interestTerms:{...inv.interestTerms,enabled:false}}).eligible,false);
+for(const annualRate of [-1,0,101,NaN,Infinity])assert.equal(at("2026-03-02",{interestTerms:{...inv.interestTerms,annualRate}}).eligible,false);
+for(const graceDays of [-1,1.5,366,NaN])assert.equal(at("2026-03-02",{interestTerms:{...inv.interestTerms,graceDays}}).eligible,false);
+assert.equal(at("2026-01-02",{interestTerms:{...inv.interestTerms,graceDays:0}}).interestCents,49);
+assert.equal(at("2026-03-02",{total:0}).interestCents,0);
+assert.equal(at("2026-03-02",{total:-1}).eligible,false);
+assert.equal(at("2026-03-02",{paidAmount:100,payments:[{date:"2026-03-03",amount:100}]}).eligible,false);
+assert.equal(at("2026-03-02",{paidAmount:100,payments:[{date:"2025-12-31",amount:100}]}).eligible,false);
+assert.equal(at("2026-03-02",{paidAmount:100,payments:[{date:"2026-02-30",amount:100}]}).eligible,false);
+assert.equal(at("2026-03-02",{paidAmount:100,payments:[{date:"2026-02-01",amount:-100}]}).eligible,false);
+const multiple={paidAmount:600,payments:[{date:"2026-02-20",amount:300},{date:"2026-02-10",amount:300}]};
+assert.equal(at("2026-03-02",multiple).interestCents,1036);
+assert.equal(at("2026-03-02",multiple).estimatedDueCents,41036);
+assert.equal(at("2026-03-02",multiple).principalRemainingCents,40000);
+assert.equal(at("2026-03-02",{status:"paid"}).eligible,false);
+const settled={status:"paid",paidDate:"2026-02-15",paidAmount:1000,payments:[{date:"2026-02-15",amount:1000}]};
+assert.deepEqual(at("2026-03-02",settled),at("2026-12-31",settled));
+const snapshot=JSON.stringify(multiple);at("2026-03-02",multiple);assert.equal(JSON.stringify(multiple),snapshot);
+console.log("Extended boundary assertions passed");
