@@ -4159,6 +4159,19 @@ function renderInvoiceTotals(inv, container){
   if (elGST) elGST.textContent = money(inv.gst) + " $";
   if (elQST) elQST.textContent = money(inv.qst) + " $";
   if (elTot) elTot.textContent = money(inv.total) + " $";
+  const block=container.querySelector("#jlInvoiceInterestSummary");
+  if(block){
+    const summary=jlInvoiceBalanceSummary(inv);
+    const values=summary?.eligible?{principal:summary.principalRemainingCents,accrued:summary.interestCents,received:summary.interestPaidCents,remaining:summary.interestRemainingCents,due:summary.dueCents}:{};
+    for(const key of ["principal","accrued","received","remaining","due"]){
+      const node=block.querySelector(`[data-interest-value="${key}"]`);
+      if(node)node.textContent=Number.isFinite(values[key])?money(values[key]/100)+" $":"À vérifier";
+    }
+    const days=block.querySelector("[data-interest-days]");
+    if(days)days.textContent=summary?.eligible?String(summary.daysLate):"—";
+    const waiver=container.querySelector("#jlWaiveInterestButton");
+    if(waiver)waiver.disabled=!summary?.eligible;
+  }
 }
 
 
@@ -16880,7 +16893,7 @@ content.innerHTML = `
 </div>
 
 
-  ${interestPreview?.eligible ? `<div class="${interestLive?"":"no-print"}" style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:6px;text-align:right;"><div class="muted">${interestLive?"Intérêts de retard":"Simulation des intérêts — non facturés"}</div><div>Capital restant : <b>${money(interestPreview.principalRemainingCents/100)} $</b></div><div>Intérêts cumulés (${interestPreview.daysLate} jours) : <b>${money(interestPreview.interestCents/100)} $</b></div><div>Intérêts encaissés : <b>${money(interestReceived)} $</b></div><div>Intérêts restants : <b>${money(interestPreview.interestRemainingCents/100)} $</b></div><div>Solde ${interestLive?"":"estimé "}avec intérêts : <b>${money(interestPreview.dueCents/100)} $</b></div>${interestLive?"":'<div class="muted">Encaissement avec intérêts non activé.</div>'}</div>` : jlInvoiceHasInterest(inv)?'<div class="no-print muted">Solde des intérêts à vérifier.</div>':""}
+  ${interestPreview?.eligible ? `<div id="jlInvoiceInterestSummary" class="${interestLive?"":"no-print"}" style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:6px;text-align:right;"><div class="muted">${interestLive?"Intérêts de retard":"Simulation des intérêts — non facturés"}</div><div>Capital restant : <b data-interest-value="principal">${money(interestPreview.principalRemainingCents/100)} $</b></div><div>Intérêts cumulés (<span data-interest-days>${interestPreview.daysLate}</span> jours) : <b data-interest-value="accrued">${money(interestPreview.interestCents/100)} $</b></div><div>Intérêts encaissés : <b data-interest-value="received">${money(interestReceived)} $</b></div><div>Intérêts restants : <b data-interest-value="remaining">${money(interestPreview.interestRemainingCents/100)} $</b></div><div>Solde ${interestLive?"":"estimé "}avec intérêts : <b data-interest-value="due">${money(interestPreview.dueCents/100)} $</b></div>${interestLive?"":'<div class="muted">Encaissement avec intérêts non activé.</div>'}</div>` : jlInvoiceHasInterest(inv)?'<div class="no-print muted">Solde des intérêts à vérifier.</div>':""}
   ${interestLive&&jlInvoiceHasInterest(inv)&&!isLocked&&interestPreview?.eligible&&!(inv.interestPayments||[]).length ? '<div class="no-print" style="text-align:right;margin-top:8px"><button class="ghost" id="jlWaiveInterestButton">Annuler les intérêts</button></div>' : ""}
   ${inv.interestTerms?.waived===true ? `<div class="muted" style="text-align:right;margin-top:8px">Intérêts annulés le ${escapeHTML(String(inv.interestTerms.waivedDate||"").slice(0,10))}.</div>` : ""}
   <!-- PAIEMENTS -->
