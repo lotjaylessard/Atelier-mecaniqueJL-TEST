@@ -17,7 +17,7 @@ BEGIN
   FOR idx IN 0..jsonb_array_length(COALESCE(old_i->'interestPayments','[]'::jsonb))-1 LOOP
    IF new_i->'interestPayments'->idx IS DISTINCT FROM old_i->'interestPayments'->idx THEN RAISE EXCEPTION 'Modification intérêts historiques interdite'; END IF;
   END LOOP;
-  IF (new_i->'interestTerms' - ARRAY['waived','waivedDate','waivedReason','waivedInterestCents']) IS DISTINCT FROM (old_i->'interestTerms' - ARRAY['waived','waivedDate','waivedReason','waivedInterestCents']) THEN RAISE EXCEPTION 'Conditions intérêts verrouillées'; END IF;
+  IF ((new_i->'interestTerms') - ARRAY['waived','waivedDate','waivedReason','waivedInterestCents']) IS DISTINCT FROM ((old_i->'interestTerms') - ARRAY['waived','waivedDate','waivedReason','waivedInterestCents']) THEN RAISE EXCEPTION 'Conditions intérêts verrouillées'; END IF;
   IF old_i->'interestTerms'->'waived'='true'::jsonb AND new_i->'interestTerms' IS DISTINCT FROM old_i->'interestTerms' THEN RAISE EXCEPTION 'Annulation intérêts verrouillée'; END IF;
   IF old_i->'interestTerms'->'accepted'='true'::jsonb AND new_i->'total' IS DISTINCT FROM old_i->'total' THEN RAISE EXCEPTION 'Capital verrouillé'; END IF;
   IF jsonb_typeof(new_i->'payments') IS DISTINCT FROM 'array' THEN RAISE EXCEPTION 'Historique paiements invalide'; END IF;
