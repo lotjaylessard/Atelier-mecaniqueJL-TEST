@@ -60,7 +60,14 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
 
 @media(max-width:560px){#s06WoPilot{grid-template-columns:1fr}#s06WoPilot .s06clock{grid-column:1;text-align:left}}`;
   document.head.append(style);
-  const app={user:null,garage:null,woId:null,session:null,rows:[],panel:null,busy:false,beat:null,displayTick:null,displayAnchor:null,ownRunning:null,lastVerified:null};
+  const app={user:null,garage:null,woId:null,session:null,rows:[],panel:null,busy:false,beat:null,displayTick:null,displayAnchor:null,ownRunning:null,lastVerified:null,heartbeatBusy:false,queuedAction:null};
+  // Seule une session en cours, confirmée récemment et appartenant à cet onglet,
+  // reporte la déconnexion pour inactivité. Une pause ou un brouillon ne suffit pas.
+  window.jlTimerHasActiveWork=()=>!!(app.session?.status==="running" &&
+    app.ownRunning===app.session.id && navigator.onLine &&
+    app.lastVerified?.id===app.session.id &&
+    Date.now()-Date.parse(app.session.last_heartbeat_at||"")<20000 &&
+    Date.now()-Date.parse(app.session.last_heartbeat_at||"")>=0);
   // S06 : après un POST validé, conserver le rechargement de sécurité
   // et rouvrir uniquement le BT du même garage et du même compte.
   const restoreKey="s06-posted-return-v1";
@@ -154,13 +161,13 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     // présenter comme du temps sauvegardé ni les conserver après une erreur.
     if(r.status!=="running"||app.ownRunning!==r.id||!app.displayAnchor||
        !navigator.onLine)return Number(r.confirmed_ms)||0;
-    const elapsed=Math.max(0,Date.now()-app.displayAnchor.at);
+    const elapsed=Math.max(0,performance.now()-app.displayAnchor.at);
     return app.displayAnchor.ms+Math.min(20000,elapsed);
   }
   function startDisplay(){
     if(app.displayTick!==null)clearInterval(app.displayTick);
     if(app.session?.status!=="running"||app.ownRunning!==app.session.id)return;
-    app.displayAnchor={at:Date.now(),ms:Number(app.session.confirmed_ms)};
+    app.displayAnchor={at:performance.now(),ms:Number(app.session.confirmed_ms)};
     app.displayTick=setInterval(paint,250);
     paint();
   }
@@ -220,7 +227,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       r?.status==="running"?"● En cours":r?.status==="paused"?"● En pause":"● Prête";
     const another=app.rows.some(x=>x.status==="running"&&x.work_order_id!==app.woId);
     qs("s06Start").disabled=app.busy||!!another||r?.status==="running"||r?.status==="posted";
-    qs("s06Pause").disabled=app.busy||r?.status!=="running"||app.ownRunning!==r.id;
+    qs("s06Pause").disabled=(app.busy&&!app.heartbeatBusy)||!!app.queuedAction||r?.status!=="running"||app.ownRunning!==r.id;
     qs("s06End").disabled=app.busy||!!another||!r||r.status!=="paused"||
       Number(r.confirmed_ms)<=0;
     qs("s06Recover").hidden=!(r?.status==="running"&&app.ownRunning!==r.id);
@@ -274,7 +281,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     if(data.work_order_id===app.woId)app.session=data;
     if(action==="heartbeat"&&app.ownRunning===data.id){
       if(data.status==="running"){
-        app.displayAnchor={at:Date.now(),ms:Number(data.confirmed_ms)};
+        app.displayAnchor={at:performance.now(),ms:Math.max(Number(data.confirmed_ms),liveTime())};
       }else{
         // Le serveur a arrêté les confirmations : ne plus afficher un timer actif.
         clearOwner();
@@ -350,8 +357,8 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     if(app.session && !app.ownRunning)guarded(read);
   });
   async function guarded(fn,isHeartbeat=false){
-    if(app.busy)return;
-    app.busy=true;paint();
+    if(app.busy){if(!isHeartbeat&&app.heartbeatBusy&&!app.queuedAction)app.queuedAction=fn;paint();return;}
+    app.busy=true;app.heartbeatBusy=isHeartbeat;paint();
     try{
       await fn();
       if(isHeartbeat)heartbeatFailures=0;
@@ -365,7 +372,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
           const age=Date.now()-Date.parse(app.session?.last_heartbeat_at||"");
           if(app.session?.status==="running"&&
              Number.isFinite(age)&&age>=0&&age<45000){
-            app.displayAnchor={at:Date.now(),ms:Number(app.session.confirmed_ms)};
+            app.displayAnchor={at:performance.now(),ms:Math.max(Number(app.session.confirmed_ms),liveTime())};
             heartbeatFailures=0;
             setMsg("Confirmation retrouvée après une réponse réseau manquante.");
             return;
@@ -380,14 +387,18 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       app.panel?.classList.add("s06-interrupted");
       setMsg("Action non confirmée : "+(e?.message||e)+
         "\nLe temps manquant n'a pas été ajouté. Vérifie la session puis récupère-la.");
-    }finally{app.busy=false;paint();}
+    }finally{
+      app.busy=false;app.heartbeatBusy=false;
+      const queued=app.queuedAction;app.queuedAction=null;
+      paint();if(queued)void guarded(queued);
+    }
   }
   async function start(){
     interruptedReason="";
     await read();
     if(app.rows.some(x=>x.status==="running"))throw Error("Une minuterie est déjà en cours; récupère-la après 60 s si elle a été interrompue.");
     if(!app.session){
-      if(!confirm("Démarrer une minuterie TEST pour ce BT ? Aucune ligne de main-d'œuvre ajoutée avant confirmation."))return;
+      if(!confirm("Démarrer une minuterie pour ce BT ? Aucune ligne de main-d'œuvre ajoutée avant confirmation."))return;
       app.session=await rpc("create",null,app.woId);
     }
     // Si la page recharge pendant l'attente de la RPC, retrouver sa session.
@@ -478,16 +489,20 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     const cents=raw!==""&&Number.isFinite(rate)&&rate>=0&&rate<=100000?
       (BigInt(Math.round(confirmedMs))*BigInt(Math.round(rate*100))+1800000n)/3600000n:null;
     qs("s06Quote").textContent=cents!==null?
-      format(confirmedMs)+" = "+hrs.toFixed(2)+" h affichées (durée exacte facturée) × "+
+      format(confirmedMs)+"."+String(confirmedMs%1000).padStart(3,"0")+" = "+hrs.toFixed(6)+" h × "+
       money(rate)+"/h = "+money(Number(cents)/100):
       "Taux horaire invalide";
   }
+  function draftKey(){return "s06-finish-draft:"+app.garage+":"+app.user+":"+app.session?.id;}
+  function saveDraft(){if(!app.session||!app.user||!app.garage)return;try{localStorage.setItem(draftKey(),JSON.stringify({description:qs("s06Description").value,rate:qs("s06Rate").value}));}catch(_){}}
   function showFinish(){
     if(!app.session||app.session.status!=="paused")throw Error("Mets la minuterie en pause avant de terminer.");
     app.panel?.classList.add("s06-confirming");
     const d=qs("s06FinishForm");d.hidden=false;
-    qs("s06Description").value="";
-    qs("s06Rate").value=String(Number(typeof SETTINGS!=="undefined"&&(SETTINGS.defaultHourlyRate||SETTINGS.defaultLaborRate)||90));
+    let draft=null;
+    try{draft=JSON.parse(localStorage.getItem(draftKey())||"null");}catch(_){}
+    qs("s06Description").value=draft?.description||"";
+    qs("s06Rate").value=String(draft?.rate??(typeof SETTINGS!=="undefined"?(SETTINGS.defaultHourlyRate??SETTINGS.defaultLaborRate??90):90));
     quote();
   }
   async function finish(){
@@ -503,7 +518,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       .select("version").eq("garage_id",app.garage).single();
     if(readError||!latest||Number(latest.version)!==CLOUD_DATA_VERSION)
       throw Error("Le BT a changé sur un autre appareil. Recharge la page.");
-    if(!confirm("Ajouter définitivement la main-d'œuvre et la note au BT TEST ?"))return;
+    if(!confirm("Ajouter définitivement la main-d'œuvre et la note au BT ?"))return;
     // Dès que la RPC part, empêcher l'autosave de réécrire un snapshot ancien.
     CLOUD_DATA_READY=false;
     const {data:ack,error}=await c.rpc("s06_timer_post_labor",{
@@ -528,6 +543,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       typeof wo.notes!=="string"||wo.notes.split(marker).length!==2||
       Number(lines[0].total)!==Number(ack.total))
       throw Error("Écriture probablement effectuée, mais lecture incohérente. Recharge le BT; ne répète pas la confirmation.");
+    try{localStorage.removeItem(draftKey());}catch(_){}
     clearOwner();
     stopBeat();
     window.dispatchEvent(new Event("s06-timer-updated"));
@@ -555,7 +571,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       stopBeat();app.session=null;app.rows=[];app.lastVerified=null;app.woId=ctx.id;
     }
     const el=document.createElement("section");el.id="s06WoPilot";
-    el.innerHTML=`<div class="s06head"><strong>⏱ Minuterie du BT — TEST</strong><span id="s06State">● Prête</span></div>
+    el.innerHTML=`<div class="s06head"><strong>⏱ Minuterie du BT</strong><span id="s06State">● Prête</span></div>
       <div id="s06Clock" class="s06clock">00:00:00</div>
       <div class="s06buttons"><button type="button" id="s06Start">▶ Démarrer / Reprendre</button>
       <button type="button" class="s06secondary" id="s06Pause">⏸ Pause</button>
@@ -633,7 +649,8 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       app.panel?.classList.remove("s06-confirming");
       paint();
     });
-    qs("s06Rate").addEventListener("input",quote);
+    qs("s06Description").addEventListener("input",saveDraft);
+    qs("s06Rate").addEventListener("input",()=>{saveDraft();quote();});
     paint();
     guarded(async()=>{await read();setMsg(app.session?
       "Session retrouvée automatiquement dans Supabase.":
