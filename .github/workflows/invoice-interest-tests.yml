@@ -1,0 +1,19 @@
+name: Invoice interest tests
+on:
+  push:
+    paths:
+      - 'audit/invoice-interest-preview.js'
+      - 'audit/invoice-interest-preview.test.js'
+      - '.github/workflows/invoice-interest-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node audit/invoice-interest-preview.test.js
