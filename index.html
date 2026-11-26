@@ -3972,6 +3972,8 @@ function updateInvoiceTotalsLive(inv){
 
   /* ===================== SUPABASE ===================== */
 const SUPABASE_URL = "https://nraijzsodgojkpyigefu.supabase.co";
+// Pilot activation: never enable this flag when the file is copied to production.
+window.JL_INTEREST_PAYMENT_READY = SUPABASE_URL === "https://nraijzsodgojkpyigefu.supabase.co" && location.hostname === "lotjaylessard.github.io" && /^\/Atelier-mecaniqueJL-TEST(?:\/|$)/i.test(location.pathname);
 const SUPABASE_KEY = "sb_publishable_s0hqtqnGd4KgeyVr2Y4ltg_dI4qhjcA";
 
 let sb = window.garageSupabase || null;
@@ -16878,7 +16880,7 @@ content.innerHTML = `
 
 
   ${interestPreview?.eligible ? `<div class="${interestLive?"":"no-print"}" style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:6px;text-align:right;"><div class="muted">${interestLive?"Intérêts de retard":"Simulation des intérêts — non facturés"}</div><div>Capital restant : <b>${money(interestPreview.principalRemainingCents/100)} $</b></div><div>Intérêts cumulés (${interestPreview.daysLate} jours) : <b>${money(interestPreview.interestCents/100)} $</b></div><div>Intérêts encaissés : <b>${money(interestReceived)} $</b></div><div>Intérêts restants : <b>${money(interestPreview.interestRemainingCents/100)} $</b></div><div>Solde ${interestLive?"":"estimé "}avec intérêts : <b>${money(interestPreview.dueCents/100)} $</b></div>${interestLive?"":'<div class="muted">Encaissement avec intérêts non activé.</div>'}</div>` : jlInvoiceHasInterest(inv)?'<div class="no-print muted">Solde des intérêts à vérifier.</div>':""}
-  ${jlInvoiceHasInterest(inv)&&!isLocked&&interestPreview?.eligible&&!(inv.interestPayments||[]).length ? '<div class="no-print" style="text-align:right;margin-top:8px"><button class="ghost" id="jlWaiveInterestButton">Annuler les intérêts</button></div>' : ""}
+  ${interestLive&&jlInvoiceHasInterest(inv)&&!isLocked&&interestPreview?.eligible&&!(inv.interestPayments||[]).length ? '<div class="no-print" style="text-align:right;margin-top:8px"><button class="ghost" id="jlWaiveInterestButton">Annuler les intérêts</button></div>' : ""}
   ${inv.interestTerms?.waived===true ? `<div class="muted" style="text-align:right;margin-top:8px">Intérêts annulés le ${escapeHTML(String(inv.interestTerms.waivedDate||"").slice(0,10))}.</div>` : ""}
   <!-- PAIEMENTS -->
   ${paymentsHtml ? `
