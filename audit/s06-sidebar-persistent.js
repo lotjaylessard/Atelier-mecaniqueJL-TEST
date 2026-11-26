@@ -15,6 +15,7 @@
   const hint=box?.querySelector(".s06-timer-hint");
   const toggle=document.getElementById("s06SidebarToggle");
   const stop=document.getElementById("s06SidebarStop");
+  const reset=document.createElement("button");reset.type="button";reset.id="s06SidebarReset";reset.title="Supprimer la minuterie";reset.setAttribute("aria-label","Supprimer la minuterie");reset.textContent="×";reset.style.cssText="flex:0 0 30px;min-width:30px;padding:0;color:#ef4444;border-color:#ef4444;font-size:20px";reset.hidden=true;stop?.insertAdjacentElement("afterend",reset);
   // Les commandes du pilote restent désactivées sans confirmation de
   // la session du même BT. Ne pas appeler la minuterie locale historique.
   if(toggle)toggle.disabled=true;
@@ -62,6 +63,7 @@
     // L'ancienne boucle masquait le panneau chaque 250 ms AVANT que
     // Supabase soit prêt : cause du délai visible après rafraîchissement.
     if(!current){
+      reset.hidden=true;reset.disabled=true;
       if(box.dataset.pendingRestore==="1"){
         box.hidden=false;
         if(toggle)toggle.disabled=true;
@@ -95,6 +97,7 @@
         stale?"⚠ Récupérer":current.status==="running"?"⏸ Pause":"▶ Reprendre";
       toggle.disabled=actionPending||!navigator.onLine;
     }
+    reset.hidden=false;reset.disabled=actionPending||stale||!navigator.onLine;
     if(stop){
       stop.textContent="⏹ Terminer";
       // Impossible de terminer une session interrompue avant récupération.
@@ -262,7 +265,7 @@
       }
       const button=pilot.querySelector("#"+(
         action==="recover"?"s06Recover":
-        action==="pause"?"s06Pause":"s06Start"));
+        action==="pause"?"s06Pause":action==="reset"?"s06Reset":"s06Start"));
       if(!button||button.disabled||button.hidden){
         return;
       }
@@ -277,6 +280,7 @@
     triggerPilotAction(stale?"recover":current?.status==="running"?"pause":"start");
   });
   stop?.addEventListener("click",()=>triggerPilotAction("finish"));
+  reset.addEventListener("click",()=>triggerPilotAction("reset"));
   number.addEventListener("click",()=>{
     const meta=current&&metadata(current.work_order_id);
     if(!meta)return;
