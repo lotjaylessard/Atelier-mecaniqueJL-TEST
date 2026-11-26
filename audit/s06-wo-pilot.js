@@ -232,6 +232,8 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       Number(r.confirmed_ms)<=0;
     qs("s06Recover").hidden=!(r?.status==="running"&&app.ownRunning!==r.id);
     qs("s06Recover").disabled=app.busy;
+    qs("s06Reset").hidden=!(r&&(r.status==="paused"||r.status==="running")&&Number(r.confirmed_ms)>0||r?.status==="running"&&app.ownRunning===r.id);
+    qs("s06Reset").disabled=app.busy||r?.status==="running"&&app.ownRunning!==r.id;
     if(another)setMsg("Une autre minuterie est en cours. Ouvre son BT pour la gérer.");
     paintPendingGap();
   }
@@ -414,6 +416,22 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     if(res.status!=="paused")throw Error("Pause non confirmée.");
     clearOwner();stopBeat();setMsg("Pause confirmée. Durée conservée sur Supabase.");
   }
+  async function resetTimer(){
+    const initial=app.session;
+    if(!initial||!["paused","running"].includes(initial.status))return;
+    if(initial.status==="running"&&app.ownRunning!==initial.id)throw Error("Récupère cette minuterie avant de la supprimer.");
+    if(!confirm("Supprimer le temps accumulé de cette minuterie ? Aucune ligne de main-d’œuvre déjà enregistrée ne sera modifiée."))return;
+    if(initial.status==="running")await pause();
+    await read();
+    if(app.session?.id!==initial.id||app.session.status!=="paused")throw Error("Session modifiée. Réessaie après vérification.");
+    const res=await rpc("reset",app.session);
+    if(res.status!=="paused"||Number(res.confirmed_ms)!==0)throw Error("Remise à zéro non confirmée.");
+    clearOwner();stopBeat();app.displayAnchor=null;interruptedReason="";
+    try{localStorage.removeItem(draftKey());}catch(_){}
+    qs("s06FinishForm").hidden=true;app.panel?.classList.remove("s06-confirming");
+    paint();setMsg("Minuterie supprimée.");
+    if(typeof window.jlShowSuccess==="function")window.jlShowSuccess("Minuterie supprimée.");
+  }
   async function recover(){
     await read(); // Etat et révision relus avant tout changement.
     const session=app.session;
@@ -575,6 +593,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
       <div class="s06buttons"><button type="button" id="s06Start">▶ Démarrer / Reprendre</button>
       <button type="button" class="s06secondary" id="s06Pause">⏸ Pause</button>
       <button type="button" class="s06secondary" id="s06End">✓ Terminer</button>
+      <button type="button" class="s06secondary" id="s06Reset" title="Supprimer la minuterie" aria-label="Supprimer la minuterie" style="color:#ef4444;border-color:#ef4444" hidden>×</button>
       <button type="button" class="s06secondary" id="s06Recover" hidden>Récupérer après 60 s</button></div>
       <div class="s06finish" id="s06FinishForm" hidden>
       <label for="s06Description">Description du travail effectué *</label>
@@ -590,6 +609,7 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     qs("s06Start").addEventListener("click",()=>guarded(start));
     qs("s06Pause").addEventListener("click",()=>guarded(pause));
     qs("s06Recover").addEventListener("click",()=>guarded(recover));
+    qs("s06Reset").addEventListener("click",()=>guarded(resetTimer));
     qs("s06End").addEventListener("click",()=>guarded(showFinish));
     // Le bouton Terminer du menu latéral doit aussi fonctionner en marche.
     // Aucune note ni main-d'œuvre n'est écrite avant le clic Confirmer.
