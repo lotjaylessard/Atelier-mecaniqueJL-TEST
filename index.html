@@ -2028,6 +2028,30 @@ button.jl-edit-icon:focus-visible{outline:2px solid var(--accent);outline-offset
 .jl-compact-help>p{margin:6px 0 0;max-width:70ch}
 @media print{.jl-compact-help{display:none!important}}
 </style>
+<style id="jl-success-toast-style">
+#jl-success-notice{position:fixed;right:16px;bottom:20px;z-index:2147483000;display:flex;align-items:center;gap:10px;max-width:min(420px,calc(100vw - 32px));padding:12px 16px;border:1px solid #15803d;border-radius:8px;background:#14532d;color:#fff;font-size:13px;box-shadow:0 4px 16px #0003;overflow-wrap:anywhere}
+#jl-success-notice[hidden]{display:none}
+#jl-success-notice button{background:transparent;color:inherit;border:0;padding:3px;cursor:pointer;font-size:18px;flex:none}
+@media print{#jl-success-notice{display:none!important}}
+</style>
+<script>
+(function(){
+let timer;
+window.jlShowSuccess=function(message){
+  let el=document.getElementById("jl-success-notice");
+  if(!el){
+    el=document.createElement("div");el.id="jl-success-notice";el.hidden=true;
+    const mark=document.createElement("span");mark.textContent="✓";mark.setAttribute("aria-hidden","true");
+    const label=document.createElement("span");label.setAttribute("role","status");label.setAttribute("aria-live","polite");label.setAttribute("aria-atomic","true");label.dataset.noticeText="";
+    const close=document.createElement("button");close.type="button";close.textContent="×";close.setAttribute("aria-label","Fermer la notification");
+    close.addEventListener("click",()=>{clearTimeout(timer);el.hidden=true;});
+    el.append(mark,label,close);document.body.append(el);
+  }
+  clearTimeout(timer);el.hidden=false;el.querySelector("[data-notice-text]").textContent=String(message);
+  timer=setTimeout(()=>{el.hidden=true;},3500);
+};
+})();
+</script>
 </head>
 <body>
 
@@ -6856,7 +6880,7 @@ function addServiceToCurrentWO(serviceId){
   if(persistActiveWO(wo)===false){wo.labor.pop();woRenderLines(wo);return;}
   woRenderLines(wo);
 
-  alert(`Service "${srv.name}" ajouté au bon de travail.`);
+  jlShowSuccess(`Service "${srv.name}" ajouté au BT.`);
 }
 
   function addPartToCurrentWO(partId){
@@ -6900,7 +6924,7 @@ function addServiceToCurrentWO(serviceId){
   if(persistActiveWO(wo)===false){wo.parts.pop();woRenderLines(wo);return;}
   woRenderLines(wo);
 
-  alert(`Pièce "${part.name}" ajoutée au bon de travail.`);
+  jlShowSuccess(`Pièce "${part.name}" ajoutée au BT.`);
 }
 
 
