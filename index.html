@@ -4068,6 +4068,17 @@ function invoicePaymentMismatch(inv){
   const status = String(inv.status || "").toLowerCase();
   if (status === "paid" && Math.abs(paid-total) > 0.009)
     return "La facture est marquée payée, mais son total diffère du montant reçu.";
+  if(jlInvoiceHasInterest(inv)){
+    const engine=window.JLInvoiceInterestPreview;
+    const day=new Date().toLocaleDateString("fr-CA");
+    const preview=engine?.calculate(inv,day);
+    const ip=inv.interestPayments||[];
+    if(!preview?.eligible||!Array.isArray(ip)||ip.some(p=>!Number.isFinite(Number(p.amount))||Number(p.amount)<=0))return "Historique des intérêts invalide.";
+    const received=ip.reduce((sum,p)=>sum+Math.round(Number(p.amount)*100),0);
+    const remaining=preview.principalRemainingCents+preview.interestCents-received;
+    if(received>preview.interestCents||status==="paid"&&remaining!==0||status==="partial"&&remaining<=0)return "Le statut ne correspond pas au solde avec intérêts.";
+    if(status==="partial"&&paid>0)return null;
+  }
   if (status === "partial" && (paid <= 0 || paid >= total - 0.009))
     return "Le statut partiel ne correspond pas au solde de la facture.";
   if (["unpaid","pending","draft"].includes(status) && paid > 0.009)
@@ -6776,6 +6787,37 @@ function toggleInvoicePartialMenu(number){
   partial.style.display = partial.style.display === "block" ? "none" : "block";
 }
 
+function jlInvoiceHasInterest(inv){
+  return inv?.interestTerms?.enabled===true&&inv.interestTerms.accepted===true&&inv.interestTerms.waived!==true;
+}
+function jlInvoiceInterestPayment(inv,method,partial){
+  if(!jlInvoiceHasInterest(inv))return false;
+  if(window.JL_INTEREST_PAYMENT_READY!==true){alert("Encaissement avec intérêts en préparation dans TEST. Aucun paiement enregistré.");return true;}
+  const engine=window.JLInvoiceInterestPreview;
+  const today=new Date().toLocaleDateString("fr-CA");
+  if(!CLOUD_DATA_READY||CLOUD_SYNC_FAILED||!engine?.applyPayment){
+    alert("Encaissement bloqué : données ou moteur d’intérêts indisponibles.");return true;
+  }
+  const full=engine.planPayment(inv,today);
+  if(!full.ok){alert("Encaissement bloqué : solde avec intérêts non vérifié.");return true;}
+  let amount=full.amountCents;
+  if(partial){
+    const entered=prompt("Montant payé (solde avec intérêts : "+money(amount/100)+" $) :", (amount/100).toFixed(2));
+    if(entered===null)return true;
+    const value=Number(entered.trim().replace(",","."));
+    amount=Math.round(value*100);
+    if(!Number.isFinite(value)||Math.abs(value*100-amount)>0.00001){alert("Montant invalide.");return true;}
+  }
+  const result=engine.applyPayment(inv,today,method,amount);
+  if(!result.ok){alert("Paiement invalide : aucun montant enregistré.");return true;}
+  if(!partial&&result.interestPaymentCents>0&&!confirm("Confirmer un encaissement de "+money(amount/100)+" $, dont "+money(result.interestPaymentCents/100)+" $ d’intérêts ?"))return true;
+  Object.assign(inv,result.invoice);
+  saveInvoices();
+  renderInvoiceList();
+  if(typeof renderDashboard==="function")renderDashboard();
+  openInvoiceEditModal(inv.number);
+  return true;
+}
 function payInvoiceWithMethod(number, method){
   // S03-F02 : aucune mutation avant validation complete.
   loadInvoices();
@@ -6786,6 +6828,7 @@ function payInvoiceWithMethod(number, method){
     return;
   }
 
+  if(jlInvoiceInterestPayment(inv,method,false))return;
   const validMethods = ["cash", "transfer", "card", "unspecified", "other"];
   if (!validMethods.includes(method)) {
     alert("Mode de paiement invalide : aucune modification enregistree.");
@@ -7194,7 +7237,7 @@ function woInvoiceMatchesWO(wo,invoice){
   });
 }
 function invoiceMayCorrectPartial(inv){
-  return !!inv && inv.status==="partial" && !inv.archived && !invoicePaymentMismatch(inv);
+  return !!inv && inv.status==="partial" && !inv.archived && !jlInvoiceHasInterest(inv) && !invoicePaymentMismatch(inv);
 }
 function invoiceCorrectionCandidate(inv,patch){
   if(!invoiceMayEditFinancials(inv)&&!invoiceMayCorrectPartial(inv))return null;
@@ -18916,6 +18959,7 @@ function markInvoicePartial(number, method){
   loadInvoices();
   const inv = INVOICES.find(i => String(i.number) === String(number));
   if (!inv || inv.status === "paid" || inv.archived) return;
+  if(jlInvoiceInterestPayment(inv,method,true))return;
 
   const total = Number(inv.total);
   const previouslyPaid = Number(inv.paidAmount || 0);
@@ -19355,7 +19399,7 @@ if (window.garageSupabase) {
 <script src="audit/s06-wo-pilot.js?v=84f510fe" defer></script>
 <!-- S06-F07: afficheur Supabase sous Menu pour le pilote seulement -->
 <script src="audit/s06-sidebar-persistent.js?v=e378a58c" defer></script>
-<script src="audit/invoice-interest-preview.js?v=3ff75f33" defer></script>
+<script src="audit/invoice-interest-preview.js?v=872ecc6c" defer></script>
 
 
 
