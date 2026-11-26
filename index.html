@@ -2013,6 +2013,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
 button.jl-edit-icon {width:36px;min-width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;flex-shrink:0;}
 button.jl-edit-icon[hidden]{display:none!important;}
 button.jl-edit-icon svg{pointer-events:none;display:block;}
+.jl-catalog-inline-field{width:100%;min-width:0;box-sizing:border-box;padding:5px 6px;font-size:inherit;} .jl-catalog-inline-field:disabled{opacity:.55;}
 button.jl-edit-icon:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 </style>
 </head>
@@ -13016,6 +13017,75 @@ function s07SortServicesBy(key){
 }
 
 (function(){const style=document.createElement("style");style.textContent="\n/* S07-F09d : tableau Services sans barre horizontale, boutons compacts. */\n#servicesList .s07-service-actions button{font-size:12px;padding:7px 8px;white-space:nowrap;}\n#servicesList .s07-service-grid > *{min-width:0;}\n#servicesList .s07-service-grid .module-sort-button{max-width:100%;font-size:13px;padding:5px 6px;}\n@media(max-width:1150px){\n #servicesList .s07-service-grid{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,.65fr) minmax(0,.55fr) minmax(0,.7fr) minmax(0,.7fr) minmax(350px,2.35fr)!important;gap:5px!important;font-size:12px!important;}\n #servicesList .s07-service-actions button{padding:5px 6px;font-size:11px;}\n}\n";document.head.appendChild(style);})();
+
+/* Phase 1 — édition directe des catalogues, sans modifier les documents existants. */
+function jlCatalogPatch(kind, original, values){
+  const name=String(values.name||"").trim();
+  if(!name)throw Error("Nom obligatoire.");
+  const number=(key)=>{const raw=String(values[key]??"").trim();const n=Number(raw);if(!raw||!Number.isFinite(n)||n<0)throw Error("Saisis un nombre positif ou zéro.");return n;};
+  if(kind==="part")return {...original,name,number:String(values.number||"").trim(),category:values.category,cost:number("cost"),price:number("price"),...(JL_STOCK_ENABLED?{qty:number("qty")}:{})};
+  const fixed=values.type==="fixed";
+  const hours=fixed?0:number("hours");
+  if(!fixed&&hours<=0)throw Error("Les heures doivent être supérieures à zéro.");
+  return {...original,name,desc:String(values.desc||"").trim(),category:values.category,priceFixed:fixed?number("priceFixed"):0,hours,rate:fixed?0:number("rate")};
+}
+function jlCatalogInline(button,kind,id){
+  const row=button.parentElement.parentElement;
+  const items=kind==="part"?PARTS:SERVICES;
+  const original=items.find(p=>String(p.id)===String(id));
+  if(!original||!row||row.dataset.jlEditing)return;
+  if(!CLOUD_DATA_READY||CLOUD_SYNC_FAILED){alert("La synchronisation doit être disponible avant de modifier le catalogue.");return;}
+  const list=row.parentElement;
+  if(list.querySelector("[data-jl-editing]")){list.querySelector("[data-jl-editing] input")?.focus();return;}
+  row.dataset.jlEditing="1";
+  const cells=[...row.children],actions=cells.at(-1),fields={};
+  const input=(index,key,value,type="text")=>{
+    const el=document.createElement("input");el.type=type;el.value=value??"";
+    if(type==="number"){el.min="0";el.step="any";}
+    el.setAttribute("aria-label",key);el.className="jl-catalog-inline-field";cells[index].replaceChildren(el);fields[key]=el;return el;
+  };
+  const select=(index,key,options,value)=>{
+    const el=document.createElement("select");el.className="jl-catalog-inline-field";el.setAttribute("aria-label",key);
+    for(const [v,label] of options){const o=document.createElement("option");o.value=v;o.textContent=label;el.append(o);}
+    if(value&&!Array.from(el.options).some(o=>o.value===value)){const o=document.createElement("option");o.value=value;o.textContent=value;el.append(o);}
+    el.value=value;cells[index].replaceChildren(el);fields[key]=el;return el;
+  };
+  input(0,"name",original.name);
+  input(1,kind==="part"?"number":"desc",kind==="part"?original.number:original.desc);
+  const cat=$ (kind==="part"?"partInvCategory":"srvCategory");
+  select(2,"category",Array.from(cat?.options||[]).map(o=>[o.value,o.textContent]),original.category||"Divers");
+  if(kind==="part"){
+    let i=3;if(JL_STOCK_ENABLED)input(i++,"qty",original.qty??0,"number");
+    input(i++,"cost",original.cost??0,"number");input(i++,"price",original.price??0,"number");
+  }else{
+    const fixed=Number(original.priceFixed)>0||!(Number(original.hours)>0);
+    const type=select(3,"type",[["fixed","Forfait"],["hourly","Horaire"]],fixed?"fixed":"hourly");
+    const hours=input(4,"hours",original.hours||0,"number"),rate=input(5,"rate",original.rate||0,"number"),price=input(6,"priceFixed",fixed?original.priceFixed??0:0,"number");
+    const refresh=()=>{const f=type.value==="fixed";hours.disabled=rate.disabled=f;price.disabled=!f;if(!f)price.value=(Number(hours.value||0)*Number(rate.value||0)).toFixed(2);};
+    type.addEventListener("change",refresh);hours.addEventListener("input",refresh);rate.addEventListener("input",refresh);refresh();
+  }
+  const render=kind==="part"?renderPartsList:renderServicesList;
+  const save=()=>{
+    if(!CLOUD_DATA_READY||CLOUD_SYNC_FAILED){message.textContent="Synchronisation indisponible.";return;}
+    const current=kind==="part"?PARTS:SERVICES;
+    const index=current.findIndex(p=>String(p.id)===String(id));
+    if(index<0){message.textContent="Cette ligne n'existe plus.";return;}
+    try{
+      const next=jlCatalogPatch(kind,current[index],Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value])));
+      const before=current[index];current[index]=next;
+      try{(kind==="part"?saveParts:saveServices)();}catch(err){current[index]=before;throw err;}
+      render();
+      const status=$(kind==="part"?"s08PartListStatus":"s07ServiceSaveStatus")||$(kind==="part"?"partResultCount":"serviceResultCount");
+      if(status){const notice=document.createElement("span");notice.textContent=" · ✓ Enregistré localement";notice.style.color="#61d99a";status.append(notice);setTimeout(()=>notice.remove(),3500);}
+    }catch(err){message.textContent=err.message||"Enregistrement impossible.";}
+  };
+  const make=(label,title,fn)=>{const b=document.createElement("button");b.type="button";b.className="ghost jl-edit-icon";b.textContent=label;b.title=title;b.setAttribute("aria-label",title);b.addEventListener("click",fn);return b;};
+  const message=document.createElement("span");message.style.cssText="color:#ff8080;font-size:11px;white-space:normal;grid-column:1/-1;";message.setAttribute("role","status");
+  actions.replaceChildren(make("✓","Enregistrer",save),make("×","Annuler",render));row.append(message);
+  row.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.matches("input")){e.preventDefault();save();}else if(e.key==="Escape"){e.preventDefault();render();}});
+  fields.name.focus();fields.name.select();
+}
+
 function renderServicesList(){
   const list=$("servicesList");
   if(!list)return;
@@ -13064,7 +13134,7 @@ function renderServicesList(){
       <span style="text-align:right;white-space:nowrap">${fixed?"—":money(s.rate)+" $"}</span>
       <span style="text-align:right;white-space:nowrap">${money(amount(s))} $</span>
       <div class="s07-service-actions" style="display:flex;justify-content:flex-end;gap:4px;align-items:center;flex-wrap:nowrap;min-width:0;white-space:nowrap;">
-        <button class="ghost jl-edit-icon" title="Modifier" aria-label="Modifier" onclick="editService('${id}')"><svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z"/><path d="m13 6 5 5"/></svg></button>
+        <button class="ghost jl-edit-icon" title="Modifier" aria-label="Modifier" onclick="jlCatalogInline(this,'service','${id}')"><svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z"/><path d="m13 6 5 5"/></svg></button>
         <button type="button" class="ghost danger" title="Supprimer le service" aria-label="Supprimer le service" onclick="deleteService('${id}')">🗑</button>
         ${jlCatalogEditableWO()?`<button onclick="addServiceToCurrentWO('${id}')">+ Bon de travail</button>`:""}
       </div>
@@ -13143,7 +13213,7 @@ function renderPartsList(){
         <span style="text-align:right;white-space:nowrap">${money(p.price)} $</span>
         <span style="text-align:right;white-space:nowrap">${calcMargin(p.cost,p.price)}%</span>
         <div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;white-space:nowrap;">
-          <button class="ghost jl-edit-icon" title="Modifier" aria-label="Modifier" onclick="editPart('${id}')"><svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z"/><path d="m13 6 5 5"/></svg></button>
+          <button class="ghost jl-edit-icon" title="Modifier" aria-label="Modifier" onclick="jlCatalogInline(this,'part','${id}')"><svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z"/><path d="m13 6 5 5"/></svg></button>
           <button type="button" class="ghost danger" title="Supprimer la pièce" aria-label="Supprimer la pièce" onclick="deletePart('${id}')">🗑</button>
           ${jlCatalogEditableWO()?`<button onclick="addPartToCurrentWO('${id}')">+ Bon de travail</button>`:""}
         </div>
