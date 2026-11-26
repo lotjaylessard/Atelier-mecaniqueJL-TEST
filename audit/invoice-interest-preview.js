@@ -88,5 +88,24 @@ function waiveInterest(inv,asOf,reason){
   }
   return {ok:true,invoice:next};
 }
-root.JLInvoiceInterestPreview=Object.freeze({calculate,planPayment,applyPayment,waiveInterest});
+/* Read-only balance for open and settled invoices. Never count interest twice. */
+function balanceSummary(inv,asOf){
+  const result=calculate(inv,asOf);
+  if(!result.eligible)return result;
+  const entries=inv.interestPayments??[];
+  if(!Array.isArray(entries))return {eligible:false,reason:"invalid-interest-history"};
+  let received=0;
+  const end=inv.status==="paid"||inv.archived===true?day(inv.paidDate):day(asOf);
+  for(const p of entries){
+    const amount=cents(p?.amount),date=day(p?.date);
+    if(!Number.isSafeInteger(amount)||amount<=0||!Number.isFinite(date)||date<day(inv.date)||date>end)return {eligible:false,reason:"invalid-interest-history"};
+    received+=amount;
+  }
+  if(!Number.isSafeInteger(received)||received>result.interestCents)return {eligible:false,reason:"interest-history-mismatch"};
+  const interestRemainingCents=result.interestCents-received;
+  const dueCents=result.principalRemainingCents+interestRemainingCents;
+  if(inv.status==="paid"&&dueCents!==0)return {eligible:false,reason:"invalid-settlement"};
+  return {...result,interestPaidCents:received,interestRemainingCents,dueCents};
+}
+root.JLInvoiceInterestPreview=Object.freeze({calculate,planPayment,applyPayment,waiveInterest,balanceSummary});
 })(typeof globalThis==="object"?globalThis:window);
