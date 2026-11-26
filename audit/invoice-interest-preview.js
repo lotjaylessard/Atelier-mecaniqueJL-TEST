@@ -37,5 +37,27 @@ function calculate(inv,asOf){
   if(!Number.isSafeInteger(interest))return fail("overflow");
   return {eligible:true,interestCents:interest,principalRemainingCents:balance,daysLate:Math.max(0,end-start),estimatedDueCents:Math.max(0,principal+interest-paid)};
 }
-root.JLInvoiceInterestPreview=Object.freeze({calculate});
+/* Pure payment plan. Existing invoice accounting keeps principal payments
+   in paidAmount; interest receipts are recorded separately. */
+function planPayment(inv,asOf,amountCents){
+  const result=calculate(inv,asOf);
+  const fail=reason=>({ok:false,reason});
+  if(!result.eligible||inv.status==="paid"||inv.archived===true)return fail("not-payable");
+  const entries=Array.isArray(inv.interestPayments)?inv.interestPayments:[];
+  let interestPaid=0;
+  for(const entry of entries){
+    const value=cents(entry.amount),date=day(entry.date);
+    if(!Number.isSafeInteger(value)||value<=0||!Number.isFinite(date)||date<day(inv.date)||date>day(asOf))return fail("invalid-interest-history");
+    interestPaid+=value;
+  }
+  if(!Number.isSafeInteger(interestPaid)||interestPaid>result.interestCents)return fail("interest-history-mismatch");
+  const principalDue=result.principalRemainingCents;
+  const interestDue=result.interestCents-interestPaid;
+  const due=principalDue+interestDue;
+  const amount=amountCents===undefined?due:amountCents;
+  if(!Number.isSafeInteger(amount)||amount<=0||amount>due)return fail("invalid-payment");
+  const principalPayment=Math.min(principalDue,amount),interestPayment=amount-principalPayment;
+  return {ok:true,amountCents:amount,principalPaymentCents:principalPayment,interestPaymentCents:interestPayment,remainingCents:due-amount,fullyPaid:due===amount};
+}
+root.JLInvoiceInterestPreview=Object.freeze({calculate,planPayment});
 })(typeof globalThis==="object"?globalThis:window);
