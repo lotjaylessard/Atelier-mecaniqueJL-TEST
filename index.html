@@ -11138,7 +11138,7 @@ function renderInvoiceList(){
   const sorted=moduleSortRows(filtered,INVOICE_SORT_KEY,INVOICE_SORT_DIRECTION,invoiceSortValue);
   moduleRenderSortHeaders(table,INVOICE_SORT_KEY,INVOICE_SORT_DIRECTION);
   const counter=$("invoiceResultCount");
-  if(counter)counter.textContent=sorted.length+" facture"+(sorted.length!==1?"s":"")+" affichée"+(sorted.length!==1?"s":"");
+  if(counter)counter.textContent=sorted.length+" facture"+(sorted.length!==1?"s":"")+" au total";
 
   // 🔥 Condition vide APRÈS filtrage
   if (!sorted.length){
@@ -11861,7 +11861,7 @@ function renderVehiclesPage(){
   const sorted=moduleSortRows(filtered,VEHICLES_SORT.key,direction,vehicleSortValue);
   moduleRenderSortHeaders(table,VEHICLES_SORT.key,direction);
   const count=$("vehicleResultCount");
-  if(count)count.textContent=sorted.length+" véhicule"+(sorted.length!==1?"s":"")+" affiché"+(sorted.length!==1?"s":"");
+  if(count)count.textContent=sorted.length+" véhicule"+(sorted.length!==1?"s":"")+" au total";
   tbody.innerHTML="";
   if(!sorted.length){
     tbody.innerHTML='<tr><td colspan="9" class="muted" style="text-align:center;padding:20px;">Aucun véhicule ne correspond à la recherche.</td></tr>';
@@ -13747,6 +13747,36 @@ function historyInvoiceValue(inv,key){
 }
 
 /* ===================== HISTORIQUE & DASHBOARD ===================== */
+// Pagination visuelle uniquement : recherche et totaux sur toutes les lignes disponibles.
+var jlHistoryPages;
+function jlHistoryVisible(key,rows,render){
+  const states=jlHistoryPages||(jlHistoryPages={});
+  const signature=JSON.stringify([$("historySearch")?.value||"",$("filterClient")?.value||"",$("filterVehicle")?.value||"",key==="quote"?null:S05_HISTORY_SORT[key]]);
+  let state=states[key];
+  if(!state||state.signature!==signature)state=states[key]={signature,limit:20};
+  const table=$(key==="quote"?"historyQuoteTable":key==="wo"?"historyWOTable":"historyTable");
+  let footer=$("jlHistoryMore_"+key);
+  if(!footer){
+    footer=document.createElement("div");footer.id="jlHistoryMore_"+key;
+    footer.style.cssText="display:flex;justify-content:center;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap";
+    table.insertAdjacentElement("afterend",footer);
+  }
+  const shown=Math.min(rows.length,state.limit);
+  footer.replaceChildren();
+  if(rows.length>20){
+    const label=document.createElement("span");label.className="muted";label.textContent=shown+" / "+rows.length;
+    footer.append(label);
+    if(shown<rows.length){
+      const more=document.createElement("button");more.type="button";more.className="ghost";more.textContent="+ Afficher "+Math.min(20,rows.length-shown)+" autres";
+      more.onclick=()=>{state.limit+=20;render();};footer.append(more);
+    }
+    if(state.limit>20){
+      const less=document.createElement("button");less.type="button";less.className="ghost";less.textContent="Réduire";
+      less.onclick=()=>{state.limit=20;render();};footer.append(less);
+    }
+  }
+  return rows.slice(0,state.limit);
+}
 function renderHistoryTable(){
   const tbody = document.querySelector('#historyTable tbody');
   if (!tbody) return;
@@ -13773,9 +13803,11 @@ function renderHistoryTable(){
   moduleRenderSortHeaders($("historyTable"),sorting.key,sorting.direction);
   const counter=$("historyInvoiceResultCount");
   if(counter)counter.textContent=sorted.length+" facture"+(sorted.length!==1?"s":"")+" archivée"+(sorted.length!==1?"s":"")+" affichée"+(sorted.length!==1?"s":"");
+  const visible=jlHistoryVisible("invoice",sorted,renderHistoryTable);
+  const visibleSet=new Set(visible);
   sorted.forEach(inv => {
 
-      const tr = document.createElement("tr");
+      
 
       const wo = WORKORDERS.find(w =>
         String(w.number) === String(inv.workOrderNumber)
@@ -13785,7 +13817,8 @@ function renderHistoryTable(){
 
       totalFacture += Number(inv.total || 0);
       totalProfit += Number(profit || 0);
-
+      if(!visibleSet.has(inv))return;
+      const tr=document.createElement("tr");
       tr.innerHTML = `
         <td>
           <button class="ghost" onclick="openInvoiceEditModal('${inv.number}')">
@@ -13819,7 +13852,7 @@ function renderHistoryTable(){
 
   totalRow.innerHTML = `
     <td colspan="4" style="text-align:right;padding-right:20px;">
-      TOTAL
+      TOTAL DES RÉSULTATS
     </td>
     <td style="text-align:right;">
       ${money(totalFacture)} $
@@ -13909,7 +13942,7 @@ const sorted=moduleSortRows(filtered,sort.key,sort.direction,historyWOValue);
 moduleRenderSortHeaders($("historyWOTable"),sort.key,sort.direction);
 const count=$("historyWOResultCount");
 if(count)count.textContent=sorted.length+" bon"+(sorted.length!==1?"s":"")+" de travail archivé"+(sorted.length!==1?"s":"")+" affiché"+(sorted.length!==1?"s":"");
-sorted.forEach(wo => {
+jlHistoryVisible("wo",sorted,renderHistoryWOTable).forEach(wo => {
   const tr = document.createElement("tr");
 
   const total  = calcWorkOrderTotal(wo);
@@ -14034,12 +14067,12 @@ function setWorkOrderReadOnlyMode(){
 if ($("filterClient")) {
   $("filterClient").onchange = () => {
     renderDashboard();     // Met à jour la liste des véhicules selon le client
-    renderHistoryTable();  // Rafraîchit le tableau
+    renderHistoryTable();renderHistoryWOTable();  // Rafraîchit les deux tableaux
   };
 }
 
 if ($("filterVehicle")) {
-  $("filterVehicle").onchange = renderHistoryTable;
+  $("filterVehicle").onchange = ()=>{renderHistoryTable();renderHistoryWOTable();};
 }
 
 
@@ -21060,6 +21093,7 @@ function jlHistoryRenderQuotes(){
   count.textContent=jlHistoryQuotesLoaded
     ?rows.length+" soumission"+(rows.length===1?"":"s")+" archivée"+(rows.length===1?"":"s")
     :"Historique non vérifié — connexion requise.";
+  const visible=jlHistoryVisible("quote",rows,jlHistoryRenderQuotes);
   if(!rows.length){
     const tr=document.createElement("tr"),td=document.createElement("td");
     td.colSpan=6;td.className="muted";
@@ -21067,7 +21101,7 @@ function jlHistoryRenderQuotes(){
     tr.append(td);table.append(tr);return;
   }
   const statuses={draft:"Brouillon",sent:"Envoyée",converted:"Convertie",declined:"Refusée",expired:"Expirée"};
-  for(const q of rows){
+  for(const q of visible){
     const d=q.content||{},tr=document.createElement("tr");
     const label=q.status==="converted"&&jlQuoteArchived(q)?"Terminée — payée":q.status==="sent"&&d.approvalConfirmedAt?"Approuvée":(statuses[q.status]||q.status);
     const total=Number(d.totalCents);
