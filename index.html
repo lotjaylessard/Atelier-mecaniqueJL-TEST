@@ -4070,14 +4070,10 @@ function invoicePaymentMismatch(inv){
   if (status === "paid" && Math.abs(paid-total) > 0.009)
     return "La facture est marquée payée, mais son total diffère du montant reçu.";
   if(jlInvoiceHasInterest(inv)){
-    const engine=window.JLInvoiceInterestPreview;
-    const day=new Date().toLocaleDateString("fr-CA");
-    const preview=engine?.calculate(inv,day);
-    const ip=inv.interestPayments||[];
-    if(!preview?.eligible||!Array.isArray(ip)||ip.some(p=>!Number.isFinite(Number(p.amount))||Number(p.amount)<=0))return "Historique des intérêts invalide.";
-    const received=ip.reduce((sum,p)=>sum+Math.round(Number(p.amount)*100),0);
-    const remaining=preview.principalRemainingCents+preview.interestCents-received;
-    if(received>preview.interestCents||status==="paid"&&remaining!==0||status==="partial"&&remaining<=0)return "Le statut ne correspond pas au solde avec intérêts.";
+    const preview=jlInvoiceBalanceSummary(inv);
+    if(!preview?.eligible)return "Historique des intérêts invalide.";
+    const remaining=preview.dueCents;
+    if(status==="paid"&&remaining!==0||status==="partial"&&remaining<=0)return "Le statut ne correspond pas au solde avec intérêts.";
     if(status==="partial"&&paid>0)return null;
   }
   if (status === "partial" && (paid <= 0 || paid >= total - 0.009))
@@ -6809,7 +6805,7 @@ function jlWaiveInvoiceInterest(number){
   loadInvoices();
   const inv=INVOICES.find(i=>String(i.number)===String(number));
   const engine=window.JLInvoiceInterestPreview;
-  if(!CLOUD_DATA_READY||CLOUD_SYNC_FAILED||!engine?.waiveInterest||!jlInvoiceHasInterest(inv)||inv.status==="paid"||inv.archived){alert("Annulation indisponible.");return;}
+  if(window.JL_INTEREST_PAYMENT_READY!==true||!CLOUD_DATA_READY||CLOUD_SYNC_FAILED||CLOUD_SYNC_IN_PROGRESS||!ACTIVE_GARAGE_ID||!SUPABASE_USER?.id||!engine?.waiveInterest||!jlInvoiceHasInterest(inv)||inv.status==="paid"||inv.archived){alert("Annulation indisponible.");return;}
   const today=new Date().toLocaleDateString("fr-CA");
   const preview=engine.calculate(inv,today);
   if(!preview.eligible||(inv.interestPayments||[]).length){alert("Annulation impossible : historique invalide ou intérêts déjà encaissés.");return;}
@@ -6829,7 +6825,7 @@ function jlInvoiceInterestPayment(inv,method,partial){
   if(window.JL_INTEREST_PAYMENT_READY!==true){alert("Encaissement avec intérêts en préparation dans TEST. Aucun paiement enregistré.");return true;}
   const engine=window.JLInvoiceInterestPreview;
   const today=new Date().toLocaleDateString("fr-CA");
-  if(!CLOUD_DATA_READY||CLOUD_SYNC_FAILED||!engine?.applyPayment){
+  if(!CLOUD_DATA_READY||CLOUD_SYNC_FAILED||CLOUD_SYNC_IN_PROGRESS||!ACTIVE_GARAGE_ID||!SUPABASE_USER?.id||!engine?.applyPayment){
     alert("Encaissement bloqué : données ou moteur d’intérêts indisponibles.");return true;
   }
   const full=engine.planPayment(inv,today);
