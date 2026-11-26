@@ -18,6 +18,8 @@
   const reset=document.createElement("button");reset.type="button";reset.id="s06SidebarReset";reset.title="Supprimer la minuterie";reset.setAttribute("aria-label","Supprimer la minuterie");reset.textContent="×";reset.style.cssText="flex:0 0 30px;min-width:30px;padding:0;color:#ef4444;border-color:#ef4444;font-size:20px";reset.hidden=true;stop?.insertAdjacentElement("afterend",reset);
   // Les commandes du pilote restent désactivées sans confirmation de
   // la session du même BT. Ne pas appeler la minuterie locale historique.
+  for(const btn of [toggle,stop,reset])if(btn){btn.style.flex="0 0 36px";btn.style.width="36px";btn.style.minWidth="36px";btn.style.height="34px";btn.style.padding="0";btn.style.fontSize="18px";btn.style.lineHeight="1";}
+  if(stop?.parentElement)stop.parentElement.style.justifyContent="center";
   if(toggle)toggle.disabled=true;
   if(stop)stop.disabled=true;
   if(!box||!status||!number||!vehicle||!desc||!time)return;
@@ -93,13 +95,13 @@
       delayed?"◌ Confirmation retardée":
       current.status==="running"?"● En cours":"● En pause";
     if(toggle){
-      toggle.textContent=actionPending?"⏳ Enregistrement…":
-        stale?"⚠ Récupérer":current.status==="running"?"⏸ Pause":"▶ Reprendre";
+      toggle.textContent=actionPending?"…":stale?"⚠":current.status==="running"?"Ⅱ":"▶";
+      toggle.title=actionPending?"Enregistrement…":stale?"Récupérer":current.status==="running"?"Pause":"Reprendre";toggle.setAttribute("aria-label",toggle.title);
       toggle.disabled=actionPending||!navigator.onLine;
     }
     reset.hidden=false;reset.disabled=actionPending||stale||!navigator.onLine;
     if(stop){
-      stop.textContent="⏹ Terminer";
+      stop.textContent="■";stop.title="Terminer";stop.setAttribute("aria-label","Terminer");
       // Impossible de terminer une session interrompue avant récupération.
       stop.disabled=actionPending||stale||!navigator.onLine;
     }
@@ -299,7 +301,7 @@
       const stamp=Date.parse(current.last_heartbeat_at||"");
       if(Number.isFinite(stamp)&&now-stamp>=recoverAfterMs){
         status.textContent="⚠ À récupérer";
-        if(toggle){toggle.textContent="⚠ Récupérer";toggle.disabled=actionPending||!navigator.onLine;}
+        if(toggle){toggle.textContent="⚠";toggle.title="Récupérer";toggle.setAttribute("aria-label","Récupérer");toggle.disabled=actionPending||!navigator.onLine;}
         if(stop)stop.disabled=true;
         if(hint)hint.textContent="Interruption détectée après la veille. Vérification Supabase…";
       }else if(Number.isFinite(stamp)&&now-stamp>warnAfterMs){
