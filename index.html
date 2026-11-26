@@ -2052,6 +2052,7 @@ window.jlShowSuccess=function(message){
 };
 })();
 </script>
+<style id="jl-menu-visibility-style">.navBtn[hidden]{display:none!important}</style>
 </head>
 <body>
 
@@ -3195,6 +3196,14 @@ window.jlShowSuccess=function(message){
       </div>
     </details>
 
+    <details class="jl-settings-backup jl-settings-options" id="jlMenuOptions">
+      <summary>☰ Menu</summary>
+      <div class="jl-settings-toggle-grid">
+        <label><input type="checkbox" data-jl-menu="notes" checked /> Afficher Notes</label>
+        <label><input type="checkbox" data-jl-menu="links" checked /> Afficher Liens rapides</label>
+      </div>
+      <details class="jl-compact-help"><summary class="jl-help-control" aria-label="Afficher l’aide" title="Afficher l’aide">?</summary><p class="muted">Personnalisation locale du menu sur ce navigateur. Masquer un onglet ne supprime aucune donnée.</p></details>
+    </details>
     <details class="jl-settings-backup jl-settings-options" id="jlPrintOptions">
       <summary>🧾 Factures et soumissions</summary>
       <div class="jl-settings-toggle-grid jl-invoice-options">
@@ -10955,7 +10964,7 @@ function initSettings(){
   const defaults={dashboard:{notes:true,monthly:true,workorders:true,invoices:true,quotes:true,overdue:true,unplanned:true,calendar:true},printPartNumber:true};
   let saved={};
   try{saved=JSON.parse(localStorage.getItem(key)||"{}")||{};}catch(_){}
-  const settings={dashboard:{...defaults.dashboard,...(saved.dashboard||{})},printPartNumber:saved.printPartNumber!==false};
+  const settings={dashboard:{...defaults.dashboard,...(saved.dashboard||{})},printPartNumber:saved.printPartNumber!==false,menu:{notes:saved.menu?.notes!==false,links:saved.menu?.links!==false}};
   // Ordre configurable par appareil, avec récupération des préférences existantes.
   const savedOrder=Array.isArray(saved.dashboardOrder)?saved.dashboardOrder:[];
   // Pour les anciens réglages, les deux nouveaux blocs prioritaires apparaissent
@@ -11008,6 +11017,18 @@ function initSettings(){
       area.append(row);
     });
   };
+  const applyMenu=()=>{
+    for(const name of ["notes","links"]){
+      const button=document.querySelector('.navBtn[data-page="page-'+name+'"]');
+      if(button)button.hidden=settings.menu[name]===false;
+    }
+  };
+  for(const checkbox of document.querySelectorAll("[data-jl-menu]")){
+    const name=checkbox.dataset.jlMenu;
+    checkbox.checked=settings.menu[name]!==false;
+    checkbox.addEventListener("change",()=>{settings.menu[name]=checkbox.checked;save();applyMenu();});
+  }
+  applyMenu();
   for(const checkbox of document.querySelectorAll("[data-jl-dashboard]")){
     const key=checkbox.dataset.jlDashboard;
     checkbox.checked=settings.dashboard[key]!==false;
