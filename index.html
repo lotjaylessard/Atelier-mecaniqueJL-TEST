@@ -2008,6 +2008,13 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
 #invoiceEditContent .jl-invoice-preview-table :is(th,td):nth-child(2){overflow-wrap:anywhere}
 @media(max-width:720px){#s08QuoteViewer .s08-viewer-head{align-items:flex-start;flex-direction:column}#s08QuoteViewer .s08-viewer-controls{margin-left:0;justify-content:flex-start;width:100%}}
 </style>
+
+<style>
+button.jl-edit-icon {width:36px;min-width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;flex-shrink:0;}
+button.jl-edit-icon[hidden]{display:none!important;}
+button.jl-edit-icon svg{pointer-events:none;display:block;}
+button.jl-edit-icon:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+</style>
 </head>
 <body>
 
@@ -2431,7 +2438,7 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
             <h2 id="s08ViewTitle">Soumission</h2>
             <div class="s08-viewer-controls">
               <button type="button" id="s08ViewerMode" class="ghost" aria-pressed="false" aria-label="Passer en mode client" title="Passer en mode client">⋯</button>
-              <button type="button" id="s08EditQuote" class="ghost" hidden>Modifier</button>
+              <button type="button" id="s08EditQuote" class="ghost jl-edit-icon" title="Modifier" aria-label="Modifier" hidden><svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z"/><path d="m13 6 5 5"/></svg></button>
               <button type="button" id="s08ReactivateQuote" class="ghost" hidden title="Remettre cette soumission en brouillon, sans modifier son numéro ni ses lignes">↺ Réactiver</button>
               <button type="button" id="s08MarkApproved" title="Enregistrer l'accord du client sans créer de BT">✓ Approuver</button>
               <button type="button" id="s08QuickApprove" class="ghost" title="Convertir la soumission approuvée en bon de travail" hidden>Créer BT</button>
@@ -6911,9 +6918,7 @@ recalcInvoice(inv);
       </div>
 
             <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:15px;">
-        <button class="ghost" onclick="openInvoiceAsWorkOrder('${inv.number}')">
-          ✏️ Modifier
-        </button>
+        <button class="ghost jl-edit-icon" title="Modifier" aria-label="Modifier" onclick="openInvoiceAsWorkOrder('${inv.number}')"><svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z"/><path d="m13 6 5 5"/></svg></button>
         <button onclick="printInvoice()">
           🖨️ Imprimer
         </button>
@@ -7921,7 +7926,7 @@ function jlWoRenderNotes(wo){
       +'<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><b>'+name+'</b>'
       +'<span class="muted" style="font-size:12px">'+escapeHTML(jlWoDate(note.createdAt))+changed+'</span></div>'
       +'<div style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px">'+body+'</div>'
-      +(own&&!note.timerReadOnly&&woCanEditNotes(wo)?'<button type="button" class="ghost" data-jl-note-edit="'+id+'" style="margin-top:6px">✏️ Modifier</button>':'')
+      +(own&&!note.timerReadOnly&&woCanEditNotes(wo)?'<button type="button" class="ghost jl-edit-icon" title="Modifier la note" aria-label="Modifier la note" data-jl-note-edit="'+id+'" style="margin-top:6px"><svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z"/><path d="m13 6 5 5"/></svg></button>':'')
       +'</div>';
   });
   // Les notes originales n'ont pas d'auteur individuel connu : ne jamais en inventer un.
@@ -9659,6 +9664,7 @@ if (locked){
     .forEach(btn => {
       if (
         btn.innerText.includes("Ajouter") ||
+        btn.classList.contains("jl-edit-icon") ||
         btn.innerText.includes("Modifier") ||
         btn.innerText.includes("🗑") ||
         btn.innerText.includes("✏️")
@@ -12497,7 +12503,7 @@ function renderClientModal(id){
           <div class="small">${v.notes||''}</div>
         </div>
         <div style="display:flex; gap:8px;">
-  <button class="ghost" data-role="edit-veh" data-index="${idx}">Modifier</button>
+  <button class="ghost jl-edit-icon" title="Modifier" aria-label="Modifier" data-role="edit-veh" data-index="${idx}"><svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z"/><path d="m13 6 5 5"/></svg></button>
   <button class="ghost danger" data-index="${idx}" data-role="del-veh">Supprimer</button>
 </div>
       </div>
@@ -13034,7 +13040,7 @@ function renderServicesList(){
     if(["hours","rate"].includes(key))return isFixed(s)?null:Number(s[key]||0);
     return String(s[key]||"");
   });
-  const gridStyle="display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1.4fr) minmax(0,1fr) minmax(0,.65fr) minmax(0,.6fr) minmax(0,.8fr) minmax(0,.85fr) "+(jlCatalogEditableWO()?"minmax(260px,1.8fr)":"minmax(125px,.85fr)")+";gap:8px;align-items:center;width:100%;box-sizing:border-box;";
+  const gridStyle="display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1.4fr) minmax(0,1fr) minmax(0,.65fr) minmax(0,.6fr) minmax(0,.8fr) minmax(0,.85fr) "+(jlCatalogEditableWO()?"minmax(260px,1.8fr)":"minmax(90px,.65fr)")+";gap:8px;align-items:center;width:100%;box-sizing:border-box;";
   const header=(key,label,align="left")=>{
     const active=S07_SERVICE_SORT_KEY===key;
     const arrow=active?(S07_SERVICE_SORT_DIRECTION==="asc"?"▲":"▼"):"↕";
@@ -13058,7 +13064,7 @@ function renderServicesList(){
       <span style="text-align:right;white-space:nowrap">${fixed?"—":money(s.rate)+" $"}</span>
       <span style="text-align:right;white-space:nowrap">${money(amount(s))} $</span>
       <div class="s07-service-actions" style="display:flex;justify-content:flex-end;gap:4px;align-items:center;flex-wrap:nowrap;min-width:0;white-space:nowrap;">
-        <button class="ghost" onclick="editService('${id}')">Modifier</button>
+        <button class="ghost jl-edit-icon" title="Modifier" aria-label="Modifier" onclick="editService('${id}')"><svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z"/><path d="m13 6 5 5"/></svg></button>
         <button type="button" class="ghost danger" title="Supprimer le service" aria-label="Supprimer le service" onclick="deleteService('${id}')">🗑</button>
         ${jlCatalogEditableWO()?`<button onclick="addServiceToCurrentWO('${id}')">+ Bon de travail</button>`:""}
       </div>
@@ -13113,7 +13119,7 @@ function renderPartsList(){
   );
   // S07-F09a : mêmes colonnes et dimensions pour toutes les pièces.
   // Ne modifier que le rendu : recherche, tri, stock et actions restent intacts.
-  const colStyle="display:grid;grid-template-columns: minmax(185px,2fr) minmax(110px,1.1fr) minmax(115px,1.1fr) "+(JL_STOCK_ENABLED?"75px ":"")+"100px 100px 85px "+(jlCatalogEditableWO()?"minmax(250px,auto)":"minmax(125px,auto)")+";gap:12px;align-items:center;min-width:"+((JL_STOCK_ENABLED?1180:1093)-(jlCatalogEditableWO()?55:180))+"px;";
+  const colStyle="display:grid;grid-template-columns: minmax(185px,2fr) minmax(110px,1.1fr) minmax(115px,1.1fr) "+(JL_STOCK_ENABLED?"75px ":"")+"100px 100px 85px "+(jlCatalogEditableWO()?"minmax(250px,auto)":"minmax(90px,auto)")+";gap:12px;align-items:center;min-width:"+((JL_STOCK_ENABLED?1180:1093)-(jlCatalogEditableWO()?55:180))+"px;";
   list.style.overflowX="auto";
   const header=(key,label,align="left")=>{
     const active=S07_PART_SORT_KEY===key;
@@ -13137,7 +13143,7 @@ function renderPartsList(){
         <span style="text-align:right;white-space:nowrap">${money(p.price)} $</span>
         <span style="text-align:right;white-space:nowrap">${calcMargin(p.cost,p.price)}%</span>
         <div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;white-space:nowrap;">
-          <button class="ghost" onclick="editPart('${id}')">Modifier</button>
+          <button class="ghost jl-edit-icon" title="Modifier" aria-label="Modifier" onclick="editPart('${id}')"><svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z"/><path d="m13 6 5 5"/></svg></button>
           <button type="button" class="ghost danger" title="Supprimer la pièce" aria-label="Supprimer la pièce" onclick="deletePart('${id}')">🗑</button>
           ${jlCatalogEditableWO()?`<button onclick="addPartToCurrentWO('${id}')">+ Bon de travail</button>`:""}
         </div>
@@ -16958,10 +16964,8 @@ function renderEditUI(){
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
       <h2 style="margin:0;">Facture #${inv.number}</h2>
       <button id="unlockInvoiceBtn"
-              class="ghost"
-              style="${locked ? '' : 'display:none;'}">
-        ✏️ Modifier
-      </button>
+              class="ghost jl-edit-icon" title="Modifier" aria-label="Modifier"
+              style="${locked ? '' : 'display:none;'}"><svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z"/><path d="m13 6 5 5"/></svg></button>
     </div>
 
     <div class="muted" style="margin-top:6px;">
@@ -17720,7 +17724,7 @@ function categoryHeader(cat, count) {
                 </div>
 
                 <div style="margin-top:8px; display:flex;gap:10px;">
-                    <button class="ghost" onclick="editNote(${n.id})">✏️ Modifier</button>
+                    <button class="ghost jl-edit-icon" title="Modifier" aria-label="Modifier" onclick="editNote(${n.id})"><svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z"/><path d="m13 6 5 5"/></svg></button>
                     <button class="ghost" onclick="deleteNote(${n.id})">🗑️ Supprimer</button>
                 </div>
             </div>
@@ -17924,7 +17928,7 @@ function renderLinks() {
 
             <div class="qt-actions">
                 <button class="ghost" onclick="window.open('${l.url}','_blank')">🌐</button>
-                <button class="ghost" onclick="editLink(${l.id})">✏️</button>
+                <button class="ghost jl-edit-icon" title="Modifier" aria-label="Modifier" onclick="editLink(${l.id})"><svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z"/><path d="m13 6 5 5"/></svg></button>
                 <button class="ghost" onclick="deleteLink(${l.id})">🗑️</button>
                 <button class="ghost" onclick="toggleFav(${l.id})">${l.fav ? "⭐" : "☆"}</button>
             </div>
@@ -21128,7 +21132,7 @@ function jlSupplierRender(){
     const actions=document.createElement("td");
     actions.className="jl-supplier-actions";
     const edit=document.createElement("button");
-    edit.type="button";edit.className="ghost";edit.textContent="Modifier";
+    edit.type="button";edit.className="ghost jl-edit-icon";edit.title="Modifier le fournisseur";edit.setAttribute("aria-label",edit.title);edit.innerHTML='<svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z"/><path d="m13 6 5 5"/></svg>';
     edit.addEventListener("click",()=>{
       if(jlSupplierEditing===name){jlSupplierEditing=null;jlSupplierRender();return;}
       jlSupplierEditing=name;
