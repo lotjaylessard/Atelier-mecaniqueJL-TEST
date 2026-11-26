@@ -6787,6 +6787,20 @@ function toggleInvoicePartialMenu(number){
   partial.style.display = partial.style.display === "block" ? "none" : "block";
 }
 
+function jlInvoiceBalanceSummary(inv){
+  return window.JLInvoiceInterestPreview?.balanceSummary(inv,new Date().toLocaleDateString("fr-CA"));
+}
+function jlInvoiceDisplayBalance(inv){
+  const summary=jlInvoiceBalanceSummary(inv);
+  if(window.JL_INTEREST_PAYMENT_READY===true&&jlInvoiceHasInterest(inv))return summary?.eligible?summary.dueCents/100:null;
+  return Math.max(0,Math.round((Number(inv.total||0)-Number(inv.paidAmount||0))*100)/100);
+}
+function jlInvoiceBalanceLabel(inv){
+  if(inv.status==="paid")return "—";
+  if(inv.status!=="partial"&&!(window.JL_INTEREST_PAYMENT_READY===true&&jlInvoiceHasInterest(inv)))return "—";
+  const due=jlInvoiceDisplayBalance(inv);
+  return due===null?"À vérifier":money(due)+" $";
+}
 function jlInvoiceHasInterest(inv){
   return inv?.interestTerms?.enabled===true&&inv.interestTerms.accepted===true&&inv.interestTerms.waived!==true;
 }
@@ -11187,9 +11201,7 @@ function invoiceSortValue(inv,key){
     case "number":return String(inv.number||"");
     case "date":{const t=Date.parse(inv.date||"");return Number.isFinite(t)?t:null;}
     case "client":return String(inv.customer||"");
-    case "balance":return inv.status==="partial"
-      ? Math.max(0,Math.round((Number(inv.total||0)-Number(inv.paidAmount||0))*100)/100)
-      : null;
+    case "balance":return jlInvoiceBalanceLabel(inv)==="—"?null:jlInvoiceDisplayBalance(inv);
     case "total":return Number(inv.total)||0;
     case "status":return String(inv.status||"");
     default:return "";
@@ -11265,7 +11277,7 @@ function renderInvoiceList(){
       <td>${inv.number}</td>
       <td>${inv.date || ""}</td>
       <td>${clientNameDisplay}</td>
-      <td class="invoice-balance" style="font-weight:700;color:var(--accent)">${inv.status==="partial"?money(Math.max(0,Math.round((Number(inv.total||0)-Number(inv.paidAmount||0))*100)/100))+" $":"—"}</td>
+      <td class="invoice-balance" style="font-weight:700;color:var(--accent)">${jlInvoiceBalanceLabel(inv)}</td>
       <td class="invoice-total">${money(inv.total)} $</td>
       <td class="invoice-status">
         <span class="status-badge ${
@@ -11306,7 +11318,7 @@ function updateInvoiceRow(inv){
   if (!row) return;
 
   const balanceCell=row.querySelector(".invoice-balance");
-  if(balanceCell)balanceCell.textContent=inv.status==="partial"?money(Math.max(0,Math.round((Number(inv.total||0)-Number(inv.paidAmount||0))*100)/100))+" $":"—";
+  if(balanceCell)balanceCell.textContent=jlInvoiceBalanceLabel(inv);
   // ✅ Total: dans ton tableau c'est la 5e colonne (index 4)
   const totalCell =
     row.querySelector(".invoice-total") ||
@@ -16169,11 +16181,11 @@ jlDashboardFillList("lastInvoicesBox",recentInvoices.map(inv=>{
   const status=String(inv.status||"unpaid").toLowerCase();
   const paid=Number(inv.paidAmount||0);
   const total=Number(inv.total||0);
-  const balance=Math.max(0,total-(Number.isFinite(paid)?paid:0));
+  const balance=jlInvoiceDisplayBalance(inv);
   return {
     title:"#"+String(inv.number||"—")+" · "+money(total)+" $",
     subtitle:String(inv.customer||"Client inconnu")+(vehicle?" · "+vehicle:""),
-    detail:(inv.date?String(inv.date)+" · ":"")+"Solde : "+money(balance)+" $",
+    detail:(inv.date?String(inv.date)+" · ":"")+"Solde : "+(balance===null?"À vérifier":money(balance)+" $"),
     badge:status==="paid"?"Payée":status==="partial"?"Partielle":"Impayée",
     kind:status==="paid"?"paid":status==="partial"?"partial":"overdue",
     onClick:()=>jlDashboardOpenInvoice(inv.number)
@@ -16215,8 +16227,8 @@ const datedUnpaid=activeInvoices.filter(inv=>
   const days=Math.floor((Date.UTC(today.getFullYear(),today.getMonth(),today.getDate())-
     Date.UTC(invoiceDate.getFullYear(),invoiceDate.getMonth(),invoiceDate.getDate()))/86400000);
   const total=Number(inv.total||0),paid=Number(inv.paidAmount||0);
-  const balance=Math.max(0,total-(Number.isFinite(paid)?paid:0));
-  return days>=1&&Number.isFinite(total)&&balance>=0.005?{inv,days,balance}:null;
+  const balance=jlInvoiceDisplayBalance(inv);
+  return days>=1&&Number.isFinite(total)&&(balance===null||balance>=0.005)?{inv,days,balance}:null;
 }).filter(Boolean).sort((a,b)=>b.days-a.days||
   String(a.inv.date||"").localeCompare(String(b.inv.date||""))||
   String(a.inv.number||"").localeCompare(String(b.inv.number||""),"fr",{numeric:true}));
@@ -16224,7 +16236,7 @@ const visibleUnpaid=jlDashboardOverdueExpanded?datedUnpaid:datedUnpaid.slice(0,5
 jlDashboardFillList("jlDashboardOldInvoicesBox",visibleUnpaid.map(({inv,days,balance})=>{
   const tier=invoiceAgeTiers.find(threshold=>days>=threshold)||1;
   return {
-    title:"#"+String(inv.number||"—")+" · "+money(balance)+" $ à recevoir",
+    title:"#"+String(inv.number||"—")+" · "+(balance===null?"Solde à vérifier":money(balance)+" $ à recevoir"),
     subtitle:String(inv.customer||"Client inconnu"),
     detail:days+" jour"+(days>1?"s":"")+" depuis la facture"+
       (String(inv.status||"").toLowerCase()==="partial"?" · paiement partiel":""),
@@ -16638,16 +16650,18 @@ if (clientObj && Array.isArray(clientObj.vehicles)){
   inv.locked = true;
 
   // Calcul Balance paiement partiel
-  const balance = Math.max(0, (inv.total || 0) - (inv.paidAmount || 0));
-  const interestPreview=window.JLInvoiceInterestPreview?.calculate(inv,new Date().toLocaleDateString("fr-CA"));
+  const balance = jlInvoiceDisplayBalance(inv);
+  const interestPreview=jlInvoiceBalanceSummary(inv);
+  const interestLive=window.JL_INTEREST_PAYMENT_READY===true;
+  const interestReceived=interestPreview?.eligible?interestPreview.interestPaidCents/100:0;
 
   let paymentsHtml = "";
-(inv.payments || []).forEach((p,i)=>{
+[...(inv.payments||[]).map(p=>({...p,interestReceipt:false})),...(interestPreview?.eligible?(inv.interestPayments||[]).map(p=>({...p,interestReceipt:true})):[])].sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach((p,i)=>{
   paymentsHtml += `
     <tr>
       <td>${i+1}</td>
       <td>${escapeHTML(String(p.date||'').slice(0,10))}</td>
-      <td>${invoicePaymentMethodLabel(p.method)}</td>
+      <td>${invoicePaymentMethodLabel(p.method)}${p.interestReceipt?" · Intérêts":""}</td>
       <td style="text-align:right;">${money(p.amount)} $</td>
     </tr>
   `;
@@ -16852,11 +16866,11 @@ content.innerHTML = `
 </div>
 
 
-  ${interestPreview?.eligible && !isLocked ? `<div class="no-print" style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:6px;text-align:right;"><div class="muted">Simulation des intérêts — non facturés</div><div>Intérêts estimés (${interestPreview.daysLate} jours) : <b>${money(interestPreview.interestCents/100)} $</b></div><div>Solde avec intérêts estimés : <b>${money(interestPreview.estimatedDueCents/100)} $</b></div><div class="muted" style="font-size:12px">Les encaissements utilisent encore le solde original.</div></div>` : ""}
+  ${interestPreview?.eligible ? `<div class="${interestLive?"":"no-print"}" style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:6px;text-align:right;"><div class="muted">${interestLive?"Intérêts de retard":"Simulation des intérêts — non facturés"}</div><div>Capital restant : <b>${money(interestPreview.principalRemainingCents/100)} $</b></div><div>Intérêts cumulés (${interestPreview.daysLate} jours) : <b>${money(interestPreview.interestCents/100)} $</b></div><div>Intérêts encaissés : <b>${money(interestReceived)} $</b></div><div>Intérêts restants : <b>${money(interestPreview.interestRemainingCents/100)} $</b></div><div>Solde ${interestLive?"":"estimé "}avec intérêts : <b>${money(interestPreview.dueCents/100)} $</b></div>${interestLive?"":'<div class="muted">Encaissement avec intérêts non activé.</div>'}</div>` : jlInvoiceHasInterest(inv)?'<div class="no-print muted">Solde des intérêts à vérifier.</div>':""}
   ${jlInvoiceHasInterest(inv)&&!isLocked&&interestPreview?.eligible&&!(inv.interestPayments||[]).length ? '<div class="no-print" style="text-align:right;margin-top:8px"><button class="ghost" id="jlWaiveInterestButton">Annuler les intérêts</button></div>' : ""}
   ${inv.interestTerms?.waived===true ? `<div class="muted" style="text-align:right;margin-top:8px">Intérêts annulés le ${escapeHTML(String(inv.interestTerms.waivedDate||"").slice(0,10))}.</div>` : ""}
   <!-- PAIEMENTS -->
-  ${(inv.payments && inv.payments.length) ? `
+  ${paymentsHtml ? `
     <h3 style="margin-top:25px;">Historique des paiements</h3>
 
     <table class="table">
@@ -16878,8 +16892,8 @@ content.innerHTML = `
       text-align:right;
       font-size:1.1em;
     ">
-      <div>Total payé : <b>${money(inv.paidAmount)} $</b></div>
-      <div>Solde restant : <b>${money(balance)} $</b></div>
+      <div>Total payé : <b>${money(Number(inv.paidAmount||0)+interestReceived)} $</b></div>
+      <div>Solde restant : <b>${balance===null?"À vérifier":money(balance)+" $"}</b></div>
     </div>
   ` : ""}
 
@@ -19422,7 +19436,7 @@ if (window.garageSupabase) {
 <script src="audit/s06-wo-pilot.js?v=84f510fe" defer></script>
 <!-- S06-F07: afficheur Supabase sous Menu pour le pilote seulement -->
 <script src="audit/s06-sidebar-persistent.js?v=e378a58c" defer></script>
-<script src="audit/invoice-interest-preview.js?v=e0e53a0b" defer></script>
+<script src="audit/invoice-interest-preview.js?v=55647d2e" defer></script>
 
 
 
