@@ -15827,10 +15827,10 @@ async function dashboardRefreshPendingQuotes(){
           "Montant : "+money(Number(d.totalCents||0)/100)+" $",
         onClick:()=>jlDashboardOpenQuote(q.id)};
     };
-    jlDashboardFillList("jlDashboardQuotesBox",unapproved.slice(0,5).map(quoteItem),
+    jlDashboardFillList("jlDashboardQuotesBox",unapproved.map(quoteItem),
       "Aucune soumission envoyée en attente d'accord.");
     jlDashboardFillList("jlDashboardUnplanned",approved.filter(q=>
-      !q.content?.appointment?.date).slice(0,5).map(quoteItem),
+      !q.content?.appointment?.date).map(quoteItem),
       "Aucun rendez-vous à planifier.");
     const status=document.getElementById("jlCalendarStatus");
     if(status)status.textContent=rows.length>=500
@@ -15852,12 +15852,16 @@ async function dashboardRefreshPendingQuotes(){
 
 // Lignes cliquables sans HTML interpolé : titres provenant des données
 // affichés avec textContent, jamais interprétés comme du code.
+var jlDashboardExpandedLists;
 function jlDashboardFillList(id,items,emptyMessage){
   const target=document.getElementById(id);if(!target)return;
   target.replaceChildren();
   if(!items.length){const p=document.createElement("span");p.className="muted";
     p.textContent=emptyMessage;target.append(p);return;}
-  for(const item of items){
+  const compact=["jlDashboardQuotesBox","jlDashboardUnplanned","lastInvoicesBox","lastWorkOrdersBox"].includes(id);
+  const expanded=jlDashboardExpandedLists||(jlDashboardExpandedLists={});
+  const visible=compact&&!expanded[id]?items.slice(0,5):items;
+  for(const item of visible){
     const row=document.createElement("button");row.type="button";
     row.className="jl-dashboard-row";
     if(/^overdue(?:60|45|30|14|7|3|1)$/.test(String(item.kind||"")))
@@ -15878,6 +15882,13 @@ function jlDashboardFillList(id,items,emptyMessage){
       detail.title=item.detail;row.append(detail);}
     if(typeof item.onClick==="function")row.addEventListener("click",item.onClick);
     target.append(row);
+  }
+  if(compact&&items.length>5){
+    const more=document.createElement("button");more.type="button";more.className="ghost";
+    more.style.cssText="width:100%;margin-top:4px;font-size:12px";
+    more.textContent=expanded[id]?"− Réduire":"+ "+(items.length-5)+" autres";
+    more.setAttribute("aria-expanded",String(!!expanded[id]));
+    more.onclick=()=>{expanded[id]=!expanded[id];jlDashboardFillList(id,items,emptyMessage);};target.append(more);
   }
 }
 function jlDashboardOpenInvoice(number){
@@ -16059,7 +16070,7 @@ if ($("lastNotesBox")) {
   
     /* ===== Dernières factures : statut et solde en lecture seule ===== */
 const recentInvoices=(INVOICES||[]).filter(inv=>inv&&inv.archived!==true)
-  .sort((a,b)=>Date.parse(b.date||"")-Date.parse(a.date||"")).slice(0,5);
+  .sort((a,b)=>Date.parse(b.date||"")-Date.parse(a.date||""));
 jlDashboardFillList("lastInvoicesBox",recentInvoices.map(inv=>{
   const linked=WORKORDERS.find(w=>String(w.number)===String(inv.workOrderNumber||inv.referenceWO||""));
   const vehicle=String(inv.vehicle||linked?.vehicleLabel||"").trim();
@@ -16079,7 +16090,7 @@ jlDashboardFillList("lastInvoicesBox",recentInvoices.map(inv=>{
 
 /* ===== BT en cours : estimation pièces et main-d'œuvre, sans taxes ===== */
 const activeWO=WORKORDERS.filter(w=>w?.status==="en_cours")
-  .sort((a,b)=>Date.parse(b.date||"")-Date.parse(a.date||"")).slice(0,5);
+  .sort((a,b)=>Date.parse(b.date||"")-Date.parse(a.date||""));
 jlDashboardFillList("lastWorkOrdersBox",activeWO.map(wo=>{
   const parts=(Array.isArray(wo.parts)?wo.parts:[]).reduce((total,p)=>
     total+Number(p.qty||0)*Number(p.rate||0),0);
