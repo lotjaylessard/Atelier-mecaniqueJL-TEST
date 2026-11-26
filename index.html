@@ -2187,6 +2187,7 @@ window.jlShowSuccess=function(message){
     <div><span>Factures encaissées TTC</span><strong id="annualPaidTotal">0,00 $</strong></div>
     <div><span>Taxes facturées (TPS + TVQ)</span><strong id="jlFinanceTaxes">0,00 $</strong></div>
     <div><span>Ventes hors taxes</span><strong id="jlFinanceSales">0,00 $</strong></div>
+    <div><span>Intérêts encaissés</span><strong id="jlFinanceInterest">0,00 $</strong></div>
     <div><span>Coût des pièces des BT</span><strong id="annualPartCost">0,00 $</strong></div>
     <div><span>Dépenses de sous-traitance (saisies)</span><strong id="jlFinanceSubcontractTotal">0,00 $</strong></div>
     <div><span>Profit brut estimé après sous-traitance</span><strong id="jlFinanceAfterSubcontract">—</strong></div>
@@ -16025,10 +16026,12 @@ WORKORDERS = loadArrayFromStorage(STORAGE.workorders);
 // ===== REVENUS = FACTURES ARCHIVÉES SEULEMENT =====
 const archivedInvoices = (INVOICES || []).filter(inv => inv.archived === true);
 
+const interestReport=jlFinanceInterestReceipts();
+const interestRevenue=interestReport.entries.reduce((sum,p)=>sum+p.amountCents,0)/100;
 const revenue = archivedInvoices.reduce(
   (sum, inv) => sum + Number(inv.total || 0),
   0
-);
+)+interestRevenue;
 
 
   const clientsCount=CLIENTS.length;
@@ -16048,7 +16051,7 @@ const woInProgressCount = WORKORDERS.filter(
   if ($('statWOInProgress')) {
   $('statWOInProgress').innerText = woInProgressCount;
 }
-  if($('dashTotalRevenue')) $('dashTotalRevenue').innerText = money(revenue) + ' $';
+  if($('dashTotalRevenue')) $('dashTotalRevenue').innerText = interestReport.invalid.length?'—':money(revenue) + ' $';
 
   // === PROFITS TOTAUX (WO dont facture payée seulement) ===
 const paidWorkOrders = WORKORDERS.filter(wo => {
@@ -16066,7 +16069,7 @@ const totalProfit = paidWorkOrders.reduce((sum, wo) => {
 
 
 if ($('dashTotalProfit')) {
-  $('dashTotalProfit').innerText = money(totalProfit) + ' $';
+  $('dashTotalProfit').innerText = interestReport.invalid.length?'—':money(totalProfit+interestRevenue) + ' $';
 }
   
   // Main-d'œuvre de TOUS les BT : durée exacte pour les lignes du minuteur,
@@ -16324,6 +16327,10 @@ if(unpaidBox&&(remainingUnpaid>0||jlDashboardOverdueExpanded)){
 // Revenu mensuel : une facture n'entre dans le graphique qu'au mois où son solde est payé.
 // Anciens dossiers : utiliser le dernier paiement, sinon paidDate, et en dernier recours
 // la date de facture si aucun historique de paiement n'est disponible.
+function jlFinanceInterestReceipts(){
+  const engine=window.JLInvoiceInterestPreview;
+  return engine?.receiptEntries(INVOICES,new Date().toLocaleDateString("fr-CA"))||{entries:[],invalid:(INVOICES||[]).filter(i=>i?.interestPayments?.length).map(i=>i.number)};
+}
 function monthlyInvoiceSettlementDate(inv){
   if(String(inv?.status||"").toLowerCase()!=="paid")return "";
   const validDate=value=>{
@@ -16337,7 +16344,7 @@ function monthlyInvoiceSettlementDate(inv){
   const payments=Array.isArray(inv.payments)?inv.payments:[];
   // Les paiements sont ajoutés dans l'ordre et le dernier solde termine la facture.
   const finalPayment=payments.length?validDate(payments[payments.length-1]?.date):"";
-  return finalPayment||validDate(inv.paidDate)||validDate(inv.date);
+  return (inv.interestTerms?.accepted===true?validDate(inv.paidDate):"")||finalPayment||validDate(inv.paidDate)||validDate(inv.date);
 }
 
 
@@ -16441,7 +16448,9 @@ function renderMonthlyRevenueChart(){
         laborRevenue:finite(laborRevenue)?laborRevenue:null};
     }).filter(Boolean);
   const currentYear=String(new Date().getFullYear());
-  const years=[...new Set(paid.map(x=>x.date.slice(0,4)).concat(currentYear))].sort().reverse();
+  const interestReport=jlFinanceInterestReceipts();
+  const interestEntries=interestReport.entries;
+  const years=[...new Set(paid.map(x=>x.date.slice(0,4)).concat(interestEntries.map(x=>x.date.slice(0,4)),currentYear))].sort().reverse();
   const previousYear=yearSelect.value;
   yearSelect.replaceChildren(...years.map(y=>new Option(y,y)));
   yearSelect.value=years.includes(previousYear)?previousYear:(years.find(y=>paid.some(x=>x.date.startsWith(y)))||currentYear);
@@ -16463,7 +16472,12 @@ function renderMonthlyRevenueChart(){
   const filteredExpenses=expenses.filter(e=>mode==="all"||
     (mode==="year"?e.date.startsWith(selectedYear):e.date.startsWith(selectedYear+"-"+month)));
   const subcontractTotal=filteredExpenses.reduce((n,e)=>n+Number(e.amount||0),0);
-  const knownProfit=complete("profit"),sales=sum("sales"),costs=sum("cost"),profit=sum("profit");
+  const filteredInterest=interestEntries.filter(e=>mode==="all"||
+    (mode==="year"?e.date.startsWith(selectedYear):e.date.startsWith(selectedYear+"-"+month)));
+  const interestTotal=filteredInterest.reduce((n,e)=>n+e.amountCents,0)/100;
+  const interestKnown=interestReport.invalid.length===0;
+  const knownProfit=complete("profit")&&interestKnown,sales=sum("sales"),costs=sum("cost"),profit=sum("profit")+interestTotal;
+  set("jlFinanceInterest",interestKnown?dollars(interestTotal):"—");
   set("annualPaidTotal",knownPaid?dollars(total):"—");
   set("jlFinanceTaxes",complete("tax")?dollars(sum("tax")):"—");
   set("jlFinanceSales",knownSales?dollars(sales):"—");
@@ -16477,7 +16491,7 @@ function renderMonthlyRevenueChart(){
   set("jlFinancePartsProfit",complete("partsProfit")?dollars(sum("partsProfit")):"—");
   set("jlFinanceLaborProfit",complete("laborRevenue")?dollars(sum("laborRevenue")):"—");
   set("jlFinanceMargin",knownProfit&&knownSales&&sales>0?
-    (profit/sales*100).toLocaleString("fr-CA",{maximumFractionDigits:1,minimumFractionDigits:1})+" %":"—");
+    ((profit-interestTotal)/sales*100).toLocaleString("fr-CA",{maximumFractionDigits:1,minimumFractionDigits:1})+" %":"—");
   set("jlFinanceCount",String(filtered.length));
   set("jlFinanceAverage",knownSales&&filtered.length?dollars(sales/filtered.length):"—");
 
@@ -16487,12 +16501,13 @@ function renderMonthlyRevenueChart(){
   const caveat=document.getElementById("jlFinanceCaveat");
   if(caveat){
     const gaps=[];
+    if(!interestKnown)gaps.push("historique d’intérêts non vérifiable");
     if(missingPaid)gaps.push(missingPaid+" facture(s) sans total historique vérifiable");
     if(missingTax)gaps.push(missingTax+" facture(s) sans taxes historiques vérifiables");
     if(missingWO)gaps.push(missingWO+" facture(s) sans coût de pièces associé à un BT");
     if(!complete("partsProfit")||!complete("laborRevenue"))gaps.push("détail du profit pièces / main-d'œuvre non vérifiable pour certaines factures");
     caveat.textContent=(gaps.length?"Données incomplètes : "+gaps.join(" ; ")+". Les valeurs non vérifiables sont indiquées par « — ». ":"")+
-      "Profit brut estimé = ventes hors taxes moins coût des pièces des BT. Le profit après sous-traitance retire uniquement les dépenses saisies manuellement; il ne tient pas compte des salaires ni des autres frais généraux. Les factures partielles ne sont pas incluses.";
+      "Profit brut estimé = ventes hors taxes moins coût des pièces des BT, plus intérêts réellement encaissés. La marge exclut les intérêts. Le profit après sous-traitance retire uniquement les dépenses saisies manuellement; il ne tient pas compte des salaires ni des autres frais généraux. Le capital des factures partielles est exclu; les intérêts sont comptés à leur date d’encaissement.";
   }
   chart.replaceChildren();
   chart.dataset.mode=mode;
@@ -16504,7 +16519,7 @@ function renderMonthlyRevenueChart(){
     return {key,records,
       sales:records.every(x=>finite(x.sales))?records.reduce((v,x)=>v+x.sales,0):null,
       cost:records.every(x=>finite(x.cost))?records.reduce((v,x)=>v+x.cost,0):null,
-      profit:records.every(x=>finite(x.profit))?records.reduce((v,x)=>v+x.profit,0):null};
+      profit:interestKnown&&records.every(x=>finite(x.profit))?records.reduce((v,x)=>v+x.profit,0)+interestEntries.filter(e=>mode==="all"?e.date.startsWith(key):e.date.slice(0,7)===key).reduce((v,e)=>v+e.amountCents,0)/100:null};
   });
   const max=Math.max(1,...groups.flatMap(g=>[g.sales,g.cost,g.profit].filter(finite).map(n=>Math.max(0,n))));
   // Le mode Année répartit la largeur sur 12 mois même si un seul est actif.
@@ -19436,7 +19451,7 @@ if (window.garageSupabase) {
 <script src="audit/s06-wo-pilot.js?v=84f510fe" defer></script>
 <!-- S06-F07: afficheur Supabase sous Menu pour le pilote seulement -->
 <script src="audit/s06-sidebar-persistent.js?v=e378a58c" defer></script>
-<script src="audit/invoice-interest-preview.js?v=55647d2e" defer></script>
+<script src="audit/invoice-interest-preview.js?v=641b7d3a" defer></script>
 
 
 
