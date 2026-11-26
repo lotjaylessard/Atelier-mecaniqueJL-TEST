@@ -23,7 +23,7 @@ function calculate(inv,asOf){
   if(!Number.isFinite(end)||end<issued||end>now)return fail("invalid-settlement");
   const start=issued+grace;
   const payments=Array.isArray(inv.payments)?inv.payments.map(p=>({day:day(p.date),amount:cents(p.amount)})):[];
-  if(payments.some(p=>!Number.isFinite(p.day)||!Number.isFinite(p.amount)||p.day<issued||p.day>end)||payments.reduce((s,p)=>s+p.amount,0)!==paid)return fail("payment-history-mismatch");
+  if(paid>principal||payments.some(p=>!Number.isFinite(p.day)||!Number.isFinite(p.amount)||p.day<issued||p.day>end)||payments.reduce((s,p)=>s+p.amount,0)!==paid)return fail("payment-history-mismatch");
   payments.sort((a,b)=>a.day-b.day);
   let balance=principal, cursor=start, weighted=0;
   for(const p of payments){
@@ -59,5 +59,18 @@ function planPayment(inv,asOf,amountCents){
   const principalPayment=Math.min(principalDue,amount),interestPayment=amount-principalPayment;
   return {ok:true,amountCents:amount,principalPaymentCents:principalPayment,interestPaymentCents:interestPayment,remainingCents:due-amount,fullyPaid:due===amount};
 }
-root.JLInvoiceInterestPreview=Object.freeze({calculate,planPayment});
+function applyPayment(inv,asOf,method,amountCents){
+  if(!["cash","transfer","card","unspecified","other"].includes(method))return {ok:false,reason:"invalid-method"};
+  const plan=planPayment(inv,asOf,amountCents);
+  if(!plan.ok)return plan;
+  const next={...inv,payments:[...(inv.payments||[])],interestPayments:[...(inv.interestPayments||[])]};
+  if(plan.principalPaymentCents)next.payments.push({date:asOf,amount:plan.principalPaymentCents/100,method});
+  if(plan.interestPaymentCents)next.interestPayments.push({date:asOf,amount:plan.interestPaymentCents/100,method});
+  next.paidAmount=(cents(inv.paidAmount??0)+plan.principalPaymentCents)/100;
+  next.status=plan.fullyPaid?"paid":"partial";
+  next.paidDate=plan.fullyPaid?asOf:null;
+  if(plan.fullyPaid)next.paymentMethod=method;
+  return {...plan,invoice:next};
+}
+root.JLInvoiceInterestPreview=Object.freeze({calculate,planPayment,applyPayment});
 })(typeof globalThis==="object"?globalThis:window);
