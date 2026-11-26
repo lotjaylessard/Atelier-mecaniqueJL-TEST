@@ -99,3 +99,11 @@ assert.equal(engine.balanceSummary({...second.invoice,interestPayments:[{date:"2
 assert.equal(engine.balanceSummary({...second.invoice,interestPayments:[{date:"2026-04-02",amount:100}]},"2026-04-03").eligible,false);
 assert.equal(engine.balanceSummary(waived.invoice,"2026-04-03").eligible,false);
 console.log("Interest balance summary assertions passed");
+
+const receiptReport=engine.receiptEntries([final.invoice,inv,waived.invoice],"2026-12-31");
+assert.deepEqual(receiptReport.invalid,[]);
+assert.deepEqual(receiptReport.entries,[{date:"2026-04-02",amountCents:500},{date:"2026-04-03",amountCents:979}]);
+assert.equal(engine.receiptEntries([second.invoice],"2026-04-02").entries[0].amountCents,500);
+assert.equal(engine.receiptEntries([inv],"2026-12-31").entries.length,0);
+assert.equal(engine.receiptEntries([{...second.invoice,number:"bad",interestPayments:[{date:"2026-04-02",amount:100}]}],"2026-12-31").invalid[0],"bad");
+console.log("Dated interest receipt reporting assertions passed");
