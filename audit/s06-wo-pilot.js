@@ -398,7 +398,6 @@ border:1px solid #80bbff;border-radius:7px;display:grid;grid-template-columns:mi
     await read();
     if(app.rows.some(x=>x.status==="running"))throw Error("Une minuterie est déjà en cours; récupère-la après 60 s si elle a été interrompue.");
     if(!app.session){
-      if(!confirm("Démarrer une minuterie pour ce BT ? Aucune ligne de main-d'œuvre ajoutée avant confirmation."))return;
       app.session=await rpc("create",null,app.woId);
     }
     // Si la page recharge pendant l'attente de la RPC, retrouver sa session.
