@@ -6790,6 +6790,25 @@ function toggleInvoicePartialMenu(number){
 function jlInvoiceHasInterest(inv){
   return inv?.interestTerms?.enabled===true&&inv.interestTerms.accepted===true&&inv.interestTerms.waived!==true;
 }
+function jlWaiveInvoiceInterest(number){
+  loadInvoices();
+  const inv=INVOICES.find(i=>String(i.number)===String(number));
+  const engine=window.JLInvoiceInterestPreview;
+  if(!CLOUD_DATA_READY||CLOUD_SYNC_FAILED||!engine?.waiveInterest||!jlInvoiceHasInterest(inv)||inv.status==="paid"||inv.archived){alert("Annulation indisponible.");return;}
+  const today=new Date().toLocaleDateString("fr-CA");
+  const preview=engine.calculate(inv,today);
+  if(!preview.eligible||(inv.interestPayments||[]).length){alert("Annulation impossible : historique invalide ou intérêts déjà encaissés.");return;}
+  const reason=prompt("Raison de l’annulation définitive des intérêts de cette facture :");
+  if(reason===null)return;
+  const result=engine.waiveInterest(inv,today,reason);
+  if(!result.ok){alert("Annulation refusée : vérifier la raison et les paiements.");return;}
+  if(!confirm("Annuler définitivement les intérêts de cette facture (actuels : "+money(preview.interestCents/100)+" $) ? Le capital reste dû."))return;
+  Object.assign(inv,result.invoice);
+  saveInvoices();
+  renderInvoiceList();
+  if(typeof renderDashboard==="function")renderDashboard();
+  openInvoiceEditModal(inv.number);
+}
 function jlInvoiceInterestPayment(inv,method,partial){
   if(!jlInvoiceHasInterest(inv))return false;
   if(window.JL_INTEREST_PAYMENT_READY!==true){alert("Encaissement avec intérêts en préparation dans TEST. Aucun paiement enregistré.");return true;}
@@ -16834,6 +16853,8 @@ content.innerHTML = `
 
 
   ${interestPreview?.eligible && !isLocked ? `<div class="no-print" style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:6px;text-align:right;"><div class="muted">Simulation des intérêts — non facturés</div><div>Intérêts estimés (${interestPreview.daysLate} jours) : <b>${money(interestPreview.interestCents/100)} $</b></div><div>Solde avec intérêts estimés : <b>${money(interestPreview.estimatedDueCents/100)} $</b></div><div class="muted" style="font-size:12px">Les encaissements utilisent encore le solde original.</div></div>` : ""}
+  ${jlInvoiceHasInterest(inv)&&!isLocked&&interestPreview?.eligible&&!(inv.interestPayments||[]).length ? '<div class="no-print" style="text-align:right;margin-top:8px"><button class="ghost" id="jlWaiveInterestButton">Annuler les intérêts</button></div>' : ""}
+  ${inv.interestTerms?.waived===true ? `<div class="muted" style="text-align:right;margin-top:8px">Intérêts annulés le ${escapeHTML(String(inv.interestTerms.waivedDate||"").slice(0,10))}.</div>` : ""}
   <!-- PAIEMENTS -->
   ${(inv.payments && inv.payments.length) ? `
     <h3 style="margin-top:25px;">Historique des paiements</h3>
@@ -16908,6 +16929,8 @@ content.innerHTML = `
 `;
 
   
+  const waiverButton=content.querySelector("#jlWaiveInterestButton");
+  if(waiverButton)waiverButton.addEventListener("click",()=>jlWaiveInvoiceInterest(inv.number));
   // S07-F07 : confirmation de sauvegarde des seuls changements taxes/escompte.
   // L'état Supabase reste confirmé uniquement par l'indicateur global.
   const s07InvoiceStatus=(message,color)=>{
@@ -19399,7 +19422,7 @@ if (window.garageSupabase) {
 <script src="audit/s06-wo-pilot.js?v=84f510fe" defer></script>
 <!-- S06-F07: afficheur Supabase sous Menu pour le pilote seulement -->
 <script src="audit/s06-sidebar-persistent.js?v=e378a58c" defer></script>
-<script src="audit/invoice-interest-preview.js?v=872ecc6c" defer></script>
+<script src="audit/invoice-interest-preview.js?v=e0e53a0b" defer></script>
 
 
 
