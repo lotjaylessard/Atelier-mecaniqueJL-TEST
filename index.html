@@ -6901,13 +6901,8 @@ function addServiceToCurrentWO(serviceId){
   const part = PARTS.find(p=>String(p.id)===String(partId));
   if (!part) return;
 
-  // 3️⃣ Demander la quantité
-  const qty = Number(prompt(
-    `Quantité pour "${part.name}" :`,
-    "1"
-  ));
-
-  if (!qty || qty <= 0) return;
+  // 3️⃣ Ajouter une unité par défaut; quantité modifiable dans le BT.
+  const qty = 1;
 
   // 4️⃣ Ajouter au WO (PAS à la facture)
   wo.parts.push({
