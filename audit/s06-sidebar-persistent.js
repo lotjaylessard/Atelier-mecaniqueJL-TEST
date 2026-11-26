@@ -26,7 +26,7 @@
     const total=Math.floor(Math.max(0,Number(ms)||0)/1000);
     return pad(Math.floor(total/3600))+":"+pad(Math.floor(total/60)%60)+":"+pad(total%60);
   };
-  let current=null,receivedAt=0,busy=false,uid=null,garage=null;
+  let current=null,receivedAt=0,busy=false,uid=null,garage=null,refreshAgain=false;
   let lastRenderedId=null,lastRenderedMs=0,actionPending=false;
   let pendingAction=null,pendingFrozenMs=0;
   const reconnectKey="s06-sidebar-reconnect-v1";
@@ -93,12 +93,12 @@
     if(toggle){
       toggle.textContent=actionPending?"⏳ Enregistrement…":
         stale?"⚠ Récupérer":current.status==="running"?"⏸ Pause":"▶ Reprendre";
-      toggle.disabled=actionPending;
+      toggle.disabled=actionPending||!navigator.onLine;
     }
     if(stop){
       stop.textContent="⏹ Terminer";
       // Impossible de terminer une session interrompue avant récupération.
-      stop.disabled=actionPending||stale;
+      stop.disabled=actionPending||stale||!navigator.onLine;
     }
     number.textContent=meta.number;
     vehicle.textContent=meta.vehicle;
@@ -135,15 +135,15 @@
     const running=current.status==="running"&&!stale&&!delayed&&navigator.onLine;
     const shownMs=actionPending&&pendingAction==="pause"?
       pendingFrozenMs:
-      running?Math.max(lastRenderedMs,candidateMs):Number(current.confirmed_ms);
+      current.status==="running"?Math.max(lastRenderedMs,running?candidateMs:Number(current.confirmed_ms)):Number(current.confirmed_ms);
     lastRenderedMs=shownMs;
     time.textContent=formatted(shownMs);
   }
   async function refresh(){
-    if(busy)return;
+    if(busy){refreshAgain=true;return;}
     if(!navigator.onLine){
       if(current){
-        receivedAt=Date.now();current={...current,status:"paused"};
+        receivedAt=Date.now();
         paint();status.textContent="⚠ Hors ligne";
       }else hide();
       return;
@@ -193,7 +193,6 @@
     }catch(_err){
       // Ne pas continuer à afficher comme « en cours » un état cloud invérifiable.
       if(current){
-        current={...current,status:"paused"};
         receivedAt=Date.now();paint();
         status.textContent="⚠ À vérifier";
       }else if(box.dataset.pendingRestore==="1"){
@@ -202,7 +201,7 @@
         if(status)status.textContent="⚠ Connexion non confirmée";
         if(hint)hint.textContent="Dernier temps connu — état Supabase à vérifier.";
       }else hide();
-    }finally{busy=false;}
+    }finally{busy=false;if(refreshAgain){refreshAgain=false;void refresh();}}
   }
   function triggerPilotAction(action){
     const selected=current&&metadata(current.work_order_id);
@@ -212,30 +211,36 @@
     actionPending=true;paint();
     // Libérer le verrou après la synchronisation serveur ou, en cas de
     // confirmation annulée, après le délai maximal de l'interface.
+    let watcher=null, released=false;
+    const requestedId=String(current.id);
     const release=()=>{
+      if(released)return;
+      released=true;
       actionPending=false;
       pendingAction=null;
-      refresh();
+      paint();
+      void refresh();
     };
-    const timeout=setTimeout(()=>{cleanup();release();},12000);
+    const timeout=setTimeout(()=>{cleanup();release();if(hint)hint.textContent="Commande non confirmée. Vérifie la session avant de réessayer.";},35000);
     const handleAck=event=>{
       const d=event.detail;
-      if(!d||d.sessionId!==current?.id||d.action!==action)return;
+      if(!d||String(d.sessionId)!==requestedId||d.action!==action)return;
       cleanup();release();
     };
     function cleanup(){
       clearTimeout(timeout);
+      if(watcher!==null)clearInterval(watcher);
       window.removeEventListener("s06-timer-ack",handleAck);
     }
     window.addEventListener("s06-timer-ack",handleAck);
     // Toujours ouvrir le BT. Le pilote revérifie le compte, la session
     // et la révision auprès du serveur avant toute mutation.
-    const requestedId=String(current.id);
     if(typeof openWorkOrderFromDashboard==="function")
       openWorkOrderFromDashboard(selected.id);
     let attempts=0;
-    const watcher=setInterval(()=>{
-      if(++attempts>30){
+    watcher=setInterval(()=>{
+      if(released){clearInterval(watcher);return;}
+      if(++attempts>60){
         clearInterval(watcher);
         cleanup();
         release();
@@ -245,7 +250,7 @@
       const currentWo=document.getElementById("woEditId")?.value;
       // La lecture de la session est asynchrone : le pilote valide lui-même
       // son identité Supabase. Ne pas attendre son data-session-id ici.
-      if(!pilot||String(currentWo)!==selected.id)return;
+      if(!pilot||String(currentWo)!==selected.id||pilot.dataset.sessionId!==requestedId)return;
       if(action==="finish"){
         // Terminer depuis le menu : le pilote vérifie la session,
         // met en pause si nécessaire puis ouvre le formulaire du BT.
@@ -259,7 +264,6 @@
         action==="recover"?"s06Recover":
         action==="pause"?"s06Pause":"s06Start"));
       if(!button||button.disabled||button.hidden){
-        if(attempts>=30)clearInterval(watcher);
         return;
       }
       clearInterval(watcher);
@@ -291,7 +295,7 @@
       const stamp=Date.parse(current.last_heartbeat_at||"");
       if(Number.isFinite(stamp)&&now-stamp>=recoverAfterMs){
         status.textContent="⚠ À récupérer";
-        if(toggle){toggle.textContent="⚠ Récupérer";toggle.disabled=actionPending;}
+        if(toggle){toggle.textContent="⚠ Récupérer";toggle.disabled=actionPending||!navigator.onLine;}
         if(stop)stop.disabled=true;
         if(hint)hint.textContent="Interruption détectée après la veille. Vérification Supabase…";
       }else if(Number.isFinite(stamp)&&now-stamp>warnAfterMs){
