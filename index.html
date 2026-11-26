@@ -20441,7 +20441,10 @@ if (window.garageSupabase) {
     const button=get("s08MarkApproved");
     button.disabled=true;
     try{
-      await saveQuoteWorkflowChanges({approvalConfirmedAt:new Date().toISOString()});
+      const now=new Date();
+      const terms=q.content?.interestTerms;
+      const agreed=terms?.enabled===true&&!!jlQuoteInterestNotice(q)&&confirm("Le client a-t-il explicitement accepté les conditions d’intérêts présentées sur cette soumission ? Annuler = approuver les travaux sans intérêts.");
+      await saveQuoteWorkflowChanges({approvalConfirmedAt:now.toISOString(),...(terms?.enabled?{interestTerms:{...terms,accepted:!!agreed,acceptedDate:agreed?now.toLocaleDateString("fr-CA"):null}}:{})});
     }catch(error){
       console.error("[Planning TEST] Approbation",error);
       get("s08StatusResult").textContent="⚠ Approbation non confirmée : "+
@@ -20621,10 +20624,23 @@ if (window.garageSupabase) {
     }
     linkPanel.scrollIntoView({behavior:"smooth",block:"start"});
   });
+  function jlQuoteInterestDraft(){
+    const cfg=SETTINGS.invoiceInterest;
+    const annualRate=Number(cfg?.annualRate),graceDays=Number(cfg?.graceDays);
+    return cfg?.enabled===true&&Number.isFinite(annualRate)&&annualRate>0&&annualRate<=100&&Number.isInteger(graceDays)&&graceDays>=0&&graceDays<=365
+      ?{enabled:true,annualRate,graceDays,accepted:false}:null;
+  }
+  function jlQuoteInterestNotice(q){
+    const terms=q?.content?.interestTerms;
+    if(!terms?.enabled)return "";
+    const rate=Number(terms.annualRate),days=Number(terms.graceDays);
+    if(!Number.isFinite(rate)||rate<=0||rate>100||!Number.isInteger(days)||days<0||days>365)return "";
+    return " Conditions proposées : intérêts simples de "+rate.toLocaleString("fr-CA")+" % par année sur le capital impayé après "+days+" jours suivant la date de facture. Application soumise à l’accord préalable du client.";
+  }
   function viewQuote(q,trigger){
     if(!q||!viewer)return;
     const validityNotice=get("s08QuoteValidityNotice");
-    if(validityNotice)validityNotice.textContent="Taxes applicables en sus. Soumission valide pendant "+quoteValidityDays()+" jours.";
+    if(validityNotice)validityNotice.textContent="Taxes applicables en sus. Soumission valide pendant "+quoteValidityDays()+" jours."+jlQuoteInterestNotice(q);
     selectedQuote=q;
     get("s08PreflightResult").hidden=true;
     linkPanel.hidden=true;
@@ -21019,6 +21035,7 @@ if (window.garageSupabase) {
     const content={...(editingQuote?.content||{}),clientName,vehicleLabel,
       clientPhone:get("s08ClientPhone").value.trim(),clientEmail:get("s08ClientEmail").value.trim(),
       description:get("s08QuoteDescription").value.trim(),lines:lines.map(l=>({...l})),totalCents};
+    if(!editingQuote)content.interestTerms=jlQuoteInterestDraft();
     // S08-F11 : le client ET son véhicule ont déjà été choisis dans l'éditeur.
     // Conserver leurs IDs dans la soumission pour ne jamais les redemander.
     const chosenClient=editingQuote?null:clientsForQuote().find(c=>String(c.id)===selectedFastClientId);
