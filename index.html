@@ -3197,6 +3197,13 @@ window.jlShowSuccess=function(message){
 
     <details class="jl-settings-backup jl-settings-options" id="jlPrintOptions">
       <summary>🧾 Factures et soumissions</summary>
+      <div class="jl-settings-toggle-grid" style="margin-top:10px">
+        <label><input type="checkbox" id="jlInterestEnabled" /> Activer les intérêts (préférence)</label>
+        <label>Taux annuel (%) <input id="jlInterestRate" type="number" min="0" max="100" step="0.01" value="0"></label>
+        <label>Délai (jours) <input id="jlInterestDays" type="number" min="0" max="365" step="1" value="30"></label>
+      </div>
+      <details class="jl-compact-help"><summary class="jl-help-control" aria-label="Afficher l’aide" title="Afficher l’aide">?</summary><p class="muted">Réglages préparatoires : aucun intérêt ajouté aux factures à cette étape. Le taux est annuel.</p></details>
+      <p class="muted" style="font-size:12px">Configuration seulement — aucun frais appliqué automatiquement.</p>
       <div class="jl-settings-toggle-grid jl-invoice-options">
         <label><input type="checkbox" id="jlPrintPartNumber" checked /> Afficher le # de pièce</label>
         <label><input type="checkbox" id="jlSupplierShowQuotes" checked /> Afficher le fournisseur dans les soumissions</label>
@@ -10882,12 +10889,15 @@ function initSettings(){
           if(status)status.textContent='Vérifie les taxes et le taux horaire.';
           return;
         }
+        const interestRate=Number($("jlInterestRate").value),interestDays=Number($("jlInterestDays").value);
+        if(!Number.isFinite(interestRate)||interestRate<0||interestRate>100||!Number.isInteger(interestDays)||interestDays<0||interestDays>365||($("jlInterestEnabled").checked&&interestRate<=0)){if(status)status.textContent="Vérifie le taux annuel et le délai des intérêts.";return;}
         const previousRate=Number(SETTINGS.defaultHourlyRate || 0);
         SETTINGS.garageName=$('settingGarageName').value.trim() || SETTINGS.garageName;
         SETTINGS.gst=gst;
         SETTINGS.qst=qst;
         SETTINGS.defaultHourlyRate=rate;
         SETTINGS.quoteValidityDays=days;
+        SETTINGS.invoiceInterest={enabled:$("jlInterestEnabled").checked,annualRate:interestRate,graceDays:interestDays};
         // Un changement de taux met à jour les services horaires existants.
         // Ne jamais modifier les forfaits ni les lignes déjà inscrites dans les BT.
         let updatedServices=0;
@@ -18172,6 +18182,9 @@ function initLinksModule() {
     $("settingQuoteValidityDays").value = Number.isInteger(Number(SETTINGS.quoteValidityDays))&&
       Number(SETTINGS.quoteValidityDays)>=1&&Number(SETTINGS.quoteValidityDays)<=365?SETTINGS.quoteValidityDays:15;
 
+  if($("jlInterestEnabled"))$("jlInterestEnabled").checked=SETTINGS.invoiceInterest?.enabled===true;
+  if($("jlInterestRate"))$("jlInterestRate").value=SETTINGS.invoiceInterest?.annualRate??0;
+  if($("jlInterestDays"))$("jlInterestDays").value=SETTINGS.invoiceInterest?.graceDays??30;
   updateGarageNameUI();
 }
 
