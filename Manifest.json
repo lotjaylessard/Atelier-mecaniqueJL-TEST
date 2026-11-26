@@ -1,0 +1,11 @@
+{
+  "name": "Garage-Atelier Mécanique J.L",
+  "short_name": "Garage J.L",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#121214",
+  "theme_color": "#f5c542",
+  "icons": [
+    { "src": "/img/gear-yellow.svg", "sizes": "192x192", "type": "image/svg+xml" }
+  ]
+}
