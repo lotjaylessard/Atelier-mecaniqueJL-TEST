@@ -2075,7 +2075,7 @@ window.jlShowSuccess=function(message){
       <button id="s06SidebarToggle" type="button">⏸ Pause</button>
       <button id="s06SidebarStop" type="button">⏹ Arrêter</button>
     </div>
-    <div class="s06-timer-hint">Sauvegarde locale, restauration en pause. Synchronisation multi-appareil à venir.</div>
+    <div class="s06-timer-hint" hidden>Sauvegarde locale, restauration en pause. Synchronisation multi-appareil à venir.</div>
   </section>
   <!-- S06 TEST : ne jamais afficher un état de vérification provisoire.
        Le panneau est masqué par défaut et n'est visible qu'après
@@ -17662,7 +17662,8 @@ function updateJLBackupStatus(){
   el.textContent=!CLOUD_DATA_READY?"Non disponible"
     :CLOUD_SYNC_FAILED?"Erreur"
     :CLOUD_SYNC_IN_PROGRESS||CLOUD_SYNC_PENDING||CLOUD_SYNC_DIRTY||cloudSyncTimer!==null?"Synchronisation en cours"
-    :"Synchronisé (version "+String(CLOUD_DATA_VERSION)+")";
+    :"Synchronisé";
+  el.title=el.textContent==="Synchronisé"?"Version "+String(CLOUD_DATA_VERSION):"";
 }
 $("btnExportData")?.addEventListener("focus",updateJLBackupStatus);
 $("btnImportData")?.addEventListener("focus",updateJLBackupStatus);
