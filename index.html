@@ -9491,7 +9491,8 @@ const confirmedTaxes = CLOUD_LAST_CONFIRMED_SNAPSHOT?.settings;
       .select("id,quote_number,status,content,converted_bt_id")
       .eq("garage_id",expectedGarage).eq("id",String(wo.sourceQuoteId)).maybeSingle();
     if(sourceError||!sourceQuote||sourceQuote.status!=="converted"||
-       String(sourceQuote.converted_bt_id)!==String(wo.id))
+       !String(sourceQuote.converted_bt_id||"").trim()||
+       ![wo.id,wo.number].filter(v=>v!==null&&v!==undefined&&String(v).trim()).some(v=>String(v)===String(sourceQuote.converted_bt_id)))
       throw Error("Soumission source non vérifiée : aucune facture créée.");
     const terms=sourceQuote.content?.interestTerms;
     if(sourceQuote.content?.approvalConfirmedAt&&terms?.enabled===true&&terms.accepted===true){
