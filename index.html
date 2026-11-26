@@ -16557,6 +16557,7 @@ if (clientObj && Array.isArray(clientObj.vehicles)){
 
   // Calcul Balance paiement partiel
   const balance = Math.max(0, (inv.total || 0) - (inv.paidAmount || 0));
+  const interestPreview=window.JLInvoiceInterestPreview?.calculate(inv,new Date().toLocaleDateString("fr-CA"));
 
   let paymentsHtml = "";
 (inv.payments || []).forEach((p,i)=>{
@@ -16769,6 +16770,7 @@ content.innerHTML = `
 </div>
 
 
+  ${interestPreview?.eligible && !isLocked ? `<div class="no-print" style="margin-top:12px;padding:10px;border:1px solid var(--border);border-radius:6px;text-align:right;"><div class="muted">Simulation des intérêts — non facturés</div><div>Intérêts estimés (${interestPreview.daysLate} jours) : <b>${money(interestPreview.interestCents/100)} $</b></div><div>Solde avec intérêts estimés : <b>${money(interestPreview.estimatedDueCents/100)} $</b></div><div class="muted" style="font-size:12px">Les encaissements utilisent encore le solde original.</div></div>` : ""}
   <!-- PAIEMENTS -->
   ${(inv.payments && inv.payments.length) ? `
     <h3 style="margin-top:25px;">Historique des paiements</h3>
@@ -18398,6 +18400,7 @@ function printInvoice(){
 
   // ❌ Supprimer bloc ESCOMPTE (UI)
   clone.querySelectorAll(".invoice-ui-discount").forEach(el => el.remove());
+  clone.querySelectorAll(".no-print").forEach(el => el.remove());
 
   // ❌ Supprimer toute UI interactive restante
   clone.querySelectorAll("input, select, textarea, button, label").forEach(el => el.remove());
@@ -19332,6 +19335,7 @@ if (window.garageSupabase) {
 <script src="audit/s06-wo-pilot.js?v=84f510fe" defer></script>
 <!-- S06-F07: afficheur Supabase sous Menu pour le pilote seulement -->
 <script src="audit/s06-sidebar-persistent.js?v=e378a58c" defer></script>
+<script src="audit/invoice-interest-preview.js?v=3ff75f33" defer></script>
 
 
 
