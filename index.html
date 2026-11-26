@@ -9410,6 +9410,26 @@ const confirmedTaxes = CLOUD_LAST_CONFIRMED_SNAPSHOT?.settings;
     throw Error("Taux de taxes du garage non confirmés : actualise avant de terminer le BT.");
   }
   recalcInvoice(invoice, false, confirmedTaxes);
+  // Conditions commerciales figées sur la SO approuvée, jamais sur les réglages courants.
+  if(wo.sourceQuoteId){
+    const {data:sourceQuote,error:sourceError}=await sb.from("garage_quotes")
+      .select("id,quote_number,status,content,converted_bt_id")
+      .eq("garage_id",expectedGarage).eq("id",String(wo.sourceQuoteId)).maybeSingle();
+    if(sourceError||!sourceQuote||sourceQuote.status!=="converted"||
+       String(sourceQuote.converted_bt_id)!==String(wo.id))
+      throw Error("Soumission source non vérifiée : aucune facture créée.");
+    const terms=sourceQuote.content?.interestTerms;
+    if(sourceQuote.content?.approvalConfirmedAt&&terms?.enabled===true&&terms.accepted===true){
+      const candidate={enabled:true,accepted:true,annualRate:terms.annualRate,graceDays:terms.graceDays,
+        acceptedDate:terms.acceptedDate,sourceQuoteId:String(sourceQuote.id),sourceQuoteNumber:String(sourceQuote.quote_number)};
+      const preview=window.JLInvoiceInterestPreview?.calculate({...invoice,interestTerms:candidate},invoice.date);
+      if(!preview?.eligible)throw Error("Conditions d’intérêts source invalides : aucune facture créée.");
+      invoice.interestTerms=candidate;
+    }
+  }
+  if(ACTIVE_GARAGE_ID!==expectedGarage||SUPABASE_USER?.id!==expectedUser||
+     CLOUD_CHANGE_REVISION!==expectedRevision||!CLOUD_DATA_READY||hasUnconfirmedCloudChanges())
+    throw Error("Données modifiées pendant la lecture des conditions : opération annulée.");
 
   // S10 : transaction atomique pour le proprietaire du garage actif.
   // Les autres roles conservent temporairement le parcours existant.
