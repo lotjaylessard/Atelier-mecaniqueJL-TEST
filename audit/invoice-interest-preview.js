@@ -107,5 +107,17 @@ function balanceSummary(inv,asOf){
   if(inv.status==="paid"&&dueCents!==0)return {eligible:false,reason:"invalid-settlement"};
   return {...result,interestPaidCents:received,interestRemainingCents,dueCents};
 }
-root.JLInvoiceInterestPreview=Object.freeze({calculate,planPayment,applyPayment,waiveInterest,balanceSummary});
+/* Actual interest receipts only; each entry belongs to its own receipt date. */
+function receiptEntries(invoices,asOf){
+  const entries=[],invalid=[];
+  for(const inv of Array.isArray(invoices)?invoices:[]){
+    if(inv?.interestPayments==null)continue;
+    if(Array.isArray(inv.interestPayments)&&!inv.interestPayments.length)continue;
+    const summary=balanceSummary(inv,asOf);
+    if(!summary.eligible){invalid.push(String(inv?.number||""));continue;}
+    for(const p of inv.interestPayments)entries.push({date:String(p.date).slice(0,10),amountCents:cents(p.amount)});
+  }
+  return {entries,invalid};
+}
+root.JLInvoiceInterestPreview=Object.freeze({calculate,planPayment,applyPayment,waiveInterest,balanceSummary,receiptEntries});
 })(typeof globalThis==="object"?globalThis:window);
