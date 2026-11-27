@@ -1,0 +1,16 @@
+const {test}=require("node:test");
+const assert=require("node:assert/strict");
+const {cents,candidate,aggregate,groupSuppliers,csv,priceHistory}=require("./supplier-bills.js");
+const raw={id:"a",supplier:"NAPA",number:"123",date:"2026-11-27",sub:"250",gst:"12,50",qst:"24.94"};
+const bill=(patch={})=>{const r=candidate({...raw,...patch});assert.ok(r.value,r.error);return r.value;};
+test("centimes exacts",()=>{assert.equal(cents("24,94"),2494);assert.equal(cents("0.01"),1);for(const v of ["","-1","1.234","1e2","abc"])assert.equal(cents(v),null);});
+test("total exact",()=>assert.equal(bill().total,28744));
+test("dates invalides",()=>{for(const date of ["2026-02-30","2026-13-01",""])assert.ok(candidate({...raw,date}).error);});
+test("montants invalides",()=>{for(const sub of ["0","-1","1.234"])assert.ok(candidate({...raw,sub}).error);});
+test("doublon insensible a la casse",()=>assert.ok(candidate({...raw,id:"b",supplier:" napa "},[bill()]).error));
+test("modification sans faux doublon",()=>assert.ok(candidate(raw,[bill()]).value));
+test("meme numero autre fournisseur",()=>assert.ok(candidate({...raw,id:"b",supplier:"Carquest"},[bill()]).value));
+test("credits et taxes nettes",()=>assert.deepEqual(aggregate([bill(),bill({id:"b",kind:"credit",sub:"50",gst:"2.50",qst:"4.99"})]),{count:2,invoices:1,gross:25000,credits:5000,sub:20000,gst:1000,qst:1995,total:22995}));
+test("regroupement et tri",()=>{const groups=groupSuppliers([bill(),bill({id:"b",supplier:"napa",kind:"credit",sub:"50"}),bill({id:"c",supplier:"Carquest",sub:"20"})]);assert.equal(groups.length,2);assert.equal(groups[0].sub,20000);});
+test("csv signes et protection formule",()=>{const out=csv([bill({supplier:"=1+1",kind:"credit"})]);assert.ok(out.includes("\"'=1+1\""));assert.ok(out.includes("-250,00"));assert.ok(out.startsWith("\uFEFF"));});
+test("prix unitaires par fournisseur",()=>{const p=priceHistory([{date:"2026-11-27",number:"BT1",parts:[{supplier:"napa",number:"X",cost:82.5,qty:2},{supplier:"Autre",cost:1},{supplier:"NAPA",cost:null}]}],"NAPA");assert.equal(p.length,1);assert.equal(p[0].cost,8250);});
