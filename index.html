@@ -2906,6 +2906,7 @@ window.jlShowSuccess=function(message){
         <form id="jlBillForm">
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;">
             <label>Fournisseur<input id="jlBill_supplier" list="jlSupplierChoices" maxlength="80" required autocomplete="off"></label>
+            <label>Type de document<select id="jlBill_kind"><option value="invoice">Facture</option><option value="credit">Note de crédit / retour</option></select></label>
             <label>Numéro de facture<input id="jlBill_number" maxlength="80" required autocomplete="off"></label>
             <label>Date<input id="jlBill_date" type="date" required></label>
             <label>Bon de travail (facultatif)<input id="jlBill_wo" maxlength="80" placeholder="No BT"></label>
@@ -2926,7 +2927,7 @@ window.jlShowSuccess=function(message){
           <label>Mois<input id="jlBillMonth" type="month"></label>
         </div>
         <div id="jlBillCount" class="module-result-count"></div>
-        <div class="jl-supplier-table-wrap"><table class="jl-supplier-table"><thead><tr><th>Date</th><th>Fournisseur</th><th>No facture</th><th>BT</th><th>Avant taxes</th><th>TPS</th><th>TVQ</th><th>Total</th><th>Actions</th></tr></thead><tbody id="jlBillList"></tbody></table></div>
+        <div class="jl-supplier-table-wrap"><table class="jl-supplier-table"><thead><tr><th>Date</th><th>Fournisseur</th><th>No facture</th><th>Type</th><th>BT</th><th>Avant taxes</th><th>TPS</th><th>TVQ</th><th>Total</th><th>Actions</th></tr></thead><tbody id="jlBillList"></tbody></table></div>
         <p class="muted">Registre des achats indépendant des coûts de pièces déjà inscrits aux bons de travail.</p>
       </div>
     </div>
@@ -19528,7 +19529,7 @@ if (window.garageSupabase) {
 <script src="audit/s06-sidebar-persistent.js?v=e378a58c" defer></script>
 <script src="audit/invoice-interest-preview.js?v=641b7d3a" defer></script>
 <script src="audit/vin-decoder.js?v=9c1e17ac" defer></script>
-<script src="audit/supplier-bills.js?v=4ce54079" defer></script>
+<script src="audit/supplier-bills.js?v=efee6cf7" defer></script>
 
 
 
