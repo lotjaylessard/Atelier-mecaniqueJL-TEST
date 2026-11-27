@@ -2943,6 +2943,17 @@ window.jlShowSuccess=function(message){
       </div>
     </div>
 
+    <dialog id="jlBillProfile" style="width:min(950px,94vw);max-height:88vh;overflow:auto;background:var(--card,#252525);color:var(--text,#eee);border:1px solid var(--border,#444);border-radius:10px;padding:18px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><h2 id="jlBillProfileName" style="color:var(--accent);margin:0"></h2><button type="button" class="ghost" id="jlBillProfileClose">Fermer</button></div>
+      <p class="muted" id="jlBillProfileContact"></p>
+      <div class="jl-finance-summary"><div><span>Achats nets HT cette année</span><strong id="jlBillProfile_year">—</strong></div><div><span>Factures cette année</span><strong id="jlBillProfile_count">—</strong></div><div><span>Achat moyen HT par facture</span><strong id="jlBillProfile_avg">—</strong></div><div><span>Achats nets HT depuis toujours</span><strong id="jlBillProfile_all">—</strong></div></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px"><h3>Derniers documents</h3><button type="button" class="ghost" id="jlBillProfileFilter">Voir toutes les factures</button></div>
+      <div style="overflow:auto"><table class="table"><thead><tr><th>Date</th><th>No document</th><th>Type</th><th>Total TTC</th></tr></thead><tbody id="jlBillProfileRecent"></tbody></table></div>
+      <h3>Historique des prix coûtants</h3><input type="search" id="jlBillPriceSearch" placeholder="Rechercher : numéro de pièce, description, BT…" aria-label="Rechercher un prix de pièce">
+      <p id="jlBillPriceCount" class="muted"></p><div style="overflow:auto"><table class="table"><thead><tr><th>Date du BT</th><th>BT</th><th>No pièce</th><th>Description</th><th>Coût unitaire</th></tr></thead><tbody id="jlBillPriceList"></tbody></table></div>
+      <p class="muted">Prix saisis dans les bons de travail, et non prix vérifiés sur les factures fournisseurs.</p>
+    </dialog>
+
     <!-- HISTORIQUE GLOBAL -->
     <div class="page" id="page-history">
       <h2>Historique</h2>
@@ -19540,7 +19551,7 @@ if (window.garageSupabase) {
 <script src="audit/s06-sidebar-persistent.js?v=e378a58c" defer></script>
 <script src="audit/invoice-interest-preview.js?v=641b7d3a" defer></script>
 <script src="audit/vin-decoder.js?v=9c1e17ac" defer></script>
-<script src="audit/supplier-bills.js?v=46aa35a6" defer></script>
+<script src="audit/supplier-bills.js?v=6fb08614" defer></script>
 
 
 
@@ -21512,7 +21523,7 @@ function jlSupplierRender(){
     for(const value of [name,info.phone||"—",info.email||"—",info.notes||"—"]){
       const cell=document.createElement("td");
       cell.textContent=value;
-      if(value===name)cell.className="jl-supplier-name";
+      if(value===name){cell.className="jl-supplier-name";const link=document.createElement("button");link.type="button";link.className="ghost";link.textContent=name;link.onclick=()=>window.jlOpenSupplierProfile?.(name);cell.replaceChildren(link);}
       row.append(cell);
     }
     const actions=document.createElement("td");
