@@ -2925,10 +2925,21 @@ window.jlShowSuccess=function(message){
         <div class="module-search-toolbar jl-supplier-toolbar">
           <input id="jlBillSearch" type="search" placeholder="Rechercher : fournisseur, facture, BT…" aria-label="Rechercher une facture fournisseur">
           <label>Mois<input id="jlBillMonth" type="month"></label>
+          <label>Du<input id="jlBillFrom" type="date"></label><label>Au<input id="jlBillTo" type="date"></label>
+          <label>Fournisseur<select id="jlBillFilterSupplier"><option value="">Tous les fournisseurs</option></select></label>
+          <button type="button" class="ghost" id="jlBillExport">Exporter CSV / Excel</button>
         </div>
         <div id="jlBillCount" class="module-result-count"></div>
         <div class="jl-supplier-table-wrap"><table class="jl-supplier-table"><thead><tr><th>Date</th><th>Fournisseur</th><th>No facture</th><th>Type</th><th>BT</th><th>Avant taxes</th><th>TPS</th><th>TVQ</th><th>Total</th><th>Actions</th></tr></thead><tbody id="jlBillList"></tbody></table></div>
         <p class="muted">Registre des achats indépendant des coûts de pièces déjà inscrits aux bons de travail.</p>
+        <details style="margin-top:15px" open><summary style="color:var(--accent);font-weight:bold;cursor:pointer">Compilation des achats par fournisseur</summary>
+          <div class="jl-finance-summary" style="margin:12px 0"><div><span>Achats HT</span><strong id="jlBillStat_gross">—</strong></div><div><span>Crédits HT</span><strong id="jlBillStat_credits">—</strong></div><div><span>Achats nets HT</span><strong id="jlBillStat_sub">—</strong></div><div><span>TPS nette</span><strong id="jlBillStat_gst">—</strong></div><div><span>TVQ nette</span><strong id="jlBillStat_qst">—</strong></div><div><span>Achats nets TTC</span><strong id="jlBillStat_total">—</strong></div><div><span>Documents</span><strong id="jlBillStat_count">—</strong></div></div>
+          <div class="jl-supplier-table-wrap"><table class="jl-supplier-table"><thead><tr><th>Fournisseur</th><th>Documents</th><th>Achats HT</th><th>Crédits HT</th><th>Net HT</th><th>TPS nette</th><th>TVQ nette</th><th>Net TTC</th></tr></thead><tbody id="jlBillStatsList"></tbody></table></div>
+        </details>
+        <details style="margin-top:12px"><summary style="color:var(--accent);font-weight:bold;cursor:pointer">Comparaison annuelle des achats nets HT</summary>
+          <label>Année de référence<input id="jlBillCompareYear" type="number" min="1900" max="2100" step="1"></label><p class="muted" id="jlBillCompareLabel"></p>
+          <div class="jl-supplier-table-wrap"><table class="jl-supplier-table"><thead><tr><th>Mois</th><th>Année sélectionnée</th><th>Année précédente</th><th>Écart</th><th>Variation</th></tr></thead><tbody id="jlBillCompareList"></tbody></table></div>
+        </details>
       </div>
     </div>
 
@@ -19529,7 +19540,7 @@ if (window.garageSupabase) {
 <script src="audit/s06-sidebar-persistent.js?v=e378a58c" defer></script>
 <script src="audit/invoice-interest-preview.js?v=641b7d3a" defer></script>
 <script src="audit/vin-decoder.js?v=9c1e17ac" defer></script>
-<script src="audit/supplier-bills.js?v=efee6cf7" defer></script>
+<script src="audit/supplier-bills.js?v=46aa35a6" defer></script>
 
 
 
