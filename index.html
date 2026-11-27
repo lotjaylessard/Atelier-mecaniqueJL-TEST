@@ -1935,6 +1935,24 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
 #page-suppliers #jlSupplierStatus{margin-top:10px}
 @media(max-width:850px){#page-suppliers .jl-supplier-editor-row .jl-supplier-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){#page-suppliers .jl-supplier-editor-row .jl-supplier-fields{grid-template-columns:minmax(0,1fr)}}
+
+#jlBillTabs{display:flex;gap:6px;border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:12px;flex-wrap:wrap}
+#jlBillTabs button{margin:0;min-width:105px}
+#page-suppliers [data-bill-panel][hidden],#jlBillExport[hidden]{display:none!important}
+#jlBillStatus{font-size:12px;margin:0 0 10px}
+#jlBillStatus:empty{display:none}
+#page-suppliers .jl-bill-section-heading{font-size:13px;color:var(--accent);margin:16px 0 8px}
+#jlBillForm .jl-bill-amounts{grid-template-columns:repeat(3,minmax(90px,1fr)) auto minmax(120px,1fr);max-width:1000px}
+#jlBillForm .jl-bill-entry-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
+#jlBillForm .jl-bill-total strong{font-size:24px}
+#page-suppliers .jl-bill-export-row{display:flex;justify-content:flex-end;margin:6px 0}
+#page-suppliers .jl-finance-summary,#jlBillProfile .jl-finance-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0}
+#page-suppliers .jl-finance-summary>div,#jlBillProfile .jl-finance-summary>div{border:1px solid var(--border);border-radius:7px;padding:10px;min-width:0}
+#page-suppliers .jl-finance-summary span,#jlBillProfile .jl-finance-summary span{font-size:12px;color:var(--muted);display:block}
+#page-suppliers .jl-finance-summary strong,#jlBillProfile .jl-finance-summary strong{display:block;margin-top:5px;font-size:17px;font-variant-numeric:tabular-nums}
+@media(max-width:1100px){#jlBillForm .jl-bill-amounts{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){#jlBillForm .jl-bill-amounts,#page-suppliers .jl-finance-summary,#jlBillProfile .jl-finance-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
 /* TEST - Calendriers personnels : cartes compactes, aide contextuelle accessible. */
 #page-settings .jl-calendar-compact{padding:0;border:0;margin:8px 0;display:grid;gap:8px}
 #page-settings .jl-cal-provider-row{border:1px solid var(--border);border-radius:9px;padding:9px 11px;min-width:0}
@@ -2919,7 +2937,15 @@ window.jlShowSuccess=function(message){
       </div>
       <div class="card" style="margin-top:14px">
         <h3 style="margin-top:0;color:var(--accent)">Factures fournisseurs</h3>
+        <div id="jlBillTabs" role="tablist" aria-label="Factures fournisseurs">
+          <button type="button" role="tab" data-bill-tab="entry" aria-selected="true">Saisie</button>
+          <button type="button" role="tab" data-bill-tab="register" aria-selected="false" class="ghost">Registre</button>
+          <button type="button" role="tab" data-bill-tab="stats" aria-selected="false" class="ghost">Statistiques</button>
+        </div>
+        <p id="jlBillStatus" class="muted" role="status" aria-live="polite"></p>
+        <section data-bill-panel="entry" role="tabpanel">
         <form id="jlBillForm">
+          <h4 class="jl-bill-section-heading">Informations du document</h4>
           <div class="jl-bill-ident">
             <label>Fournisseur<input id="jlBill_supplier" list="jlSupplierChoices" maxlength="80" required autocomplete="off"></label>
             <label>Type de document<select id="jlBill_kind"><option value="invoice">Facture</option><option value="credit">Note de crédit / retour</option></select></label>
@@ -2927,35 +2953,45 @@ window.jlShowSuccess=function(message){
             <label>Date<input id="jlBill_date" type="date" required></label>
             <label>BT (facultatif)<input id="jlBill_wo" maxlength="80" placeholder="No BT"></label>
           </div>
+          <h4 class="jl-bill-section-heading">Montants</h4>
           <div class="jl-bill-amounts">
             <label>Avant taxes ($)<input id="jlBill_sub" inputmode="decimal" required placeholder="0.00"></label>
             <label>TPS ($)<input id="jlBill_gst" inputmode="decimal" required value="0.00"></label>
             <label>TVQ ($)<input id="jlBill_qst" inputmode="decimal" required value="0.00"></label>
             <button type="button" class="ghost" id="jlBillTaxes">Calculer taxes</button>
             <div class="jl-bill-total"><span>Total TTC</span><strong id="jlBillTotal">—</strong></div>
+            </div>
+          <div class="jl-bill-entry-actions">
             <button type="button" class="ghost" id="jlBillCancel">Effacer</button>
             <button type="submit" id="jlBillSave">Enregistrer</button>
           </div>
         </form>
-        <p id="jlBillStatus" class="muted" role="status" aria-live="polite"></p>
+        </section>
+        <section data-bill-panel="register stats" hidden>
         <div class="jl-bill-filters">
           <input id="jlBillSearch" type="search" placeholder="Rechercher : fournisseur, facture, BT…" aria-label="Rechercher une facture fournisseur">
           <label>Mois<input id="jlBillMonth" type="month"></label>
           <label>Du<input id="jlBillFrom" type="date"></label><label>Au<input id="jlBillTo" type="date"></label>
           <label>Fournisseur<select id="jlBillFilterSupplier"><option value="">Tous les fournisseurs</option></select></label>
-          <button type="button" class="ghost" id="jlBillExport">Exporter CSV / Excel</button>
+          <button type="button" class="ghost" id="jlBillClearFilters">Réinitialiser</button>
         </div>
+        <div class="jl-bill-export-row"><button type="button" class="ghost" id="jlBillExport">Exporter CSV / Excel</button></div>
+        </section>
+        <section data-bill-panel="register" role="tabpanel" hidden>
         <div id="jlBillCount" class="module-result-count"></div>
         <div class="jl-supplier-table-wrap"><table class="jl-supplier-table"><thead><tr><th>Date</th><th>Fournisseur</th><th>No facture</th><th>Type</th><th>BT</th><th>Avant taxes</th><th>TPS</th><th>TVQ</th><th>Total</th><th class="jl-supplier-actions">Actions</th></tr></thead><tbody id="jlBillList"></tbody></table></div>
         <p class="muted">Registre des achats indépendant des coûts de pièces déjà inscrits aux bons de travail.</p>
-        <details style="margin-top:15px" open><summary style="color:var(--accent);font-weight:bold;cursor:pointer">Compilation des achats par fournisseur</summary>
+        </section>
+        <section data-bill-panel="stats" role="tabpanel" hidden>
+        <h4 class="jl-bill-section-heading">Résumé des achats — selon les filtres</h4>
           <div class="jl-finance-summary" style="margin:12px 0"><div><span>Achats HT</span><strong id="jlBillStat_gross">—</strong></div><div><span>Crédits HT</span><strong id="jlBillStat_credits">—</strong></div><div><span>Achats nets HT</span><strong id="jlBillStat_sub">—</strong></div><div><span>TPS nette</span><strong id="jlBillStat_gst">—</strong></div><div><span>TVQ nette</span><strong id="jlBillStat_qst">—</strong></div><div><span>Achats nets TTC</span><strong id="jlBillStat_total">—</strong></div><div><span>Documents</span><strong id="jlBillStat_count">—</strong></div></div>
+          <h4 class="jl-bill-section-heading">Compilation par fournisseur</h4>
           <div class="jl-supplier-table-wrap"><table class="jl-supplier-table"><thead><tr><th>Fournisseur</th><th>Documents</th><th>Achats HT</th><th>Crédits HT</th><th>Net HT</th><th>TPS nette</th><th>TVQ nette</th><th>Net TTC</th></tr></thead><tbody id="jlBillStatsList"></tbody></table></div>
-        </details>
-        <details style="margin-top:12px"><summary style="color:var(--accent);font-weight:bold;cursor:pointer">Comparaison annuelle des achats nets HT</summary>
+        <details style="margin-top:16px"><summary style="color:var(--accent);font-weight:bold;cursor:pointer">Comparaison annuelle des achats nets HT</summary>
           <label>Année de référence<input id="jlBillCompareYear" type="number" min="1900" max="2100" step="1"></label><p class="muted" id="jlBillCompareLabel"></p>
           <div class="jl-supplier-table-wrap"><table class="jl-supplier-table"><thead><tr><th>Mois</th><th>Année sélectionnée</th><th>Année précédente</th><th>Écart</th><th>Variation</th></tr></thead><tbody id="jlBillCompareList"></tbody></table></div>
         </details>
+        </section>
       </div>
     </div>
 
@@ -19567,7 +19603,7 @@ if (window.garageSupabase) {
 <script src="audit/s06-sidebar-persistent.js?v=e378a58c" defer></script>
 <script src="audit/invoice-interest-preview.js?v=641b7d3a" defer></script>
 <script src="audit/vin-decoder.js?v=9c1e17ac" defer></script>
-<script src="audit/supplier-bills.js?v=c4838ad4" defer></script>
+<script src="audit/supplier-bills.js?v=29c75af9" defer></script>
 
 
 
