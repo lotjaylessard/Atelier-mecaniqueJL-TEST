@@ -2166,7 +2166,7 @@ window.jlShowSuccess=function(message){
 </div></section>
         <section data-jl-dashboard-card="monthly" class="jl-dashboard-wide"><div class="card">
   <div class="jl-finance-heading">
-    <h3>📊 Revenus, coûts et rentabilité</h3>
+    <h3>📊 Statistiques</h3>
     <div class="jl-finance-filters">
       <label for="jlFinancePeriod">Période <select id="jlFinancePeriod">
         <option value="year">Année</option><option value="month">Mois</option>
@@ -2183,27 +2183,46 @@ window.jlShowSuccess=function(message){
       </select></label>
     </div>
   </div>
-  <div class="jl-finance-summary" aria-live="polite">
-    <div><span>Factures encaissées TTC</span><strong id="annualPaidTotal">0,00 $</strong></div>
-    <div><span>Taxes facturées (TPS + TVQ)</span><strong id="jlFinanceTaxes">0,00 $</strong></div>
-    <div><span>Ventes hors taxes</span><strong id="jlFinanceSales">0,00 $</strong></div>
-    <div><span>Intérêts encaissés</span><strong id="jlFinanceInterest">0,00 $</strong></div>
-    <div><span>Coût des pièces des BT</span><strong id="annualPartCost">0,00 $</strong></div>
-    <div><span>Dépenses de sous-traitance (saisies)</span><strong id="jlFinanceSubcontractTotal">0,00 $</strong></div>
-    <div><span>Profit brut estimé après sous-traitance</span><strong id="jlFinanceAfterSubcontract">—</strong></div>
-    <div><span>Profit brut estimé</span><strong id="annualGrossProfit">0,00 $</strong></div>
-    <div><span>Profit sur pièces estimé (BT facturés)</span><strong id="jlFinancePartsProfit">—</strong></div>
-    <div><span>Main-d'œuvre facturée (avant frais)</span><strong id="jlFinanceLaborProfit">—</strong></div>
-    <div><span>Marge brute estimée</span><strong id="jlFinanceMargin">—</strong></div>
-    <div><span>Factures payées</span><strong id="jlFinanceCount">0</strong></div>
-    <div><span>Vente HT moyenne / facture</span><strong id="jlFinanceAverage">—</strong></div>
+  <div id="jlFinanceTabs" role="tablist" aria-label="Catégories statistiques" style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0">
+    <button type="button" role="tab" data-finance-tab="general" aria-selected="true">Général</button>
+    <button type="button" role="tab" data-finance-tab="rent" aria-selected="false" class="ghost">Rentabilité</button>
+    <button type="button" role="tab" data-finance-tab="sup" aria-selected="false" class="ghost">Fournisseurs</button>
+    <button type="button" role="tab" data-finance-tab="tax" aria-selected="false" class="ghost">Taxes</button>
   </div>
-  <div class="jl-finance-legend"><span><i style="background:#8bbcff"></i> Ventes HT</span>
+  <div class="jl-finance-summary" aria-live="polite">
+    <div data-jl-finance-panel="general"><span>Factures encaissées TTC</span><strong id="annualPaidTotal">0,00 $</strong></div>
+    <div data-jl-finance-panel="tax" hidden style="display:none"><span>Taxes facturées (TPS + TVQ)</span><strong id="jlFinanceTaxes">0,00 $</strong></div>
+    <div data-jl-finance-panel="general"><span>Ventes hors taxes</span><strong id="jlFinanceSales">0,00 $</strong></div>
+    <div data-jl-finance-panel="rent" hidden style="display:none"><span>Intérêts encaissés</span><strong id="jlFinanceInterest">0,00 $</strong></div>
+    <div data-jl-finance-panel="rent" hidden style="display:none"><span>Coût des pièces des BT</span><strong id="annualPartCost">0,00 $</strong></div>
+    <div data-jl-finance-panel="rent" hidden style="display:none"><span>Dépenses de sous-traitance (saisies)</span><strong id="jlFinanceSubcontractTotal">0,00 $</strong></div>
+    <div data-jl-finance-panel="rent" hidden style="display:none"><span>Profit brut estimé après sous-traitance</span><strong id="jlFinanceAfterSubcontract">—</strong></div>
+    <div data-jl-finance-panel="general"><span>Profit brut estimé</span><strong id="annualGrossProfit">0,00 $</strong></div>
+    <div data-jl-finance-panel="rent" hidden style="display:none"><span>Profit sur pièces estimé (BT facturés)</span><strong id="jlFinancePartsProfit">—</strong></div>
+    <div data-jl-finance-panel="rent" hidden style="display:none"><span>Main-d'œuvre facturée (avant frais)</span><strong id="jlFinanceLaborProfit">—</strong></div>
+    <div data-jl-finance-panel="general"><span>Marge brute estimée</span><strong id="jlFinanceMargin">—</strong></div>
+    <div data-jl-finance-panel="general"><span>Factures payées</span><strong id="jlFinanceCount">0</strong></div>
+    <div data-jl-finance-panel="general"><span>Vente HT moyenne / facture</span><strong id="jlFinanceAverage">—</strong></div>
+    <div data-jl-finance-panel="sup" hidden style="display:none"><span>Achats fournisseurs HT</span><strong id="jlFinanceSupplierGross">—</strong></div>
+    <div data-jl-finance-panel="sup" hidden style="display:none"><span>Crédits fournisseurs HT</span><strong id="jlFinanceSupplierCredits">—</strong></div>
+    <div data-jl-finance-panel="sup" hidden style="display:none"><span>Achats fournisseurs nets HT</span><strong id="jlFinanceSupplierNet">—</strong></div>
+    <div data-jl-finance-panel="sup" hidden style="display:none"><span>Factures fournisseurs</span><strong id="jlFinanceSupplierCount">—</strong></div>
+    <div data-jl-finance-panel="sup" hidden style="display:none"><span>Achat moyen / facture</span><strong id="jlFinanceSupplierAverage">—</strong></div>
+    <div data-jl-finance-panel="sup" hidden style="display:none"><span>Fournisseurs utilisés</span><strong id="jlFinanceSupplierUnique">—</strong></div>
+    <div data-jl-finance-panel="tax" hidden style="display:none"><span>TPS facturée</span><strong id="jlFinanceSalesGST">—</strong></div>
+    <div data-jl-finance-panel="tax" hidden style="display:none"><span>TVQ facturée</span><strong id="jlFinanceSalesQST">—</strong></div>
+    <div data-jl-finance-panel="tax" hidden style="display:none"><span>TPS sur achats (nette)</span><strong id="jlFinancePurchaseGST">—</strong></div>
+    <div data-jl-finance-panel="tax" hidden style="display:none"><span>TVQ sur achats (nette)</span><strong id="jlFinancePurchaseQST">—</strong></div>
+    <div data-jl-finance-panel="tax" hidden style="display:none"><span>Écart taxes estimé</span><strong id="jlFinanceNetTax">—</strong></div>
+  </div>
+  <div data-jl-finance-panel="general rent" class="jl-finance-legend"><span><i style="background:#8bbcff"></i> Ventes HT</span>
   <span><i style="background:#e8bd45"></i> Coût des pièces</span>
   <span><i style="background:#4caf50"></i> Profit brut estimé</span></div>
-  <div id="monthlyRevenueChart" class="jl-finance-chart" role="img" aria-label="Graphique financier mensuel"></div>
-  <p id="jlFinanceCaveat" class="muted jl-finance-caveat"></p>
-  <details class="jl-settings-backup" id="jlSubcontractExpensesPanel" style="margin-top:12px">
+  <div data-jl-finance-panel="general rent" id="monthlyRevenueChart" class="jl-finance-chart" role="img" aria-label="Graphique financier mensuel"></div>
+  <div data-jl-finance-panel="sup" hidden style="display:none"><h4>Achats nets par fournisseur</h4><div id="jlFinanceSupplierRanking"></div><h4>Évolution des achats nets HT</h4><div id="jlFinanceSupplierTrend"></div><p class="muted">Achats indépendants du coût des pièces des BT : aucun double retrait du profit.</p></div>
+  <p data-jl-finance-panel="tax" hidden style="display:none" class="muted">Estimation selon les factures clients encaissées et les achats enregistrés; ne constitue pas une déclaration fiscale. Les crédits réduisent les taxes sur achats.</p>
+  <p data-jl-finance-panel="general rent" id="jlFinanceCaveat" class="muted jl-finance-caveat"></p>
+  <details data-jl-finance-panel="rent" hidden class="jl-settings-backup" id="jlSubcontractExpensesPanel" style="margin-top:12px;display:none">
     <summary>🧾 Dépenses de sous-traitance — ajouter / consulter</summary>
     <details class="jl-compact-help"><summary class="jl-help-control" aria-label="Afficher l’aide" title="Afficher l’aide">?</summary><p class="muted">Saisis les frais réels des sous-traitants. Ces dépenses sont indépendantes des factures et ne modifient aucun paiement ni coût de pièce.</p></details>
     <div class="jl-settings-actions" style="gap:7px;flex-wrap:wrap">
@@ -16481,7 +16500,7 @@ function renderMonthlyRevenueChart(){
       const labor=wo&&Array.isArray(wo.labor)?wo.labor:null;
       const laborRevenue=labor&&labor.every(line=>finite(Number(s06LaborLineAmount(line))))?
         labor.reduce((n,line)=>n+Number(s06LaborLineAmount(line)),0):null;
-      return {date,total:finite(total)?total:null,tax:knownTaxes?gst+qst:null,
+      return {date,total:finite(total)?total:null,tax:knownTaxes?gst+qst:null,gst:knownTaxes?gst:null,qst:knownTaxes?qst:null,
         sales:finite(sales)?sales:null,cost:finite(cost)?cost:null,
         profit:finite(sales)&&finite(cost)?sales-cost:null,
         partsProfit:finite(partsProfit)?partsProfit:null,
@@ -16490,7 +16509,8 @@ function renderMonthlyRevenueChart(){
   const currentYear=String(new Date().getFullYear());
   const interestReport=jlFinanceInterestReceipts();
   const interestEntries=interestReport.entries;
-  const years=[...new Set(paid.map(x=>x.date.slice(0,4)).concat(interestEntries.map(x=>x.date.slice(0,4)),currentYear))].sort().reverse();
+  const supplierBills=(Array.isArray(SETTINGS?.supplierBills)?SETTINGS.supplierBills:[]).filter(e=>e&&typeof e.date==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(e.date)&&[e.sub,e.gst,e.qst,e.total].every(Number.isSafeInteger));
+  const years=[...new Set(paid.map(x=>x.date.slice(0,4)).concat(interestEntries.map(x=>x.date.slice(0,4)),supplierBills.map(x=>x.date.slice(0,4)),jlSubcontractEntries().map(x=>x.date.slice(0,4)),currentYear))].sort().reverse();
   const previousYear=yearSelect.value;
   yearSelect.replaceChildren(...years.map(y=>new Option(y,y)));
   yearSelect.value=years.includes(previousYear)?previousYear:(years.find(y=>paid.some(x=>x.date.startsWith(y)))||currentYear);
@@ -16535,6 +16555,21 @@ function renderMonthlyRevenueChart(){
   set("jlFinanceCount",String(filtered.length));
   set("jlFinanceAverage",knownSales&&filtered.length?dollars(sales/filtered.length):"—");
 
+  const selectedBills=supplierBills.filter(e=>mode==="all"||e.date.startsWith(mode==="year"?selectedYear:selectedYear+"-"+month));
+  const billSign=e=>e.kind==="credit"?-1:1;
+  const billSum=(rows,key)=>rows.reduce((n,e)=>n+billSign(e)*Math.abs(e[key]),0)/100;
+  const grossBills=selectedBills.filter(e=>e.kind!=="credit"),creditBills=selectedBills.filter(e=>e.kind==="credit");
+  const supplierGross=billSum(grossBills,"sub"),supplierNet=billSum(selectedBills,"sub");
+  set("jlFinanceSupplierGross",dollars(supplierGross));set("jlFinanceSupplierCredits",dollars(-billSum(creditBills,"sub")));set("jlFinanceSupplierNet",dollars(supplierNet));set("jlFinanceSupplierCount",String(grossBills.length));set("jlFinanceSupplierAverage",grossBills.length?dollars(supplierGross/grossBills.length):"—");
+  const ranked=new Map();for(const e of selectedBills){const name=String(e.supplier||"").trim(),key=name.toLocaleLowerCase("fr-CA");const old=ranked.get(key)||{name,value:0};old.value+=billSign(e)*Math.abs(e.sub)/100;ranked.set(key,old);}
+  set("jlFinanceSupplierUnique",String(ranked.size));
+  const renderBars=(id,items)=>{const el=document.getElementById(id);if(!el)return;el.replaceChildren();if(!items.length){el.textContent="Aucune donnée pour cette période.";return;}const max=Math.max(1,...items.map(e=>Math.abs(e.value)));for(const e of items){const row=document.createElement("div");row.style.cssText="display:grid;grid-template-columns:minmax(100px,1fr) 3fr minmax(95px,auto);align-items:center;gap:8px;margin:6px 0";const name=document.createElement("span");name.textContent=e.name;const track=document.createElement("div");track.style.cssText="background:#333;height:10px;border-radius:4px";const bar=document.createElement("div");bar.style.cssText="height:100%;border-radius:4px;background:"+(e.value<0?"#e57373":"#e8bd45")+";width:"+Math.abs(e.value)/max*100+"%";track.append(bar);const value=document.createElement("strong");value.textContent=dollars(e.value);row.append(name,track,value);el.append(row);}};
+  renderBars("jlFinanceSupplierRanking",[...ranked.values()].sort((a,b)=>b.value-a.value));
+  const trendKeys=mode==="all"?years.slice().reverse():mode==="month"?[selectedYear+"-"+month]:Array.from({length:12},(_,i)=>selectedYear+"-"+String(i+1).padStart(2,"0"));
+  renderBars("jlFinanceSupplierTrend",trendKeys.map(key=>({name:key,value:billSum(supplierBills.filter(e=>e.date.startsWith(key)),"sub")})));
+  const purchaseGST=billSum(selectedBills,"gst"),purchaseQST=billSum(selectedBills,"qst");
+  set("jlFinanceSalesGST",complete("gst")?dollars(sum("gst")):"—");set("jlFinanceSalesQST",complete("qst")?dollars(sum("qst")):"—");set("jlFinancePurchaseGST",dollars(purchaseGST));set("jlFinancePurchaseQST",dollars(purchaseQST));set("jlFinanceNetTax",complete("tax")?dollars(sum("tax")-purchaseGST-purchaseQST):"—");
+  const tabs=document.getElementById("jlFinanceTabs");if(tabs){const apply=tab=>{for(const b of tabs.querySelectorAll("[data-finance-tab]")){const active=b.dataset.financeTab===tab;b.setAttribute("aria-selected",String(active));b.classList.toggle("ghost",!active);}for(const panel of tabs.parentElement.querySelectorAll("[data-jl-finance-panel]")){const active=panel.dataset.jlFinancePanel.split(" ").includes(tab);panel.hidden=!active;panel.style.display=active?"":"none";}};for(const b of tabs.querySelectorAll("[data-finance-tab]"))b.onclick=()=>apply(b.dataset.financeTab);apply(tabs.querySelector('[aria-selected="true"]')?.dataset.financeTab||"general");}
   const missingPaid=filtered.filter(x=>!finite(x.total)).length;
   const missingTax=filtered.filter(x=>!finite(x.sales)).length;
   const missingWO=filtered.filter(x=>!finite(x.cost)).length;
@@ -16595,7 +16630,7 @@ function renderMonthlyRevenueChart(){
   // Laisser les contrôles se réutiliser : aucun listener supplémentaire par rendu.
   periodSelect.onchange=()=>{
     if(periodSelect.value==="month"){
-      const monthsWithPayments=paid.filter(x=>x.date.startsWith(yearSelect.value))
+      const monthsWithPayments=[...paid,...supplierBills].filter(x=>x.date.startsWith(yearSelect.value))
         .map(x=>x.date.slice(5,7)).sort();
       if(monthsWithPayments.length)monthSelect.value=monthsWithPayments[monthsWithPayments.length-1];
     }
