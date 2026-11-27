@@ -1911,10 +1911,26 @@ body.jl-hide-part-number-preview .jl-invoice-preview-table td:nth-child(3){displ
 #page-suppliers .jl-supplier-table td{padding:12px 10px;border-bottom:1px solid var(--border);vertical-align:middle;overflow-wrap:anywhere}
 #page-suppliers .jl-supplier-table .jl-supplier-name{font-weight:700;color:var(--accent)}
 #page-suppliers .jl-supplier-table .jl-supplier-actions{text-align:right;white-space:nowrap}
-#page-suppliers .jl-supplier-actions button{margin:0 3px 0 0}
+#page-suppliers .jl-supplier-table th.jl-supplier-actions,#page-suppliers .jl-supplier-table td.jl-supplier-actions{text-align:center;width:96px;white-space:nowrap}
+#page-suppliers .jl-supplier-actions button{margin:0 2px;padding:0;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle}
+#page-suppliers .jl-supplier-actions .jl-supplier-remove{border-color:var(--border);color:var(--danger,#ff5252)}
+#page-suppliers .jl-supplier-profile-link{border:0;background:none;color:var(--accent);padding:0;font:inherit;font-weight:700;cursor:pointer;text-align:left;white-space:normal}
+#page-suppliers .jl-supplier-profile-link:hover{text-decoration:underline}
+#page-suppliers .jl-supplier-website{color:var(--accent);overflow-wrap:anywhere}
+#jlBillForm .jl-bill-ident,#jlBillForm .jl-bill-amounts{display:grid;align-items:end;gap:10px}
+#jlBillForm .jl-bill-ident{grid-template-columns:minmax(160px,1.5fr) minmax(140px,1fr) minmax(140px,1.2fr) minmax(135px,1fr) minmax(100px,.8fr)}
+#jlBillForm .jl-bill-amounts{grid-template-columns:repeat(3,minmax(105px,1fr)) auto minmax(120px,1fr) auto auto;margin-top:10px}
+#jlBillForm label,#page-suppliers .jl-bill-filters label{display:flex;flex-direction:column;gap:5px;min-width:0;margin:0}
+#jlBillForm input,#jlBillForm select,#page-suppliers .jl-bill-filters input,#page-suppliers .jl-bill-filters select{width:100%;min-width:0;margin:0;height:34px;box-sizing:border-box}
+#jlBillForm button,#page-suppliers .jl-bill-filters button{margin:0;white-space:nowrap}
+#jlBillForm .jl-bill-total{display:flex;flex-direction:column;gap:5px;align-self:end;padding:0 8px 4px;text-align:right;white-space:nowrap}
+#jlBillForm .jl-bill-total strong{color:var(--accent);font-size:1.15rem}
+#page-suppliers .jl-bill-filters{display:grid;grid-template-columns:minmax(170px,2fr) repeat(3,minmax(125px,1fr)) minmax(150px,1.2fr) auto;align-items:end;gap:8px;margin:14px 0 8px}
+@media(max-width:1100px){#jlBillForm .jl-bill-ident,#jlBillForm .jl-bill-amounts,#page-suppliers .jl-bill-filters{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){#jlBillForm .jl-bill-ident,#jlBillForm .jl-bill-amounts,#page-suppliers .jl-bill-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
 #page-suppliers .jl-supplier-remove{color:var(--danger)}
 #page-suppliers .jl-supplier-editor-row td{background:var(--card);padding:12px}
-#page-suppliers .jl-supplier-editor-row .jl-supplier-fields{display:grid;grid-template-columns:minmax(130px,1fr) minmax(180px,1.2fr) minmax(200px,1.5fr) auto;gap:8px;align-items:center}
+#page-suppliers .jl-supplier-editor-row .jl-supplier-fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:8px;align-items:center}
 #page-suppliers .jl-supplier-editor-row input{min-width:0;width:100%;margin:0}
 #page-suppliers #jlSupplierStatus{margin-top:10px}
 @media(max-width:850px){#page-suppliers .jl-supplier-editor-row .jl-supplier-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -2883,7 +2899,7 @@ window.jlShowSuccess=function(message){
       <div class="card jl-suppliers-card">
         <div class="module-search-toolbar jl-supplier-toolbar">
           <button type="button" id="jlSupplierNew">➕ Nouveau fournisseur</button>
-          <input id="jlSupplierSearch" type="search" placeholder="🔎 Rechercher : fournisseur, téléphone, courriel, notes..." aria-label="Rechercher un fournisseur">
+          <input id="jlSupplierSearch" type="search" placeholder="🔎 Rechercher : fournisseur, téléphone, courriel, site web, notes..." aria-label="Rechercher un fournisseur">
         </div>
         <div id="jlSupplierForm" class="jl-supplier-form" hidden>
           <div class="jl-supplier-form-title"><h3>Ajouter un fournisseur</h3><button type="button" class="ghost" id="jlSupplierCancel">Annuler</button></div>
@@ -2895,7 +2911,7 @@ window.jlShowSuccess=function(message){
         <div id="jlSupplierResultCount" class="module-result-count" role="status" aria-live="polite"></div>
         <div class="jl-supplier-table-wrap">
           <table class="jl-supplier-table" aria-label="Répertoire des fournisseurs">
-            <thead><tr><th>Nom</th><th>Téléphone</th><th>Courriel</th><th>Notes / commande</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Nom</th><th>Téléphone</th><th>Courriel</th><th>Site web</th><th>Notes / commande</th><th class="jl-supplier-actions">Actions</th></tr></thead>
             <tbody id="jlSupplierList"></tbody>
           </table>
         </div>
@@ -2904,25 +2920,25 @@ window.jlShowSuccess=function(message){
       <div class="card" style="margin-top:14px">
         <h3 style="margin-top:0;color:var(--accent)">Factures fournisseurs</h3>
         <form id="jlBillForm">
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;">
+          <div class="jl-bill-ident">
             <label>Fournisseur<input id="jlBill_supplier" list="jlSupplierChoices" maxlength="80" required autocomplete="off"></label>
             <label>Type de document<select id="jlBill_kind"><option value="invoice">Facture</option><option value="credit">Note de crédit / retour</option></select></label>
             <label>Numéro de facture<input id="jlBill_number" maxlength="80" required autocomplete="off"></label>
             <label>Date<input id="jlBill_date" type="date" required></label>
-            <label>Bon de travail (facultatif)<input id="jlBill_wo" maxlength="80" placeholder="No BT"></label>
+            <label>BT (facultatif)<input id="jlBill_wo" maxlength="80" placeholder="No BT"></label>
+          </div>
+          <div class="jl-bill-amounts">
             <label>Avant taxes ($)<input id="jlBill_sub" inputmode="decimal" required placeholder="0.00"></label>
             <label>TPS ($)<input id="jlBill_gst" inputmode="decimal" required value="0.00"></label>
             <label>TVQ ($)<input id="jlBill_qst" inputmode="decimal" required value="0.00"></label>
-            <div style="align-self:end"><button type="button" class="ghost" id="jlBillTaxes">Calculer les taxes</button></div>
-          </div>
-          <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:10px">
-            <strong>Total : <span id="jlBillTotal">—</span></strong>
+            <button type="button" class="ghost" id="jlBillTaxes">Calculer taxes</button>
+            <div class="jl-bill-total"><span>Total TTC</span><strong id="jlBillTotal">—</strong></div>
             <button type="button" class="ghost" id="jlBillCancel">Effacer</button>
             <button type="submit" id="jlBillSave">Enregistrer</button>
           </div>
         </form>
         <p id="jlBillStatus" class="muted" role="status" aria-live="polite"></p>
-        <div class="module-search-toolbar jl-supplier-toolbar">
+        <div class="jl-bill-filters">
           <input id="jlBillSearch" type="search" placeholder="Rechercher : fournisseur, facture, BT…" aria-label="Rechercher une facture fournisseur">
           <label>Mois<input id="jlBillMonth" type="month"></label>
           <label>Du<input id="jlBillFrom" type="date"></label><label>Au<input id="jlBillTo" type="date"></label>
@@ -2930,7 +2946,7 @@ window.jlShowSuccess=function(message){
           <button type="button" class="ghost" id="jlBillExport">Exporter CSV / Excel</button>
         </div>
         <div id="jlBillCount" class="module-result-count"></div>
-        <div class="jl-supplier-table-wrap"><table class="jl-supplier-table"><thead><tr><th>Date</th><th>Fournisseur</th><th>No facture</th><th>Type</th><th>BT</th><th>Avant taxes</th><th>TPS</th><th>TVQ</th><th>Total</th><th>Actions</th></tr></thead><tbody id="jlBillList"></tbody></table></div>
+        <div class="jl-supplier-table-wrap"><table class="jl-supplier-table"><thead><tr><th>Date</th><th>Fournisseur</th><th>No facture</th><th>Type</th><th>BT</th><th>Avant taxes</th><th>TPS</th><th>TVQ</th><th>Total</th><th class="jl-supplier-actions">Actions</th></tr></thead><tbody id="jlBillList"></tbody></table></div>
         <p class="muted">Registre des achats indépendant des coûts de pièces déjà inscrits aux bons de travail.</p>
         <details style="margin-top:15px" open><summary style="color:var(--accent);font-weight:bold;cursor:pointer">Compilation des achats par fournisseur</summary>
           <div class="jl-finance-summary" style="margin:12px 0"><div><span>Achats HT</span><strong id="jlBillStat_gross">—</strong></div><div><span>Crédits HT</span><strong id="jlBillStat_credits">—</strong></div><div><span>Achats nets HT</span><strong id="jlBillStat_sub">—</strong></div><div><span>TPS nette</span><strong id="jlBillStat_gst">—</strong></div><div><span>TVQ nette</span><strong id="jlBillStat_qst">—</strong></div><div><span>Achats nets TTC</span><strong id="jlBillStat_total">—</strong></div><div><span>Documents</span><strong id="jlBillStat_count">—</strong></div></div>
@@ -21497,6 +21513,7 @@ function jlSupplierCloseForm(){
   const input=document.getElementById("jlSupplierName");
   if(input)input.value="";
 }
+function jlSupplierWebsite(value){const raw=String(value||"").trim();if(!raw)return "";try{const url=new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw)?raw:"https://"+raw);return ["https:","http:"].includes(url.protocol)&&url.hostname.includes(".")&&!url.username&&!url.password?url.href:"";}catch(_){return "";}}
 function jlSupplierRender(){
   const list=document.getElementById("jlSupplierList");
   const choices=document.getElementById("jlSupplierChoices");
@@ -21511,7 +21528,7 @@ function jlSupplierRender(){
   const filter=String(document.getElementById("jlSupplierSearch")?.value||"").trim().toLocaleLowerCase("fr-CA");
   const visible=names.filter(name=>{
     const info=SETTINGS?.supplierDetails?.[name]||{};
-    return [name,info.phone,info.email,info.notes].some(value=>
+    return [name,info.phone,info.email,info.website,info.notes].some(value=>
       String(value||"").toLocaleLowerCase("fr-CA").includes(filter));
   });
   const count=document.getElementById("jlSupplierResultCount");
@@ -21520,10 +21537,11 @@ function jlSupplierRender(){
     const info=SETTINGS?.supplierDetails?.[name]||{};
     const row=document.createElement("tr");
     row.className="jl-supplier-row";
-    for(const value of [name,info.phone||"—",info.email||"—",info.notes||"—"]){
+    for(const [column,value] of [name,info.phone||"—",info.email||"—",info.website||"—",info.notes||"—"].entries()){
       const cell=document.createElement("td");
       cell.textContent=value;
-      if(value===name){cell.className="jl-supplier-name";const link=document.createElement("button");link.type="button";link.className="ghost";link.textContent=name;link.onclick=()=>window.jlOpenSupplierProfile?.(name);cell.replaceChildren(link);}
+      if(column===0){cell.className="jl-supplier-name";const link=document.createElement("button");link.type="button";link.className="jl-supplier-profile-link";link.textContent=name;link.onclick=()=>window.jlOpenSupplierProfile?.(name);cell.replaceChildren(link);}
+      if(column===3&&value!=="—"){const url=jlSupplierWebsite(value);if(url){const link=document.createElement("a");link.href=url;link.target="_blank";link.rel="noopener noreferrer";link.className="jl-supplier-website";link.textContent=url.replace(/^https?:\/\//i,"").replace(/\/$/,"");cell.replaceChildren(link);}}
       row.append(cell);
     }
     const actions=document.createElement("td");
@@ -21538,7 +21556,7 @@ function jlSupplierRender(){
       editor?.querySelector("input")?.focus();
     });
     const remove=document.createElement("button");
-    remove.type="button";remove.className="ghost jl-supplier-remove";remove.textContent="Retirer";
+    remove.type="button";remove.className="ghost jl-supplier-remove";remove.innerHTML='<svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M5 6l1 14h12l1-14M10 10v6m4-6v6"/></svg>';remove.setAttribute("aria-label","Retirer le fournisseur");
     remove.title="Retirer de la liste (sans modifier les anciens documents)";
     remove.addEventListener("click",()=>{
       if(!confirm("Retirer « "+name+" » de la liste des fournisseurs ? Les documents existants garderont leur fournisseur."))return;
@@ -21547,10 +21565,10 @@ function jlSupplierRender(){
     actions.append(edit,remove);row.append(actions);list.append(row);
     if(jlSupplierEditing===name){
       const detailRow=document.createElement("tr");detailRow.className="jl-supplier-editor-row";
-      const cell=document.createElement("td");cell.colSpan=5;
+      const cell=document.createElement("td");cell.colSpan=6;
       const panel=document.createElement("div");
       panel.id="jlSupplierEditFields";panel.className="jl-supplier-fields";
-      const fields=[["phone","Téléphone",40],["email","Courriel",120],["notes","Notes / commande",250]];
+      const fields=[["phone","Téléphone",40],["email","Courriel",120],["website","Site web",250],["notes","Notes / commande",250]];
       for(const [key,label,max] of fields){
         const input=document.createElement("input");input.type="text";input.maxLength=max;
         input.value=String(info[key]||"").slice(0,max);input.placeholder=label;
@@ -21567,6 +21585,7 @@ function jlSupplierRender(){
         const details={...(oldDetails||{})};
         details[name]=Object.fromEntries([...panel.querySelectorAll("[data-supplier-field]")]
           .map(x=>[x.dataset.supplierField,x.value.trim()]));
+        if(details[name].website){const url=jlSupplierWebsite(details[name].website);if(!url){if(status)status.textContent="Adresse de site web invalide.";return;}details[name].website=url;}
         SETTINGS.supplierDetails=details;
         try{
           localStorage.setItem(STORAGE.settings,JSON.stringify(SETTINGS));
@@ -21584,7 +21603,7 @@ function jlSupplierRender(){
   }
   if(!visible.length){
     const tr=document.createElement("tr"),cell=document.createElement("td");
-    cell.colSpan=5;cell.className="muted";
+    cell.colSpan=6;cell.className="muted";
     cell.textContent=filter?"Aucun fournisseur ne correspond à la recherche.":"Aucun fournisseur enregistré.";
     tr.append(cell);list.append(tr);
   }
